@@ -243,6 +243,20 @@ const Header = () => {
     } catch {
       /* noop */
     }
+    // Best-effort revoke any active session signer before logout
+    try {
+      const addr = connectedWallet?.address;
+      if (addr) {
+        await fetch('/api/session/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ address: addr.toLowerCase() }),
+        });
+      }
+    } catch {
+      /* noop */
+    }
     // Proactively disconnect any connected wallets (wagmi + Privy wallet instances)
     try {
       disconnect?.();

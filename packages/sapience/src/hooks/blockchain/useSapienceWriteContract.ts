@@ -74,6 +74,49 @@ export function useSapienceWriteContract({
     return match;
   }, [wallets]);
   const isEmbeddedWallet = Boolean(embeddedWallet);
+  // Session preference helpers (per-device)
+  const getActiveAddressLower = useCallback(() => {
+    try {
+      const addr = wagmiAddress || (wallets?.[0] as any)?.address;
+      return addr ? String(addr).toLowerCase() : '';
+    } catch {
+      return '';
+    }
+  }, [wagmiAddress, wallets]);
+  const readSessionPref = useCallback(() => {
+    try {
+      if (typeof window === 'undefined') return { mode: 'per-tx' as const };
+      const addr = getActiveAddressLower();
+      if (!addr) return { mode: 'per-tx' as const };
+      const raw = window.localStorage.getItem(`sapience.session.pref:${addr}`);
+      if (!raw) return { mode: 'per-tx' as const };
+      const parsed = JSON.parse(raw) as {
+        mode?: 'per-tx' | 'session';
+        expiry?: number;
+      };
+      return {
+        mode: parsed?.mode === 'session' ? 'session' : 'per-tx',
+        expiry: parsed?.expiry,
+      } as const;
+    } catch {
+      return { mode: 'per-tx' as const };
+    }
+  }, [getActiveAddressLower]);
+  const checkSessionStatus = useCallback(async () => {
+    try {
+      const addr = getActiveAddressLower();
+      if (!addr) return { active: false as const };
+      const res = await fetch(`/api/session/status?address=${addr}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!res.ok) return { active: false as const };
+      const data = (await res.json()) as { active: boolean; expiry?: number };
+      return { active: Boolean(data?.active), expiry: data?.expiry } as const;
+    } catch {
+      return { active: false as const };
+    }
+  }, [getActiveAddressLower]);
   const ensureEmbeddedAuth = useCallback(async () => {
     if (!isEmbeddedWallet) return true;
     if (user?.wallet?.id) return true;
@@ -233,6 +276,25 @@ export function useSapienceWriteContract({
         // Validate and switch chain if needed
         await validateAndSwitchChain(_chainId);
 
+        // Session preflight for routing/UX
+        const { mode: sessionModePref } = readSessionPref();
+        const wantsSession = sessionModePref === 'session';
+        if (wantsSession) {
+          const status = await checkSessionStatus();
+          if (!status.active) {
+            try {
+              toast({
+                title: 'Session inactive',
+                description:
+                  'Proceeding with normal signing. Enable a session in Settings > Account to avoid prompts.',
+                duration: 4000,
+              });
+            } catch {
+              /* noop */
+            }
+          }
+        }
+
         // If using an embedded wallet, route via backend sponsorship endpoint as a single-call batch
         if (isEmbeddedWallet) {
           setIsSubmitting(true);
@@ -368,6 +430,8 @@ export function useSapienceWriteContract({
       user,
       maybeRedirectToProfile,
       writeShareIntent,
+      readSessionPref,
+      checkSessionStatus,
     ]
   );
 
@@ -389,6 +453,24 @@ export function useSapienceWriteContract({
 
         // Validate and switch chain if needed
         await validateAndSwitchChain(_chainId);
+        // Session preflight for routing/UX
+        const { mode: sessionModePref } = readSessionPref();
+        const wantsSession = sessionModePref === 'session';
+        if (wantsSession) {
+          const status = await checkSessionStatus();
+          if (!status.active) {
+            try {
+              toast({
+                title: 'Session inactive',
+                description:
+                  'Proceeding with normal signing. Enable a session in Settings > Account to avoid prompts.',
+                duration: 4000,
+              });
+            } catch {
+              /* noop */
+            }
+          }
+        }
         // Execute the batch calls
         const data = isEmbeddedWallet
           ? // Route via backend sponsorship endpoint for embedded wallets
