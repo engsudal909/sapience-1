@@ -43,6 +43,6 @@ export function GET(request: Request) {
 }
 
 // Internal helper for the create route (same runtime may share memory)
-export function __setSession(address: string, expiry: number) {
+function __setSession(address: string, expiry: number) {
   memory.set(address.toLowerCase(), { expiry });
 }
