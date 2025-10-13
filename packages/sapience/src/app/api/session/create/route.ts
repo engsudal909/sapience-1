@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         'until',
         new Date(expiry).toISOString()
       );
-      return NextResponse.json({ policyId, expiry }, { status: 200 });
+      return NextResponse.json({ policyIds: [policyId], expiry }, { status: 200 });
     }
 
     // Build policy JSON (DENY by default, ALLOW selected methods until expiry on chain)
@@ -170,31 +170,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Add session signer for the address
-    const addResp = await fetch(
-      `${baseUrl}/wallets/${address}/additional-signers`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminKey}`,
-        },
-        body: JSON.stringify({
-          signers: [
-            {
-              signerId: sessionSignerId,
-              policyIds: [policyId],
-            },
-          ],
-        }),
-      }
-    );
-    if (!addResp.ok) {
-      const txt = await addResp.text();
-      console.warn('[session.create] add signer failed', addResp.status, txt);
-      return NextResponse.json({ error: 'add_signer_failed' }, { status: 500 });
-    }
-
     console.log(
       '[session.create] policy',
       policyId,
@@ -203,7 +178,7 @@ export async function POST(request: Request) {
       'expiry',
       expiry
     );
-    return NextResponse.json({ policyId, expiry }, { status: 200 });
+    return NextResponse.json({ policyIds: [policyId], expiry }, { status: 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

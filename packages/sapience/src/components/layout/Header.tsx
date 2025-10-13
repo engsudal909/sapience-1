@@ -1,9 +1,12 @@
 'use client';
 
+import type {
+  PrivyErrorCode as PrivyErrorCodeEnum} from '@privy-io/react-auth';
 import {
   usePrivy,
   useWallets,
   useConnectOrCreateWallet,
+  useSessionSigners
 } from '@privy-io/react-auth';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
@@ -170,7 +173,7 @@ const NavLinks = ({
 
 const Header = () => {
   const { ready, logout } = usePrivy();
-  const { connectOrCreateWallet } = useConnectOrCreateWallet({});
+  const { addSessionSigners } = useSessionSigners();
   const { wallets } = useWallets();
   const connectedWallet = wallets[0];
   const { hasConnectedWallet } = useConnectedWallet();
@@ -179,6 +182,63 @@ const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const thresholdRef = useRef(12);
   const headerRef = useRef<HTMLElement | null>(null);
+  const { connectOrCreateWallet } = useConnectOrCreateWallet({
+    onSuccess: async ({ wallet }: any) => {
+      console.log('connectOrCreateWallet onSuccess', wallet);
+      console.log("sessions quorum id", process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID);
+      console.log("connected wallet", connectedWallet);
+      // TODO: add support inside error handler since already created accounts drop down to error handler
+      if ( process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID && connectedWallet) {
+        try {
+          // Create session policies first
+          const sessionResponse = await fetch('/api/session/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              address: connectedWallet.address,
+              durationMs: 3600000, // 1 hour default
+              methods: ['eth_sendTransaction'],
+              chainId: 42161,
+            }),
+          });
+
+          console.log('sessionResponse', sessionResponse);
+
+          if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json() as { policyIds: string[]; expiry: number };
+            console.log('Session created with policy IDs:', sessionData.policyIds);
+            
+            // Use the returned policy IDs in addSessionSigners
+            await addSessionSigners({
+              address: connectedWallet.address,
+              signers: [{
+                  signerId: process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID,
+                  policyIds: sessionData.policyIds
+              }]
+            });
+            console.log('addSessionSigners success');
+          } else {
+            console.error('Failed to create session, falling back to empty policy IDs');
+            await addSessionSigners({
+              address: connectedWallet.address,
+              signers: [{
+                  signerId: process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID,
+                  policyIds: []
+              }]
+            });
+          }
+        } catch (error) {
+          console.log('addSessionSigners error', error);
+        }
+      }
+    },
+    onError: (error: PrivyErrorCodeEnum) => {
+      console.log('connectOrCreateWallet onError', error, typeof error);
+    },
+  });
+
+  console.log('connectedWallet', connectedWallet);
 
   useEffect(() => {
     const recalcThreshold = () => {
