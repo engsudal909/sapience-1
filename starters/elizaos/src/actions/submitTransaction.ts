@@ -38,7 +38,8 @@ export const submitTransactionAction: Action = {
         value?: string;
       };
 
-      const privateKey = (process.env.EVM_PRIVATE_KEY ||
+      const privateKey = (process.env.ETHEREUM_PRIVATE_KEY ||
+        process.env.EVM_PRIVATE_KEY ||
         process.env.PRIVATE_KEY ||
         process.env.WALLET_PRIVATE_KEY) as `0x${string}` | undefined;
       const rpcUrl = process.env.RPC_URL || "https://arb1.arbitrum.io/rpc";
@@ -46,9 +47,15 @@ export const submitTransactionAction: Action = {
 
       elizaLogger.info("[SUBMIT_TRANSACTION] Sending transaction", {
         to: tx.to,
+        data: tx.data ? `${tx.data.slice(0, 10)}...` : undefined,
+        value: tx.value,
+        hasPrivateKey: !!privateKey
       } as any);
+      
       const { submitTransaction } = await loadSdk();
       const { hash } = await submitTransaction({ rpc: rpcUrl, privateKey, tx });
+      
+      elizaLogger.info(`[SUBMIT_TRANSACTION] Success! TX Hash: ${hash}`);
       await callback?.({ text: `Submitted tx: ${hash}`, content: { hash } });
     } catch (err: any) {
       await callback?.({

@@ -18,18 +18,37 @@ In [the next guide](/builder-guide/guides/trading-bots), you can have it **autom
 
 ## One‑Click Deploy
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/deploy/vfc8cZ?referralCode=DbBhWB)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/deploy/forecasting-agent?referralCode=DbBhWB)
 
 ### Environment Variables
 
-For setup details on your `OPENROUTER_API_KEY` and `ETHEREUM_PRIVATE_KEY`, see Get Started: [OpenRouter setup](/builder-guide/getting-started/get-started#openrouter-setup) and [Private key generation](/builder-guide/getting-started/get-started#private-key-generation).
+For setup details on your API keys and private key, see Get Started: [OpenRouter setup](/builder-guide/getting-started/get-started#openrouter-setup) and [Private key generation](/builder-guide/getting-started/get-started#private-key-generation).
+
+#### Core Configuration
+
+| Variable | Default | Required | Notes |
+| --- | --- | --- | --- |
+| `OPENROUTER_API_KEY` | — | Yes | Your OpenRouter API key for model access |
+| `EVM_PRIVATE_KEY` or `ETHEREUM_PRIVATE_KEY` | — | Yes | Publishes forecasts to EAS; required for visibility/leaderboard and trading |
+| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | No | Arbitrum RPC endpoint (consider paid provider for reliability) |
+
+#### Autonomous Mode
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | — | Your OpenRouter API key |
-| `ETHEREUM_PRIVATE_KEY` | — | Publishes forecasts to EAS; required for visibility/leaderboard |
-| `MODEL` | `openai/gpt-4o` | OpenRouter model id |
-| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | Which RPC to use to connect to an Ethereum blockchain, consider a paid provider like Infura |
+| `AUTO_MODE_ENABLED` | `true` | Start in autonomous mode on launch |
+| `AUTO_MODE_INTERVAL` | `300000` | Loop interval in milliseconds (5 minutes default) |
+| `AUTO_MODE_MIN_CONFIDENCE` | `0.6` | Minimum confidence threshold (0-1) for predictions |
+| `AUTO_MODE_BATCH_SIZE` | `5` | Number of markets to process per cycle |
+
+#### Parlay Trading (Optional)
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `ENABLE_PARLAY_TRADING` | `false` | Enable $1 automated wagers on parlays based on forecasts |
+| `PARLAY_WAGER_AMOUNT` | `1000000` | Wager amount in USDC (6 decimals: $1 = 1,000,000) |
+| `MIN_TRADING_CONFIDENCE` | `0.6` | Only trade when prediction confidence exceeds this threshold |
+| `MAX_TRADING_SLIPPAGE` | `5` | Maximum acceptable slippage percentage for trades |
 
 ## Customize Your Agent
 
@@ -38,22 +57,25 @@ We strongly recommend using an [LLM-powered code editor](/builder-guide/getting-
 ### Eject to your GitHub and pull locally
 
 First, connect the deployed service to your own repository so you can edit and push changes.
+Second, make sure your github account is connected and authorized. You can find this at Account Settings → Account → Account Integrations → Configure Railway App. If you don't have the railway app configured on your account it will not let you eject to your github account.
 
 1) In Railway, open your service → Source → Eject → choose your GitHub org → Eject service
 2) Clone the newly created repo and set up locally:
 
 ```bash
-git clone <your-new-repo-url> your-sage-bot
-cd your-sage-bot
+git clone <your-new-repo-url> your-forecast-agent
+cd your-forecast-agent
 # install deps (choose your tool)
 bun install # or: pnpm install / npm install
 cp .env.example .env
-# LLM via OpenRouter
-# OPENAI_BASE_URL=https://openrouter.ai/api/v1
-# OPENAI_API_KEY=<your-openrouter-api-key>
-# optionally set MODEL=<openrouter-model-id>
-# Chain key
-# ETHEREUM_PRIVATE_KEY=<your-private-key>
+# Required: OpenRouter API key for LLM access
+# OPENROUTER_API_KEY=<your-openrouter-api-key>
+
+# Required: Private key for on-chain attestations
+# EVM_PRIVATE_KEY=<your-ethereum-private-key>
+
+# Optional: Enable automated trading
+# ENABLE_PARLAY_TRADING=true
 ```
 
 3) Push changes; enable Autodeploy in Railway so pushes redeploy automatically.
@@ -63,7 +85,7 @@ cp .env.example .env
 You’ll customize prompts and model selection. The template/Eliza runtime handles formatting, routing, and output normalization.
 
 1) Edit prompts/persona in `src/character.ts`:
-   - Update `name`, `bio`, `goals`, and `style` — this is your system prompt
+   - Update `name`, `bio`, `lore`, `style`, etc — this is your system prompt
    - Add domain context and instructions for producing a single percent chance (0–100%) for Yes/No markets
 
 2) Choose/override the model:
@@ -101,17 +123,59 @@ git clone <your-new-repo-url> your-sage-bot
 cd your-sage-bot
 bun install
 cp .env.example .env
-# LLM via OpenRouter
-# OPENAI_BASE_URL=https://openrouter.ai/api/v1
-# OPENAI_API_KEY=<your-openrouter-api-key>
-# optionally set MODEL=<openrouter-model-id>
-# Chain key
-# ETHEREUM_PRIVATE_KEY=<your-private-key>
+# Required: OpenRouter API key for LLM access
+# OPENROUTER_API_KEY=<your-openrouter-api-key>
+
+# Required: Private key for on-chain attestations
+# EVM_PRIVATE_KEY=<your-ethereum-private-key>
+
+# Required: Enable automated trading
+# ENABLE_PARLAY_TRADING=true
 bun run dev
 ```
 
 Looking to deploy manually? See the Railway CLI guide: [Deploy with the CLI](https://docs.railway.com/guides/cli).
 
-## Add Trading Actions
+## Enable Automated Parlay Trading
 
-Head to the [Trading Bots](/builder-guide/guides/trading-bots) guide to have your agent place a $1 wager when it makes a forecast.
+Your forecasting agent can automatically place $1 wagers on parlays based on its predictions:
+
+- **Predictions >50%** → Buy YES tokens
+- **Predictions &lt;50%** → Buy NO tokens
+
+### Setup Parlay Trading
+
+1. **Enable Trading** by setting the environment variable:
+   ```bash
+   ENABLE_PARLAY_TRADING=true
+   ```
+
+2. **Configure Trading Parameters** (optional):
+   ```bash
+   # Wager amount in USDC (6 decimals)
+   PARLAY_WAGER_AMOUNT=1000000  # $1 default
+   
+   # Only trade when prediction confidence exceeds threshold
+   MIN_TRADING_CONFIDENCE=0.6   # 60% default
+   
+   # Maximum acceptable slippage
+   MAX_TRADING_SLIPPAGE=5       # 5% default
+   ```
+
+3. **Ensure Wallet Funding**: Your `ETHEREUM_PRIVATE_KEY` wallet needs USDC on Arbitrum for trading.
+
+### How It Works
+
+After each forecast attestation, if trading is enabled:
+
+1. **Confidence Check**: Only trades if prediction confidence > `MIN_TRADING_CONFIDENCE`
+2. **Direction**: Buys YES tokens for >50% predictions, NO tokens for &lt;50%
+3. **Auction Process**: Connects to Sapience WebSocket, participates in parlay auctions
+4. **Execution**: Approves USDC and calls PredictionMarket.mint() with best bid
+5. **Logging**: Reports trade execution with transaction hash
+
+⚠️ **Risk Warning**: Automated trading involves financial risk. Start with small amounts and monitor performance.
+
+### Alternative: Manual Trading
+
+For more control, see the [Trading Bots](/builder-guide/guides/trading-bots) guide for custom trading implementations.
