@@ -16,7 +16,7 @@ const SAPIENCE_WS_URL = "wss://api.sapience.xyz/auction";
 
 interface ParlayTradingConfig {
   enabled: boolean;
-  wagerAmount: string; // In USDC units (6 decimals), default $1
+  wagerAmount: string; // In USDe units (18 decimals), default $1
   minProbabilityThreshold: number; // Only trade if confidence is above this
   maxSlippage: number; // Maximum acceptable slippage %
 }
@@ -91,7 +91,7 @@ export const parlayTradingAction: Action = {
       // Get trading configuration
       const config: ParlayTradingConfig = {
         enabled: true,
-        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || "1000000", // $1 in USDC (6 decimals)
+        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
         minProbabilityThreshold: parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6"),
         maxSlippage: parseFloat(process.env.MAX_TRADING_SLIPPAGE || "5"), // 5%
       };
