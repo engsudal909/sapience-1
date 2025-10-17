@@ -37,14 +37,17 @@ export function useVaultShareQuoteWs(
   const { apiBaseUrl } = useSettings();
 
   const wsUrl = useMemo(() => {
-    if (!chainId || !vaultAddress) return null;
+    if (!chainId || !vaultAddress) {
+      return null;
+    }
     const url = toAuctionWsUrl(apiBaseUrl);
     if (url) {
       try {
         const u = new URL(url);
         u.searchParams.set('v', '1');
-        return u.toString();
-      } catch {
+        const finalUrl = u.toString();
+        return finalUrl;
+      } catch (e) {
         return url;
       }
     }
@@ -53,13 +56,6 @@ export function useVaultShareQuoteWs(
 
   useEffect(() => {
     if (!wsUrl || !chainId || !vaultAddress) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[VaultWS] Skipping connect', {
-          hasUrl: !!wsUrl,
-          chainId,
-          vaultAddress: vaultAddress ? String(vaultAddress) : null,
-        });
-      }
       return;
     }
     let closed = false;
@@ -67,38 +63,36 @@ export function useVaultShareQuoteWs(
     wsRef.current = ws;
 
     ws.onopen = () => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[VaultWS] Connected', {
-          url: wsUrl,
-          chainId,
-          vaultAddress: String(vaultAddress),
-        });
-      }
       try {
+        const message = {
+          type: 'vault_quote.subscribe',
+          payload: { chainId, vaultAddress },
+        };
+        ws.send(JSON.stringify(message));
+      } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
-          console.debug('[VaultWS] Sending subscribe', {
-            chainId,
-            vaultAddress: String(vaultAddress),
-          });
+          console.error('[VaultWS] Error sending message:', error);
         }
-        ws.send(
-          JSON.stringify({
-            type: 'vault_quote.subscribe',
-            payload: { chainId, vaultAddress },
-          })
-        );
-      } catch {
-        /* noop */
       }
     };
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data as string);
         if (process.env.NODE_ENV !== 'production') {
-          console.debug('[VaultWS] Message', data);
+          console.debug('[VaultWS] Message received:', data);
         }
         if (data?.type === 'vault_quote.update' && data?.payload) {
           const p = data.payload as VaultShareWsQuotePayload;
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[VaultWS] Vault quote received:', {
+              chainId: p.chainId,
+              vaultAddress: p.vaultAddress,
+              vaultCollateralPerShare: p.vaultCollateralPerShare,
+              timestamp: p.timestamp,
+              signedBy: p.signedBy,
+              hasSignature: !!p.signature,
+            });
+          }
           if (
             p.chainId === chainId &&
             p.vaultAddress?.toLowerCase() === vaultAddress.toLowerCase()
@@ -111,8 +105,10 @@ export function useVaultShareQuoteWs(
             });
           }
         }
-      } catch {
-        /* noop */
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[VaultWS] Error parsing message:', error);
+        }
       }
     };
     ws.onerror = (e) => {
