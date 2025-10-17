@@ -1,4 +1,4 @@
-import { elizaLogger, IAgentRuntime, ModelType, Memory } from "@elizaos/core";
+import { elizaLogger, IAgentRuntime, ModelType, Memory, HandlerCallback } from "@elizaos/core";
 // @ts-ignore - Sapience plugin types not available at build time
 import type { SapienceService } from "./sapienceService.js";
 import { loadSdk } from "../utils/sdk.js";
@@ -42,8 +42,8 @@ export class AttestationService {
       minConfidence: 0.6,
       batchSize: 5,
       probabilityChangeThreshold: parseFloat(
-        process.env.PROBABILITY_CHANGE_THRESHOLD || "10",
-      ), // Default 10% change
+        process.env.PROBABILITY_CHANGE_THRESHOLD || "0.1",
+      ), // Default 0.1% change for testing
     };
 
     // Store global instance
@@ -301,7 +301,7 @@ export class AttestationService {
         const hoursSinceLastAttestation =
           (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
 
-        if (hoursSinceLastAttestation >= 24) {
+        if (hoursSinceLastAttestation >= 1) { // TESTING: Reduced from 24h to 1h
           // 24+ hours have passed - check if probability changed enough to warrant re-attestation
           const currentPrediction = await this.generatePrediction(market);
 
@@ -427,6 +427,7 @@ export class AttestationService {
   private async getWalletAddress(): Promise<string | null> {
     try {
       const privateKey =
+        process.env.ETHEREUM_PRIVATE_KEY ||
         process.env.EVM_PRIVATE_KEY ||
         process.env.PRIVATE_KEY ||
         process.env.WALLET_PRIVATE_KEY;
@@ -538,6 +539,7 @@ export class AttestationService {
       const privateKey =
         process.env.PRIVATE_KEY ||
         process.env.WALLET_PRIVATE_KEY ||
+        process.env.ETHEREUM_PRIVATE_KEY ||
         process.env.EVM_PRIVATE_KEY;
       if (
         process.env.NODE_ENV !== "production" &&
@@ -639,7 +641,7 @@ export class AttestationService {
       const { buildAttestationCalldata } = await loadSdk();
       const attestationData = await buildAttestationCalldata(
         {
-          marketId: parseInt(market.marketId),
+          marketId: parseInt(market.marketId || market.id),
           address:
             market.marketGroupAddress ||
             market.contractAddress ||
@@ -715,6 +717,9 @@ export class AttestationService {
         );
       }
 
+      // After attestation, attempt parlay trading if enabled
+      await this.attemptParlayTrading(market, prediction);
+
       // Record attestation with probability and confidence
       this.attestationHistory.set(market.id, {
         timestamp: new Date(),
@@ -735,6 +740,73 @@ export class AttestationService {
         `[AttestationService] Failed to process market ${market.id} (marketId: ${marketId}):`,
         error,
       );
+    }
+  }
+
+  private async attemptParlayTrading(market: any, prediction: any): Promise<void> {
+    try {
+      // Check if parlay trading is enabled
+      const tradingEnabled = process.env.ENABLE_PARLAY_TRADING === "true";
+      if (!tradingEnabled) {
+        elizaLogger.debug("[AttestationService] Parlay trading disabled");
+        return;
+      }
+
+      elizaLogger.info(
+        `[AttestationService] Attempting parlay trading for market ${market.id}`,
+      );
+
+      // Find the parlay trading action
+      const actions = this.runtime.actions || [];
+      const tradingAction = actions.find((a) => a.name === "PARLAY_TRADING");
+
+      if (!tradingAction) {
+        elizaLogger.warn("[AttestationService] PARLAY_TRADING action not available");
+        return;
+      }
+
+      // Create a message for the trading action
+      const tradingMessage: Memory = {
+        entityId: "00000000-0000-0000-0000-000000000000" as any,
+        agentId: this.runtime.agentId,
+        roomId: "00000000-0000-0000-0000-000000000000" as any,
+        content: {
+          text: `Execute parlay trade: ${JSON.stringify({ market, prediction })}`,
+          action: "PARLAY_TRADING",
+        },
+        createdAt: Date.now(),
+      };
+
+      // Execute the trading action
+      const tradingCallback: HandlerCallback = async (response: any) => {
+        if (response.content?.success) {
+          elizaLogger.info(
+            `[AttestationService] Parlay trade executed: ${response.content.direction} position (TX: ${response.content.txHash})`,
+          );
+          console.log(
+            `💰 Trade executed: ${response.content.direction} position on "${market.question?.substring(0, 60)}..." (TX: ${response.content.txHash})`,
+          );
+        } else {
+          elizaLogger.debug(
+            `[AttestationService] Parlay trade not executed: ${response.text}`,
+          );
+        }
+        return [];
+      };
+
+      await tradingAction.handler(
+        this.runtime,
+        tradingMessage,
+        undefined,
+        {},
+        tradingCallback,
+      );
+    } catch (error) {
+      elizaLogger.error(
+        `[AttestationService] Failed to attempt parlay trading:`,
+        error,
+      );
+      // Don't throw - trading is optional
     }
   }
 

@@ -4,6 +4,9 @@ import { pathToFileURL } from "url";
 type SdkModule = Record<string, any>;
 
 export async function loadSdk(): Promise<SdkModule> {
+  let originalSdk: SdkModule = {};
+  
+  // Try to load from SDK package or override path
   const override = process.env.SAPIENCE_SDK_PATH;
   if (override && override.trim().length > 0) {
     try {
@@ -11,13 +14,94 @@ export async function loadSdk(): Promise<SdkModule> {
         ? override
         : path.resolve(process.cwd(), override);
       const url = pathToFileURL(resolved).href;
-      // Prefer importing a file URL when an explicit path is given
-      return await import(url);
+      originalSdk = await import(url);
     } catch (e) {
       // Fallback to package import if override fails
+      try {
+        originalSdk = await import("@sapience/sdk");
+      } catch {
+        console.warn("Failed to load @sapience/sdk, using local implementations");
+      }
+    }
+  } else {
+    try {
+      originalSdk = await import("@sapience/sdk");
+    } catch {
+      console.warn("Failed to load @sapience/sdk, using local implementations");
     }
   }
-  return await import("@sapience/sdk");
+  
+  // Create a new mutable object with all SDK properties
+  const sdk: SdkModule = { ...originalSdk };
+  
+  // Add local fallback implementations if missing from SDK
+  if (!sdk.buildAttestationCalldata) {
+    try {
+      const { buildAttestationCalldata } = await import("../utils/eas.js");
+      sdk.buildAttestationCalldata = buildAttestationCalldata;
+    } catch (e) {
+      console.warn("Failed to load local buildAttestationCalldata implementation:", e);
+    }
+  }
+  
+  // Add transaction functions from actions if missing
+  if (!sdk.simulateTransaction) {
+    sdk.simulateTransaction = async (args: any) => {
+      // Simple simulation implementation using viem
+      const { createPublicClient, http } = await import("viem");
+      const client = createPublicClient({
+        transport: http(args.rpc)
+      });
+      return await client.simulateContract({
+        ...args.tx,
+        address: args.tx.to,
+        abi: [] // Empty ABI for generic calls
+      });
+    };
+  }
+  
+  if (!sdk.submitTransaction) {
+    sdk.submitTransaction = async (args: any) => {
+      const { createWalletClient, http } = await import("viem");
+      const { privateKeyToAccount } = await import("viem/accounts");
+      const { arbitrum } = await import("viem/chains");
+      
+      if (!args.privateKey) throw new Error("Missing private key for transaction submission");
+      
+      const account = privateKeyToAccount(args.privateKey);
+      const client = createWalletClient({
+        account,
+        chain: arbitrum,
+        transport: http(args.rpc)
+      });
+      
+      // Log the full transaction for debugging
+      console.log("[SDK] Submitting transaction:", {
+        to: args.tx.to,
+        data: args.tx.data ? `${args.tx.data.slice(0, 10)}...` : undefined,
+        value: args.tx.value,
+        chain: "arbitrum"
+      });
+      
+      try {
+        const hash = await client.sendTransaction({
+          to: args.tx.to,
+          data: args.tx.data,
+          value: BigInt(args.tx.value || 0),
+          account,
+          chain: arbitrum
+        });
+        
+        console.log("[SDK] Transaction submitted:", hash);
+        return { hash };
+      } catch (error) {
+        console.error("[SDK] Transaction failed:", error);
+        throw error;
+      }
+    };
+  }
+  
+  return sdk;
 }
 
 // Local fallback for MCP client if not available from SDK
@@ -153,3 +237,4 @@ export async function loadCreateMcpClient(): Promise<
   // Fallback to local implementation
   return (opts) => createLocalMcpClient(opts);
 }
+
