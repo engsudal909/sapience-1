@@ -46,7 +46,7 @@ For setup details on your API keys and private key, see Get Started: [OpenRouter
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `ENABLE_PARLAY_TRADING` | `false` | Enable $1 automated wagers on parlays based on forecasts |
-| `PARLAY_WAGER_AMOUNT` | `1000000` | Wager amount in USDC (6 decimals: $1 = 1,000,000) |
+| `PARLAY_WAGER_AMOUNT` | `1000000000000000000` | Wager amount in USDe (18 decimals: $1 = 1,000,000,000,000,000,000) |
 | `MIN_TRADING_CONFIDENCE` | `0.6` | Only trade when prediction confidence exceeds this threshold |
 | `MAX_TRADING_SLIPPAGE` | `5` | Maximum acceptable slippage percentage for trades |
 
@@ -152,8 +152,8 @@ Your forecasting agent can automatically place $1 wagers on parlays based on its
 
 2. **Configure Trading Parameters** (optional):
    ```bash
-   # Wager amount in USDC (6 decimals)
-   PARLAY_WAGER_AMOUNT=1000000  # $1 default
+   # Wager amount in USDe (18 decimals)
+   PARLAY_WAGER_AMOUNT=1000000000000000000  # $1 default
    
    # Only trade when prediction confidence exceeds threshold
    MIN_TRADING_CONFIDENCE=0.6   # 60% default
@@ -162,7 +162,7 @@ Your forecasting agent can automatically place $1 wagers on parlays based on its
    MAX_TRADING_SLIPPAGE=5       # 5% default
    ```
 
-3. **Ensure Wallet Funding**: Your `ETHEREUM_PRIVATE_KEY` wallet needs USDC on Arbitrum for trading.
+3. **Ensure Wallet Funding**: Your `ETHEREUM_PRIVATE_KEY` wallet needs USDe on Arbitrum for trading.
 
 ### How It Works
 
@@ -171,7 +171,7 @@ After each forecast attestation, if trading is enabled:
 1. **Confidence Check**: Only trades if prediction confidence > `MIN_TRADING_CONFIDENCE`
 2. **Direction**: Buys YES tokens for >50% predictions, NO tokens for &lt;50%
 3. **Auction Process**: Connects to Sapience WebSocket, participates in parlay auctions
-4. **Execution**: Approves USDC and calls PredictionMarket.mint() with best bid
+4. **Execution**: Approves USDe and calls PredictionMarket.mint() with best bid
 5. **Logging**: Reports trade execution with transaction hash
 
 ⚠️ **Risk Warning**: Automated trading involves financial risk. Start with small amounts and monitor performance.
