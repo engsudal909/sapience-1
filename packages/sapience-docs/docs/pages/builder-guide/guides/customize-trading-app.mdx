@@ -1,0 +1,73 @@
+---
+title: Customize Trading App
+description: Build your own Sapience app with Cursor—clone, run, customize, deploy, and contribute.
+---
+
+import BuilderGuideAlert from '../../../components/BuilderGuideAlert'
+
+<BuilderGuideAlert />
+
+# Customize the Trading App
+
+Build and ship your own version of the Sapience app. If you run into trouble at any step, ask the Cursor agent in the chat panel to diagnose and fix issues.
+
+## Clone the repository using Cursor
+
+[Install Cursor](/builder-guide/getting-started/get-started#cursor-setup) and then:
+
+1. Open the Command Palette in Cursor (Cmd/Ctrl+Shift+P) and choose "Git: Clone".
+2. Paste the repo URL: `https://github.com/sapiencexyz/sapience.git`
+3. Choose a destination folder, then open the cloned repository in Cursor.
+4. If prompted, "Trust the authors" and install recommended extensions.
+
+## Run your copy of the app
+
+Open the terminal in Cursor (Ctrl+`), then run these from the repository root:
+
+```bash
+pnpm install
+pnpm dev:app
+```
+
+You may need to install Node or pnpm. Use the Cursor agent to assist with this if necessary.
+
+## Customize the app
+
+Use the Cursor chat panel to prompt the agent to implement your change. Describe the change in plain language and ask it to write/apply the edit, run the app, and fix any errors.
+
+For example:
+
+- Prompt an update such as: "If a user enters a wager amount greater than 1000, render the responsible wager warning text in aLtErNaTiNg CaSe."
+- Review the code changes and ask the agent if you have questions about the implementation.
+- Verify your change live at `http://localhost:3000`.
+
+## Push your version to GitHub
+
+1. [Create a GitHub account](/builder-guide/getting-started/get-started#git-setup) if you don't already have one.
+2. In GitHub, open `sapiencexyz/sapience` and click "Fork" to create your copy.
+3. Point your local repo at your fork:
+
+Open the terminal in Cursor (Ctrl+`), then run these from the repository root:
+
+```bash
+git remote rename origin upstream
+git remote add origin https://github.com/<your-username>/sapience.git
+git checkout -b my-customization
+git add -A && git commit -m "Customize betslip warning"
+git push -u origin my-customization
+```
+
+## Deploy to Vercel
+
+1. In Vercel, create a New Project and import your fork.
+2. Root Directory: `packages/sapience`.
+3. Framework Preset: Next.js (auto).
+4. Install Command: `pnpm install --frozen-lockfile`.
+5. Build Command: `pnpm build`.
+8. Deploy.
+
+## Contribute a pull request
+
+1. Open a Pull Request from your fork/branch to `sapiencexyz/sapience:main`.
+2. Describe what you changed and why. Include screenshots or a brief demo if relevant.
+3. Respond to any review feedback; once approved, your improvements can be merged to the main Sapience app.

@@ -63,7 +63,7 @@ export default defineConfig({
             text: "Spot Market Liquidity Agent",
             link: "/builder-guide/guides/liquidity-provisioning-bots",
           },
-          { text: "Custom Trading App", link: "/builder-guide/guides/custom-trading-app" },
+          { text: "Customize Trading App", link: "/builder-guide/guides/customize-trading-app" },
           {
             text: "Dashboards, Games, and more",
             link: "/builder-guide/guides/design-dashboards-games",
