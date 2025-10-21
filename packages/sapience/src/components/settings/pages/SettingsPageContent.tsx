@@ -153,7 +153,6 @@ const SettingField = ({
 };
 
 const SettingsPageContent = () => {
-  // Theme is forced to dark globally; remove theme hooks here
   const { openChat } = useChat();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const {
@@ -550,8 +549,6 @@ const SettingsPageContent = () => {
               <Card className="bg-background">
                 <CardContent className="p-8">
                   <div className="space-y-6">
-                    {/* Theme toggle removed; dark mode is forced globally */}
-
                     <div className="grid gap-1">
                       <Label htmlFor="show-american-odds">
                         Show American Odds
