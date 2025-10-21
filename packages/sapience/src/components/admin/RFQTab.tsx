@@ -97,6 +97,8 @@ type RFQTabProps = {
   onCsvImportOpenChange?: (open: boolean) => void;
 };
 
+type ConditionFilter = 'all' | 'needs-settlement' | 'upcoming' | 'settled';
+
 const RFQTab = ({
   createOpen,
   setCreateOpen,
@@ -117,6 +119,7 @@ const RFQTab = ({
   const [description, setDescription] = useState('');
   const [similarMarketsText, setSimilarMarketsText] = useState('');
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [filter, setFilter] = useState<ConditionFilter>('all');
 
   // CSV Import state (support controlled or uncontrolled usage)
   const [csvImportOpenInternal, setCsvImportOpenInternal] = useState(false);
@@ -609,7 +612,9 @@ const RFQTab = ({
   );
 
   const rows: RFQRow[] = useMemo(() => {
-    return (conditions || []).map((c) => ({
+    const now = Math.floor(Date.now() / 1000);
+    
+    const mapped = (conditions || []).map((c) => ({
       id: c.id,
       question: c.question,
       shortName: c.shortName,
@@ -620,7 +625,23 @@ const RFQTab = ({
       description: c.description,
       similarMarketUrls: c.similarMarkets,
     }));
-  }, [conditions]);
+
+    // Filter based on selected filter
+    const filtered = mapped.filter((row) => {
+      if (filter === 'all') return true;
+
+      const isPastEnd = row.endTime && row.endTime <= now;
+      const isUpcoming = row.endTime && row.endTime > now;
+
+      if (filter === 'needs-settlement') return isPastEnd;
+      if (filter === 'upcoming') return isUpcoming;
+      if (filter === 'settled') return !isPastEnd && !isUpcoming;
+
+      return true;
+    });
+
+    return filtered;
+  }, [conditions, filter]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -673,10 +694,31 @@ const RFQTab = ({
   };
 
   return (
-    <div>
-      {/* CSV Import Button (only when uncontrolled) */}
-      {onCsvImportOpenChange ? null : (
-        <div className="flex justify-end">
+    <div className="space-y-4">
+      {/* Filter and Import Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Filter:</span>
+          <Select value={filter} onValueChange={(value) => setFilter(value as ConditionFilter)}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Show All</SelectItem>
+              <SelectItem value="needs-settlement">Needs Settlement</SelectItem>
+              <SelectItem value="upcoming">Upcoming</SelectItem>
+              <SelectItem value="settled">Settled</SelectItem>
+            </SelectContent>
+          </Select>
+          {filter !== 'all' && (
+            <span className="text-sm text-muted-foreground">
+              ({rows.length} {rows.length === 1 ? 'condition' : 'conditions'})
+            </span>
+          )}
+        </div>
+
+        {/* CSV Import Button (only when uncontrolled) */}
+        {onCsvImportOpenChange ? null : (
           <Button
             onClick={() => setCsvImportOpen(true)}
             variant="outline"
@@ -685,8 +727,8 @@ const RFQTab = ({
             <Upload className="h-4 w-4" />
             Import CSV
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* CSV Import Dialog */}
       <Dialog open={csvImportOpen} onOpenChange={setCsvImportOpen}>
