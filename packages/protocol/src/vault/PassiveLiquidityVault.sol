@@ -282,6 +282,90 @@ contract PassiveLiquidityVault is
     }
 
     /**
+     * @notice Reconcile protocol allowances against current utilization constraints
+     * @dev Caps or zeroes allowances so that total approvals do not exceed the allowed utilization headroom
+     *      Allowed approvals headroom = floor(maxUtilizationRate * (available + deployed)) - deployed
+     *      If total assets are zero, all allowances are set to zero
+     */
+    function _reconcileApprovals() internal {
+        // Get current active protocols snapshot
+        address[] memory protocols = activeProtocols.values();
+
+        // Compute currently deployed liquidity
+        uint256 deployedLiquidity = 0;
+        for (
+            uint256 protocolIndex = 0;
+            protocolIndex < protocols.length;
+            protocolIndex++
+        ) {
+            IPredictionMarket pm = IPredictionMarket(protocols[protocolIndex]);
+            uint256 userCollateralDeposits = pm.getUserCollateralDeposits(
+                address(this)
+            );
+            deployedLiquidity += userCollateralDeposits;
+        }
+
+        // Available assets exclude unconfirmed deposits
+        uint256 availableAssetsValue = _getAvailableAssets();
+        uint256 totalAssetsValue = availableAssetsValue + deployedLiquidity;
+
+        // If nothing is left, zero out all allowances and clean up
+        if (totalAssetsValue == 0) {
+            for (
+                uint256 i = 0;
+                i < protocols.length;
+                i++
+            ) {
+                address protocolToZero = protocols[i];
+                uint256 currentAllowance = _asset.allowance(address(this), protocolToZero);
+                if (currentAllowance > 0) {
+                    _asset.forceApprove(protocolToZero, 0);
+                }
+            }
+            // Cleanup inactive protocols where both deposits and allowance are zero
+            _getDeploymentAndApprovalsWithCleanup(address(0));
+            return;
+        }
+
+        // Compute maximum approvals allowed by utilization
+        // approvalsHeadroom = floor(maxUtilizationRate * totalAssets) - deployed
+        uint256 maxUtilizationAssets = (maxUtilizationRate * totalAssetsValue) / WAD;
+        uint256 approvalsHeadroom = maxUtilizationAssets > deployedLiquidity
+            ? maxUtilizationAssets - deployedLiquidity
+            : 0;
+
+        // Reduce allowances so that the aggregate across protocols does not exceed approvalsHeadroom
+        uint256 remainingHeadroom = approvalsHeadroom;
+        for (
+            uint256 protocolIndex = 0;
+            protocolIndex < protocols.length;
+            protocolIndex++
+        ) {
+            address protocol = protocols[protocolIndex];
+            uint256 currentAllowance = _asset.allowance(address(this), protocol);
+            if (currentAllowance == 0) continue;
+
+            uint256 newAllowance = currentAllowance <= remainingHeadroom
+                ? currentAllowance
+                : remainingHeadroom;
+
+            if (newAllowance != currentAllowance) {
+                _asset.forceApprove(protocol, newAllowance);
+            }
+
+            // Decrease remaining headroom by the allowance we kept for this protocol
+            if (remainingHeadroom > newAllowance) {
+                remainingHeadroom -= newAllowance;
+            } else {
+                remainingHeadroom = 0;
+            }
+        }
+
+        // Cleanup protocols with zero deposits and zero allowance
+        _getDeploymentAndApprovalsWithCleanup(address(0));
+    }
+
+    /**
      * @notice Request withdrawal of shares - creates a pending request that the manager can process
      * @param shares Number of shares to withdraw
      * @param expectedAssets Expected assets to receive (used for validation by manager)
@@ -543,6 +627,9 @@ contract PassiveLiquidityVault is
         if (balanceBefore != request.assets + balanceAfter) {
             revert TransferFailed(balanceBefore, request.assets, balanceAfter);
         }
+
+        // After a withdrawal, reconcile approvals to keep utilization within bounds
+        _reconcileApprovals();
 
         emit PendingRequestProcessed(
             requestedBy,
