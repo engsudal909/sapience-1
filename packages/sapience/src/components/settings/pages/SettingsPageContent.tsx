@@ -1,9 +1,5 @@
 'use client';
 
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@sapience/sdk/ui/components/ui/toggle-group';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import Slider from '@sapience/sdk/ui/components/ui/slider';
@@ -24,8 +20,7 @@ import {
   TabsContent,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
-import { useTheme } from 'next-themes';
-import { Moon, Sun, Monitor, Key, Share2, Bot } from 'lucide-react';
+import { Monitor, Key, Share2, Bot } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
@@ -158,7 +153,7 @@ const SettingField = ({
 };
 
 const SettingsPageContent = () => {
-  const { theme, setTheme } = useTheme();
+  // Theme is forced to dark globally; remove theme hooks here
   const { openChat } = useChat();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const {
@@ -555,46 +550,7 @@ const SettingsPageContent = () => {
               <Card className="bg-background">
                 <CardContent className="p-8">
                   <div className="space-y-6">
-                    <div className="grid gap-2">
-                      <Label htmlFor="theme">Theme</Label>
-                      <div id="theme" className="flex flex-col gap-1">
-                        {mounted && (
-                          <ToggleGroup
-                            type="single"
-                            value={theme ?? 'dark'}
-                            onValueChange={(val) => {
-                              if (!val) return;
-                              setTheme(val);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="w-full md:w-auto bg-background py-1 rounded-lg justify-start gap-2 md:gap-3"
-                          >
-                            <ToggleGroupItem
-                              value="light"
-                              aria-label="Light mode"
-                            >
-                              <Sun className="h-4 w-4" />
-                              <span>Light</span>
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="system"
-                              aria-label="System mode"
-                            >
-                              <Monitor className="h-4 w-4" />
-                              <span>System</span>
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="dark"
-                              aria-label="Dark mode"
-                            >
-                              <Moon className="h-4 w-4" />
-                              <span>Dark</span>
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        )}
-                      </div>
-                    </div>
+                    {/* Theme toggle removed; dark mode is forced globally */}
 
                     <div className="grid gap-1">
                       <Label htmlFor="show-american-odds">
