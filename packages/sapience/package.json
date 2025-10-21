@@ -46,7 +46,7 @@
     "dayjs": "1.11.13",
     "decimal.js": "10.5.0",
     "embla-carousel-auto-scroll": "8.6.0",
-    "framer-motion": "12.19.1",
+    "framer-motion": "12.23.23",
     "graphql": "16.10.0",
     "graphql-request": "7.2.0",
     "jsbi": "3.2.5",

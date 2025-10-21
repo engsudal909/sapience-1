@@ -4,9 +4,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sapience/sdk/ui/components/ui/popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@sapience/sdk/ui/components/ui/tooltip';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
-import { Copy, ExternalLink, User } from 'lucide-react';
+import { Copy, ExternalLink, User, Vault } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createPublicClient, http } from 'viem';
@@ -84,6 +90,9 @@ const AddressDisplay = ({
       ? XS_ICON_SIZE
       : SMALL_ICON_SIZE;
 
+  // Make the vault icon slightly larger than the other action icons for visibility
+  const vaultIconSizeClass = isLarge ? 'h-6 w-6' : 'h-5 w-5';
+
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     await navigator.clipboard.writeText(address);
@@ -102,12 +111,41 @@ const AddressDisplay = ({
       ? 'text-xs text-muted-foreground/80'
       : '';
 
+  const isVaultAddress =
+    address.toLowerCase() === '0x29e1d43ccc51b9916c89fcf54edd7cc9b9db856d';
+
   return (
     <div
       className={`flex items-center ${containerGapClass} ${className || ''}`}
     >
       <span className={`font-mono ${nameTextClass}`}>{displayName}</span>
       <div className={`flex items-center ${iconsGapClass}`}>
+        {isVaultAddress && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/vaults" className="flex items-center">
+                  <Vault
+                    className={`${vaultIconSizeClass} text-ethena/90`}
+                    strokeWidth={1.25}
+                    absoluteStrokeWidth
+                  />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>
+                  This is a{' '}
+                  <Link
+                    href="/vaults"
+                    className="underline underline-offset-2 cursor-pointer"
+                  >
+                    vault
+                  </Link>
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         {!disableProfileLink && (
           <Link href={`/profile/${address}`} className="flex items-center">
             <Button

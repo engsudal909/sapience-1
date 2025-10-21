@@ -39,7 +39,6 @@ import { SiSubstack } from 'react-icons/si';
 import { useEffect, useRef, useState } from 'react';
 import { useDisconnect } from 'wagmi';
 import CollateralBalanceButton from './CollateralBalanceButton';
-// Chat button moved to app layout as a floating action button
 import { shortenAddress } from '~/lib/utils/util';
 import { useEnsName } from '~/components/shared/AddressDisplay';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
@@ -92,9 +91,75 @@ const NavLinks = ({
 
   return (
     <>
+      <nav className="flex flex-col gap-3 w-full mt-10 pl-4">
+        <Link href="/markets" passHref className="flex w-fit">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/markets', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Prediction Markets
+          </Button>
+        </Link>
+        <Link href="/leaderboard" passHref className="flex w-fit">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Leaderboard
+          </Button>
+        </Link>
+        <Link href="/vaults" passHref className="flex w-fit">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/vaults', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Vaults
+          </Button>
+        </Link>
+        <Link href="/forecast" passHref className="flex w-fit">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Forecasting
+          </Button>
+        </Link>
+        <Link href="/feed" passHref className="flex w-fit">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/feed', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Activity Feed
+          </Button>
+        </Link>
+        <Link href="/bots" passHref className="flex w-fit">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/bots', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Build Bots
+          </Button>
+        </Link>
+        {/* Mobile settings button, placed under links */}
+        <Link href="/settings" passHref className="flex w-fit md:hidden">
+          <Button
+            variant="ghost"
+            className={`${linkClass} ${isActive('/settings', pathname) ? activeClass : ''}`}
+            onClick={handleLinkClick}
+          >
+            Settings
+          </Button>
+        </Link>
+      </nav>
       {ready && hasConnectedWallet && connectedWallet && (
         <>
-          <div className="flex w-fit md:hidden mt-5 ml-4">
+          <div className="flex w-fit md:hidden mt-3 ml-4">
             <Button
               asChild
               variant="default"
@@ -119,74 +184,6 @@ const NavLinks = ({
           />
         </>
       )}
-      <nav className="flex flex-col gap-3 w-full mt-32 lg:mt-44 pl-4">
-        <Link href="/markets" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/markets', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Prediction Markets
-          </Button>
-        </Link>
-        <Link href="/forecast" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Forecasting
-          </Button>
-        </Link>
-        <Link href="/feed" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/feed', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Activity Feed
-          </Button>
-        </Link>
-        <Link href="/vaults" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/vaults', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Vaults
-          </Button>
-        </Link>
-        <Link href="/bots" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/bots', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Build Bots
-          </Button>
-        </Link>
-        <Link href="/leaderboard" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Leaderboard
-          </Button>
-        </Link>
-        {/* Mobile settings button when logged out, placed under links */}
-        {ready && !hasConnectedWallet && (
-          <Link href="/settings" passHref className="flex w-fit md:hidden">
-            <Button
-              variant="ghost"
-              className={`${linkClass}`}
-              onClick={handleLinkClick}
-            >
-              Settings
-            </Button>
-          </Link>
-        )}
-      </nav>
     </>
   );
 };
@@ -305,7 +302,7 @@ const Header = () => {
       >
         <div className={`mx-auto px-4 md:px-6 transition-all`}>
           <div
-            className={`flex items-center justify-between pointer-events-auto transition-all ${isScrolled ? 'md:bg-background/60 md:backdrop-blur-sm md:ring-1 md:ring-border/30 md:rounded-full' : ''}`}
+            className={`flex items-center justify-between pointer-events-auto transition-all ${isScrolled ? 'md:bg-background/60 md:backdrop-blur-sm md:border-y md:border-border/30 md:rounded-l-full md:rounded-r-none' : ''}`}
           >
             <div className="flex flex-col pointer-events-auto">
               <div className="flex items-center">
@@ -357,6 +354,14 @@ const Header = () => {
               >
                 Vaults
               </Link>
+              {ready && hasConnectedWallet && connectedWallet?.address && (
+                <Link
+                  href={`/profile/${connectedWallet.address}`}
+                  className={`${isActive(`/profile/${connectedWallet.address}`, pathname) ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground transition-colors tracking-wide px-3 py-2 rounded-full`}
+                >
+                  Profile
+                </Link>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -448,26 +453,6 @@ const Header = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {connectedWallet?.address && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          href={`/profile/${connectedWallet.address}`}
-                          className="flex items-center"
-                        >
-                          <User className="mr-0.5 opacity-75 h-4 w-4" />
-                          <span>Your Profile</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href="/settings"
-                        className="flex items-center md:hidden"
-                      >
-                        <Settings className="mr-0.5 opacity-75 h-4 w-4" />
-                        <span>Settings</span>
-                      </Link>
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={handleLogout}
                       className="flex items-center cursor-pointer"
@@ -545,7 +530,7 @@ const Header = () => {
             </Button>
             <Button size="icon" className="h-6 w-6 rounded-full" asChild>
               <a
-                href="https://twitter.com/sapiencexyz"
+                href="https://x.com/sapiencehq"
                 target="_blank"
                 rel="noopener noreferrer"
               >

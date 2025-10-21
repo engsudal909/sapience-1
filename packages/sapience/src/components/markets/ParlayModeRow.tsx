@@ -1,17 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@sapience/sdk/ui/components/ui/dialog';
+import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
-import SafeMarkdown from '~/components/shared/SafeMarkdown';
-import EndTimeDisplay from '~/components/shared/EndTimeDisplay';
+import ConditionDialog from '~/components/markets/ConditionDialog';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 
 export interface ParlayModeRowProps {
@@ -104,26 +97,12 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
                   </div>
                 </button>
               </DialogTrigger>
-              <DialogContent className="w-[92vw] max-w-3xl break-words overflow-x-hidden">
-                <DialogHeader>
-                  <DialogTitle className="break-words whitespace-normal text-2xl font-medium">
-                    {displayQ}
-                  </DialogTitle>
-                </DialogHeader>
-                <div>
-                  <div className="flex items-center mb-4">
-                    <EndTimeDisplay endTime={endTime} size="large" />
-                  </div>
-                  {description ? (
-                    <div className="text-sm leading-relaxed break-words [&_a]:break-all">
-                      <SafeMarkdown
-                        content={description}
-                        className="break-words [&_a]:break-all"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </DialogContent>
+              <ConditionDialog
+                conditionId={id}
+                title={displayQ}
+                endTime={endTime}
+                description={description}
+              />
             </Dialog>
             <div className="mt-2 text-sm text-muted-foreground flex items-center gap-1">
               <span className="text-muted-foreground">Market Prediction:</span>

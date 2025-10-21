@@ -18,6 +18,11 @@
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./mcp/client": {
+      "import": "./dist/mcp/client.mjs",
+      "require": "./dist/mcp/client.js",
+      "types": "./dist/mcp/client.d.ts"
+    },
     "./abis": {
       "import": "./dist/abis/index.mjs",
       "require": "./dist/abis/index.js",
@@ -52,8 +57,8 @@
   },
   "scripts": {
     "prepare": "pnpm run build:lib",
-    "dev": "tsup index.ts abis/index.ts constants/index.ts contracts/index.ts ui/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --watch",
-    "build:lib": "tsup index.ts abis/index.ts constants/index.ts contracts/index.ts ui/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
+    "dev": "tsup index.ts mcp/client.ts abis/index.ts constants/index.ts contracts/index.ts ui/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --watch",
+    "build:lib": "tsup index.ts mcp/client.ts abis/index.ts constants/index.ts contracts/index.ts ui/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
     "build": "pnpm run build:lib && pnpm build-storybook",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
@@ -153,4 +158,3 @@
     "pnpm": "9.x"
   }
 }
-

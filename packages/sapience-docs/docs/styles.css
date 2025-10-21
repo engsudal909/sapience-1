@@ -1,3 +1,36 @@
+/* Style the "Go to App" button */
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="https://sapience.xyz"] {
+  grid-column: 1 / -1;
+  display: block !important;
+  width: 100% !important;
+  margin: 0 0 12px 0;
+  padding: 10px 16px;
+  background: #1a1a1a;
+  color: white !important;
+  text-align: center;
+  border-radius: 8px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="https://sapience.xyz"]::after {
+  content: "→";
+  margin-left: 8px;
+  font-size: 16px;
+  vertical-align: middle;
+  background: none !important;
+  width: auto !important;
+  height: auto !important;
+  transform: none !important;
+  mask: none !important;
+  -webkit-mask: none !important;
+}
+
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="https://sapience.xyz"]:hover {
+  background: #2a2a2a;
+}
+
 /* Promote the top two guide links under the logo and place them side-by-side */
 .vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items {
   display: grid;
@@ -9,7 +42,7 @@
 }
 
 .vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="/user-guide/introduction/what-is-sapience"],
-.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="/builder-guide/getting-started/what-is-sapience"] {
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="/builder-guide/getting-started/get-started"] {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -23,21 +56,20 @@
 }
 
 .vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="/user-guide/introduction/what-is-sapience"]:hover,
-.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="/builder-guide/getting-started/what-is-sapience"]:hover {
-  background: rgba(145, 179, 240, 0.08);
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[href="/builder-guide/getting-started/get-started"]:hover {
   border-bottom-color: rgba(145, 179, 240, 0.6);
 }
 
 /* Active tab state */
 .vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[data-active="true"][href="/user-guide/introduction/what-is-sapience"],
-.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[data-active="true"][href="/builder-guide/getting-started/what-is-sapience"] {
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a[data-active="true"][href="/builder-guide/getting-started/get-started"] {
   border-bottom-color: rgba(145, 179, 240, 0.8);
   color: #7AA1EE;
 }
 
 /* Fallback: when a runtime script adds .is-active-tab to top anchors */
 .vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a.is-active-tab[href="/user-guide/introduction/what-is-sapience"],
-.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a.is-active-tab[href="/builder-guide/getting-started/what-is-sapience"] {
+.vocs_Sidebar_group > section:first-of-type .vocs_Sidebar_items > a.is-active-tab[href="/builder-guide/getting-started/get-started"] {
   border-bottom-color: rgba(145, 179, 240, 0.8);
   color: #7AA1EE;
 }
@@ -50,7 +82,7 @@
 }
 
 /* Section-aware active tab: highlight Builder Guide when any non-user-guide section is active */
-.vocs_Sidebar_group:has(.vocs_Sidebar_items a[href^="/builder-guide/"][data-active="true"]) > section:first-of-type .vocs_Sidebar_items > a[href="/builder-guide/getting-started/what-is-sapience"] {
+.vocs_Sidebar_group:has(.vocs_Sidebar_items a[href^="/builder-guide/"][data-active="true"]) > section:first-of-type .vocs_Sidebar_items > a[href="/builder-guide/getting-started/get-started"] {
   border-bottom-color: rgba(145, 179, 240, 0.8);
   color: #7AA1EE;
 }

@@ -170,9 +170,9 @@ query MarketCandles($marketId: String!, $interval: CandleInterval!, $start: Int!
 ```
 
 ### Realtime
-For realtime auction flows and acknowledgements, use the Batch Auction Relayer WebSocket; for app-level updates, combine GraphQL queries with client polling or app-specific sockets as needed.
+For realtime auction flows and acknowledgements, use the Auction Relayer WebSocket; for app-level updates, combine GraphQL queries with client polling or app-specific sockets as needed.
 
-- See API → Batch Auction Relayer for WebSocket topics (quotes, provisional crosses, final prints)
+- See API → Auction Relayer for WebSocket topics (quotes, provisional crosses, final prints)
 - GraphQL is request/response; subscriptions may be introduced later
 
 ### Notes

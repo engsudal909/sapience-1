@@ -28,6 +28,7 @@ import { useReadContracts, useAccount } from 'wagmi';
 import type { Abi } from 'abitype';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import { formatDistanceToNow } from 'date-fns';
 // Minimal ABI for PredictionMarketUmaResolver.resolvePrediction(bytes)
 const UMA_RESOLVER_MIN_ABI = [
   {
@@ -49,7 +50,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import ParlayLegsList from '~/components/shared/ParlayLegsList';
+import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
+import ConditionDialog from '~/components/markets/ConditionDialog';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
 import { useUserParlays } from '~/hooks/graphql/useUserParlays';
@@ -57,6 +59,7 @@ import NumberDisplay from '~/components/shared/NumberDisplay';
 import ShareDialog from '~/components/shared/ShareDialog';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge';
+import EnsAvatar from '~/components/shared/EnsAvatar';
 
 function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
@@ -96,18 +99,29 @@ export default function UserParlaysTable({
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
   const hasWallet = Boolean(connectedAddress);
+  const [claimingTokenId, setClaimingTokenId] = React.useState<bigint | null>(
+    null
+  );
   const { burn, isPending: isClaimPending } = usePredictionMarketWriteContract({
     successMessage: 'Claim submitted',
     fallbackErrorMessage: 'Claim failed',
     onSuccess: () => {
+      setClaimingTokenId(null);
       const addr = String(account || '').toLowerCase();
       queryClient
         .invalidateQueries({ queryKey: ['userParlays', addr] })
         .catch(() => {});
     },
   });
-  type UILeg = { question: string; choice: 'Yes' | 'No' };
+  type UILeg = {
+    question: string;
+    choice: 'Yes' | 'No';
+    conditionId?: string;
+    endTime?: number | null;
+    description?: string | null;
+  };
   type UIParlay = {
+    uniqueRowKey: string;
     positionId: number;
     legs: UILeg[];
     direction: 'Long' | 'Short';
@@ -139,6 +153,9 @@ export default function UserParlaysTable({
         question:
           o?.condition?.shortName || o?.condition?.question || o.conditionId,
         choice: o.prediction ? 'Yes' : 'No',
+        conditionId: o?.conditionId,
+        endTime: o?.condition?.endTime ?? null,
+        description: o?.condition?.description ?? null,
       }));
       const endsAtSec =
         p.endsAt ||
@@ -211,6 +228,8 @@ export default function UserParlaysTable({
           : p.makerNftTokenId
             ? Number(p.makerNftTokenId)
             : p.id;
+      // Create unique row key combining parlay ID and role
+      const uniqueRowKey = `${p.id}-${userIsMaker ? 'maker' : userIsTaker ? 'taker' : 'unknown'}`;
       // Choose wager based on the profile address' role
       const viewerMakerCollateralWei = (() => {
         try {
@@ -227,6 +246,7 @@ export default function UserParlaysTable({
         }
       })();
       return {
+        uniqueRowKey,
         positionId,
         legs,
         direction: 'Long' as const,
@@ -533,38 +553,142 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const created = new Date(row.original.createdAt).toLocaleDateString(
-            'en-US',
-            {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZoneName: 'short',
-            }
-          );
+          const createdDate = new Date(row.original.createdAt);
+          const createdDisplay = formatDistanceToNow(createdDate, {
+            addSuffix: true,
+          });
+          const exactLocalDisplay = createdDate.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short',
+          });
           return (
             <div>
               <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] mb-0.5">
                 Position #{row.original.positionId}
               </h2>
               <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <span>created at {created}</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        created {createdDisplay}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div>{exactLocalDisplay}</div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              {row.original.counterpartyAddress && (
-                <div className="text-sm text-muted-foreground flex items-baseline gap-1.5 mt-0.5">
-                  <span>with</span>
-                  <AddressDisplay
-                    address={row.original.counterpartyAddress}
-                    compact
-                  />
-                </div>
-              )}
             </div>
           );
         },
       },
+      {
+        id: 'conditions',
+        accessorFn: (row) => row.legs.length,
+        enableSorting: false,
+        size: 400,
+        minSize: 300,
+        header: () => <span>Predictions</span>,
+        cell: ({ row }) => (
+          <div className="space-y-1">
+            {row.original.addressRole === 'taker' && (
+              <div className="mb-1">
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline">Anti-Parlay</Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Anti-Parlay details"
+                          className="inline-flex items-center justify-center h-5 w-5 text-muted-foreground hover:text-foreground"
+                        >
+                          <HelpCircle className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          This position is that one or more of these conditions
+                          will not be met.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            )}
+            <div className="space-y-1">
+              {row.original.legs.map((l, idx) => (
+                <div key={idx} className="text-sm flex items-center gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="font-medium underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors hover:decoration-foreground/60 truncate max-w-[520px] text-left cursor-default"
+                        title={String(l.question)}
+                      >
+                        {l.question}
+                      </button>
+                    </DialogTrigger>
+                    <ConditionDialog
+                      conditionId={l.conditionId}
+                      title={l.question}
+                      endTime={l.endTime}
+                      description={l.description}
+                    />
+                  </Dialog>
+                  <Badge
+                    variant="outline"
+                    className={
+                      l.choice === 'Yes'
+                        ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 shrink-0'
+                        : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 shrink-0'
+                    }
+                  >
+                    {l.choice}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        ),
+      },
+
+      {
+        id: 'counterparty',
+        accessorFn: (row) => row.counterpartyAddress ?? null,
+        enableSorting: false,
+        size: 220,
+        minSize: 160,
+        header: () => <span>Counterparty</span>,
+        cell: ({ row }) =>
+          row.original.counterpartyAddress ? (
+            <div className="whitespace-nowrap text-[15px]">
+              <div className="flex items-center gap-2">
+                <EnsAvatar
+                  address={row.original.counterpartyAddress}
+                  className="w-5 h-5 rounded-sm ring-1 ring-border/50"
+                  width={20}
+                  height={20}
+                />
+                <AddressDisplay
+                  address={row.original.counterpartyAddress}
+                  className="text-[15px]"
+                />
+              </div>
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+
       {
         id: 'wager',
         accessorFn: (row) => {
@@ -577,8 +701,8 @@ export default function UserParlaysTable({
                 : (row.makerCollateralWei ?? row.takerCollateralWei ?? 0n);
           return Number(formatEther(viewerWagerWei));
         },
-        size: 260,
-        minSize: 220,
+        size: 180,
+        minSize: 150,
         header: ({ column }) => (
           <Button
             type="button"
@@ -619,26 +743,13 @@ export default function UserParlaysTable({
                   row.original.takerCollateralWei ??
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
-          const pnlValue = Number(formatEther(BigInt(row.original.userPnL)));
-          const roi = viewerWager > 0 ? (pnlValue / viewerWager) * 100 : 0;
 
           return (
             <div>
               <div className="whitespace-nowrap">
                 <NumberDisplay value={viewerWager} /> {symbol}
               </div>
-              {isClosed ? (
-                row.original.status === 'won' ? (
-                  <div className="text-sm text-muted-foreground mt-0.5 flex items-baseline gap-1 whitespace-nowrap">
-                    Won: <NumberDisplay value={Math.abs(pnlValue)} /> {symbol}
-                    {viewerWager > 0 && (
-                      <span className="text-xs text-green-600">
-                        ({roi.toFixed(2)}%)
-                      </span>
-                    )}
-                  </div>
-                ) : null
-              ) : (
+              {!isClosed && (
                 <div className="text-sm text-muted-foreground mt-0.5 flex items-baseline gap-1 whitespace-nowrap">
                   To Win: <NumberDisplay value={totalPayout} /> {symbol}
                 </div>
@@ -648,52 +759,79 @@ export default function UserParlaysTable({
         },
       },
       {
-        id: 'conditions',
-        accessorFn: (row) => row.legs.length,
-        enableSorting: false,
-        size: 400,
-        minSize: 300,
-        header: () => null,
-        cell: ({ row }) => (
-          <div className="space-y-1">
-            {row.original.addressRole === 'taker' && (
-              <div className="mb-1">
-                <div className="flex items-center gap-1">
-                  <Badge variant="outline">Anti-Parlay</Badge>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Anti-Parlay details"
-                          className="inline-flex items-center justify-center h-5 w-5 text-muted-foreground hover:text-foreground"
-                        >
-                          <HelpCircle className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          This position is that one or more of these conditions
-                          will not be met.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
+        id: 'pnl',
+        accessorFn: (row) => {
+          const pnlValue = Number(formatEther(BigInt(row.userPnL || '0')));
+          return pnlValue;
+        },
+        size: 180,
+        minSize: 150,
+        header: ({ column }) => (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            aria-sort={
+              column.getIsSorted() === false
+                ? 'none'
+                : column.getIsSorted() === 'asc'
+                  ? 'ascending'
+                  : 'descending'
+            }
+          >
+            Profit/Loss
+            {column.getIsSorted() === 'asc' ? (
+              <ArrowUp className="ml-1 h-4 w-4" />
+            ) : column.getIsSorted() === 'desc' ? (
+              <ArrowDown className="ml-1 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
             )}
-            <ParlayLegsList
-              legs={row.original.legs.map((l) => ({
-                shortName: l.question,
-                question: l.question,
-                conditionId: /^0x[0-9a-fA-F]{64}$/.test(String(l.question))
-                  ? l.question
-                  : undefined,
-                choice: l.choice,
-              }))}
-            />
-          </div>
+          </Button>
         ),
+        cell: ({ row }) => {
+          const symbol = 'USDe';
+          const isClosed = row.original.status !== 'active';
+
+          if (!isClosed) {
+            return <span className="text-muted-foreground">Pending</span>;
+          }
+
+          const pnlValue = Number(
+            formatEther(BigInt(row.original.userPnL || '0'))
+          );
+          const viewerWagerWei =
+            row.original.addressRole === 'maker'
+              ? (row.original.makerCollateralWei ?? 0n)
+              : row.original.addressRole === 'taker'
+                ? (row.original.takerCollateralWei ?? 0n)
+                : (row.original.makerCollateralWei ??
+                  row.original.takerCollateralWei ??
+                  0n);
+          const viewerWager = Number(formatEther(viewerWagerWei));
+          const roi = viewerWager > 0 ? (pnlValue / viewerWager) * 100 : 0;
+
+          return (
+            <div>
+              <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+                <span>
+                  {pnlValue >= 0 ? '+' : '-'}
+                  <NumberDisplay value={Math.abs(pnlValue)} /> {symbol}
+                </span>
+                {viewerWager > 0 && (
+                  <span
+                    className={`text-xs ${pnlValue >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                  >
+                    ({roi >= 0 ? '+' : ''}
+                    {roi.toFixed(2)}%)
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        },
       },
 
       {
@@ -722,13 +860,18 @@ export default function UserParlaysTable({
                       connectedAddress &&
                       connectedAddress.toLowerCase() ===
                         String(account || '').toLowerCase();
+                    const isThisTokenClaiming =
+                      isClaimPending && claimingTokenId === res.tokenId;
                     return isOwnerConnected ? (
                       <Button
                         size="sm"
-                        onClick={() => burn(res.tokenId, ZERO_REF_CODE)}
+                        onClick={() => {
+                          setClaimingTokenId(res.tokenId);
+                          burn(res.tokenId, ZERO_REF_CODE);
+                        }}
                         disabled={isClaimPending}
                       >
-                        {isClaimPending ? 'Claiming...' : 'Claim Winnings'}
+                        {isThisTokenClaiming ? 'Claiming...' : 'Claim Winnings'}
                       </Button>
                     ) : (
                       <TooltipProvider>
@@ -772,15 +915,19 @@ export default function UserParlaysTable({
                     connectedAddress &&
                     connectedAddress.toLowerCase() ===
                       String(account || '').toLowerCase();
+                  const isThisTokenClaiming =
+                    isClaimPending &&
+                    claimingTokenId === row.original.tokenIdToClaim;
                   return isOwnerConnected ? (
                     <Button
                       size="sm"
-                      onClick={() =>
-                        burn(row.original.tokenIdToClaim!, ZERO_REF_CODE)
-                      }
+                      onClick={() => {
+                        setClaimingTokenId(row.original.tokenIdToClaim!);
+                        burn(row.original.tokenIdToClaim!, ZERO_REF_CODE);
+                      }}
                       disabled={isClaimPending}
                     >
-                      {isClaimPending ? 'Claiming...' : 'Claim Winnings'}
+                      {isThisTokenClaiming ? 'Claiming...' : 'Claim Winnings'}
                     </Button>
                   ) : (
                     <TooltipProvider>
@@ -864,7 +1011,7 @@ export default function UserParlaysTable({
     getSortedRowModel: getSortedRowModel(),
     columnResizeMode: 'onChange',
     enableColumnResizing: false,
-    getRowId: (row) => String(row.positionId),
+    getRowId: (row) => row.uniqueRowKey,
   });
 
   // Claim button is inlined per row using shared hook to avoid many hook instances

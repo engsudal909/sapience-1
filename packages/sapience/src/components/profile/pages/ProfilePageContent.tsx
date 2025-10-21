@@ -29,6 +29,7 @@ import { useUserParlays } from '~/hooks/graphql/useUserParlays';
 import { SCHEMA_UID } from '~/lib/constants/eas';
 import LottieLoader from '~/components/shared/LottieLoader';
 import EmptyProfileState from '~/components/profile/EmptyProfileState';
+import EmptyTabState from '~/components/shared/EmptyTabState';
 import ProfileStats from '~/components/profile/ProfileStats';
 import ProfileQuickMetrics from '~/components/profile/ProfileQuickMetrics';
 import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
@@ -186,7 +187,7 @@ const ProfilePageContent = () => {
   }, [hasLoadedOnce, hasTrades, hasLp, hasForecasts]);
 
   return (
-    <div className="container max-w-6xl mx-auto py-24 lg:py-32 px-4">
+    <div className="mx-auto py-24 lg:py-32 px-3 md:px-6 lg:px-8 w-full">
       <ShareAfterRedirect address={address} />
       <div className="mb-5 lg:mb-10">
         <ProfileHeader address={address} />
@@ -259,7 +260,7 @@ const ProfilePageContent = () => {
               ) : null}
               {traderPositionsOpen.length === 0 &&
               traderPositionsClosed.length === 0 ? (
-                <EmptyProfileState />
+                <EmptyTabState message="No trades found" />
               ) : null}
             </TabsContent>
 

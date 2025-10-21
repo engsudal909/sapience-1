@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, SquareStackIcon } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +10,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
 import {
   useConditions,
   type ConditionType,
@@ -17,6 +18,7 @@ import {
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
+import ConditionDialog from '~/components/markets/ConditionDialog';
 
 type SuggestedBetslipsProps = {
   onRefresh?: () => void;
@@ -130,7 +132,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
         </div>
       </div>
 
-      <div className="mt-2 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+      <div className="mt-3 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
         {isLoading || combos.length === 0 ? (
           <>
             <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 flex items-center justify-center text-muted-foreground/80">
@@ -166,9 +168,30 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                           marginBottom: -1,
                         }}
                       />
-                      <div className="flex-1 min-w-0 px-3 py-2 flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center justify-between gap-3">
                         <h3 className="text-sm text-foreground truncate">
-                          {leg.condition.shortName || leg.condition.question}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="text-left w-full"
+                              >
+                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors hover:decoration-foreground/60">
+                                  {leg.condition.shortName ||
+                                    leg.condition.question}
+                                </span>
+                              </button>
+                            </DialogTrigger>
+                            <ConditionDialog
+                              conditionId={leg.condition.id}
+                              title={
+                                leg.condition.shortName ||
+                                leg.condition.question
+                              }
+                              endTime={leg.condition.endTime}
+                              description={leg.condition.description}
+                            />
+                          </Dialog>
                         </h3>
                         <span className="relative -top-0.5 ml-2 shrink-0">
                           <Badge
@@ -184,8 +207,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                 ))}
                 <div className="flex items-stretch">
                   <div className="w-1 self-stretch bg-foreground" />
-                  <div className="flex-1 pl-3 pr-2 pb-2 pt-2">
-                    <div className="text-sm mb-2 px-0.5 flex items-center gap-1">
+                  <div className="flex-1 pl-3 pr-2 py-3">
+                    <div className="text-sm mb-2.5 px-0.5 flex items-center gap-1">
                       <span className="text-muted-foreground">
                         Market Prediction:
                       </span>
@@ -203,9 +226,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                       />
                     </div>
                     <Button
-                      className="w-full"
+                      className="w-full gap-2"
                       variant="outline"
-                      size="sm"
                       type="button"
                       onClick={() => {
                         combo.forEach((leg) => {
@@ -218,8 +240,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                         });
                       }}
                     >
-                      <Plus className="w-3 h-3" />
-                      Add Predictions
+                      <SquareStackIcon className="h-4 w-4" />
+                      Pick Parlay
                     </Button>
                   </div>
                 </div>

@@ -31,7 +31,7 @@ export default function BuilderGuideAlert({ className }: BuilderGuideAlertProps)
   return (
     mounted && CalloutCmp ? (
       <CalloutCmp className={className ?? ''} type="info">
-        <strong>We strongly recommend</strong> using Cursor, Codex, Claude Code, or any other LLM-powered code editor. You may be surprised by how far you can get without writing code yourself. <a style={{ textDecoration: 'underline' }} href="/getting-started/quickstart">See Quickstart</a>
+        <strong>We strongly recommend</strong> using Cursor, Codex, Claude Code, or any other LLM-powered code editor. You may be surprised by how far you can get without writing code yourself. <a style={{ textDecoration: 'underline' }} href="/builder-guide/getting-started/get-started">See Get Started</a>
       </CalloutCmp>
     ) : null
   )

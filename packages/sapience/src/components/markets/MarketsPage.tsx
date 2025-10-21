@@ -651,7 +651,7 @@ const MarketsPage = () => {
       <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-16 lg:pb-0">
         {/* Top controls section (not sticky) */}
         <div>
-          <div className="mt-2 md:mt-0 mb-4 md:mb-0">
+          <div className="mt-4 md:mt-0 mb-4 md:mb-0">
             <SearchBar
               isMobile={isMobile}
               value={searchTerm}
@@ -787,7 +787,7 @@ const MarketsPage = () => {
                           (m) => m.optionName === 'No'
                         )?.marketId;
                         return (
-                          <div key={group.key} className="min-h-[160px]">
+                          <div key={group.key} className="md:min-h-[160px]">
                             <MarketCard
                               chainId={group.chainId}
                               marketAddress={group.marketAddress}
@@ -906,7 +906,7 @@ const MarketsPage = () => {
                         : undefined;
                       const color = styleInfo?.color || DEFAULT_CATEGORY_COLOR;
                       return (
-                        <div key={c.id} className="min-h-[100px]">
+                        <div key={c.id} className="md:min-h-[100px]">
                           <ParlayConditionCard condition={c} color={color} />
                         </div>
                       );

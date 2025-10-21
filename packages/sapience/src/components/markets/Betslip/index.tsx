@@ -870,20 +870,21 @@ const Betslip = ({
   if (isCompact) {
     return (
       <>
-        {/* Mobile Bet Slip Button (fixed bottom-center, circular, icon-filled) */}
+        {/* Mobile Bet Slip Button (floating bottom-center, circular, icon-only) */}
         <Drawer open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <DrawerTrigger asChild>
             <Button
-              className="fixed inset-x-0 bottom-0 z-40 lg:hidden h-14 rounded-none shadow-sm overflow-hidden flex items-center justify-center border-t border-border bg-background hover:bg-accent hover:text-accent-foreground transition-colors pointer-events-auto w-full"
-              size="default"
-              variant="secondary"
+              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 lg:hidden rounded-full h-10 w-10 p-0 shadow-md"
+              size="icon"
+              variant="default"
+              aria-label="Open betslip"
             >
               <Image
                 src="/usde.svg"
                 alt="USDe"
-                width={32}
-                height={32}
-                className="h-6 w-6"
+                width={40}
+                height={40}
+                className="h-10 w-10"
               />
             </Button>
           </DrawerTrigger>
@@ -892,7 +893,7 @@ const Betslip = ({
               <DrawerTitle className="text-left"></DrawerTitle>
             </DrawerHeader>
             <div
-              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-14' : 'p-0'} h-full`}
+              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full`}
             >
               <BetslipContent {...contentProps} />
             </div>

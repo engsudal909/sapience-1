@@ -115,6 +115,8 @@ const MarketPageContent = () => {
     marketAddress,
     numericMarketId,
     getPositionById,
+    lpPositionsArray,
+    traderPositionsArray,
     minTick,
     maxTick,
     tickSpacing,
@@ -148,6 +150,12 @@ const MarketPageContent = () => {
 
   // Determine the selected position if positionId exists
   const selectedPosition = positionId ? getPositionById(positionId) : null;
+
+  // Whether the PositionSwitcher will render
+  const hasPositions =
+    (lpPositionsArray?.length || 0) > 0 ||
+    (traderPositionsArray?.length || 0) > 0;
+  const showPositionSwitcher = hasPositions || !!selectedPosition;
 
   // ---- Start: Hoisted OrderBook Data Fetching ----
   const {
@@ -274,7 +282,7 @@ const MarketPageContent = () => {
             <div className="flex items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 overflow-x-auto py-0 pr-2">
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 pt-4">
                     <Button
                       asChild
                       variant="outline"
@@ -295,7 +303,7 @@ const MarketPageContent = () => {
                       <div
                         role="radiogroup"
                         aria-label="Market options"
-                        className="flex items-center gap-3"
+                        className="flex items-center gap-4"
                       >
                         {availableMarkets.map((market: GqlMarketType, idx) => {
                           const isSelected =
@@ -495,7 +503,9 @@ const MarketPageContent = () => {
                       )}
                       <div className="p-4">
                         <PositionSelector />
-                        <div className="mt-3 relative">
+                        <div
+                          className={`${showPositionSwitcher ? 'mt-3' : 'mt-1'} relative`}
+                        >
                           {selectedPosition &&
                             selectedPosition.kind === PositionKind.Trade && (
                               <SimpleTradeWrapper

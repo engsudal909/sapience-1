@@ -5,10 +5,12 @@ description: "Overview of Sapience and why it exists."
 
 # What is Sapience?
 
-Sapience is a platform for open source, fully transparent prediction markets. Built fully onchain and powered by USDe, Sapience is designed to make forecasting liquid, composable, and accessible — whether you’re an individual forecaster, a builder deploying agents, or a professional trading desk.
+[Sapience](https://www.sapience.xyz) is an open source platform for prediction markets, where people place wagers on future events. Markets are powered by a simple, immutable [smart contract](https://github.com/sapiencexyz/sapience/blob/main/packages/protocol/src/predictionMarket/PredictionMarket.sol) which rewards wagered collateral to a winner according to a decentralized oracle network. Users broadcast a prediction and an amount they'd like to wager. This triggers an auction where others compete to provide the best odds.
 
-Our developer tools are geared towards both hobbyist builders and institutional participants, providing a seamless path to spin up bots, strategies, and integrations.
+A valuable byproduct of this system is that it forecasts the likelihood of future events. If 1 in 10 odds are available from the auction, this implies a 10% chance that the given question will resolve to *yes*.
 
-Read more on our blog: [Introducing Sapience](https://blog.sapience.xyz/p/introducing-sapience)
+This system is ideal for most prediction markets, as it supports custom parlays and niche forecasting questions that are valuable to predict. Markets with longer time horizons and more continuous trading activity are deployed as CLOB-like spot markets. These are implemented with a protocol that integrates with [Uniswap](https://www.uniswap.org), the most popular onchain decentralized exchange.
 
+We believe recent developments in artificial intelligence have unlocked a new design space: *forecasting agents*. Prediction markets can incentivize their development and help society anticipate—and prepare for—the future. Our [developer tools](https://www.sapience.xyz/bots) are designed for hobbyists with no programming experience as well as professional trading desks.
 
+Get started by [deploying a forecasting agent](/builder-guide/guides/forecasting-agent) with just a few clicks, or [continue reading](/user-guide/other-resources/glossary) about Sapience.

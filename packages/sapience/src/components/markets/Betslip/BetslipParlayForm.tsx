@@ -267,7 +267,7 @@ export default function BetslipParlayForm({
 
                   return (
                     <div className="mt-3 mb-3">
-                      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-primary/30 bg-primary/10 px-3 py-2.5 w-full min-h-[48px]">
+                      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full min-h-[48px] shadow-[0_0_10px_rgba(136,180,245,0.25)]">
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
                           <Image
                             src="/usde.svg"

@@ -129,10 +129,7 @@ export default function ParlayLegsList({
             const text = leg.shortName || leg.question || leg.conditionId || '';
             const isHexId = /^0x[0-9a-fA-F]{64}$/.test(String(text));
             return (
-              <div
-                key={idx}
-                className="text-sm inline-flex items-center gap-2 shrink-0"
-              >
+              <div key={idx} className="text-sm flex items-center gap-2">
                 {isHexId ? (
                   <Popover>
                     <PopoverTrigger asChild>

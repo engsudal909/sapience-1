@@ -90,8 +90,8 @@ const ForecastPageImp = () => {
   // Show loading state while data is being fetched
   if (isLoading) {
     return (
-      <div className={`min-h-screen bg-transparent pt-24`}>
-        <div className="max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm rounded-t overflow-hidden">
+      <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
+        <div className="max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm md:rounded-t overflow-hidden">
           <TabsHeader
             isAskTooltipOpen={isAskTooltipOpen}
             setIsAskTooltipOpen={setIsAskTooltipOpen}
@@ -109,8 +109,8 @@ const ForecastPageImp = () => {
   // Show error state if data fetching failed
   if (error) {
     return (
-      <div className={`min-h-screen bg-transparent pt-24`}>
-        <div className="max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm rounded-t overflow-hidden">
+      <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
+        <div className="max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm md:rounded-t overflow-hidden">
           <TabsHeader
             isAskTooltipOpen={isAskTooltipOpen}
             setIsAskTooltipOpen={setIsAskTooltipOpen}
@@ -183,10 +183,10 @@ const ForecastPageImp = () => {
     'hover:bg-muted/50 text-muted-foreground hover:text-foreground';
 
   return (
-    <div className={`min-h-screen bg-transparent pt-24`}>
+    <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
       {/* Main content container with Twitter-like layout */}
       <div
-        className={`max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm rounded-t overflow-hidden`}
+        className={`max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm md:rounded-t overflow-hidden`}
       >
         <>
           {/* Tabs */}
@@ -201,7 +201,7 @@ const ForecastPageImp = () => {
           </div>
 
           {/* Market Selector (direct market search) - always visible */}
-          <div className="backdrop-blur-sm relative z-50">
+          <div className="relative z-50">
             <div className="p-6 pb-0">
               <QuestionSelect
                 key={selectedMarket?.id || 'no-selection'}

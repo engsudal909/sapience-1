@@ -6,10 +6,10 @@ export default function ElizaHomepageFeature() {
     <div>
       {/* ElizaOS Section */}
       <section className="pt-8 lg:pt-12 pb-8 lg:pb-12 px-4 sm:px-6 w-full">
-        <div className="max-w-6xl mx-auto w-full">
+        <div className="max-w-5xl mx-auto w-full">
           <div className="flex flex-col-reverse lg:flex-row gap-8 lg:gap-28 lg:items-center lg:justify-center">
             {/* Left side: Explanatory text and CTAs */}
-            <div className="w-full lg:w-3/5 lg:max-w-[370px] text-left lg:text-inherit">
+            <div className="w-full lg:w-3/5 lg:max-w-[420px] text-left lg:text-inherit">
               <div className="mb-6">
                 <Image
                   src="/elizaos-logo.svg"
@@ -20,12 +20,13 @@ export default function ElizaHomepageFeature() {
                 />
               </div>
               <p className="text-muted-foreground text-lg mb-6">
-                Build AI agents that forecast the future and participate in
-                prediction markets using the ElizaOS plug-in.
+                Deploy an AI agent that conducts research and generates
+                predictions in minutes. Add your own edge and have it
+                participate in prediction markets.
               </p>
               <div className="pt-2 gap-2 flex flex-wrap justify-start">
                 <a
-                  href="https://eliza.how/"
+                  href="https://docs.sapience.xyz/builder-guide/guides/forecasting-agent"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -41,7 +42,7 @@ export default function ElizaHomepageFeature() {
                   </Button>
                 </a>
                 <a
-                  href="https://github.com/sapiencexyz/sage"
+                  href="https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ml-3 sm:ml-5"

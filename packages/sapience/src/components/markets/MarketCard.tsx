@@ -282,12 +282,12 @@ const MarketCard = ({
 
           <div className={`mt-auto px-4 pt-0 ${bottomPaddingClass}`}>
             <div
-              className="text-xs md:text-sm text-muted-foreground w-full mb-3"
+              className="text-sm text-muted-foreground w-full mb-3"
               style={{
                 visibility: canShowPredictionElement ? 'visible' : 'hidden',
               }}
             >
-              <div className="truncate whitespace-nowrap min-w-0 h-4 md:h-5 flex items-center">
+              <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center">
                 <span className="text-muted-foreground mr-0.5">
                   Market Prediction:
                 </span>

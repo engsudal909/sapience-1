@@ -7,6 +7,8 @@ import { ApolloServer } from '@apollo/server';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import responseCachePlugin from '@apollo/server-plugin-response-cache';
 import depthLimit from 'graphql-depth-limit';
+import { createComplexityLimitRule } from 'graphql-validation-complexity';
+import Sentry from '../instrument';
 
 // Import only the query (read-only) resolvers from generated TypeGraphQL
 import {
@@ -227,7 +229,14 @@ export const initializeApolloServer = async () => {
     emitSchemaFile: true,
   });
 
-  // Create Apollo Server with the combined schema and depth limit
+  // Get max complexity from environment variable or use default
+  const maxComplexity = process.env.GRAPHQL_MAX_COMPLEXITY
+    ? parseInt(process.env.GRAPHQL_MAX_COMPLEXITY, 10)
+    : 4000;
+
+  console.log(`GraphQL query complexity limit set to: ${maxComplexity}`);
+
+  // Create Apollo Server with the combined schema, depth limit, and query complexity limit
   const apolloServer = new ApolloServer({
     schema,
     formatError: (error) => {
@@ -235,7 +244,47 @@ export const initializeApolloServer = async () => {
       return error;
     },
     introspection: true,
-    validationRules: [depthLimit(5)],
+    validationRules: [
+      depthLimit(5),
+      createComplexityLimitRule(maxComplexity, {
+        scalarCost: 1, // Cost per scalar field
+        objectCost: 0, // Cost per object (we count fields instead)
+        listFactor: 10, // Multiply cost by 10 for lists
+        onCost: (cost: number) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Query complexity: ${cost}`);
+          }
+        },
+        createError: (max: number, actual: number) => {
+          const errorMessage = `Query complexity limit exceeded. Maximum allowed: ${max}, Actual: ${actual}`;
+          const exceededBy = actual - max;
+
+          console.error(
+            `Complexity limit exceeded! Max: ${max}, Actual: ${actual} (exceeded by ${exceededBy})`
+          );
+
+          //only report to Sentry if complexity is significantly exceeded (>50% over limit)
+          const exceededThreshold = max * 1.5;
+          if (actual > exceededThreshold) {
+            Sentry.captureException(new Error(errorMessage), {
+              level: 'warning',
+              tags: {
+                type: 'query_complexity_exceeded',
+                graphql: 'validation',
+              },
+              extra: {
+                maxComplexity: max,
+                actualComplexity: actual,
+                exceededBy,
+                exceededByPercent: Math.round((exceededBy / max) * 100),
+              },
+            });
+          }
+
+          return new Error(errorMessage);
+        },
+      }),
+    ],
     plugins: [
       ApolloServerPluginLandingPageLocalDefault({
         embed: true,

@@ -32,7 +32,7 @@ export default function QuoteDisplay({
   if (isCompact) {
     if (isLoading) {
       return (
-        <div className="mt-1.5 text-right text-xs">
+        <div className="mt-1.5 mb-2 text-right text-xs">
           <span className="font-medium text-foreground">{labelText}</span>{' '}
           <span className="text-muted-foreground">Loading...</span>
         </div>
@@ -40,7 +40,7 @@ export default function QuoteDisplay({
     }
     if (quoteError) {
       return (
-        <div className="mt-1.5 text-right text-xs text-destructive">
+        <div className="mt-1.5 mb-2 text-right text-xs text-destructive">
           {quoteError}
         </div>
       );
@@ -48,7 +48,7 @@ export default function QuoteDisplay({
     if (!quoteData) return null;
 
     return (
-      <div className="mt-1.5 text-right text-xs">
+      <div className="mt-1.5 mb-2 text-right text-xs">
         <span className="font-medium text-foreground">{labelText}</span>{' '}
         <span className="text-foreground inline-flex items-center gap-1">
           {(() => {
@@ -83,7 +83,7 @@ export default function QuoteDisplay({
   if (isLoading) {
     return (
       <div className="mt-3">
-        <div className="flex items-center gap-2 rounded-md border-[1.5px] border-primary/30 bg-primary/10 px-3 py-2.5 w-full whitespace-nowrap h-12">
+        <div className="flex items-center gap-2 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full whitespace-nowrap h-12 shadow-[0_0_10px_rgba(136,180,245,0.25)]">
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
             <Image
               src="/usde.svg"
@@ -120,7 +120,7 @@ export default function QuoteDisplay({
 
   return (
     <div className="mt-3">
-      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-primary/30 bg-primary/10 px-3 py-2.5 w-full whitespace-nowrap h-12">
+      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full whitespace-nowrap h-12 shadow-[0_0_10px_rgba(136,180,245,0.25)]">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
           <Image
             src="/usde.svg"

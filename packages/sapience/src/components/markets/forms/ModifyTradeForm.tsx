@@ -483,7 +483,7 @@ const ModifyTradeFormInternal: React.FC<ModifyTradeFormProps> = ({
             <div
               role="radiogroup"
               aria-label="Prediction"
-              className="grid grid-cols-2 gap-2 mt-2"
+              className="grid grid-cols-2 gap-4 mt-2 mb-4"
             >
               <ColoredRadioOption
                 label="Yes"
