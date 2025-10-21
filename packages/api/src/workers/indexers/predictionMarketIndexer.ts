@@ -1040,7 +1040,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         timestamp: Number(block.timestamp),
       };
 
-      // Skip duplicates
       const orderCancelledKey = {
         transactionHash: log.transactionHash || '',
         blockNumber: Number(log.blockNumber || 0),
