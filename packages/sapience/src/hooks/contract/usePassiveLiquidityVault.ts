@@ -37,6 +37,7 @@ const hasFunction = (name: string, inputsLength?: number) => {
 export interface VaultData {
   totalAssets: bigint;
   totalSupply: bigint;
+  totalDeployed: bigint;
   utilizationRate: bigint;
   maxUtilizationRate: bigint;
   withdrawalDelay: bigint;
@@ -107,6 +108,12 @@ export function usePassiveLiquidityVault(
         abi: PARLAY_VAULT_ABI,
         address: VAULT_ADDRESS,
         functionName: 'totalSupply',
+        chainId: TARGET_CHAIN_ID,
+      },
+      {
+        abi: PARLAY_VAULT_ABI,
+        address: VAULT_ADDRESS,
+        functionName: 'totalDeployed',
         chainId: TARGET_CHAIN_ID,
       },
       {
@@ -311,15 +318,16 @@ export function usePassiveLiquidityVault(
     ? {
         totalAssets: (vaultData[0]?.result as bigint) || 0n,
         totalSupply: (vaultData[1]?.result as bigint) || 0n,
-        utilizationRate: (vaultData[2]?.result as bigint) || 0n,
-        maxUtilizationRate: (vaultData[3]?.result as bigint) || 0n,
-        withdrawalDelay: (vaultData[4]?.result as bigint) || 0n,
-        paused: (vaultData[5]?.result as boolean) || false,
+        totalDeployed: (vaultData[2]?.result as bigint) || 0n,
+        utilizationRate: (vaultData[3]?.result as bigint) || 0n,
+        maxUtilizationRate: (vaultData[4]?.result as bigint) || 0n,
+        withdrawalDelay: (vaultData[5]?.result as bigint) || 0n,
+        paused: (vaultData[6]?.result as boolean) || false,
         manager:
-          (vaultData[6]?.result as Address) ||
+          (vaultData[7]?.result as Address) ||
           '0x0000000000000000000000000000000000000000',
         asset:
-          (vaultData[7]?.result as Address) ||
+          (vaultData[8]?.result as Address) ||
           '0x0000000000000000000000000000000000000000',
       }
     : null;
@@ -438,7 +446,7 @@ export function usePassiveLiquidityVault(
   const assetDecimals = (assetBalance?.[1]?.result as number) || 18;
   const userAssetBalance = (assetBalance?.[0]?.result as bigint) || 0n;
   const currentAllowance = (assetBalance?.[2]?.result as bigint) || 0n;
-  const minDeposit = (vaultData?.[8]?.result as bigint) || 0n; // MIN_DEPOSIT
+  const minDeposit = (vaultData?.[9]?.result as bigint) || 0n; // MIN_DEPOSIT
 
   // Queue details parsing (preserve ordering: [withdrawal?, deposit?])
   const parsedWithdrawalRequest: WithdrawalRequestDetails | null =
@@ -582,6 +590,21 @@ export function usePassiveLiquidityVault(
       }
     })();
   }, [wsQuote.raw, vaultManager]);
+
+  // Poll pending request status every 5 seconds when there's an active pending request
+  useEffect(() => {
+    if (!pendingRequest || pendingRequest.processed) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      refetchPendingMapping?.();
+      refetchUserData();
+      refetchVaultData();
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [pendingRequest, refetchPendingMapping, refetchUserData, refetchVaultData]);
 
   const hasFunctionCb = useCallback(hasFunction, []);
 
