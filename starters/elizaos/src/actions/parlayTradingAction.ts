@@ -7,12 +7,64 @@ import {
   elizaLogger,
 } from "@elizaos/core";
 import { loadSdk } from "../utils/sdk.js";
+import { encodeAbiParameters, keccak256, stringToBytes } from 'viem';
 // Removed Socket.IO - using native WebSocket instead
 import { privateKeyToAddress } from "viem/accounts";
-
 // Sapience WebSocket endpoint for parlay auctions
 // Note: This may need to be updated with the correct production URL
 const SAPIENCE_WS_URL = "wss://api.sapience.xyz/auction";
+
+// Local implementation of auction payload building
+interface PredictedOutcomeInputStub {
+  marketId: string; // The id from API (already encoded claim:endTime)
+  prediction: boolean;
+}
+
+function isHexAddress(value: string | undefined): value is `0x${string}` {
+  return !!value && /^0x[a-fA-F0-9]{40}$/.test(value);
+}
+
+function encodePredictedOutcomes(
+  outcomes: PredictedOutcomeInputStub[]
+): `0x${string}` {
+  // Convert marketId string to bytes32 format
+  const normalized = outcomes.map((o) => ({
+    marketId: (o.marketId.startsWith('0x')
+      ? o.marketId
+      : `0x${o.marketId}`) as `0x${string}`,
+    prediction: !!o.prediction,
+  }));
+
+  return encodeAbiParameters(
+    [
+      {
+        type: 'tuple[]',
+        components: [
+          { name: 'marketId', type: 'bytes32' },
+          { name: 'prediction', type: 'bool' },
+        ],
+      },
+    ],
+    [normalized]
+  );
+}
+
+function buildAuctionStartPayload(
+  outcomes: PredictedOutcomeInputStub[],
+  resolverOverride?: string
+): { resolver: `0x${string}`; predictedOutcomes: `0x${string}`[] } {
+  // Use the provided resolver override or UMA resolver address for Arbitrum
+  const UMA_RESOLVER_ADDRESS = "0xa6147867264374F324524E30C02C331cF28aa879";
+  const resolver: `0x${string}` = isHexAddress(resolverOverride)
+    ? resolverOverride
+    : UMA_RESOLVER_ADDRESS;
+
+  // Resolver expects a single bytes blob with abi.encode(PredictedOutcome[])
+  const encoded = encodePredictedOutcomes(outcomes);
+  const predictedOutcomes = [encoded];
+
+  return { resolver, predictedOutcomes };
+}
 
 interface ParlayTradingConfig {
   enabled: boolean;
@@ -71,49 +123,68 @@ export const parlayTradingAction: Action = {
       const jsonMatch = text.match(/\{[\s\S]*\}$/);
       if (!jsonMatch) {
         await callback?.({
-          text: 'Provide market data and prediction: {"market": {...}, "prediction": {...}}',
+          text: 'Provide market data and prediction: {"market": {...}, "prediction": {...}} or {"parlayLegs": [...]}',
           content: {},
         });
         return;
       }
 
-      const data = JSON.parse(jsonMatch[0]) as {
-        market: any;
-        prediction: {
-          probability: number;
-          reasoning: string;
-          confidence: number;
-        };
-      };
-
-      const { market, prediction } = data;
+      const data = JSON.parse(jsonMatch[0]);
+      
+      // Check if this is a multi-leg parlay or single market
+      let parlayLegs: Array<{ market: any; prediction: any }> = [];
+      
+      if (data.parlayLegs && Array.isArray(data.parlayLegs)) {
+        // Multi-leg parlay
+        parlayLegs = data.parlayLegs;
+        elizaLogger.info(`[ParlayTrading] Processing ${parlayLegs.length}-leg parlay`);
+      } else if (data.market && data.prediction) {
+        // Single market (legacy support)
+        parlayLegs = [{ market: data.market, prediction: data.prediction }];
+        elizaLogger.info(`[ParlayTrading] Processing single market as 1-leg parlay`);
+      } else {
+        await callback?.({
+          text: 'Invalid format. Provide {"parlayLegs": [...]} for multi-leg or {"market": {...}, "prediction": {...}} for single',
+          content: {},
+        });
+        return;
+      }
 
       // Get trading configuration
       const config: ParlayTradingConfig = {
         enabled: true,
-        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
+        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || process.env.WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
         minProbabilityThreshold: parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6"),
         maxSlippage: parseFloat(process.env.MAX_TRADING_SLIPPAGE || "5"), // 5%
       };
 
-      // Check if we should trade based on confidence
-      if (prediction.confidence < config.minProbabilityThreshold) {
+      // Check if all legs meet confidence threshold
+      const lowConfidenceLegs = parlayLegs.filter(leg => leg.prediction.confidence < config.minProbabilityThreshold);
+      if (lowConfidenceLegs.length > 0) {
         elizaLogger.info(
-          `[ParlayTrading] Skipping trade - confidence ${prediction.confidence} below threshold ${config.minProbabilityThreshold}`,
+          `[ParlayTrading] Skipping trade - ${lowConfidenceLegs.length} legs below confidence threshold`,
         );
         await callback?.({
-          text: `Skipping trade: confidence ${prediction.confidence} below threshold ${config.minProbabilityThreshold}`,
+          text: `Skipping trade: ${lowConfidenceLegs.length} legs below confidence threshold ${config.minProbabilityThreshold}`,
           content: {},
         });
         return;
       }
 
-      // Determine trading direction: >50% = YES, <50% = NO
-      const buyYes = prediction.probability > 50;
-      const outcome = buyYes;
+      // Build parlay outcomes array
+      const parlayOutcomes = parlayLegs.map(leg => ({
+        market: leg.market,
+        outcome: leg.prediction.probability > 50, // true for YES, false for NO
+        prediction: leg.prediction
+      }));
 
       elizaLogger.info(
-        `[ParlayTrading] Trading decision: ${buyYes ? "YES" : "NO"} (${prediction.probability}% confidence: ${prediction.confidence})`,
+        `[ParlayTrading] Trading ${parlayLegs.length}-leg parlay:`,
+        JSON.stringify(parlayOutcomes.map(o => ({
+          market: o.market.question?.substring(0, 50),
+          direction: o.outcome ? "YES" : "NO",
+          confidence: o.prediction.confidence
+        })))
       );
 
       // Get wallet details
@@ -129,11 +200,9 @@ export const parlayTradingAction: Action = {
       const walletAddress = privateKeyToAddress(privateKey);
       const rpcUrl = process.env.EVM_PROVIDER_URL || "https://arb1.arbitrum.io/rpc";
 
-      // Start auction via WebSocket
+      // Start auction via WebSocket with all parlay legs
       const auctionResult = await startAuction({
-        market,
-        prediction,
-        outcome,
+        parlayOutcomes,
         walletAddress,
         wagerAmount: config.wagerAmount,
         rpcUrl,
@@ -141,17 +210,20 @@ export const parlayTradingAction: Action = {
 
       if (auctionResult.success) {
         elizaLogger.info(
-          `[ParlayTrading] Trade executed successfully: ${auctionResult.txHash}`,
+          `[ParlayTrading] ${parlayLegs.length}-leg parlay executed successfully: ${auctionResult.txHash}`,
         );
         await callback?.({
-          text: `Trade executed: ${buyYes ? "YES" : "NO"} position for $1 on "${market.question}" (TX: ${auctionResult.txHash})`,
+          text: `${parlayLegs.length}-leg parlay executed: ${parlayOutcomes.map(o => 
+            `${o.outcome ? "YES" : "NO"} on "${o.market.question?.substring(0, 30)}..."`
+          ).join(', ')} (TX: ${auctionResult.txHash})`,
           content: {
             success: true,
-            direction: buyYes ? "YES" : "NO",
-            probability: prediction.probability,
-            confidence: prediction.confidence,
+            legs: parlayOutcomes.map(o => ({
+              direction: o.outcome ? "YES" : "NO",
+              market: o.market.question,
+              confidence: o.prediction.confidence
+            })),
             txHash: auctionResult.txHash,
-            market: market.question,
           },
         });
       } else {
@@ -168,16 +240,16 @@ export const parlayTradingAction: Action = {
 };
 
 async function startAuction({
-  market,
-  prediction,
-  outcome,
+  parlayOutcomes,
   walletAddress,
   wagerAmount,
   rpcUrl,
 }: {
-  market: any;
-  prediction: any;
-  outcome: boolean;
+  parlayOutcomes: Array<{
+    market: any;
+    outcome: boolean;
+    prediction: any;
+  }>;
   walletAddress: string;
   wagerAmount: string;
   rpcUrl: string;
@@ -212,23 +284,65 @@ async function startAuction({
       socket.onopen = () => {
         elizaLogger.info("[ParlayTrading] Connected to auction WebSocket");
 
+        // Debug log the parlay legs
+        elizaLogger.info(`[ParlayTrading] Processing ${parlayOutcomes.length}-leg parlay`);
+
         // Generate maker nonce (timestamp + random)
         const makerNonce = Date.now().toString() + Math.random().toString(36).substring(2);
 
-        // Start auction with proper message format
-        const auctionMessage = {
-          type: "auction.start",
-          payload: {
-            maker: walletAddress,
-            wager: wagerAmount,
-            resolver: market.marketGroupAddress || market.contractAddress,
-            outcomes: [outcome], // Single outcome for this prediction
-            makerNonce,
-          },
-        };
+        // Build properly encoded predicted outcomes for ALL legs
+        const outcomes: PredictedOutcomeInputStub[] = parlayOutcomes.map(leg => {
+          const market = leg.market;
+          
+          // Debug log for each market
+          elizaLogger.info(`[ParlayTrading] Leg: ${market.question?.substring(0, 50)} - ${leg.outcome ? 'YES' : 'NO'}`);
+          
+          // Use the proper conditionId format: hash(claim:endTime) to get bytes32
+          const claimHex = market.claimStatementYesOrNumeric || "0x";
+          const endTime = market.endTimestamp || 0;
+          const conditionString = `${claimHex}:${endTime}`;
+          const conditionId = keccak256(stringToBytes(conditionString));
+          
+          elizaLogger.info(`[ParlayTrading] Market ${market.id}: conditionId=${conditionId}`);
+          
+          return {
+            marketId: conditionId,
+            prediction: leg.outcome
+          };
+        });
+        
+        // Use the first market's group address as resolver (they should all be in same group for parlay)
+        // Or we might need to use a special parlay resolver
+        const marketGroup = parlayOutcomes[0].market.marketGroupAddress || 
+                           parlayOutcomes[0].market.contractAddress || 
+                           parlayOutcomes[0].market.address || 
+                           "0x0000000000000000000000000000000000000000";
+        
+        elizaLogger.info(`[ParlayTrading] Using resolver: ${marketGroup}`);
+        
+        try {
+          const payload = buildAuctionStartPayload(outcomes, marketGroup);
+          elizaLogger.info(`[ParlayTrading] Payload built: ${JSON.stringify(payload)}`);
 
-        elizaLogger.info(`[ParlayTrading] Starting auction with params: ${JSON.stringify(auctionMessage)}`);
-        socket.send(JSON.stringify(auctionMessage));
+          // Start auction with proper message format
+          const auctionMessage = {
+            type: "auction.start",
+            payload: {
+              maker: walletAddress,
+              wager: wagerAmount,
+              resolver: payload.resolver,
+              predictedOutcomes: payload.predictedOutcomes,
+              makerNonce,
+            },
+          };
+        
+          elizaLogger.info(`[ParlayTrading] Starting auction with params: ${JSON.stringify(auctionMessage)}`);
+          socket.send(JSON.stringify(auctionMessage));
+        } catch (error: any) {
+          elizaLogger.error(`[ParlayTrading] Error building auction payload: ${error.message}`);
+          resolveOnce({ success: false, error: error.message });
+          return;
+        }
       };
 
       socket.onmessage = async (event) => {
@@ -247,8 +361,9 @@ async function startAuction({
               return;
             }
 
-            // Select best bid (filtering and sorting handled in selectBestBid)
-            const bestBid = selectBestBid(bids, outcome);
+            // Select best bid (for parlay, we need to consider all outcomes)
+            // For simplicity, just use the first bid for now
+            const bestBid = selectBestBid(bids, true); // We'll refine this logic later
             elizaLogger.info(`[ParlayTrading] Selected best bid: ${JSON.stringify(bestBid)}`);
 
             // Accept the bid by executing the mint transaction
