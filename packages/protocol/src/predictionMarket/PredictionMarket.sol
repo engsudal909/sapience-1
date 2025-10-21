@@ -134,6 +134,8 @@ contract PredictionMarket is
         if (mintPredictionRequestData.makerNonce != nonces[mintPredictionRequestData.maker]) {
             revert InvalidMakerNonce();
         }
+        // Increment the maker nonce
+        nonces[mintPredictionRequestData.maker]++;
         bytes32 messageHash = keccak256(
             abi.encode(
                 mintPredictionRequestData.encodedPredictedOutcomes,
@@ -170,8 +172,7 @@ contract PredictionMarket is
             }
         }
 
-        // 3- Increment nonce and collect collateral
-        nonces[mintPredictionRequestData.maker]++;
+        // 3- Collect collateral
         _safeTransferIn(
             config.collateralToken,
             mintPredictionRequestData.maker,
