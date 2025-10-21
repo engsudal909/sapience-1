@@ -604,7 +604,12 @@ export function usePassiveLiquidityVault(
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(interval);
-  }, [pendingRequest, refetchPendingMapping, refetchUserData, refetchVaultData]);
+  }, [
+    pendingRequest,
+    refetchPendingMapping,
+    refetchUserData,
+    refetchVaultData,
+  ]);
 
   const hasFunctionCb = useCallback(hasFunction, []);
 

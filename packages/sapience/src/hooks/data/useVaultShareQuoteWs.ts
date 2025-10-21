@@ -47,7 +47,7 @@ export function useVaultShareQuoteWs(
         u.searchParams.set('v', '1');
         const finalUrl = u.toString();
         return finalUrl;
-      } catch (e) {
+      } catch {
         return url;
       }
     }

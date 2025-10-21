@@ -359,12 +359,12 @@ const VaultsPageContent = () => {
               !isConnected ||
               !depositAmount ||
               isVaultPending ||
-              vaultData?.paused ||
+              !!vaultData?.paused ||
               belowMinDeposit ||
               !pricePerShare ||
               pricePerShare === '0' ||
               isInteractionDelayActive ||
-              (pendingRequest && !pendingRequest.processed)
+              !!(pendingRequest && !pendingRequest.processed)
             }
             onClick={async () => {
               setPendingAction('deposit');
@@ -464,11 +464,11 @@ const VaultsPageContent = () => {
               !isConnected ||
               !withdrawAmount ||
               isVaultPending ||
-              vaultData?.paused ||
+              !!vaultData?.paused ||
               !pricePerShare ||
               pricePerShare === '0' ||
               isInteractionDelayActive ||
-              (pendingRequest && !pendingRequest.processed) ||
+              !!(pendingRequest && !pendingRequest.processed) ||
               withdrawExceedsShareBalance
             }
             onClick={async () => {
