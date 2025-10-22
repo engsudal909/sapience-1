@@ -693,7 +693,7 @@ const Admin = () => {
               >
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
-                    <RefreshCw className="mr-1 h-4 w-4" />
+                    <RefreshCw className="mr-1 h-4 w-4 text-accent-gold" />
                     Reindex Factory
                   </Button>
                 </DialogTrigger>

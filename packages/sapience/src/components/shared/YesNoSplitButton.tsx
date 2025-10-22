@@ -52,7 +52,9 @@ export default function YesNoSplitButton({
   );
 
   return (
-    <div className={cn(fullWidth ? 'flex w-full gap-3' : 'flex gap-3', className)}>
+    <div
+      className={cn(fullWidth ? 'flex w-full gap-3' : 'flex gap-3', className)}
+    >
       <button
         type="button"
         onClick={onYes}
@@ -67,7 +69,9 @@ export default function YesNoSplitButton({
       >
         {hasOdds ? (
           <span className="flex flex-col items-center justify-center translate-y-[1px]">
-            <span className="leading-none whitespace-nowrap">{yesLabel ?? 'Yes'}</span>
+            <span className="leading-none whitespace-nowrap">
+              {yesLabel ?? 'Yes'}
+            </span>
             {yesOddsText ? (
               <span className="text-[8px] leading-none text-emerald-900/80 dark:text-white/80 mt-0.5">
                 {yesOddsText}
@@ -92,7 +96,9 @@ export default function YesNoSplitButton({
       >
         {hasOdds ? (
           <span className="flex flex-col items-center justify-center translate-y-[1px]">
-            <span className="leading-none whitespace-nowrap">{noLabel ?? 'No'}</span>
+            <span className="leading-none whitespace-nowrap">
+              {noLabel ?? 'No'}
+            </span>
             {noOddsText ? (
               <span className="text-[8px] leading-none text-rose-900/80 dark:text-white/80 mt-0.5">
                 {noOddsText}

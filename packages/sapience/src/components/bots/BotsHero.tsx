@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
 // Hero section for the bots page - smaller than homepage hero but still exciting
 export default function BotsHero() {
   // Removed Spline iframe background

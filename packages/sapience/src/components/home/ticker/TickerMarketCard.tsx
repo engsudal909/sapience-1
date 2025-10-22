@@ -2,11 +2,10 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
-import ConditionDialog from '~/components/markets/ConditionDialog';
 
 export interface TickerMarketCardProps {
   condition: {
@@ -19,9 +18,10 @@ export interface TickerMarketCardProps {
   color: string;
 }
 
-const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition, color }) => {
+const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
   const { id, question, shortName, endTime, description } = condition;
-  const { addParlaySelection, removeParlaySelection, parlaySelections } = useBetSlipContext();
+  const { addParlaySelection, removeParlaySelection, parlaySelections } =
+    useBetSlipContext();
 
   const displayQ = shortName || question;
 
@@ -46,7 +46,13 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition, color })
       question: displayQ,
       prediction: true,
     });
-  }, [id, displayQ, parlaySelections, removeParlaySelection, addParlaySelection]);
+  }, [
+    id,
+    displayQ,
+    parlaySelections,
+    removeParlaySelection,
+    addParlaySelection,
+  ]);
 
   const handleNo = React.useCallback(() => {
     if (!id) return;
@@ -60,7 +66,13 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition, color })
       question: displayQ,
       prediction: false,
     });
-  }, [id, displayQ, parlaySelections, removeParlaySelection, addParlaySelection]);
+  }, [
+    id,
+    displayQ,
+    parlaySelections,
+    removeParlaySelection,
+    addParlaySelection,
+  ]);
 
   return (
     <div className="w-auto max-w-[85vw] md:max-w-[640px] font-mono">
@@ -72,31 +84,15 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition, color })
       >
         <div className="flex-1 flex flex-col">
           <div className="group">
-            <div className="px-4 pt-1 pb-0">
-              <h3 className="text-base leading-snug">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button type="button" className="text-left w-full">
-                      <span
-                        className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80"
-                        style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {displayQ}
-                      </span>
-                    </button>
-                  </DialogTrigger>
-                  <ConditionDialog
-                    conditionId={id}
-                    title={displayQ}
-                    endTime={endTime}
-                    description={description}
-                  />
-                </Dialog>
+            <div className="px-4 pt-1 pb-2">
+              <h3 className="text-base leading-snug min-w-0">
+                <ConditionTitleLink
+                  conditionId={id}
+                  title={displayQ}
+                  endTime={endTime}
+                  description={description}
+                  clampLines={2}
+                />
               </h3>
             </div>
           </div>
@@ -126,5 +122,3 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition, color })
 };
 
 export default TickerMarketCard;
-
-

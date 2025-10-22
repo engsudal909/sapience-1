@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { MarketGroupType } from '@sapience/sdk/types';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { WagerInput } from '~/components/markets/forms';
 import QuoteDisplay from '~/components/markets/forms/shared/QuoteDisplay';
 import { useWagerFlip } from '~/lib/context/WagerFlipContext';
@@ -120,17 +121,24 @@ export default function IndividualPositionRow({
   return (
     <div className="border-b border-border last:border-b-0">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <h3 className="text-md text-foreground pr-2 whitespace-normal break-words">
-            {question}
-            {'\u00A0'}
-            <span className="relative -top-[0.75px]">
-              <ReadOnlyPredictionBadge
-                positionId={positionId}
-                marketClassification={marketClassification}
-              />
-            </span>
-          </h3>
+        <div className="flex-1 min-w-0">
+          <div className="text-md text-foreground pr-2">
+            <ConditionTitleLink
+              conditionId={undefined}
+              title={question}
+              endTime={undefined}
+              description={undefined}
+              clampLines={null}
+              trailing={
+                <span className="relative -top-[0.75px]">
+                  <ReadOnlyPredictionBadge
+                    positionId={positionId}
+                    marketClassification={marketClassification}
+                  />
+                </span>
+              }
+            />
+          </div>
         </div>
         <button
           onClick={onRemove}

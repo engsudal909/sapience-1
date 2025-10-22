@@ -8,5 +8,3 @@ export const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export default ibmPlexMono;
-
-

@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { Vault as VaultIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
 import NumberDisplay from '~/components/shared/NumberDisplay';
@@ -225,7 +225,6 @@ const VaultsPageContent = () => {
       return false;
     }
   }, [withdrawSharesWei, userData]);
-
 
   // Live cooldown countdown (HH:MM:SS)
   const [cooldownDisplay, setCooldownDisplay] = useState<string>('');

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import * as React from 'react';
@@ -13,6 +12,7 @@ import { useMarketGroupChartData } from '~/hooks/graphql/useMarketGroupChartData
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { DEFAULT_WAGER_AMOUNT } from '~/lib/utils/betslipUtils';
 import { useSettings } from '~/lib/context/SettingsContext';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 export interface MarketCardProps {
   chainId: number;
@@ -20,7 +20,7 @@ export interface MarketCardProps {
   market: MarketWithContext;
   yesMarketId?: number;
   noMarketId?: number;
-  color: string;
+  color?: string;
   displayQuestion: string;
   isActive?: boolean;
   marketClassification?: MarketGroupClassification;
@@ -33,7 +33,6 @@ const MarketCard = ({
   market,
   yesMarketId,
   noMarketId,
-  color,
   displayQuestion,
   isActive,
   marketClassification,
@@ -247,29 +246,19 @@ const MarketCard = ({
         transition={{ duration: 0.35, ease: 'easeOut' }}
         className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
-
         <div className="flex-1 flex flex-col h-full">
           <div className="block group">
             <div className="transition-colors">
               <div className="flex flex-col px-4 py-3 gap-3">
                 <div className="flex flex-col min-w-0 flex-1">
-                  <h3 className="leading-snug min-h-[44px]">
-                    <Link
-                      href={`/markets/${chainShortName}:${marketAddress}`}
-                      className="group"
-                    >
-                      <span
-                        className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80"
-                        style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {displayQuestion}
-                      </span>
-                    </Link>
+                  <h3 className="leading-snug min-h-[44px] min-w-0">
+                    <ConditionTitleLink
+                      conditionId={undefined}
+                      title={displayQuestion}
+                      endTime={undefined}
+                      description={undefined}
+                      clampLines={2}
+                    />
                   </h3>
                   {/* Market Prediction moved to bottom action section */}
                 </div>

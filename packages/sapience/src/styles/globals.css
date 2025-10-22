@@ -8,6 +8,7 @@
 
 @layer base {
   :root {
+    --form-foreground: var(--foreground);
     --background: 0 0% 99%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -62,6 +63,7 @@
     --radius: 0.5rem;
   }
   .dark {
+    --form-foreground: var(--brand-white);
     --background: 60 5% 8%;
     --foreground: 37 41% 83%;
     --card: 222 14% 8%;
@@ -134,46 +136,116 @@
     scrollbar-width: none; /* Firefox */
   }
   @keyframes arrow-pulse {
-    0% { opacity: 0.5; }
-    20% { opacity: 0.8; }
-    40% { opacity: 0.5; }
-    100% { opacity: 0.5; }
+    0% {
+      opacity: 0.5;
+    }
+    20% {
+      opacity: 0.8;
+    }
+    40% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 0.5;
+    }
   }
   .animate-arrow-pulse {
     animation: arrow-pulse 2.4s ease-in-out infinite;
   }
   @keyframes overlay-pulse {
-    0% { opacity: 0.04; }
-    50% { opacity: 0.052; }
-    100% { opacity: 0.04; }
+    0% {
+      opacity: 0.04;
+    }
+    50% {
+      opacity: 0.052;
+    }
+    100% {
+      opacity: 0.04;
+    }
   }
   .animate-overlay-pulse {
     animation: overlay-pulse 9.6s ease-in-out infinite;
   }
+  @keyframes gold-underline-sweep-bg {
+    0% {
+      /* base underline position, sweep starts slightly off the left */
+      background-position:
+        0 calc(100% - var(--gold-underline-offset)),
+        -40% calc(100% - var(--gold-underline-offset));
+    }
+    64% {
+      /* sweep reaches far right around 70% of the timeline */
+      background-position:
+        0 calc(100% - var(--gold-underline-offset)),
+        140% calc(100% - var(--gold-underline-offset));
+    }
+    100% {
+      /* hold position to create a brief pause before the next loop */
+      background-position:
+        0 calc(100% - var(--gold-underline-offset)),
+        140% calc(100% - var(--gold-underline-offset));
+    }
+  }
 }
 
 @layer components {
+  .betslip {
+    /* Scope form elements inside betslip to brand white */
+    --form-foreground: var(--brand-white);
+  }
   /* Eyebrow and headline utilities */
   .eyebrow {
     @apply uppercase font-medium text-sm leading-5 tracking-widest;
+    letter-spacing: 0.12em;
   }
   .headline {
     @apply font-heading text-xl leading-tight md:text-3xl md:leading-snug lg:text-3xl lg:leading-snug max-w-5xl;
   }
   /* Reusable gold link with consistent underline thickness and hover effect */
   .gold-link {
-    @apply text-accent-gold underline underline-offset-4 decoration-accent-gold decoration-[1px];
-    text-decoration-color: hsl(var(--accent-gold) / 0.35);
-    transition: text-decoration-color 150ms ease, color 150ms ease;
+    @apply text-accent-gold;
+    display: inline;
+    text-decoration: none;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    /* underline tokens */
+    --gold-underline-thickness: 1px;
+    --gold-underline-offset: 0px; /* hug text baseline */
+    --gold-underline-sweep-width: 30%;
+    /* base underline + animated sweep */
+    background-image: linear-gradient(
+        to right,
+        hsl(var(--accent-gold) / 0.35) 0%,
+        hsl(var(--accent-gold) / 0.35) 100%
+      ),
+      linear-gradient(
+        to right,
+        hsl(var(--accent-gold) / 0) 0%,
+        hsl(var(--accent-gold) / 0.6) 50%,
+        hsl(var(--accent-gold) / 0) 100%
+      );
+    background-repeat: no-repeat, no-repeat;
+    background-size:
+      100% var(--gold-underline-thickness),
+      var(--gold-underline-sweep-width) var(--gold-underline-thickness);
+    background-position:
+      0 calc(100% - var(--gold-underline-offset)),
+      -40% calc(100% - var(--gold-underline-offset));
+    transition: color 150ms ease;
+    animation: none;
   }
   .gold-link:hover {
-    text-decoration-color: hsl(var(--accent-gold) / 0.8);
+    animation: gold-underline-sweep-bg 2s linear infinite;
   }
   /* Ensure popovers/dropdowns match How It Works box border tone */
   .border.bg-popover {
     border-color: hsl(var(--brand-white) / 0.1);
   }
   /* Back-compat aliases (to be removed later) */
-  .sc-heading {@apply eyebrow}
-  .sc-headline {@apply headline}
+  .sc-heading {
+    @apply eyebrow;
+  }
+  .sc-headline {
+    @apply headline;
+  }
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import QuestionItem from '../shared/QuestionItem';
+import RefreshIconButton from '~/components/shared/RefreshIconButton';
 
 interface QuestionSuggestionsProps {
   markets: any[];
@@ -141,14 +141,12 @@ const QuestionSuggestions = ({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
+              <RefreshIconButton
                 onClick={() => setRefreshNonce((n) => n + 1)}
-                aria-label="Randomize suggested questions"
+                ariaLabel="Randomize suggested questions"
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+                iconClassName="w-4 h-4"
+              />
             </TooltipTrigger>
             <TooltipContent>Randomize suggested questions</TooltipContent>
           </Tooltip>

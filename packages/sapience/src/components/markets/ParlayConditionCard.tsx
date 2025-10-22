@@ -2,11 +2,10 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
-import ConditionDialog from '~/components/markets/ConditionDialog';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 export interface ParlayConditionCardProps {
   condition: {
@@ -87,37 +86,25 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
+        className="bg-brand-black text-brand-white/90 rounded-b-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ backgroundColor: color }}
+        />
         <div className="flex-1 flex flex-col h-full">
           <div className="block group">
             <div className="transition-colors">
               <div className="flex flex-col px-4 py-3 gap-2">
                 <div className="flex flex-col min-w-0 flex-1">
                   <h3 className="text-base leading-snug min-h-[44px]">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <button type="button" className="text-left w-full">
-                          <span
-                            className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {displayQ}
-                          </span>
-                        </button>
-                      </DialogTrigger>
-                      <ConditionDialog
-                        conditionId={id}
-                        title={displayQ}
-                        endTime={endTime}
-                        description={description}
-                      />
-                    </Dialog>
+                    <ConditionTitleLink
+                      conditionId={id}
+                      title={displayQ}
+                      endTime={endTime}
+                      description={description}
+                      clampLines={2}
+                    />
                   </h3>
                 </div>
               </div>

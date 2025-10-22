@@ -32,7 +32,7 @@ export default function QuoteDisplay({
   if (isCompact) {
     if (isLoading) {
       return (
-        <div className="mt-1.5 mb-2 text-right text-xs">
+        <div className="mt-1.5 mb-3 text-right text-xs">
           <span className="font-medium text-foreground">{labelText}</span>{' '}
           <span className="text-muted-foreground">Loading...</span>
         </div>
@@ -40,7 +40,7 @@ export default function QuoteDisplay({
     }
     if (quoteError) {
       return (
-        <div className="mt-1.5 mb-2 text-right text-xs text-destructive">
+        <div className="mt-1.5 mb-3 text-right text-xs text-destructive">
           {quoteError}
         </div>
       );
@@ -48,7 +48,7 @@ export default function QuoteDisplay({
     if (!quoteData) return null;
 
     return (
-      <div className="mt-1.5 mb-2 text-right text-xs">
+      <div className="mt-1.5 mb-3 text-right text-xs">
         <span className="font-medium text-foreground">{labelText}</span>{' '}
         <span className="text-foreground inline-flex items-center gap-1">
           {(() => {

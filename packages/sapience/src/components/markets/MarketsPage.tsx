@@ -775,7 +775,7 @@ const MarketsPage = () => {
                           : 'Ending Soon'}
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6 xl:gap-8">
                       {groupedMarketGroups.map((group) => {
                         const preferred =
                           group.markets.find((m) => m.optionName === 'Yes') ||
@@ -891,14 +891,14 @@ const MarketsPage = () => {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mt-0 md:mt-1 mb-2">
                     <h3 className="eyebrow text-foreground">
                       {statusFilter === 'all'
                         ? 'All Prediction Markets'
                         : 'Ending Soon'}
                     </h3>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6 xl:gap-8">
                     {filteredRfqConditions.map((c) => {
                       const categorySlug = c.category?.slug || '';
                       const styleInfo = categorySlug
@@ -922,7 +922,7 @@ const MarketsPage = () => {
       {/* Desktop/Tablet sticky betslip sidebar */}
       {!isMobile ? (
         <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6">
-          <div className="border border-border rounded shadow-lg bg-card overflow-hidden h-[calc(100dvh-120px)]">
+          <div className="rounded shadow-lg overflow-hidden h-[calc(100dvh-96px)]">
             <div className="h-full overflow-y-auto">
               <Betslip
                 variant="panel"

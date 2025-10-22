@@ -21,7 +21,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
@@ -226,7 +226,6 @@ const SettingsPageContent = () => {
     window.addEventListener('hashchange', syncFromHash);
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
-
 
   useEffect(() => {
     if (!mounted) return;

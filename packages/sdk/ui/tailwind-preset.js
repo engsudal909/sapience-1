@@ -12,6 +12,9 @@ module.exports = {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         ethena: 'hsl(var(--ethena))',
+        form: {
+          foreground: 'hsl(var(--form-foreground))'
+        },
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'

@@ -6,8 +6,8 @@ import PulsingGradient from '../../shared/PulsingGradient';
 export default function HowItWorks() {
   const steps: string[] = [
     'Users and AI agents forecast the probability of future events.',
-    'Traders request positions.',
-    'Agents / LPs compete to provide the best price.',
+    'Prediction market traders request positions they’d like to wager on.',
+    'Agents compete to provide the highest odds, offering traders the best price.',
   ];
 
   return (
@@ -15,7 +15,9 @@ export default function HowItWorks() {
       <PulsingGradient
         className="inset-0 -z-10"
         durationMs={9600}
-        gradient={'radial-gradient(ellipse 45% 100% at 50% 0%, #E5D7C1 0%, #CBB892 35%, #7A6A47 70%, #151513 100%)'}
+        gradient={
+          'radial-gradient(ellipse 45% 100% at 50% 0%, #E5D7C1 0%, #CBB892 35%, #7A6A47 70%, #151513 100%)'
+        }
       />
       <div className="relative z-10 container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8 space-y-8 md:space-y-10">
         <div className="flex flex-col items-center text-center">
@@ -30,7 +32,9 @@ export default function HowItWorks() {
           {steps.map((text, index) => (
             <div key={index} className="relative min-w-0">
               <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 px-4 py-4 md:px-5 md:py-5 w-full max-w-full sm:max-w-[340px] md:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] text-center min-w-0 mx-auto">
-                <p className="text-sm md:text-base leading-relaxed mx-auto break-words">{text}</p>
+                <p className="text-sm md:text-base leading-relaxed mx-auto break-words">
+                  {text}
+                </p>
               </div>
               {index < steps.length - 1 && (
                 <div className="flex xl:hidden items-center justify-center my-2">
@@ -59,5 +63,3 @@ export default function HowItWorks() {
     </section>
   );
 }
-
-

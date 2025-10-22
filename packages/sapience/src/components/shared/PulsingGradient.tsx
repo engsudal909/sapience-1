@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 type PulsingGradientProps = {
   gradient: string;
   className?: string;
@@ -15,7 +13,7 @@ export default function PulsingGradient({
   gradient,
   className,
   baseOpacity = 0.04,
-  durationMs
+  durationMs,
 }: PulsingGradientProps) {
   return (
     <div
@@ -25,10 +23,8 @@ export default function PulsingGradient({
         background: gradient,
         backgroundRepeat: 'no-repeat',
         opacity: baseOpacity,
-        ...(durationMs ? { animationDuration: `${durationMs}ms` } : {})
+        ...(durationMs ? { animationDuration: `${durationMs}ms` } : {}),
       }}
     />
   );
 }
-
-

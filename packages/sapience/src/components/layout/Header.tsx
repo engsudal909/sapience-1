@@ -88,42 +88,42 @@ const NavLinks = ({
       <nav className="flex flex-col gap-3 w-full mt-10 pl-4">
         <Link
           href="/markets"
-              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/markets', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/markets', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Prediction Markets
         </Link>
         <Link
           href="/leaderboard"
-              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Leaderboard
         </Link>
         <Link
           href="/vaults"
-              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/vaults', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/vaults', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Vaults
         </Link>
         <Link
           href="/forecast"
-              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Forecasting
         </Link>
         <Link
           href="/feed"
-              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/feed', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/feed', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Activity Feed
         </Link>
         <Link
           href="/bots"
-              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/bots', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/bots', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Build Bots
@@ -131,7 +131,7 @@ const NavLinks = ({
         {/* Mobile settings link, placed under links */}
         <Link
           href="/settings"
-              className={`flex w-fit md:hidden px-3 py-2 rounded-full ${linkClass} ${isActive('/settings', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          className={`flex w-fit md:hidden px-3 py-2 rounded-full ${linkClass} ${isActive('/settings', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Settings
@@ -176,7 +176,6 @@ const Header = () => {
   const { hasConnectedWallet } = useConnectedWallet();
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
   const { disconnect } = useDisconnect();
-  const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const thresholdRef = useRef(12);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -346,7 +345,7 @@ const Header = () => {
                     className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full inline-flex items-center gap-1 focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none ring-0 hover:bg-transparent hover:text-accent-gold`}
                   >
                     More
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4" strokeWidth={2.5} />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

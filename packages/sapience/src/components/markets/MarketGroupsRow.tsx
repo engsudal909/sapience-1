@@ -310,7 +310,6 @@ const MarketGroupsRow = ({
     <div className="w-full">
       {/* Main Row Container for Color Bar + Content */}
       <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row transition-colors items-stretch min-h-[88px] md:min-h-[72px] relative font-mono">
-
         {/* Content Container */}
         <div className="relative flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-4 pt-4 pb-4 md:py-2 gap-3">
           {/* Left Side: Question + Prediction */}
@@ -493,7 +492,9 @@ const MarketGroupsRow = ({
                             </div>
                             <div className="text-xs text-foreground/70 flex items-center gap-1">
                               <span>Current Forecast:</span>
-                              <IndividualMarketPrediction marketItem={marketItem} />
+                              <IndividualMarketPrediction
+                                marketItem={marketItem}
+                              />
                             </div>
                           </div>
 

@@ -1,10 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
-import ConditionDialog from '~/components/markets/ConditionDialog';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 
 export interface ParlayModeRowProps {
@@ -86,24 +85,16 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
           style={{ backgroundColor: color, margin: '-1px 0' }}
         />
         <div className="flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-5 py-4 md:py-3 md:pr-3 gap-3">
-          <div className="flex-grow">
-            <Dialog>
-              <DialogTrigger asChild>
-                <button type="button" className="text-left w-full">
-                  <div className="text-xl">
-                    <span className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden hover:decoration-brand-white/80">
-                      {question}
-                    </span>
-                  </div>
-                </button>
-              </DialogTrigger>
-              <ConditionDialog
+          <div className="flex-grow min-w-0">
+            <div className="text-xl">
+              <ConditionTitleLink
                 conditionId={id}
                 title={displayQ}
                 endTime={endTime}
                 description={description}
+                clampLines={1}
               />
-            </Dialog>
+            </div>
             <div className="mt-2 text-sm text-foreground/70 flex items-center gap-1">
               <span>Current Forecast:</span>
               <MarketPredictionRequest conditionId={id} />
