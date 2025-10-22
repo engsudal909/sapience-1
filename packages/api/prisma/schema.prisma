@@ -493,7 +493,7 @@ enum ParlayStatus {
   consolidated
 }
 
-/// Limit order model to track on-chain parlay limit orders
+
 model LimitOrder {
   id                Int       @id @default(autoincrement())
   createdAt         DateTime  @default(now()) @db.Timestamp(6)
@@ -526,8 +526,6 @@ model LimitOrder {
   filledTxHash      String?   @db.VarChar
   cancelledTxHash   String?   @db.VarChar
   
-  // Predicted outcomes as JSON
-  // Example: [{ conditionId: "0x...", prediction: true }]
   predictedOutcomes Json      @db.Json
   
   @@unique([chainId, marketAddress, orderId], map: "UQ_limit_order_chain_market_id")

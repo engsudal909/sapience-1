@@ -1,0 +1,55 @@
+# Encoded Predicted Outcomes for Your 3 Conditions
+
+## Your Conditions (from database):
+1. 0x7a5720fd8299e5b6c091fce1cfb9b61b8a16801c8dc37b6caa8ef02ca09bd295 - prediction: false
+2. 0xba6834aa8b3b05973b6e9ff70216b702cc5e7f997ca3aa69fabfe47e2c22c1dc - prediction: true  
+3. 0x7bf4b2b92e6129710c3668f25b5acc9294f3b72f046fc3687119631d1c19a5b3 - prediction: true
+
+## Manual Encoding (for Etherscan):
+
+The format is: tuple(bytes32,bool)[]
+
+For 3 outcomes, the encoding is:
+- 0x0020 = offset to array data (32 bytes)
+- 0x0003 = array length (3 items)
+- [condition1_32bytes][bool_32bytes]
+- [condition2_32bytes][bool_32bytes]  
+- [condition3_32bytes][bool_32bytes]
+
+## COPY THIS INTO ETHERSCAN:
+
+encodedPredictedOutcomes:
+0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000037a5720fd8299e5b6c091fce1cfb9b61b8a16801c8dc37b6caa8ef02ca09bd2950000000000000000000000000000000000000000000000000000000000000000ba6834aa8b3b05973b6e9ff70216b702cc5e7f997ca3aa69fabfe47e2c22c1dc00000000000000000000000000000000000000000000000000000000000000017bf4b2b92e6129710c3668f25b5acc9294f3b72f046fc3687119631d1c19a5b30000000000000000000000000000000000000000000000000000000000000001
+
+## Other Parameters for placeOrder:
+
+orderDeadline: 1767225600
+resolver: 0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9
+makerCollateral: 10000000000000000000  (10 tokens with 18 decimals)
+takerCollateral: 10000000000000000000  (10 tokens with 18 decimals)
+refCode: 0x7465737400000000000000000000000000000000000000000000000000000000
+
+---
+
+## Testing Checklist:
+
+1. ✅ Approve collateral token spending
+   - Contract: 0xfeb8c4d5efbaff6e928ea090bc660c363f883dba
+   - Function: approve(0xb04841cad1147675505816e2ec5c915430857b40, 100000000000000000000)
+
+2. ✅ Place order
+   - Contract: 0xb04841cad1147675505816e2ec5c915430857b40  
+   - Function: placeOrder(OrderRequestData)
+   - Use encoded data above
+
+3. ✅ Check transaction
+   - Look for "OrderPlaced" event in logs
+   - Note the orderId from the event
+
+4. ✅ Verify in database
+   SELECT * FROM limit_order ORDER BY "createdAt" DESC LIMIT 1;
+
+5. ✅ Fill or cancel (optional)
+   - fillOrder(orderId, refCode) - from different wallet
+   - cancelOrder(orderId) - from same wallet
+
