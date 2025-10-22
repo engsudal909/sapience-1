@@ -77,8 +77,9 @@ const MarketCard = ({
   }, [chartData]);
 
   const formatPriceAsPercentage = (price: number) => {
-    if (price <= 0) return 'Price N/A';
-    const percentage = price * 100;
+    if (!Number.isFinite(price)) return 'Price N/A';
+    const percentage = Math.max(0, Math.min(100, price * 100));
+    if (percentage < 1) return '<1% chance';
     return `${Math.round(percentage)}% chance`;
   };
 
@@ -244,12 +245,8 @@ const MarketCard = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-card border rounded-md border-border/70 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200"
+        className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
-        <div
-          className="w-1 min-w-[4px] max-w-[4px]"
-          style={{ backgroundColor: color, margin: '-1px 0' }}
-        />
 
         <div className="flex-1 flex flex-col h-full">
           <div className="block group">
@@ -262,7 +259,7 @@ const MarketCard = ({
                       className="group"
                     >
                       <span
-                        className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60"
+                        className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80"
                         style={{
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
@@ -282,15 +279,13 @@ const MarketCard = ({
 
           <div className={`mt-auto px-4 pt-0 ${bottomPaddingClass}`}>
             <div
-              className="text-sm text-muted-foreground w-full mb-3"
+              className="text-sm text-foreground/70 w-full mb-3"
               style={{
                 visibility: canShowPredictionElement ? 'visible' : 'hidden',
               }}
             >
-              <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center">
-                <span className="text-muted-foreground mr-0.5">
-                  Market Prediction:
-                </span>
+              <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
+                <span>Current Forecast:</span>
                 <MarketPrediction />
               </div>
             </div>

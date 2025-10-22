@@ -154,7 +154,6 @@ const SettingField = ({
 
 const SettingsPageContent = () => {
   const { openChat } = useChat();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const {
     graphqlEndpoint,
     apiBaseUrl,
@@ -228,29 +227,6 @@ const SettingsPageContent = () => {
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
 
-  // Force light mode rendering for the iframe (match Vaults page)
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleIframeLoad);
-      return () => iframe.removeEventListener('load', handleIframeLoad);
-    }
-  }, []);
 
   useEffect(() => {
     if (!mounted) return;
@@ -321,26 +297,7 @@ const SettingsPageContent = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Spline Background - Full Width (match Vaults) */}
-      <div className="absolute inset-0 pointer-events-none top-0 left-0 w-full h-100dvh -scale-y-100 -translate-y-1/4 opacity-50 dark:opacity-75">
-        <iframe
-          ref={iframeRef}
-          src="https://my.spline.design/particlesfutarchy-SDhuN0OYiCRHRPt2fFec4bCm/"
-          className="w-full h-full"
-          style={{
-            opacity: 0.5,
-            border: 'none',
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        />
-        <div className="absolute top-0 left-0 h-full w-[100px] bg-gradient-to-r from-background to-transparent hidden md:block" />
-      </div>
-
-      {/* Main Content (match Vaults spacing) */}
+      {/* Main Content */}
       <div className="container max-w-[750px] mx-auto px-4 pt-32 pb-12 relative z-10">
         <h1 className="text-3xl md:text-5xl font-heading font-normal mb-4 md:mb-8">
           Settings

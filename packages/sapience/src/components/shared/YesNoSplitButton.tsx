@@ -8,12 +8,16 @@ interface YesNoSplitButtonProps {
   className?: string;
   disabled?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  fullWidth?: boolean;
   // When true, visually mark the corresponding side as selected
   selectedYes?: boolean;
   selectedNo?: boolean;
   // Optional sublabels to render beneath the primary labels
   yesOddsText?: string;
   noOddsText?: string;
+  // Optional custom primary labels
+  yesLabel?: string;
+  noLabel?: string;
 }
 
 /**
@@ -26,10 +30,13 @@ export default function YesNoSplitButton({
   className,
   disabled,
   size = 'lg',
+  fullWidth = true,
   selectedYes,
   selectedNo,
   yesOddsText,
   noOddsText,
+  yesLabel,
+  noLabel,
 }: YesNoSplitButtonProps) {
   const hasOdds = Boolean(yesOddsText || noOddsText);
   const sizeClasses =
@@ -40,17 +47,18 @@ export default function YesNoSplitButton({
         : 'h-11 md:h-10 text-base';
 
   const common = cn(
-    'flex-1 px-4 font-medium transition-all duration-200 ease-in-out select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none rounded-md border',
+    'px-4 font-medium transition-all duration-200 ease-in-out select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none rounded-md border whitespace-nowrap tracking-wider',
     sizeClasses
   );
 
   return (
-    <div className={cn('flex w-full gap-3', className)}>
+    <div className={cn(fullWidth ? 'flex w-full gap-3' : 'flex gap-3', className)}>
       <button
         type="button"
         onClick={onYes}
         disabled={disabled}
         className={cn(
+          fullWidth ? 'flex-1' : 'w-auto',
           common,
           selectedYes
             ? 'text-emerald-900 dark:text-white/90 bg-emerald-500/50 hover:bg-emerald-500/60 dark:bg-emerald-500/70 dark:hover:bg-emerald-500/80 border-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.35)] dark:shadow-[0_0_0_2px_rgba(16,185,129,0.45)]'
@@ -59,7 +67,7 @@ export default function YesNoSplitButton({
       >
         {hasOdds ? (
           <span className="flex flex-col items-center justify-center translate-y-[1px]">
-            <span className="leading-none">Yes</span>
+            <span className="leading-none whitespace-nowrap">{yesLabel ?? 'Yes'}</span>
             {yesOddsText ? (
               <span className="text-[8px] leading-none text-emerald-900/80 dark:text-white/80 mt-0.5">
                 {yesOddsText}
@@ -67,7 +75,7 @@ export default function YesNoSplitButton({
             ) : null}
           </span>
         ) : (
-          'Yes'
+          (yesLabel ?? 'Yes')
         )}
       </button>
       <button
@@ -75,6 +83,7 @@ export default function YesNoSplitButton({
         onClick={onNo}
         disabled={disabled}
         className={cn(
+          fullWidth ? 'flex-1' : 'w-auto',
           common,
           selectedNo
             ? 'text-rose-900 dark:text-white/90 bg-rose-500/50 hover:bg-rose-500/60 dark:bg-rose-500/70 dark:hover:bg-rose-500/80 border-rose-500 shadow-[0_0_0_2px_rgba(244,63,94,0.35)] dark:shadow-[0_0_0_2px_rgba(244,63,94,0.45)]'
@@ -83,7 +92,7 @@ export default function YesNoSplitButton({
       >
         {hasOdds ? (
           <span className="flex flex-col items-center justify-center translate-y-[1px]">
-            <span className="leading-none">No</span>
+            <span className="leading-none whitespace-nowrap">{noLabel ?? 'No'}</span>
             {noOddsText ? (
               <span className="text-[8px] leading-none text-rose-900/80 dark:text-white/80 mt-0.5">
                 {noOddsText}
@@ -91,7 +100,7 @@ export default function YesNoSplitButton({
             ) : null}
           </span>
         ) : (
-          'No'
+          (noLabel ?? 'No')
         )}
       </button>
     </div>

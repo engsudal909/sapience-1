@@ -9,7 +9,7 @@ import {
   type CarouselApi,
 } from '@sapience/sdk/ui/components/ui/carousel';
 import { useSidebar } from '@sapience/sdk/ui/components/ui/sidebar';
-import ParlayConditionCard from '../markets/ParlayConditionCard';
+import TickerMarketCard from './ticker/TickerMarketCard';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
@@ -133,24 +133,14 @@ export default function FeaturedMarketGroupCards() {
   }, [conditions, createRng, randomSeed]);
 
   if (isLoadingConditions) {
-    return (
-      <section className="pt-0 px-0 w-full relative z-10">
-        <div className="w-full px-0">
-          {/* Maintain space to prevent layout jump while data loads */}
-          <div className="mt-0 mb-6 md:mb-4">
-            <div className="h-[150px] md:h-[160px] w-full" />
-          </div>
-        </div>
-      </section>
-    );
+    return null;
   }
 
   return (
-    <section className="pt-0 px-0 w-full relative z-10">
+    <section className="pt-0 px-0 w-full relative z-10 font-mono">
       <div className="w-full px-0">
         {featuredConditions.length === 0 ? (
-          // Always reserve space, even when no items yet
-          <div className="relative mt-0 md:mt-0 mb-6 md:mb-4 h-[150px] md:h-[160px]" />
+          <div className="relative" />
         ) : (
           <MobileAndDesktopLists items={featuredConditions} />
         )}
@@ -223,72 +213,74 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
   }, [desktopApi, memoItems.length]);
 
   const desktopItemClass = React.useMemo(() => {
-    // Narrower cards to fit more within the hero width
-    if (memoItems.length >= 3) return 'pl-8 basis-1/3 lg:basis-1/4 h-full';
-    if (memoItems.length === 2) return 'pl-8 basis-1/2 lg:basis-1/3 h-full';
-    return 'pl-8 basis-[65%] lg:basis-1/2 h-full';
-  }, [memoItems.length]);
+    return 'pl-2 w-auto flex-none';
+  }, []);
 
   return (
-    <div className="relative mt-0 md:mt-0 mb-6 md:mb-4 min-h-[150px] md:min-h-[160px]">
-      {/* Fade overlays */}
-      <div
-        className="pointer-events-none absolute inset-y-0 left-0 z-20 w-8 md:w-16 bg-gradient-to-r from-background to-transparent"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-y-0 right-0 z-20 w-8 md:w-16 bg-gradient-to-l from-background to-transparent"
-        aria-hidden
-      />
+    <div className="relative">
       {/* Mobile: Embla carousel with auto-scroll */}
-      <div className="md:hidden w-full px-0 h-[150px]">
+      <div className="md:hidden w-full px-0">
         <Carousel
           opts={{ loop: true, align: 'start', containScroll: 'trimSnaps' }}
           plugins={[autoScrollPluginMobile]}
           setApi={setMobileApi}
-          className="w-full h-full"
+          className="w-full"
         >
-          <CarouselContent className="-ml-8 items-stretch h-full">
-            {memoItems.map((c) => (
-              <CarouselItem key={c.id} className="pl-8 basis-[70%] h-full">
-                <ParlayConditionCard
-                  condition={{
-                    id: c.id,
-                    question: c.question,
-                    shortName: c.shortName,
-                    endTime: c.endTime,
-                    description: c.description,
-                  }}
-                  color={c.color}
-                />
-              </CarouselItem>
+          <CarouselContent className="-ml-2 items-stretch py-3 md:py-4">
+            {memoItems.map((c, idx) => (
+              <React.Fragment key={`${c.id}-${idx}`}>
+                <CarouselItem className="pl-2 w-auto min-w-[440px] flex-none">
+                  <TickerMarketCard
+                    condition={{
+                      id: c.id,
+                      question: c.question,
+                      shortName: c.shortName,
+                      endTime: c.endTime,
+                      description: c.description,
+                    }}
+                    color={c.color}
+                  />
+                </CarouselItem>
+                <CarouselItem className="pl-2 w-auto flex-none">
+                  <div className="px-1 md:px-2 text-foreground/50 select-none flex items-stretch h-full">
+                    <div className="w-px h-full bg-foreground/50" />
+                  </div>
+                </CarouselItem>
+              </React.Fragment>
             ))}
           </CarouselContent>
         </Carousel>
       </div>
 
-      {/* Dewtop: Embla carousel with auto-scroll */}
-      <div className="hidden md:block w-full px-0 h-[160px]">
+      {/* Desktop: Embla carousel with auto-scroll */}
+      <div className="hidden md:block w-full px-0">
         <Carousel
           opts={{ loop: true, align: 'start', containScroll: 'trimSnaps' }}
           plugins={[autoScrollPluginDesktop]}
           setApi={setDesktopApi}
-          className="w-full h-full"
+          className="w-full"
         >
-          <CarouselContent className="-ml-8 items-stretch h-full">
-            {memoItems.map((c) => (
-              <CarouselItem key={c.id} className={`${desktopItemClass} h-full`}>
-                <ParlayConditionCard
-                  condition={{
-                    id: c.id,
-                    question: c.question,
-                    shortName: c.shortName,
-                    endTime: c.endTime,
-                    description: c.description,
-                  }}
-                  color={c.color}
-                />
-              </CarouselItem>
+          <CarouselContent className="-ml-2 items-stretch py-3 md:py-4">
+            {memoItems.map((c, idx) => (
+              <React.Fragment key={`${c.id}-${idx}`}>
+                <CarouselItem className={`${desktopItemClass}`}>
+                  <TickerMarketCard
+                    condition={{
+                      id: c.id,
+                      question: c.question,
+                      shortName: c.shortName,
+                      endTime: c.endTime,
+                      description: c.description,
+                    }}
+                    color={c.color}
+                  />
+                </CarouselItem>
+                <CarouselItem className="pl-2 w-auto flex-none">
+                  <div className="px-1 text-foreground/50 select-none flex items-stretch h-full">
+                    <div className="w-px h-full bg-foreground/50" />
+                  </div>
+                </CarouselItem>
+              </React.Fragment>
             ))}
           </CarouselContent>
         </Carousel>

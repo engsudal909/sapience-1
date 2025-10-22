@@ -769,7 +769,7 @@ const MarketsPage = () => {
                     transition={{ duration: 0.25 }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-sm text-muted-foreground">
+                      <h3 className="eyebrow text-foreground">
                         {statusFilter === 'all'
                           ? 'All Prediction Markets'
                           : 'Ending Soon'}
@@ -892,7 +892,7 @@ const MarketsPage = () => {
                   transition={{ duration: 0.25 }}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-sm text-muted-foreground">
+                    <h3 className="eyebrow text-foreground">
                       {statusFilter === 'all'
                         ? 'All Prediction Markets'
                         : 'Ending Soon'}

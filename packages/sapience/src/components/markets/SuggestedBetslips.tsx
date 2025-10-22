@@ -107,10 +107,10 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
   }, [allConditions, nonce]);
 
   return (
-    <div className={'w-full ' + (className ?? '')}>
+    <div className={'w-full font-mono ' + (className ?? '')}>
       <div className="p-0">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-sm text-muted-foreground">
+          <h3 className="eyebrow text-foreground font-sans">
             Featured Parlays
           </h3>
           <TooltipProvider>
@@ -135,13 +135,13 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
       <div className="mt-3 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
         {isLoading || combos.length === 0 ? (
           <>
-            <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 flex items-center justify-center text-muted-foreground/80">
+            <div className="bg-brand-black text-brand-white/70 rounded-lg border border-brand-white/10 overflow-hidden shadow-sm h-20 flex items-center justify-center">
               Loading…
             </div>
-            <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 hidden lg:flex items-center justify-center text-muted-foreground/80">
+            <div className="bg-brand-black text-brand-white/70 rounded-lg border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
               Loading…
             </div>
-            <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 hidden lg:flex items-center justify-center text-muted-foreground/80">
+            <div className="bg-brand-black text-brand-white/70 rounded-lg border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
               Loading…
             </div>
           </>
@@ -149,34 +149,31 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
           combos.map((combo, idx) => (
             <div
               key={`combo-${idx}`}
-              className={`border border-border rounded bg-card overflow-hidden shadow-md p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
+              className={`bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 overflow-hidden shadow-sm p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
             >
               <div className="space-y-0 flex flex-col">
                 {combo.map((leg, i) => (
                   <div
                     key={leg.condition.id + '-' + i}
-                    className="border-b border-border last:border-b-0 flex-1"
+                    className="border-b border-border/70 last:border-b-0 flex-1"
                   >
                     <div className="flex items-stretch">
-                      <div
-                        className="w-1 self-stretch"
-                        style={{
-                          backgroundColor: getCategoryColor(
-                            leg.condition.category?.slug
-                          ),
-                          // Extend 1px to cover parent's border-b on non-last rows
-                          marginBottom: -1,
-                        }}
-                      />
                       <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center justify-between gap-3">
-                        <h3 className="text-sm text-foreground truncate">
+                        <h3 className="text-sm leading-snug min-w-0 max-w-full">
                           <Dialog>
                             <DialogTrigger asChild>
                               <button
                                 type="button"
-                                className="text-left w-full"
+                                className="text-left w-full min-w-0"
                               >
-                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors hover:decoration-foreground/60">
+                                <span
+                                  className="text-brand-white transition-colors inline-block w-full overflow-hidden border-b border-dotted border-brand-white/40 hover:border-brand-white/80 leading-tight pb-[1px]"
+                                  style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
                                   {leg.condition.shortName ||
                                     leg.condition.question}
                                 </span>
@@ -196,7 +193,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                         <span className="relative -top-0.5 ml-2 shrink-0">
                           <Badge
                             variant="outline"
-                            className={`${leg.prediction ? 'px-2 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 dark:bg-emerald-500/70 dark:text-foreground shrink-0' : 'px-2 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 dark:bg-rose-500/70 dark:text-foreground shrink-0'}`}
+                            className={`${leg.prediction ? 'px-2 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0' : 'px-2 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
                           >
                             {leg.prediction ? 'Yes' : 'No'}
                           </Badge>
@@ -206,24 +203,24 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                   </div>
                 ))}
                 <div className="flex items-stretch">
-                  <div className="w-1 self-stretch bg-foreground" />
+                  
                   <div className="flex-1 pl-3 pr-2 py-3">
-                    <div className="text-sm mb-2.5 px-0.5 flex items-center gap-1">
-                      <span className="text-muted-foreground">
-                        Market Prediction:
-                      </span>
-                      <MarketPredictionRequest
-                        key={`mpr-${nonce}-${combo
-                          .map(
-                            (leg) =>
-                              `${leg.condition.id}:${leg.prediction ? '1' : '0'}`
-                          )
-                          .join('|')}`}
-                        outcomes={combo.map((leg) => ({
-                          marketId: leg.condition.id,
-                          prediction: leg.prediction,
-                        }))}
-                      />
+                    <div className="text-sm text-foreground/70 w-full mb-3">
+                      <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
+                        <span>Current Forecast:</span>
+                        <MarketPredictionRequest
+                          key={`mpr-${nonce}-${combo
+                            .map(
+                              (leg) =>
+                                `${leg.condition.id}:${leg.prediction ? '1' : '0'}`
+                            )
+                            .join('|')}`}
+                          outcomes={combo.map((leg) => ({
+                            marketId: leg.condition.id,
+                            prediction: leg.prediction,
+                          }))}
+                        />
+                      </div>
                     </div>
                     <Button
                       className="w-full gap-2"

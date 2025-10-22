@@ -91,7 +91,7 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
               <DialogTrigger asChild>
                 <button type="button" className="text-left w-full">
                   <div className="text-xl">
-                    <span className="underline decoration-1 decoration-foreground/10 underline-offset-4">
+                    <span className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden hover:decoration-brand-white/80">
                       {question}
                     </span>
                   </div>
@@ -104,8 +104,8 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
                 description={description}
               />
             </Dialog>
-            <div className="mt-2 text-sm text-muted-foreground flex items-center gap-1">
-              <span className="text-muted-foreground">Market Prediction:</span>
+            <div className="mt-2 text-sm text-foreground/70 flex items-center gap-1">
+              <span>Current Forecast:</span>
               <MarketPredictionRequest conditionId={id} />
             </div>
           </div>

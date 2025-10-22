@@ -30,7 +30,6 @@ import {
   Bot,
   Zap,
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -44,12 +43,7 @@ import { useEnsName } from '~/components/shared/AddressDisplay';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 
-// Dynamically import LottieIcon
-const LottieIcon = dynamic(() => import('./LottieIcon'), {
-  ssr: false,
-  // Optional: Add a simple placeholder or skeleton
-  loading: () => <div className="w-8 h-8 opacity-80" />,
-});
+// logo.svg will be rendered via next/image below
 
 const isActive = (path: string, pathname: string) => {
   if (path === '/') {
@@ -74,8 +68,8 @@ const NavLinks = ({
   const connectedWallet = wallets[0];
   const { hasConnectedWallet } = useConnectedWallet();
   const linkClass = isMobileProp
-    ? 'text-xl font-medium justify-start rounded-full'
-    : 'text-base font-medium justify-start rounded-full';
+    ? 'sc-heading justify-start rounded-full'
+    : 'sc-heading justify-start rounded-full';
   const activeClass = 'bg-secondary';
 
   // No feature flag: Chat button is always available in the sidebar for authenticated users
@@ -92,69 +86,55 @@ const NavLinks = ({
   return (
     <>
       <nav className="flex flex-col gap-3 w-full mt-10 pl-4">
-        <Link href="/markets" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/markets', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Prediction Markets
-          </Button>
+        <Link
+          href="/markets"
+              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/markets', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Prediction Markets
         </Link>
-        <Link href="/leaderboard" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Leaderboard
-          </Button>
+        <Link
+          href="/leaderboard"
+              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Leaderboard
         </Link>
-        <Link href="/vaults" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/vaults', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Vaults
-          </Button>
+        <Link
+          href="/vaults"
+              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/vaults', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Vaults
         </Link>
-        <Link href="/forecast" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Forecasting
-          </Button>
+        <Link
+          href="/forecast"
+              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Forecasting
         </Link>
-        <Link href="/feed" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/feed', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Activity Feed
-          </Button>
+        <Link
+          href="/feed"
+              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/feed', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Activity Feed
         </Link>
-        <Link href="/bots" passHref className="flex w-fit">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/bots', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Build Bots
-          </Button>
+        <Link
+          href="/bots"
+              className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/bots', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Build Bots
         </Link>
-        {/* Mobile settings button, placed under links */}
-        <Link href="/settings" passHref className="flex w-fit md:hidden">
-          <Button
-            variant="ghost"
-            className={`${linkClass} ${isActive('/settings', pathname) ? activeClass : ''}`}
-            onClick={handleLinkClick}
-          >
-            Settings
-          </Button>
+        {/* Mobile settings link, placed under links */}
+        <Link
+          href="/settings"
+              className={`flex w-fit md:hidden px-3 py-2 rounded-full ${linkClass} ${isActive('/settings', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Settings
         </Link>
       </nav>
       {ready && hasConnectedWallet && connectedWallet && (
@@ -302,26 +282,24 @@ const Header = () => {
       >
         <div className={`mx-auto px-4 md:px-6 transition-all`}>
           <div
-            className={`flex items-center justify-between pointer-events-auto transition-all ${isScrolled ? 'md:bg-background/60 md:backdrop-blur-sm md:border-y md:border-border/30 md:rounded-l-full md:rounded-r-none' : ''}`}
+            className={`flex items-center justify-between pointer-events-auto transition-all ${isScrolled ? 'md:bg-background/60 md:backdrop-blur-sm md:border-y md:border-border/30 md:rounded-none md:border-l-0' : ''}`}
           >
             <div className="flex flex-col pointer-events-auto">
               <div className="flex items-center">
                 <div className="flex flex-col order-2 md:order-1">
                   <div className="flex items-center p-2 pr-4 md:pr-1 md:rounded-full">
                     <Link href="/" className="inline-block">
-                      <div className="flex items-center gap-2">
-                        <LottieIcon
-                          animationPath="/lottie/logomark.json"
-                          width={32}
+                      <div className="flex items-center">
+                        <Image
+                          src="/logo.svg"
+                          alt="Sapience"
+                          width={160}
                           height={32}
-                          className="opacity-80"
+                          className="opacity-100"
+                          priority
                         />
-                        <span className="text-2xl font-normal">Sapience</span>
                       </div>
                     </Link>
-                  </div>
-                  <div className="-mt-3.5 ml-[124px] text-xs tracking-wider text-muted-foreground scale-75 origin-left font-medium">
-                    BETA
                   </div>
                 </div>
                 {/* Mobile Sidebar Trigger (outside blurred div, to the right) */}
@@ -338,26 +316,26 @@ const Header = () => {
             <nav className="hidden md:flex items-center gap-2 lg:gap-3 pointer-events-auto ml-auto mr-2 lg:mr-4">
               <Link
                 href="/markets"
-                className={`${isActive('/markets', pathname) ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground transition-colors tracking-wide px-3 py-2 rounded-full`}
+                className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full hover:bg-transparent hover:text-accent-gold`}
               >
                 Prediction Markets
               </Link>
               <Link
                 href="/leaderboard"
-                className={`${isActive('/leaderboard', pathname) ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground transition-colors tracking-wide px-3 py-2 rounded-full`}
+                className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full hover:bg-transparent hover:text-accent-gold`}
               >
                 Leaderboard
               </Link>
               <Link
                 href="/vaults"
-                className={`${isActive('/vaults', pathname) ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground transition-colors tracking-wide px-3 py-2 rounded-full`}
+                className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full hover:bg-transparent hover:text-accent-gold`}
               >
                 Vaults
               </Link>
               {ready && hasConnectedWallet && connectedWallet?.address && (
                 <Link
                   href={`/profile/${connectedWallet.address}`}
-                  className={`${isActive(`/profile/${connectedWallet.address}`, pathname) ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground transition-colors tracking-wide px-3 py-2 rounded-full`}
+                  className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full hover:bg-transparent hover:text-accent-gold`}
                 >
                   Profile
                 </Link>
@@ -365,7 +343,7 @@ const Header = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className={`${isActive('/settings', pathname) ? 'text-foreground' : 'text-muted-foreground'} hover:text-foreground transition-colors tracking-wide px-3 py-2 rounded-full inline-flex items-center gap-1 focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none ring-0`}
+                    className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full inline-flex items-center gap-1 focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none ring-0 hover:bg-transparent hover:text-accent-gold`}
                   >
                     More
                     <ChevronDown className="h-4 w-4" />
@@ -375,36 +353,36 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link
                       href="/forecast"
-                      className="cursor-pointer flex items-center"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
                     >
-                      <Telescope className="mr-px opacity-75 h-4 w-4" />
+                      <Telescope className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
                       <span>Forecasting</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/feed"
-                      className="cursor-pointer flex items-center"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
                     >
-                      <Zap className="mr-px opacity-75 h-4 w-4" />
+                      <Zap className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
                       <span>Activity Feed</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/bots"
-                      className="cursor-pointer flex items-center"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
                     >
-                      <Bot className="mr-px opacity-75 h-4 w-4" />
+                      <Bot className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
                       <span>Build Bots</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/settings"
-                      className="cursor-pointer flex items-center"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
                     >
-                      <Settings className="mr-px opacity-75 h-4 w-4" />
+                      <Settings className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
                       <span>Settings</span>
                     </Link>
                   </DropdownMenuItem>
@@ -473,7 +451,7 @@ const Header = () => {
                       /* noop */
                     }
                   }}
-                  className="bg-primary hover:bg-primary/90 rounded-full h-10 md:h-9 w-auto px-4 ml-1.5 md:ml-0 gap-2"
+                  className="bg-primary hover:bg-primary/90 rounded-md h-10 md:h-9 w-auto px-4 ml-1.5 md:ml-0 gap-2"
                 >
                   <span>Log in</span>
                 </Button>

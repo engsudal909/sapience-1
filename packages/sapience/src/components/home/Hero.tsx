@@ -1,116 +1,39 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import FeaturedMarketGroupSection from './FeaturedMarketGroupSection';
+import Ticker from '~/components/home/Ticker';
+import HeroBackgroundLines from '~/components/home/HeroBackgroundLines';
 
 export default function Hero() {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  // Force light mode rendering for the iframe
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          // Try to inject a style element to force light mode
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          // Security policy might prevent this
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleIframeLoad);
-      return () => iframe.removeEventListener('load', handleIframeLoad);
-    }
-  }, []);
-
   return (
-    <>
-      <div
-        id="hero"
-        className="relative h-[100dvh] w-full flex flex-col justify-end pt-6 md:pt-0 pb-2 md:pb-3 lg:pb-4"
-      >
-        {/* Spline embed background - made larger than viewport */}
-        <div
-          className="absolute inset-0 z-0 light"
-          style={{
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-        >
-          <iframe
-            ref={iframeRef}
-            src="https://my.spline.design/particles-672e935f9191bddedd3ff0105af8f117/"
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              colorScheme: 'light',
-              filter: 'none',
-            }}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+    <section className="relative isolate flex flex-col min-h-[100svh] w-full overflow-hidden">
+      <HeroBackgroundLines />
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-16 md:pt-24 pb-0 flex-1 flex flex-col justify-center">
+        <div className="relative z-10 w-full flex flex-col items-center">
+          <video
+            className="w-full max-w-[330px] rounded-xl border-2 border-[hsl(var(--accent-gold)/0.25)] mb-6 md:mb-8"
+            src="/hero.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
           />
-        </div>
-
-        {/* Subtle bottom fade into background to smooth transition from Spline */}
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[120px] z-[5] bg-gradient-to-b from-transparent to-[hsl(var(--background))]"
-          aria-hidden
-        />
-
-        {/* Content container - positioned at bottom, left-aligned */}
-        <div className="w-full z-10">
-          <div className="container px-0 pb-0">
-            <div className="text-left px-4 md:px-8 pt-2 pb-2 md:pt-24">
-              <h1 className="font-sans text-3xl md:text-5xl font-normal mb-2 md:mb-4">
-                The World&apos;s Frontier
-                <br />
-                Forecasting Community
-              </h1>
-
-              <p className="text-xl md:text-2xl mb-3 text-muted-foreground">
-                Join experts and enthusiasts forecasting the future of the
-                economy, climate change, culture, and more.
-              </p>
+          <div className="rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
+            <h1 className="font-heading text-lg leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
+              Forecast the future with next-gen prediction markets
+            </h1>
+            <div className="mt-2 md:mt-3 flex items-center gap-3 md:gap-4 text-foreground">
+              <span className="eyebrow">TRANSPARENT</span>
+              <span className="text-foreground/50">|</span>
+              <span className="eyebrow">PERMISSIONLESS</span>
+              <span className="text-foreground/50">|</span>
+              <span className="eyebrow">OPEN SOURCE</span>
             </div>
-            <div className="px-0 md:px-8">
-              <div className="md:hidden w-full flex justify-center mt-3 mb-3 px-4">
-                <Button
-                  variant="link"
-                  size="xs"
-                  asChild
-                  className="h-6 px-0 inline-flex items-center text-sm font-normal text-muted-foreground hover:text-foreground"
-                >
-                  <Link
-                    href="/markets"
-                    className="group inline-flex items-center"
-                  >
-                    <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                      Explore Prediction Markets
-                    </span>
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-          {/* Full-width featured carousel below container to make it wider */}
-          <div className="w-full">
-            <FeaturedMarketGroupSection />
           </div>
         </div>
       </div>
-    </>
+      <div className="relative z-10 w-full bg-brand-black text-foreground">
+        <Ticker />
+      </div>
+    </section>
   );
 }

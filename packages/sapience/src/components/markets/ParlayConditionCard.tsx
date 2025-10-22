@@ -87,12 +87,8 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-card border rounded-md border-border/70 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200"
+        className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
-        <div
-          className="w-1 min-w-[4px] max-w-[4px]"
-          style={{ backgroundColor: color, margin: '-1px 0' }}
-        />
         <div className="flex-1 flex flex-col h-full">
           <div className="block group">
             <div className="transition-colors">
@@ -103,7 +99,7 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
                       <DialogTrigger asChild>
                         <button type="button" className="text-left w-full">
                           <span
-                            className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60"
+                            className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80"
                             style={{
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
@@ -128,11 +124,9 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
             </div>
           </div>
           <div className="mt-auto px-4 pt-0 pb-4">
-            <div className="text-sm text-muted-foreground w-full mb-3">
+            <div className="text-sm text-foreground/70 w-full mb-3">
               <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
-                <span className="text-muted-foreground">
-                  Market Prediction:
-                </span>
+                <span>Current Forecast:</span>
                 <MarketPredictionRequest conditionId={id} className="" />
               </div>
             </div>
