@@ -20,10 +20,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
+import Link from 'next/link';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
+import { PROTOCOL_VAULT_ADDRESS } from '~/lib/constants';
 
 const VaultsPageContent = () => {
   const { isConnected } = useAccount();
@@ -676,7 +678,7 @@ const VaultsPageContent = () => {
         <div className="grid grid-cols-1 gap-8">
           {/* Vault */}
           <div>
-            <Card className="relative bg-brand-black border border-border rounded-none shadow-md">
+            <Card className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm">
               <div
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}
@@ -690,7 +692,13 @@ const VaultsPageContent = () => {
                         Protocol Vault
                       </h3>
                       <p className="text-muted-foreground text-sm">
-                        This vault bids on parlays
+                        This vault bids on parlays.{' '}
+                        <Link
+                          href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
+                          className="gold-link"
+                        >
+                          View Portfolio
+                        </Link>
                       </p>
                     </div>
                     <div className="text-right">
@@ -731,7 +739,7 @@ const VaultsPageContent = () => {
                   {/* Pending Requests (mapping-based) */}
                   {pendingRequest && !pendingRequest.processed && (
                     <div className="mt-4 space-y-2">
-                      <div className="p-3 bg-muted/30 border border-border rounded-md">
+                      <div className="p-3 bg-muted/30 border border-brand-white/10 rounded-md">
                         <div className="flex items-start justify-between gap-3">
                           <div className="text-sm text-muted-foreground">
                             <p className="font-medium">

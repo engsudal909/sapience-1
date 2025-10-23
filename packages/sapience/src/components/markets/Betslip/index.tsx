@@ -901,12 +901,12 @@ const Betslip = ({
               />
             </Button>
           </DrawerTrigger>
-          <DrawerContent className="h-[85vh] betslip bg-brand-black">
+          <DrawerContent className="h-[85vh] betslip bg-brand-black overflow-hidden">
             <DrawerHeader className="pb-0">
               <DrawerTitle className="text-left"></DrawerTitle>
             </DrawerHeader>
             <div
-              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full`}
+              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full flex flex-col min-h-0`}
             >
               <BetslipContent {...contentProps} />
             </div>
@@ -922,7 +922,7 @@ const Betslip = ({
         <div
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
-          <div className="relative bg-brand-black border border-border rounded-none shadow-md h-full flex flex-col">
+          <div className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden">
             <div
               className="hidden lg:block absolute top-0 left-0 right-0 h-px"
               style={{ background: categoryGradient }}
@@ -937,7 +937,7 @@ const Betslip = ({
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm"
+                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm"
                   onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
                   title="Reset"
                 >
@@ -966,11 +966,11 @@ const Betslip = ({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className={`${betSlipPositions.length === 0 ? 'w-80 h-[24rem] p-0' : 'w-[20rem] p-0'} flex flex-col bg-transparent border-0 shadow-none betslip`}
+          className={`${betSlipPositions.length === 0 ? 'w-80 h-[24rem] p-0' : 'w-[20rem] p-0'} flex flex-col max-h-[80vh] overflow-hidden bg-transparent border-0 shadow-none betslip`}
           align="end"
         >
-          <div className="flex-1">
-            <div className="relative bg-brand-black border border-border rounded-none shadow-md">
+          <div className="flex-1 min-h-0">
+            <div className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden">
               <div
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}
@@ -985,7 +985,7 @@ const Betslip = ({
                   <Button
                     variant="ghost"
                     size="xs"
-                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm"
+                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm"
                     onClick={
                       isParlayMode ? clearParlaySelections : clearBetSlip
                     }

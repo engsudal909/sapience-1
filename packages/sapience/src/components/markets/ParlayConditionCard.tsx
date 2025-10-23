@@ -81,29 +81,29 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
   // auction/nonce state is required here.
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
+        className="bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 flex flex-row items-stretch relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
         <div
           className="absolute top-0 left-0 right-0 h-px"
           style={{ backgroundColor: color }}
         />
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="block group">
             <div className="transition-colors">
               <div className="flex flex-col px-4 py-3 gap-2">
                 <div className="flex flex-col min-w-0 flex-1">
-                  <h3 className="text-base leading-snug min-h-[44px]">
+                  <h3 className="text-base leading-snug min-h-[44px] min-w-0 overflow-hidden">
                     <ConditionTitleLink
                       conditionId={id}
                       title={displayQ}
                       endTime={endTime}
                       description={description}
-                      clampLines={2}
+                      clampLines={1}
                     />
                   </h3>
                 </div>

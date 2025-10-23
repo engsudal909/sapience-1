@@ -70,6 +70,9 @@ export const BetslipContent = ({
     clearParlaySelections,
   } = useBetSlipContext();
   const effectiveParlayMode = isParlayMode;
+  const hasItems = effectiveParlayMode
+    ? parlaySelections.length > 0
+    : betSlipPositions.length > 0;
 
   // Note: RFQ quote request logic is now handled inside BetslipParlayForm
   // This was moved to reduce prop drilling and keep related logic together
@@ -101,9 +104,7 @@ export const BetslipContent = ({
         </div>
 
         <div
-          className={`flex-1 min-h-0 ${
-            betSlipPositions.length === 0 ? '' : 'overflow-y-auto'
-          }`}
+          className={`flex-1 min-h-0 ${hasItems ? 'overflow-y-auto pb-4' : ''}`}
         >
           {(
             effectiveParlayMode

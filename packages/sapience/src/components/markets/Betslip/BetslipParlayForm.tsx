@@ -241,27 +241,32 @@ export default function BetslipParlayForm({
       <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 p-4">
         <div className="space-y-4">
           {parlaySelections.map((s) => (
-            <div key={s.id} className="pb-4 mb-4 border-b border-border">
+            <div
+              key={s.id}
+              className="pb-4 mb-4 border-b border-brand-white/10"
+            >
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="text-md text-foreground">
-                    <ConditionTitleLink
-                      conditionId={s.conditionId}
-                      title={s.question}
-                      endTime={undefined}
-                      description={undefined}
-                      clampLines={null}
-                      trailing={
-                        <span className="relative -top-0.5">
-                          <Badge
-                            variant="outline"
-                            className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0' : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
-                          >
-                            {s.prediction ? 'Yes' : 'No'}
-                          </Badge>
-                        </span>
-                      }
-                    />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <ConditionTitleLink
+                          conditionId={s.conditionId}
+                          title={s.question}
+                          endTime={undefined}
+                          description={undefined}
+                          clampLines={1}
+                        />
+                      </div>
+                      <span className="relative -top-0.5 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0' : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
+                        >
+                          {s.prediction ? 'Yes' : 'No'}
+                        </Badge>
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <button

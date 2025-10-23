@@ -16,6 +16,7 @@ import {
   YES_SQRT_PRICE_X96,
   DEFAULT_WAGER_AMOUNT,
 } from '~/lib/utils/betslipUtils';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 interface IndividualPositionRowProps {
   positionId: string;
@@ -118,20 +119,21 @@ export default function IndividualPositionRow({
   });
 
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-brand-white/10 last:border-b-0">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="text-md text-foreground pr-2">
-            <h3 className="text-md text-foreground pr-2 whitespace-normal break-words font-mono tracking-wide">
-              {question}
-              {'\u00A0'}
-              <span className="relative -top-[0.75px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="min-w-0 flex-1">
+                <ConditionTitleLink title={question} clampLines={1} />
+              </div>
+              <span className="relative -top-[0.75px] shrink-0">
                 <ReadOnlyPredictionBadge
                   positionId={positionId}
                   marketClassification={marketClassification}
                 />
               </span>
-            </h3>
+            </div>
           </div>
         </div>
         <button

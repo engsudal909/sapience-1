@@ -684,7 +684,7 @@ const MarketsPage = () => {
         {parlayMode &&
         selectedCategorySlug === null &&
         searchTerm.trim() === '' ? (
-          <SuggestedBetslips className="-mb-2 md:-mb-3" />
+          <SuggestedBetslips className="mb-2 md:mb-3" />
         ) : null}
 
         {/* Results area */}
@@ -906,9 +906,11 @@ const MarketsPage = () => {
                         : undefined;
                       const color = styleInfo?.color || DEFAULT_CATEGORY_COLOR;
                       return (
-                        <div key={c.id} className="md:min-h-[100px]">
-                          <ParlayConditionCard condition={c} color={color} />
-                        </div>
+                        <ParlayConditionCard
+                          key={c.id}
+                          condition={c}
+                          color={color}
+                        />
                       );
                     })}
                   </div>

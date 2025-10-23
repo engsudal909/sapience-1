@@ -51,7 +51,7 @@ export default function ConditionTitleLink({
     } as React.CSSProperties;
   }, [clampLines]);
 
-  // Base clickable styles; use dotted border to preserve underline look through truncation
+  // Base clickable styles; prefer underline for natural width, and use dotted bottom border to include ellipsis when single-line clamped
   const baseClickableClass = (() => {
     const shared =
       'font-mono text-brand-white transition-colors whitespace-normal break-words';
@@ -60,9 +60,13 @@ export default function ConditionTitleLink({
       // Keep link styling with dotted underline
       return `inline align-baseline p-0 m-0 bg-transparent ${shared} underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80`;
     }
-    // Clamp mode: block + w-full to occupy width inside min-w-0 container.
-    // Use text underline so the dotted line appears under each wrapped line.
-    return `block w-full text-left p-0 m-0 bg-transparent ${shared} underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80`;
+    if (clampLines === 1) {
+      // Single-line clamp: inline-block so the border width follows the rendered text width
+      // (stops at text when short, reaches ellipsis when truncated)
+      return `inline-block max-w-full align-baseline p-0 m-0 bg-transparent ${shared} border-b border-dotted border-brand-white/40 pb-[1px] hover:border-brand-white/80`;
+    }
+    // Multi-line clamp: block + bottom dotted border (spans the full container width)
+    return `block w-full text-left p-0 m-0 bg-transparent ${shared} border-b border-dotted border-brand-white/40 pb-[1px] hover:border-brand-white/80`;
   })();
 
   return (

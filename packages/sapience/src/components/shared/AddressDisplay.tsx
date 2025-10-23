@@ -17,6 +17,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { createPublicClient, http } from 'viem';
 import { mainnet } from 'viem/chains';
+import { PROTOCOL_VAULT_ADDRESS } from '~/lib/constants';
 
 // Create a public client for ENS resolution
 const publicClient = createPublicClient({
@@ -112,7 +113,7 @@ const AddressDisplay = ({
       : '';
 
   const isVaultAddress =
-    address.toLowerCase() === '0xcc1c64e849395d31d059a4bd19391af64d8855d7';
+    address.toLowerCase() === PROTOCOL_VAULT_ADDRESS.toLowerCase();
 
   return (
     <div
