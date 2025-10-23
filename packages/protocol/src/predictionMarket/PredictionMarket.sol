@@ -318,13 +318,13 @@ contract PredictionMarket is
         // 2- Store order request data
         unfilledOrders[orderId] = IPredictionStructs.LimitOrderData({
             orderId: orderId,
-            encodedPredictedOutcomes: orderRequestData.encodedPredictedOutcomes,
-            resolver: orderRequestData.resolver,
             makerCollateral: orderRequestData.makerCollateral,
             takerCollateral: orderRequestData.takerCollateral,
+            orderDeadline: orderRequestData.orderDeadline,
+            encodedPredictedOutcomes: orderRequestData.encodedPredictedOutcomes,
+            resolver: orderRequestData.resolver,
             maker: maker,
-            taker: address(0),
-            orderDeadline: orderRequestData.orderDeadline
+            taker: address(0)
         });
         unfilledOrdersByMaker[maker].add(orderId);
         unfilledOrderIds.add(orderId);

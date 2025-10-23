@@ -55,13 +55,13 @@ interface IPredictionStructs {
 
     // Struct to mint prediction data
     struct LimitOrderData {
-        uint256 orderId; // zero means no order
-        bytes encodedPredictedOutcomes; // encoded predicted outcomes for the resolver to validate
-        address resolver;
-        uint256 makerCollateral;
-        uint256 takerCollateral;
-        address maker;
-        address taker;
-        uint256 orderDeadline;
+        uint256 orderId;             // slot 0
+        uint256 makerCollateral;     // slot 1
+        uint256 takerCollateral;     // slot 2
+        uint256 orderDeadline;       // slot 3
+        bytes encodedPredictedOutcomes; // slot 4 (dynamic)
+        address resolver;            // slot 5 (packed with addresses)
+        address maker;               // slot 5 (packed)
+        address taker;               // slot 5 (packed)
     }
 }
