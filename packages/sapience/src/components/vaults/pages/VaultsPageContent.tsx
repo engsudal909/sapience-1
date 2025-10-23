@@ -8,7 +8,6 @@ import { Input } from '@sapience/sdk/ui/components/ui/input';
 import {
   Tabs,
   TabsContent,
-  TabsList,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import {
@@ -21,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
 
@@ -262,10 +262,10 @@ const VaultsPageContent = () => {
 
   const renderVaultForm = () => (
     <Tabs defaultValue="deposit" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
+      <SegmentedTabsList className="grid w-full grid-cols-2 mb-4">
         <TabsTrigger value="deposit">Deposit</TabsTrigger>
         <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
-      </TabsList>
+      </SegmentedTabsList>
 
       <TabsContent value="deposit" className="space-y-2 mt-1">
         {/* Amount Input */}
