@@ -131,7 +131,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
         </div>
       </div>
 
-      <div className="mt-0 mb-4 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
+      <div className="mt-0 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
         {isLoading || combos.length === 0 ? (
           <>
             <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 flex items-center justify-center">

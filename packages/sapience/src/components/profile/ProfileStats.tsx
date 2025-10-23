@@ -24,7 +24,7 @@ const StatTile = ({
   Icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) => {
   return (
-    <Card className="border-border/70">
+    <Card className="bg-brand-black text-brand-white/90 border border-brand-white/10">
       <CardContent className="p-3 lg:p-5">
         <div className="flex items-center gap-3">
           {Icon ? (

@@ -95,7 +95,11 @@ export default function ConditionDialog({
       </DialogHeader>
       <div>
         <div className="flex items-center mb-4">
-          <EndTimeDisplay endTime={displayEndTime} size="large" />
+          <EndTimeDisplay
+            endTime={displayEndTime}
+            size="large"
+            appearance="brandWhite"
+          />
         </div>
         {displayDescription ? (
           <div className="text-sm leading-relaxed break-words [&_a]:break-all">

@@ -91,7 +91,7 @@ const Leaderboard = () => {
 
   return (
     <div className="container max-w-[560px] mx-auto py-32">
-      <h1 className="text-3xl md:text-5xl font-heading font-normal mb-6 text-brand-white">
+      <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
         Leaderboard
       </h1>
       <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">

@@ -901,7 +901,7 @@ const Betslip = ({
               />
             </Button>
           </DrawerTrigger>
-          <DrawerContent className="h-[85vh] betslip">
+          <DrawerContent className="h-[85vh] betslip bg-brand-black">
             <DrawerHeader className="pb-0">
               <DrawerTitle className="text-left"></DrawerTitle>
             </DrawerHeader>
@@ -922,7 +922,7 @@ const Betslip = ({
         <div
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
-          <div className="relative bg-card border border-border rounded-none shadow-md h-full flex flex-col">
+          <div className="relative bg-brand-black border border-border rounded-none shadow-md h-full flex flex-col">
             <div
               className="hidden lg:block absolute top-0 left-0 right-0 h-px"
               style={{ background: categoryGradient }}
@@ -970,7 +970,7 @@ const Betslip = ({
           align="end"
         >
           <div className="flex-1">
-            <div className="relative bg-card border border-border rounded-none shadow-md">
+            <div className="relative bg-brand-black border border-border rounded-none shadow-md">
               <div
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}

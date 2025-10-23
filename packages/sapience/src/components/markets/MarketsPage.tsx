@@ -684,7 +684,7 @@ const MarketsPage = () => {
         {parlayMode &&
         selectedCategorySlug === null &&
         searchTerm.trim() === '' ? (
-          <SuggestedBetslips />
+          <SuggestedBetslips className="-mb-2 md:-mb-3" />
         ) : null}
 
         {/* Results area */}
@@ -891,7 +891,7 @@ const MarketsPage = () => {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <div className="flex items-center justify-between mt-0 md:mt-1 mb-2">
+                  <div className="flex items-center justify-between mt-0 mb-2">
                     <h3 className="eyebrow text-foreground">
                       {statusFilter === 'all'
                         ? 'All Prediction Markets'

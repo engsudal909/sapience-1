@@ -23,6 +23,7 @@ import { useAccount } from 'wagmi';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
+import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 
 const VaultsPageContent = () => {
   const { isConnected } = useAccount();
@@ -260,6 +261,16 @@ const VaultsPageContent = () => {
     return () => window.clearInterval(id);
   }, [isInteractionDelayActive, lastInteractionAt, interactionDelay]);
 
+  // Desktop-only top gradient bar across categories in filter order (match BetSlip)
+  const categoryGradient = useMemo(() => {
+    const colors = FOCUS_AREAS.map((fa) => fa.color);
+    if (colors.length === 0) return 'transparent';
+    if (colors.length === 1) return colors[0];
+    const step = 100 / (colors.length - 1);
+    const stops = colors.map((c, i) => `${c} ${i * step}%`);
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }, []);
+
   const renderVaultForm = () => (
     <Tabs defaultValue="deposit" className="w-full">
       <SegmentedTabsList className="grid w-full grid-cols-2 mb-4">
@@ -305,7 +316,11 @@ const VaultsPageContent = () => {
           estDepositShares > 0n &&
           ((minDeposit ?? 0n) === 0n || depositWei >= (minDeposit ?? 0n)) ? (
             <div className="text-right">
-              Requested Shares: {formatSharesAmount(estDepositShares)} sapLP
+              Requested Shares:{' '}
+              {formatDecimalWithCommasFixed2(
+                formatSharesAmount(estDepositShares)
+              )}{' '}
+              sapLP
             </div>
           ) : (
             (minDeposit ?? 0n) > 0n && (
@@ -632,7 +647,7 @@ const VaultsPageContent = () => {
       {/* Main Content */}
       <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
         <div className="mb-5 md:mb-10 flex items-center justify-between">
-          <h1 className="text-3xl md:text-5xl font-heading font-normal">
+          <h1 className="text-3xl md:text-5xl font-sans font-normal text-foreground">
             Vaults
           </h1>
           <div className="flex items-center gap-2">
@@ -661,7 +676,11 @@ const VaultsPageContent = () => {
         <div className="grid grid-cols-1 gap-8">
           {/* Vault */}
           <div>
-            <Card className="relative isolate overflow-hidden bg-card border border-border rounded-xl shadow-sm">
+            <Card className="relative bg-brand-black border border-border rounded-none shadow-md">
+              <div
+                className="hidden lg:block absolute top-0 left-0 right-0 h-px"
+                style={{ background: categoryGradient }}
+              />
               <CardContent className="p-6">
                 <div className="space-y-6">
                   {/* Vault Header */}
@@ -670,8 +689,8 @@ const VaultsPageContent = () => {
                       <h3 className="text-2xl font-medium mb-1">
                         Protocol Vault
                       </h3>
-                      <p className="text-muted-foreground text-lg">
-                        This vault bids on parlays.
+                      <p className="text-muted-foreground text-sm">
+                        This vault bids on parlays
                       </p>
                     </div>
                     <div className="text-right">
@@ -696,9 +715,9 @@ const VaultsPageContent = () => {
                           Deployed: {deployedDisplay} testUSDe
                         </div>
                       </div>
-                      <div className="w-full h-4 rounded-full bg-muted/60 overflow-hidden shadow-inner">
+                      <div className="w-full h-4 rounded-sm bg-muted/60 overflow-hidden shadow-inner">
                         <div
-                          className="h-4 bg-accent-gold rounded-full transition-all"
+                          className="h-4 bg-accent-gold rounded-sm transition-all"
                           style={{ width: `${utilizationPercent}%` }}
                         />
                       </div>
