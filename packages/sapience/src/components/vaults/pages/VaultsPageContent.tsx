@@ -19,7 +19,6 @@ import NumberDisplay from '~/components/shared/NumberDisplay';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
 
 const VaultsPageContent = () => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { isConnected } = useAccount();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   // Constants for vault integration
@@ -222,35 +221,6 @@ const VaultsPageContent = () => {
       return false;
     }
   }, [withdrawSharesWei, userData]);
-
-  // Force light mode rendering for the iframe
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      // Guard already exists here, but keeping it doesn't hurt
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          // Try to inject a style element to force light mode
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          // Security policy might prevent this
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      // Ensure load event listener is attached only once iframe exists
-      iframe.addEventListener('load', handleIframeLoad);
-      // Clean up listener on unmount
-      return () => iframe.removeEventListener('load', handleIframeLoad);
-    }
-  }, []); // Empty dependency array ensures this runs once client-side
 
   // Live cooldown countdown (HH:MM:SS)
   const [cooldownDisplay, setCooldownDisplay] = useState<string>('');
@@ -506,42 +476,6 @@ const VaultsPageContent = () => {
     </Tabs>
   );
 
-  // Number formatting helpers (no decimals, thousands separators)
-  const roundToIntString = (value: string): string => {
-    try {
-      const trimmed = value.trim();
-      if (!trimmed) return '0';
-      const neg = trimmed.startsWith('-');
-      const t = neg ? trimmed.slice(1) : trimmed;
-      const [intRaw, fracRaw = ''] = t.split('.');
-      const intPart = intRaw.replace(/^\D+/, '') || '0';
-      const frac = fracRaw.replace(/\D+/g, '');
-      const shouldRoundUp = frac.length > 0 && Number(frac[0]) >= 5;
-      if (!shouldRoundUp) {
-        return (neg ? '-' : '') + (intPart || '0');
-      }
-      // add 1 to intPart
-      let carry = 1;
-      let res = '';
-      for (let i = intPart.length - 1; i >= 0; i--) {
-        const code = intPart.charCodeAt(i);
-        const isDigit = code >= 48 && code <= 57;
-        const digit = (isDigit ? code - 48 : 0) + carry;
-        if (digit >= 10) {
-          res = String(digit - 10) + res;
-          carry = 1;
-        } else {
-          res = String(digit) + res;
-          carry = 0;
-        }
-      }
-      if (carry) res = '1' + res;
-      return (neg ? '-' : '') + res;
-    } catch {
-      return '0';
-    }
-  };
-
   const formatIntWithCommas = (intStr: string): string => {
     try {
       const neg = intStr.startsWith('-');
@@ -554,8 +488,54 @@ const VaultsPageContent = () => {
     }
   };
 
-  const formatWholeWithCommasFromAmount = (amountStr: string): string => {
-    return formatIntWithCommas(roundToIntString(amountStr));
+  const formatDecimalWithCommasFixed2 = (value: string): string => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return '0.00';
+      const neg = trimmed.startsWith('-');
+      const t = neg ? trimmed.slice(1) : trimmed;
+      const [intRaw, fracRaw = ''] = t.split('.');
+      const intPart = intRaw.replace(/\D+/g, '') || '0';
+      const frac = fracRaw.replace(/\D+/g, '') + '000';
+      const d1 = frac.charCodeAt(0) - 48;
+      const d2 = frac.charCodeAt(1) - 48;
+      const d3 = frac.charCodeAt(2) - 48;
+      let two = d1 * 10 + d2;
+      let carry = 0;
+      if (d3 >= 5) {
+        two += 1;
+        if (two >= 100) {
+          two -= 100;
+          carry = 1;
+        }
+      }
+      const twoStr = two.toString().padStart(2, '0');
+
+      let intOut = intPart;
+      if (carry) {
+        let c = 1;
+        let res = '';
+        for (let i = intPart.length - 1; i >= 0; i--) {
+          const code = intPart.charCodeAt(i);
+          const isDigit = code >= 48 && code <= 57;
+          const digit = (isDigit ? code - 48 : 0) + c;
+          if (digit >= 10) {
+            res = String(digit - 10) + res;
+            c = 1;
+          } else {
+            res = String(digit) + res;
+            c = 0;
+          }
+        }
+        if (c) res = '1' + res;
+        intOut = res;
+      }
+
+      const intWithCommas = formatIntWithCommas(intOut);
+      return (neg ? '-' : '') + intWithCommas + '.' + twoStr;
+    } catch {
+      return '0.00';
+    }
   };
 
   // Derived vault metrics for display
@@ -619,7 +599,7 @@ const VaultsPageContent = () => {
   // Preformatted display strings
   const tvlDisplay = useMemo(() => {
     try {
-      return formatWholeWithCommasFromAmount(formatAssetAmount(tvlWei));
+      return formatDecimalWithCommasFixed2(formatAssetAmount(tvlWei));
     } catch {
       return '0';
     }
@@ -627,7 +607,7 @@ const VaultsPageContent = () => {
 
   const deployedDisplay = useMemo(() => {
     try {
-      return formatWholeWithCommasFromAmount(formatAssetAmount(deployedWei));
+      return formatDecimalWithCommasFixed2(formatAssetAmount(deployedWei));
     } catch {
       return '0';
     }
@@ -643,32 +623,24 @@ const VaultsPageContent = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Spline Background - Full Width */}
-      <div className="absolute inset-0 pointer-events-none top-0 left-0 w-full h-100dvh -scale-y-100 -translate-y-1/4 opacity-50 dark:opacity-75">
-        <iframe
-          ref={iframeRef}
-          src="https://my.spline.design/particlesfutarchy-SDhuN0OYiCRHRPt2fFec4bCm/"
-          className="w-full h-full"
-          style={{
-            opacity: 0.5,
-            border: 'none',
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        />
-        <div className="absolute top-0 left-0 h-full w-[100px] bg-gradient-to-r from-background to-transparent hidden md:block" />
-      </div>
-
       {/* Main Content */}
       <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
         <div className="mb-5 md:mb-10 flex items-center justify-between">
           <h1 className="text-3xl md:text-5xl font-heading font-normal">
             Vaults
           </h1>
-          {/* Deploy Vault action hidden until implementation is available */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              className="cursor-not-allowed"
+              onClick={(e) => e.preventDefault()}
+            >
+              Deploy a vault
+            </Button>
+            <span className="text-xs text-muted-foreground">Coming soon</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8">
@@ -691,7 +663,7 @@ const VaultsPageContent = () => {
                       <div className="text-sm text-muted-foreground">
                         Total Value Locked
                       </div>
-                      <div className="text-2xl font-medium">
+                      <div className="text-xl font-normal font-mono">
                         {tvlDisplay} testUSDe
                       </div>
                     </div>
@@ -709,9 +681,9 @@ const VaultsPageContent = () => {
                           Deployed: {deployedDisplay} testUSDe
                         </div>
                       </div>
-                      <div className="w-full h-4 rounded-sm bg-muted/60 overflow-hidden shadow-inner">
+                      <div className="w-full h-4 rounded-full bg-muted/60 overflow-hidden shadow-inner">
                         <div
-                          className="h-4 bg-primary rounded-sm transition-all"
+                          className="h-4 bg-accent-gold rounded-full transition-all"
                           style={{ width: `${utilizationPercent}%` }}
                         />
                       </div>

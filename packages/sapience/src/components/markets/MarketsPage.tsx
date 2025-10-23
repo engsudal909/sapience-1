@@ -728,7 +728,7 @@ const MarketsPage = () => {
                           <h3 className="font-medium text-sm text-muted-foreground mb-2">
                             {formatEndDate(dayEndTimes[dayKey])}
                           </h3>
-                          <div className="border border-muted rounded shadow-sm bg-card overflow-hidden">
+                          <div className="space-y-2">
                             {marketGroupsByDay[dayKey].map((marketGroup) => (
                               <motion.div
                                 layout
@@ -737,7 +737,7 @@ const MarketsPage = () => {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.25 }}
-                                className="border-b last:border-b-0 border-border"
+                                className="mt-2 first:mt-0"
                               >
                                 <MarketGroupsRow
                                   marketAddress={marketGroup.marketAddress}
@@ -769,13 +769,13 @@ const MarketsPage = () => {
                     transition={{ duration: 0.25 }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-sm text-muted-foreground">
+                      <h3 className="eyebrow text-foreground">
                         {statusFilter === 'all'
                           ? 'All Prediction Markets'
                           : 'Ending Soon'}
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
                       {groupedMarketGroups.map((group) => {
                         const preferred =
                           group.markets.find((m) => m.optionName === 'Yes') ||
@@ -856,7 +856,7 @@ const MarketsPage = () => {
                             ? 'No end time'
                             : formatEndDate(rfqDayEndTimes[dayKey])}
                         </h3>
-                        <div className="border border-muted rounded shadow-sm bg-card overflow-hidden">
+                        <div className="space-y-2">
                           {[...(rfqConditionsByDay[dayKey] || [])]
                             .sort((a, b) => {
                               const aT = a.endTime ?? 0;
@@ -891,14 +891,14 @@ const MarketsPage = () => {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between mt-0 md:mt-1 mb-2">
+                    <h3 className="eyebrow text-foreground">
                       {statusFilter === 'all'
                         ? 'All Prediction Markets'
                         : 'Ending Soon'}
                     </h3>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
                     {filteredRfqConditions.map((c) => {
                       const categorySlug = c.category?.slug || '';
                       const styleInfo = categorySlug
@@ -922,7 +922,7 @@ const MarketsPage = () => {
       {/* Desktop/Tablet sticky betslip sidebar */}
       {!isMobile ? (
         <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6">
-          <div className="border border-border rounded shadow-lg bg-card overflow-hidden h-[calc(100dvh-120px)]">
+          <div className="rounded-none shadow-lg overflow-hidden h-[calc(100dvh-96px)]">
             <div className="h-full overflow-y-auto">
               <Betslip
                 variant="panel"

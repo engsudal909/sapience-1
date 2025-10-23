@@ -8,22 +8,23 @@ import { BookOpen } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="hidden md:block w-full border-t border-border/20 bg-background/60 backdrop-blur-sm">
+    <footer className="block w-full border-t border-border/20 bg-background/60 backdrop-blur-sm relative z-[40]">
       <div className="mx-auto px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs">
-          <span>Powered by</span>
+          <span className="text-[hsl(var(--brand-white))]">Powered by</span>
           <a
             href="https://ethena.fi"
             target="_blank"
             rel="noopener noreferrer"
             className="w-fit"
+            aria-label="Ethena"
           >
             <Image
               src="/ethena.svg"
               alt="Ethena"
               width={64}
               height={18}
-              className="dark:invert opacity-90 hover:opacity-100 transition-opacity duration-200"
+              className="opacity-90 hover:opacity-100 transition-opacity duration-200 dark:invert"
             />
           </a>
         </div>

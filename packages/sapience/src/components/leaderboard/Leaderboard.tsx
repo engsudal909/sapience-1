@@ -22,7 +22,6 @@ import { cn } from '@sapience/sdk/ui/lib/utils';
 import {
   Tabs,
   TabsContent,
-  TabsList,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import {
@@ -34,6 +33,7 @@ import {
 import { Info, BarChart2, Target } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import ProfitCell from './ProfitCell';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import type { AggregatedLeaderboardEntry } from '~/hooks/graphql/useLeaderboard';
@@ -91,12 +91,12 @@ const Leaderboard = () => {
 
   return (
     <div className="container max-w-[560px] mx-auto py-32">
-      <h1 className="text-3xl md:text-5xl font-heading font-normal mb-6">
+      <h1 className="text-3xl md:text-5xl font-heading font-normal mb-6 text-brand-white">
         Leaderboard
       </h1>
       <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
         <div className="mb-3">
-          <TabsList>
+          <SegmentedTabsList>
             <TabsTrigger value="pnl">
               <span className="inline-flex items-center gap-1.5">
                 <BarChart2 className="w-4 h-4" />
@@ -109,7 +109,7 @@ const Leaderboard = () => {
                 Accuracy
               </span>
             </TabsTrigger>
-          </TabsList>
+          </SegmentedTabsList>
         </div>
         <TabsContent value="pnl">
           <p className="text-xl font-heading font-normal mb-6 text-muted-foreground leading-relaxed">
@@ -187,7 +187,7 @@ const PnLLeaderboard = () => {
   }
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -199,7 +199,7 @@ const PnLLeaderboard = () => {
                 <TableHead
                   key={header.id}
                   className={cn(
-                    'p-3 text-left text-muted-foreground font-medium text-xs md:text-sm',
+                    'p-3 text-left text-brand-white font-medium text-xs md:text-sm',
                     {
                       'text-center': header.id === 'rank',
                       'w-14 md:w-16': header.id === 'rank',
@@ -254,12 +254,15 @@ const PnLLeaderboard = () => {
                     {pinnedRow.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className={cn('p-3 text-sm md:text-base', {
-                          'text-right font-normal': cell.column.id === 'rank',
-                          'w-14 md:w-16': cell.column.id === 'rank',
-                          'text-right whitespace-nowrap':
-                            cell.column.id === 'totalPnL',
-                        })}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right whitespace-nowrap':
+                              cell.column.id === 'totalPnL',
+                          }
+                        )}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -277,12 +280,15 @@ const PnLLeaderboard = () => {
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className={cn('p-3 text-sm md:text-base', {
-                          'text-right font-normal': cell.column.id === 'rank',
-                          'w-14 md:w-16': cell.column.id === 'rank',
-                          'text-right whitespace-nowrap':
-                            cell.column.id === 'totalPnL',
-                        })}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right whitespace-nowrap':
+                              cell.column.id === 'totalPnL',
+                          }
+                        )}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -367,7 +373,7 @@ const AccuracyLeaderboard = () => {
   }
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-card">
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -379,7 +385,7 @@ const AccuracyLeaderboard = () => {
                 <TableHead
                   key={header.id}
                   className={cn(
-                    'p-3 text-left text-muted-foreground font-medium text-xs md:text-sm',
+                    'p-3 text-left text-brand-white font-medium text-xs md:text-sm',
                     {
                       'text-center': header.id === 'rank',
                       'w-14 md:w-16': header.id === 'rank',
@@ -434,11 +440,14 @@ const AccuracyLeaderboard = () => {
                     {pinnedRow.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className={cn('p-3 text-sm md:text-base', {
-                          'text-right font-normal': cell.column.id === 'rank',
-                          'w-14 md:w-16': cell.column.id === 'rank',
-                          'text-right': cell.column.id === 'accuracyScore',
-                        })}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right': cell.column.id === 'accuracyScore',
+                          }
+                        )}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -456,11 +465,14 @@ const AccuracyLeaderboard = () => {
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className={cn('p-3 text-sm md:text-base', {
-                          'text-right font-normal': cell.column.id === 'rank',
-                          'w-14 md:w-16': cell.column.id === 'rank',
-                          'text-right': cell.column.id === 'accuracyScore',
-                        })}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right': cell.column.id === 'accuracyScore',
+                          }
+                        )}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

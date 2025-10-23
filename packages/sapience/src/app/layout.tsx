@@ -14,8 +14,8 @@ import ChatWidget from '~/components/shared/ChatWidget';
 import FloatingChatButton from '~/components/shared/FloatingChatButton';
 import ConsoleMessage from '~/components/shared/ConsoleMessage';
 import InstallDialog from '~/components/shared/InstallDialog';
-import GlobalSplineBackground from '~/components/shared/GlobalSplineBackground';
 import '~/styles/globals.css';
+import { ibmPlexMono } from '~/app/fonts';
 
 type RootLayoutProps = {
   children: React.ReactNode;
@@ -110,13 +110,12 @@ export const viewport: Viewport = {
 
 const RootLayout = ({ children }: RootLayoutProps) => {
   return (
-    <html lang="en">
+    <html lang="en" className={`${ibmPlexMono.variable}`}>
       <body className="overflow-x-hidden">
         <Providers>
           <LoadingProvider>
             <ChatProvider>
               <GlobalLoader />
-              <GlobalSplineBackground />
               <TooltipProvider>
                 <Layout>{children}</Layout>
               </TooltipProvider>
