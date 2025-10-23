@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import PulsingGradient from '../../shared/PulsingGradient';
 
 export default function HowItWorks() {
@@ -9,6 +10,7 @@ export default function HowItWorks() {
     'Prediction market traders request positions they’d like to wager on.',
     'Agents compete to provide the highest odds, offering traders the best price.',
   ];
+  const images: string[] = ['/hiw_a.png', '/hiw_b.png', '/hiw_c.png'];
 
   return (
     <section className="relative isolate w-full py-16 md:py-24 xl:py-32 2xl:py-40 overflow-x-hidden">
@@ -28,16 +30,28 @@ export default function HowItWorks() {
         </div>
 
         {/* Steps laid out as brand-black rounded cards; arrows overlay at 2xl to avoid overflow */}
-        <div className="grid grid-cols-1 gap-5 md:gap-6 xl:gap-10 2xl:gap-12 xl:grid-cols-3 max-w-full overflow-x-hidden">
+        <div className="grid grid-cols-1 gap-0 md:gap-6 xl:gap-10 2xl:gap-12 xl:grid-cols-3 max-w-full overflow-x-hidden">
           {steps.map((text, index) => (
             <div key={index} className="relative min-w-0">
-              <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 px-4 py-4 md:px-5 md:py-5 w-full max-w-full sm:max-w-[340px] md:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] text-center min-w-0 mx-auto">
+              <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 px-4 pt-4 pb-6 md:px-5 md:pt-5 md:pb-8 w-full max-w-full sm:max-w-[340px] md:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] text-center min-w-0 mx-auto">
+                <div className="flex justify-center mb-1 md:mb-2">
+                  <div className="w-24 h-24 md:w-28 md:h-28 overflow-hidden">
+                    <Image
+                      src={images[index]}
+                      alt="How it works illustration"
+                      width={128}
+                      height={128}
+                      className={`object-contain w-full h-full mix-blend-screen origin-center ${index === 1 ? 'scale-[1.25] md:scale-[1.35]' : index === 0 ? 'scale-[1.11] md:scale-[1.1]' : ''}`}
+                      priority={index === 0}
+                    />
+                  </div>
+                </div>
                 <p className="text-sm md:text-base leading-relaxed mx-auto break-words">
                   {text}
                 </p>
               </div>
               {index < steps.length - 1 && (
-                <div className="flex xl:hidden items-center justify-center my-2">
+                <div className="flex xl:hidden items-center justify-center h-10">
                   <ArrowRight
                     className="h-5 w-5 text-accent-gold opacity-50 rotate-90 animate-arrow-pulse"
                     aria-hidden="true"
