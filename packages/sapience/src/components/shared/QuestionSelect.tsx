@@ -230,7 +230,7 @@ const QuestionSelect = ({
       {isDropdownOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-2 bg-background border border-border shadow-lg z-50 max-h-96 overflow-y-auto"
         >
           {/* Market mode dropdown */}
           {marketMode ? (
@@ -243,6 +243,7 @@ const QuestionSelect = ({
                     onClick={handleSelect}
                     isSelected={selectedMarketId === market.id?.toString()}
                     showBorder={true}
+                    showUnderline={false}
                   />
                 ))}
               </div>
@@ -264,6 +265,7 @@ const QuestionSelect = ({
                   item={marketGroup}
                   onClick={handleSelect}
                   showBorder={true}
+                  showUnderline={false}
                 />
               ))}
             </div>

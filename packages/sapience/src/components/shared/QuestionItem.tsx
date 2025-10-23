@@ -6,6 +6,7 @@ interface QuestionItemProps {
   isSelected?: boolean;
   showBorder?: boolean;
   className?: string;
+  showUnderline?: boolean;
 }
 
 const QuestionItem = ({
@@ -14,6 +15,7 @@ const QuestionItem = ({
   isSelected = false,
   showBorder = true,
   className = '',
+  showUnderline = true,
 }: QuestionItemProps) => {
   // Determine if this is a market group or individual market
   const isMarketGroup = !item.marketId && !item.optionName;
@@ -56,14 +58,20 @@ const QuestionItem = ({
       >
         {/* Colored Bar (Full Height) */}
         <div
-          className="w-1 min-w-[4px] max-w-[4px]"
+          className="w-px min-w-[1px] max-w-[1px]"
           style={{ backgroundColor: categoryColor, margin: '-1px 0' }}
         />
 
         {/* Content Container */}
         <div className="flex-grow px-4 py-3">
           <div className="text-left">
-            <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80 break-words whitespace-normal">
+            <div
+              className={`font-mono font-medium text-brand-white break-words whitespace-normal ${
+                showUnderline
+                  ? 'underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80'
+                  : ''
+              }`}
+            >
               {getTitle()}
             </div>
           </div>

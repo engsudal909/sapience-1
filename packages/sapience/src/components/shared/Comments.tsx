@@ -444,22 +444,28 @@ const Comments = ({
                               const isNumericMarket =
                                 comment.marketClassification === '3';
                               const percent = comment.predictionPercent;
-                              const shouldColor =
-                                !isNumericMarket &&
+                              const baseClasses =
+                                'px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 uppercase font-mono';
+
+                              let variant: 'default' | 'outline' = 'default';
+                              let className = baseClasses;
+
+                              if (isNumericMarket) {
+                                className =
+                                  baseClasses +
+                                  ' bg-secondary text-secondary-foreground';
+                              } else if (
                                 typeof percent === 'number' &&
-                                percent !== 50;
-                              const isGreen = shouldColor && percent > 50;
-                              const isRed = shouldColor && percent < 50;
-                              const variant = shouldColor
-                                ? 'outline'
-                                : 'default';
-                              const className = shouldColor
-                                ? isGreen
-                                  ? 'border-green-500/40 bg-green-500/10 text-green-600'
-                                  : isRed
-                                    ? 'border-red-500/40 bg-red-500/10 text-red-600'
-                                    : ''
-                                : '';
+                                percent !== 50
+                              ) {
+                                variant = 'outline';
+                                className =
+                                  baseClasses +
+                                  (percent > 50
+                                    ? ' border-yes/40 bg-yes/10 text-yes'
+                                    : ' border-no/40 bg-no/10 text-no');
+                              }
+
                               return (
                                 <Badge
                                   variant={variant as any}
@@ -475,7 +481,7 @@ const Comments = ({
                             )}
                           </span>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                            <div className="relative translate-y-[1px]">
+                            <div className="relative translate-y-[2px]">
                               <EnsAvatar
                                 address={comment.address}
                                 className="w-4 h-4 rounded-sm ring-1 ring-border/50"
