@@ -916,6 +916,7 @@ contract PassiveLiquidityVault is
         return 
             interfaceId == type(IPassiveLiquidityVault).interfaceId ||
             interfaceId == type(IERC1271).interfaceId ||
+            interfaceId == type(IERC721Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
