@@ -297,7 +297,7 @@ contract PassiveLiquidityVaultTest is Test {
         
         assertEq(vault.balanceOf(user1), shares); // Shares are not burned until processing
         // Check pending request exists
-        (address requestUser, bool isDeposit, uint256 requestShares, uint256 requestAssets, uint256 timestamp, bool processed) = vault.pendingRequests(user1);
+        (, , , address requestUser, , ) = vault.pendingRequests(user1);
         assertEq(requestUser, user1);
         
         vm.stopPrank();
@@ -313,7 +313,7 @@ contract PassiveLiquidityVaultTest is Test {
         
         assertEq(vault.balanceOf(user1), shares); // Shares are not burned until processing
         // Check pending request exists
-        (address requestUser, bool isDeposit, uint256 requestShares, uint256 requestAssets, uint256 timestamp, bool processed) = vault.pendingRequests(user1);
+        (, , , address requestUser, , ) = vault.pendingRequests(user1);
         assertEq(requestUser, user1);
         
         vm.stopPrank();
@@ -363,7 +363,7 @@ contract PassiveLiquidityVaultTest is Test {
         assertEq(vault.balanceOf(user1), shares); // Shares are not burned until processing
         
         // Check pending request details
-        (address requestUser, bool isDeposit, uint256 requestShares, uint256 requestAssets, uint256 timestamp, bool processed) = vault.pendingRequests(user1);
+        (uint256 requestShares, uint256 requestAssets, , address requestUser, bool isDeposit, bool processed) = vault.pendingRequests(user1);
         assertEq(requestUser, user1);
         assertEq(requestShares, shares);
         assertEq(requestAssets, depositAmount);
@@ -389,7 +389,7 @@ contract PassiveLiquidityVaultTest is Test {
         vm.stopPrank();
         
         // Check that withdrawal was processed
-        (address requestUser, bool isDeposit, uint256 requestShares, uint256 requestAssets, uint256 timestamp, bool processed) = vault.pendingRequests(user1);
+        (, , , , , bool processed) = vault.pendingRequests(user1);
         assertTrue(processed, "Withdrawal should be processed");
         
         // User should have received their assets back
@@ -415,7 +415,7 @@ contract PassiveLiquidityVaultTest is Test {
         vm.stopPrank();
         
         // Should be processed
-        (address requestUser, bool isDeposit, uint256 requestShares, uint256 requestAssets, uint256 timestamp, bool processed) = vault.pendingRequests(user1);
+        (, , , , , bool processed) = vault.pendingRequests(user1);
         assertTrue(processed);
     }
     
@@ -866,7 +866,7 @@ contract PassiveLiquidityVaultTest is Test {
         assertTrue(vaultBalanceAfter <= expectedVaultBalance + 1e18, "Vault balance higher than expected");
         
         // Verify user2's pending request is still intact
-        (address requestUser, bool isDeposit, uint256 requestShares, uint256 requestAssets, , bool processed) = vault.pendingRequests(user2);
+        (, uint256 requestAssets, , address requestUser, bool isDeposit, bool processed) = vault.pendingRequests(user2);
         assertEq(requestUser, user2, "User2's request should still exist");
         assertTrue(isDeposit, "Should be a deposit request");
         assertEq(requestAssets, user2DepositAmount, "User2's request assets should be intact");
@@ -960,7 +960,7 @@ contract PassiveLiquidityVaultTest is Test {
         vm.stopPrank();
         
         // Verify the request was created successfully
-        (address requestUser, bool isDeposit, , uint256 requestAssets, , bool processed) = vault.pendingRequests(freshUser);
+        (, uint256 requestAssets, , address requestUser, bool isDeposit, bool processed) = vault.pendingRequests(freshUser);
         assertEq(requestUser, freshUser, "User should have a pending request");
         assertTrue(isDeposit, "Should be a deposit request");
         assertEq(requestAssets, depositAmount, "Request assets should match");
@@ -1013,7 +1013,7 @@ contract PassiveLiquidityVaultTest is Test {
         vault.requestWithdrawal(userShares / 4, depositAmount / 4);
         
         // Verify the request was created successfully
-        (address requestUser, bool isDeposit, , uint256 requestAssets, , bool processed) = vault.pendingRequests(freshUser);
+        (, uint256 requestAssets, , address requestUser, bool isDeposit, bool processed ) = vault.pendingRequests(freshUser);
         assertEq(requestUser, freshUser, "User should have a pending request");
         assertFalse(isDeposit, "Should be a withdrawal request");
         assertEq(requestAssets, depositAmount / 4, "Request assets should match");
@@ -1105,7 +1105,7 @@ contract PassiveLiquidityVaultTest is Test {
         vm.stopPrank();
         
         // Verify the request was created successfully
-        (address requestUser, bool isDeposit, , uint256 requestAssets, , bool processed) = vault.pendingRequests(freshUser);
+        (, uint256 requestAssets, , address requestUser, bool isDeposit, bool processed) = vault.pendingRequests(freshUser);
         assertEq(requestUser, freshUser, "User should have a pending request");
         assertTrue(isDeposit, "Should be a deposit request");
         assertEq(requestAssets, depositAmount, "Request assets should match");
@@ -1153,7 +1153,7 @@ contract PassiveLiquidityVaultTest is Test {
         vault.requestWithdrawal(userShares / 2, depositAmount / 2);
         
         // Verify the request was created successfully
-        (address requestUser, bool isDeposit, , uint256 requestAssets, , bool processed) = vault.pendingRequests(freshUser);
+        (, uint256 requestAssets, , address requestUser, bool isDeposit, bool processed) = vault.pendingRequests(freshUser);
         assertEq(requestUser, freshUser, "User should have a pending request");
         assertFalse(isDeposit, "Should be a withdrawal request");
         assertEq(requestAssets, depositAmount / 2, "Request assets should match");

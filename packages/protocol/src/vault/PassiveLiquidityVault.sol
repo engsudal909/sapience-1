@@ -400,11 +400,11 @@ contract PassiveLiquidityVault is
         lastUserInteractionTimestamp[msg.sender] = block.timestamp;
 
         pendingRequests[msg.sender] = IPassiveLiquidityVault.PendingRequest({
-            user: msg.sender,
-            isDeposit: false,
             shares: shares,
             assets: expectedAssets,
-            timestamp: block.timestamp,
+            timestamp: uint64(block.timestamp),
+            user: msg.sender,
+            isDeposit: false,
             processed: false
         });
 
@@ -442,11 +442,11 @@ contract PassiveLiquidityVault is
             revert TransferFailed(balanceBefore, assets, balanceAfter);
 
         pendingRequests[msg.sender] = IPassiveLiquidityVault.PendingRequest({
-            user: msg.sender,
-            isDeposit: true,
             shares: expectedShares,
             assets: assets,
-            timestamp: block.timestamp,
+            timestamp: uint64(block.timestamp),
+            user: msg.sender,
+            isDeposit: true,
             processed: false
         });
 

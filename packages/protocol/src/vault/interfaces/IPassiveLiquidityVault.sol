@@ -11,12 +11,12 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 interface IPassiveLiquidityVault is IERC1271, IERC165 {
     // ============ Structs ============
     struct PendingRequest {
-        address user;
-        bool isDeposit; // true for deposit, false for withdrawal
         uint256 shares;
         uint256 assets;
-        uint256 timestamp;
-        bool processed;
+        uint64  timestamp;
+        address user;
+        bool    isDeposit;
+        bool    processed;
     }
 
     // ============ Events ============
@@ -71,14 +71,11 @@ interface IPassiveLiquidityVault is IERC1271, IERC165 {
 
     // ============ View Functions ============
     
-    // function getPendingRequest(uint256 index) external view returns (PendingRequest memory);
     function getActiveProtocolsCount() external view returns (uint256);
     function getActiveProtocols() external view returns (address[] memory);
     function getActiveProtocol(uint256 index) external view returns (address);
     function getLockedShares(address user) external view returns (uint256);
     function getAvailableShares(address user) external view returns (uint256);
-    // function getPendingDeposit(address user) external view returns (uint256 amount);
-    // function getDepositRequest(uint256 index) external view returns (PendingRequest memory);
 
     // ============ Admin Functions ============
     
