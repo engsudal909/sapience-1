@@ -636,15 +636,15 @@ contract PredictionMarket is
         makerNftTokenId = _nftTokenIdCounter++;
         takerNftTokenId = _nftTokenIdCounter++;
         predictions[predictionId] = IPredictionStructs.PredictionData({
-            encodedPredictedOutcomes: encodedPredictedOutcomes,
             predictionId: predictionId,
-            resolver: resolver,
-            maker: maker,
-            taker: taker,
             makerNftTokenId: makerNftTokenId,
             takerNftTokenId: takerNftTokenId,
             makerCollateral: makerCollateral,
             takerCollateral: takerCollateral,
+            encodedPredictedOutcomes: encodedPredictedOutcomes,
+            resolver: resolver,
+            maker: maker,
+            taker: taker,
             settled: false,
             makerWon: false
         });

@@ -56,14 +56,14 @@ contract MockPredictionMarket {
         // Create prediction data where the vault is the maker
         predictions[tokenId] = IPredictionStructs.PredictionData({
             predictionId: tokenId,
-            resolver: address(this),
-            maker: msg.sender,
-            taker: address(0), // No taker for this mock
-            encodedPredictedOutcomes: "",
             makerNftTokenId: tokenId,
             takerNftTokenId: 0,
             makerCollateral: amount,
             takerCollateral: 0,
+            encodedPredictedOutcomes: "",
+            resolver: address(this),
+            maker: msg.sender,
+            taker: address(0), // No taker for this mock
             settled: false,
             makerWon: false
         });
