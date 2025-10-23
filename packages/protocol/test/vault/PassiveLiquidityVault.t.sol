@@ -174,6 +174,7 @@ contract PassiveLiquidityVaultTest is Test {
     MockERC20 public asset;
     MockPredictionMarket public protocol1;
     MockPredictionMarket public protocol2;
+    MockPredictionMarket public protocol3;
     
     address public owner = address(0x1);
     address public manager = address(0x2);
@@ -201,6 +202,7 @@ contract PassiveLiquidityVaultTest is Test {
         // Deploy mock protocols
         protocol1 = new MockPredictionMarket(address(asset), address(vault));
         protocol2 = new MockPredictionMarket(address(asset), address(vault));
+        protocol3 = new MockPredictionMarket(address(asset), address(vault));
         
         // Mint tokens to users
         asset.mint(user1, INITIAL_SUPPLY);
@@ -516,6 +518,119 @@ contract PassiveLiquidityVaultTest is Test {
         vault.approveFundsUsage(address(protocol2), secondApproval);
         
         vm.stopPrank();
+    }
+    
+    // Tests that approveFundsUsage fails when deployed liquidity + previous approval + new approval exceeds max utilization
+    function testApproveFundsUsageWithDeployedLiquidityExceedsMaxUtilization() public {
+        uint256 depositAmount = DEPOSIT_AMOUNT * 2; // 200K tokens
+        _approveAndDeposit(user1, depositAmount);
+        
+        // Set max utilization to 80%
+        vm.startPrank(owner);
+        vault.setMaxUtilizationRate(0.8e18); // 80% in WAD
+        vm.stopPrank();
+        
+        vm.startPrank(manager);
+        
+        // Step 1: Deploy 30% of funds to protocol1 (this creates deployed liquidity)
+        uint256 deployAmount = (depositAmount * 3000) / 10000; // 30% = 60K tokens
+        vault.approveFundsUsage(address(protocol1), deployAmount);
+        // Simulate the protocol using the approved funds (creating deployed liquidity)
+        protocol1.simulateApprovalUsage(deployAmount);
+        
+        // Step 2: Approve 40% to protocol2 (this should succeed: 30% deployed + 40% approved = 70% < 80%)
+        uint256 secondApproval = (depositAmount * 4000) / 10000; // 40% = 80K tokens
+        vault.approveFundsUsage(address(protocol2), secondApproval);
+        
+        // Step 3: Try to approve 20% to protocol3 (this should fail)
+        // Total would be: 30% deployed + 40% existing approval + 20% new approval = 90% > 80%
+        uint256 additionalApproval = (depositAmount * 2000) / 10000; // 20% = 40K tokens
+        
+        // Expected: 90% utilization (0.9e18), max: 80% (0.8e18)
+        vm.expectRevert(abi.encodeWithSelector(PassiveLiquidityVault.ExceedsMaxUtilization.selector, 0.9e18, 0.8e18));
+        vault.approveFundsUsage(address(protocol3), additionalApproval);
+        
+        vm.stopPrank();
+        
+        // Verify the state after the failed attempt
+        assertEq(vault.totalDeployed(), deployAmount, "Deployed amount should be 30%");
+        assertEq(asset.allowance(address(vault), address(protocol2)), secondApproval, "Protocol2 allowance should remain at 40%");
+        assertEq(asset.allowance(address(vault), address(protocol3)), 0, "Protocol3 allowance should remain 0 (no additional approval)");
+    }
+    
+    // Tests that re-approving to the same protocol replaces the previous approval rather than adding to it
+    function testApproveFundsUsageReplacesPreviousApproval() public {
+        uint256 depositAmount = DEPOSIT_AMOUNT * 2; // 200K tokens
+        _approveAndDeposit(user1, depositAmount);
+        
+        // Set max utilization to 80%
+        vm.startPrank(owner);
+        vault.setMaxUtilizationRate(0.8e18); // 80% in WAD
+        vm.stopPrank();
+        
+        vm.startPrank(manager);
+        
+        // Step 1: Deploy 30% of funds to protocol1 (this creates deployed liquidity)
+        uint256 deployAmount = (depositAmount * 3000) / 10000; // 30% = 60K tokens
+        vault.approveFundsUsage(address(protocol1), deployAmount);
+        protocol1.simulateApprovalUsage(deployAmount);
+        
+        // Step 2: Approve 40% to protocol2
+        uint256 firstApproval = (depositAmount * 4000) / 10000; // 40% = 80K tokens
+        vault.approveFundsUsage(address(protocol2), firstApproval);
+        
+        // Step 3: Re-approve protocol2 with 50% (this should succeed because it replaces the 40%, not adds to it)
+        // Total would be: 30% deployed + 50% new approval = 80% = max utilization
+        uint256 reApproval = (depositAmount * 5000) / 10000; // 50% = 100K tokens
+        vault.approveFundsUsage(address(protocol2), reApproval);
+        
+        vm.stopPrank();
+        
+        // Verify the allowance was updated (should be 50%, not 90%)
+        assertEq(asset.allowance(address(vault), address(protocol2)), reApproval, "Protocol2 allowance should be updated to 50%");
+        assertEq(vault.totalDeployed(), deployAmount, "Deployed amount should remain 30%");
+    }
+    
+    // Tests multiple protocols with deployed liquidity and approvals to ensure cumulative limits work correctly
+    function testApproveFundsUsageMultipleProtocolsWithDeployedLiquidity() public {
+        uint256 depositAmount = DEPOSIT_AMOUNT * 3; // 300K tokens
+        _approveAndDeposit(user1, depositAmount);
+        
+        // Set max utilization to 90%
+        vm.startPrank(owner);
+        vault.setMaxUtilizationRate(0.9e18); // 90% in WAD
+        vm.stopPrank();
+        
+        vm.startPrank(manager);
+        
+        // Step 1: Deploy 20% to protocol1 (creates deployed liquidity)
+        uint256 deployAmount1 = (depositAmount * 2000) / 10000; // 20% = 60K tokens
+        vault.approveFundsUsage(address(protocol1), deployAmount1);
+        protocol1.simulateApprovalUsage(deployAmount1);
+        
+        // Step 2: Deploy 30% to protocol2 (creates more deployed liquidity)
+        uint256 deployAmount2 = (depositAmount * 3000) / 10000; // 30% = 90K tokens
+        vault.approveFundsUsage(address(protocol2), deployAmount2);
+        protocol2.simulateApprovalUsage(deployAmount2);
+        
+        // Step 3: Approve 35% to protocol1 (this should succeed: 20% + 30% deployed + 35% approved = 85% < 90%)
+        uint256 approval1 = (depositAmount * 3500) / 10000; // 35% = 105K tokens
+        vault.approveFundsUsage(address(protocol1), approval1);
+        
+        // Step 4: Try to approve 10% to protocol2 (this should fail)
+        // Total would be: 20% + 30% deployed + 35% + 10% approved = 95% > 90%
+        uint256 additionalApproval = (depositAmount * 1000) / 10000; // 10% = 30K tokens
+        
+        // Expected: 95% utilization (0.95e18), max: 90% (0.9e18)
+        vm.expectRevert(abi.encodeWithSelector(PassiveLiquidityVault.ExceedsMaxUtilization.selector, 0.95e18, 0.9e18));
+        vault.approveFundsUsage(address(protocol2), additionalApproval);
+        
+        vm.stopPrank();
+        
+        // Verify the state
+        assertEq(vault.totalDeployed(), deployAmount1 + deployAmount2, "Total deployed should be 50%");
+        assertEq(asset.allowance(address(vault), address(protocol1)), approval1, "Protocol1 allowance should be 35%");
+        assertEq(asset.allowance(address(vault), address(protocol2)), 0, "Protocol2 allowance should remain 0 (no additional approval)");
     }
     
     // Tests that cumulative approvals work correctly when one protocol is re-approved

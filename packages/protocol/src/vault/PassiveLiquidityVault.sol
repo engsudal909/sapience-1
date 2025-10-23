@@ -722,46 +722,46 @@ contract PassiveLiquidityVault is
     /**
      * @notice Approve funds usage to an external protocol
      * @param protocol Address of the target protocol (PredictionMarket)
-     * @param amount Amount of assets to approve
+     * @param newApprovalAmount Amount of assets to approve
      */
     function approveFundsUsage(
         address protocol,
-        uint256 amount
+        uint256 newApprovalAmount
     ) external onlyManager nonReentrant {
         if (protocol == address(0)) revert InvalidProtocol(protocol);
-        if (amount == 0) revert InvalidAmount(amount);
+        if (newApprovalAmount == 0) revert InvalidAmount(newApprovalAmount);
 
         uint256 availableAssetsValue = _getAvailableAssets();
-        if (amount > availableAssetsValue)
-            revert InsufficientAvailableAssets(amount, availableAssetsValue);
+        if (newApprovalAmount > availableAssetsValue)
+            revert InsufficientAvailableAssets(newApprovalAmount, availableAssetsValue);
 
         // Get deployed liquidity and total approvals in a single loop (excluding current protocol)
         (uint256 deployedLiquidity, uint256 totalCurrentApprovals) = _getDeploymentAndApprovalsWithCleanup(protocol);
         uint256 totalAssetsValue = availableAssetsValue + deployedLiquidity;
 
         // Add the new approval amount for this protocol
-        totalCurrentApprovals += amount;
+        uint256 utilizedPlusApprovals = deployedLiquidity + totalCurrentApprovals + newApprovalAmount;
 
         // Check utilization rate limits - calculate projected utilization from total approvals
-        uint256 projectedUtilization = totalAssetsValue > 0
-            ? (totalCurrentApprovals * WAD) / totalAssetsValue
+        uint256 projectedUtilizationRate = totalAssetsValue > 0
+            ? (utilizedPlusApprovals * WAD) / totalAssetsValue
             : 0;
         
-        if (projectedUtilization > maxUtilizationRate)
-            revert ExceedsMaxUtilization(projectedUtilization, maxUtilizationRate);
+        if (projectedUtilizationRate > maxUtilizationRate)
+            revert ExceedsMaxUtilization(projectedUtilizationRate, maxUtilizationRate);
 
         // Update deployment info - use EnumerableSet for gas efficiency
         activeProtocols.add(protocol);
 
-        _asset.forceApprove(protocol, amount);
+        _asset.forceApprove(protocol, newApprovalAmount);
 
-        emit FundsApproved(msg.sender, amount, protocol);
+        emit FundsApproved(msg.sender, newApprovalAmount, protocol);
 
         // Calculate current utilization for event
-        uint256 currentUtilization = totalAssetsValue > 0
+        uint256 currentUtilizationRate = totalAssetsValue > 0
             ? ((deployedLiquidity * WAD) / totalAssetsValue)
             : 0;
-        emit UtilizationRateUpdated(currentUtilization, projectedUtilization);
+        emit UtilizationRateUpdated(currentUtilizationRate, projectedUtilizationRate);
     }
 
     function cleanInactiveProtocols() external onlyManager {
