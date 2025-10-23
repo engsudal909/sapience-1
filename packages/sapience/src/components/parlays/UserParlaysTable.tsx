@@ -568,7 +568,7 @@ export default function UserParlaysTable({
           });
           return (
             <div>
-              <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] mb-0.5">
+              <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em] mb-0.5">
                 Position #{row.original.positionId}
               </h2>
               <div className="text-sm text-muted-foreground flex items-center gap-2">
