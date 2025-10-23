@@ -50,8 +50,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
-import ConditionDialog from '~/components/markets/ConditionDialog';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
 import { useUserParlays } from '~/hooks/graphql/useUserParlays';
@@ -533,7 +532,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -627,23 +626,13 @@ export default function UserParlaysTable({
             <div className="space-y-1">
               {row.original.legs.map((l, idx) => (
                 <div key={idx} className="text-sm flex items-center gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <button
-                        type="button"
-                        className="font-medium underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors hover:decoration-foreground/60 truncate max-w-[520px] text-left cursor-default"
-                        title={String(l.question)}
-                      >
-                        {l.question}
-                      </button>
-                    </DialogTrigger>
-                    <ConditionDialog
-                      conditionId={l.conditionId}
-                      title={l.question}
-                      endTime={l.endTime}
-                      description={l.description}
-                    />
-                  </Dialog>
+                  <ConditionTitleLink
+                    conditionId={l.conditionId}
+                    title={l.question}
+                    endTime={l.endTime}
+                    description={l.description}
+                    clampLines={1}
+                  />
                   <Badge
                     variant="outline"
                     className={
@@ -709,7 +698,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -772,7 +761,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'

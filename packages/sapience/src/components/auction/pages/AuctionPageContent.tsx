@@ -10,7 +10,6 @@ import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
   Tabs,
   TabsContent,
-  TabsList,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import Link from 'next/link';
@@ -27,6 +26,7 @@ import { useAuctionRelayerFeed } from '~/lib/auction/useAuctionRelayerFeed';
 import AuctionBidsDialog from '~/components/auction/AuctionBidsDialog';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
 const AuctionPageContent: React.FC = () => {
   const TAB_VALUES = ['auctions', 'vault-quotes'] as const;
@@ -303,14 +303,10 @@ const AuctionPageContent: React.FC = () => {
               <span>Parlay Auction Feed</span>
             </h1>
             <div className="flex items-center gap-3 md:gap-4 md:justify-end">
-              <TabsList size="sm">
-                <TabsTrigger size="sm" value="auctions">
-                  Parlay Auctions
-                </TabsTrigger>
-                <TabsTrigger size="sm" value="vault-quotes">
-                  Vault Quotes
-                </TabsTrigger>
-              </TabsList>
+              <SegmentedTabsList>
+                <TabsTrigger value="auctions">Parlay Auctions</TabsTrigger>
+                <TabsTrigger value="vault-quotes">Vault Quotes</TabsTrigger>
+              </SegmentedTabsList>
               <Link href="/feed">
                 <Button
                   variant="default"
@@ -335,11 +331,11 @@ const AuctionPageContent: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="rounded border bg-card">
+              <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm [&>thead>tr>th:nth-child(2)]:w-[320px] [&>tbody>tr>td:nth-child(2)]:w-[320px] [&>tbody>tr>td]:align-middle">
-                    <thead className="bg-muted/30 text-muted-foreground">
-                      <tr className="border-b">
+                  <table className="w-full text-sm [&>thead>tr>th:nth-child(2)]:w-[320px] [&>tbody>tr>td:nth-child(2)]:w-[320px] [&>tbody>tr>td]:align-middle [&>tbody>tr:hover]:bg-muted/50 [&>tbody>tr>td]:text-brand-white">
+                    <thead className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
+                      <tr>
                         <th className="px-4 py-3 text-left align-middle font-medium">
                           Time
                         </th>
@@ -433,11 +429,11 @@ const AuctionPageContent: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="rounded border bg-card">
+              <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm [&>thead>tr>th:nth-child(2)]:w-[320px] [&>tbody>tr>td:nth-child(2)]:w-[320px] [&>tbody>tr>td]:align-middle">
-                    <thead className="bg-muted/30 text-muted-foreground">
-                      <tr className="border-b">
+                  <table className="w-full text-sm [&>thead>tr>th:nth-child(2)]:w-[320px] [&>tbody>tr>td:nth-child(2)]:w-[320px] [&>tbody>tr>td]:align-middle [&>tbody>tr:hover]:bg-muted/50 [&>tbody>tr>td]:text-brand-white">
+                    <thead className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
+                      <tr>
                         <th className="px-4 py-3 text-left align-middle font-medium">
                           Time
                         </th>
@@ -477,6 +473,7 @@ const AuctionPageContent: React.FC = () => {
                                 address={row.vaultAddress}
                                 compact
                                 disablePopover
+                                className="[&_span.font-mono]:text-brand-white"
                               />
                             </div>
                           </td>

@@ -37,22 +37,7 @@ import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
 const TAB_VALUES = ['trades', 'parlays', 'lp', 'forecasts'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
-// Helper to support subtle primary-tinted backgrounds like markets Parlay/Spot tabs
-function withAlpha(color: string, alpha: number): string {
-  const hexMatch = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
-  if (hexMatch.test(color)) {
-    const a = Math.max(0, Math.min(1, alpha));
-    const aHex = Math.round(a * 255)
-      .toString(16)
-      .padStart(2, '0');
-    return `${color}${aHex}`;
-  }
-  const toSlashAlpha = (fn: 'hsl' | 'rgb', inside: string) =>
-    `${fn}(${inside} / ${alpha})`;
-  if (color.startsWith('hsl(')) return toSlashAlpha('hsl', color.slice(4, -1));
-  if (color.startsWith('rgb(')) return toSlashAlpha('rgb', color.slice(4, -1));
-  return color;
-}
+// (removed segmented tab background helper)
 
 const ProfilePageContent = () => {
   const params = useParams();
@@ -234,49 +219,36 @@ const ProfilePageContent = () => {
             onValueChange={handleTabChange}
             className="w-full"
           >
-            {(() => {
-              const primaryColor = 'hsl(var(--primary))';
-              const segBg = withAlpha(primaryColor, 0.05);
-              const segActiveBg = withAlpha(primaryColor, 0.09);
-              return (
-                <TabsList
-                  className="grid w-full grid-cols-1 lg:grid-cols-4 h-auto gap-2 mb-5 p-1 rounded-xl bg-[var(--seg-bg)]"
-                  style={{
-                    ['--seg-bg' as any]: segBg,
-                    ['--seg-active' as any]: segActiveBg,
-                  }}
-                >
-                  <TabsTrigger
-                    className="w-full rounded-md data-[state=active]:bg-[var(--seg-active)]"
-                    value="trades"
-                  >
-                    <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
-                    Trades
-                  </TabsTrigger>
-                  <TabsTrigger
-                    className="w-full rounded-md data-[state=active]:bg-[var(--seg-active)]"
-                    value="parlays"
-                  >
-                    <SquareStackIcon className="h-4 w-4 mr-2" />
-                    Parlays
-                  </TabsTrigger>
-                  <TabsTrigger
-                    className="w-full rounded-md data-[state=active]:bg-[var(--seg-active)]"
-                    value="lp"
-                  >
-                    <DropletsIcon className="h-4 w-4 mr-2" />
-                    Liquidity
-                  </TabsTrigger>
-                  <TabsTrigger
-                    className="w-full rounded-md data-[state=active]:bg-[var(--seg-active)]"
-                    value="forecasts"
-                  >
-                    <Telescope className="h-4 w-4 mr-2" />
-                    Forecasts
-                  </TabsTrigger>
-                </TabsList>
-              );
-            })()}
+            <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4 mb-3">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="trades"
+              >
+                <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
+                Trades
+              </TabsTrigger>
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="parlays"
+              >
+                <SquareStackIcon className="h-4 w-4 mr-2" />
+                Parlays
+              </TabsTrigger>
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="lp"
+              >
+                <DropletsIcon className="h-4 w-4 mr-2" />
+                Liquidity
+              </TabsTrigger>
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="forecasts"
+              >
+                <Telescope className="h-4 w-4 mr-2" />
+                Forecasts
+              </TabsTrigger>
+            </TabsList>
 
             <TabsContent value="trades">
               {traderPositionsOpen.length > 0 ? (

@@ -133,123 +133,125 @@ export default function FeedTable({ rows }: { rows: FeedRow[] }) {
       <button
         type="button"
         onClick={() => toggleSort(sk)}
-        className={`inline-flex items-center gap-1 text-left font-medium hover:text-foreground ${active ? 'text-foreground' : ''}`}
+        className={`px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center text-left ${active ? '' : ''}`}
         aria-label={`Sort by ${label}`}
       >
         <span>{label}</span>
         {active ? (
           sortDir === 'asc' ? (
-            <ChevronUp className="h-4 w-4" />
+            <ChevronUp className="ml-1 h-4 w-4" />
           ) : (
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className="ml-1 h-4 w-4" />
           )
         ) : (
-          <ArrowUpDown className="h-4 w-4 opacity-50" />
+          <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
         )}
       </button>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm [&>thead>tr>th:nth-child(2)]:w-[320px] [&>tbody>tr>td:nth-child(2)]:w-[320px] [&>thead>tr>th:nth-child(6)]:w-[250px] [&>tbody>tr>td:nth-child(6)>div]:max-w-[250px] [&>tbody>tr>td:nth-child(6)>div]:truncate">
-        <thead className="bg-muted/30 text-muted-foreground">
-          <tr className="border-b">
-            <th
-              className="px-4 py-3 text-left align-middle"
-              aria-sort={
-                sortKey === 'time'
-                  ? sortDir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none'
-              }
-            >
-              <HeaderButton label="Time" sk="time" />
-            </th>
-            <th
-              className="px-4 py-3 text-left align-middle"
-              aria-sort={
-                sortKey === 'question'
-                  ? sortDir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none'
-              }
-            >
-              <HeaderButton label="Question" sk="question" />
-            </th>
-            <th
-              className="px-4 py-3 text-left align-middle"
-              aria-sort={
-                sortKey === 'action'
-                  ? sortDir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none'
-              }
-            >
-              <HeaderButton label="Signal" sk="action" />
-            </th>
-            <th
-              className="px-4 py-3 text-left align-middle"
-              aria-sort={
-                sortKey === 'amount'
-                  ? sortDir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none'
-              }
-            >
-              <HeaderButton label="Amount" sk="amount" />
-            </th>
-            <th
-              className="px-4 py-3 text-left align-middle"
-              aria-sort={
-                sortKey === 'address'
-                  ? sortDir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none'
-              }
-            >
-              <HeaderButton label="Address" sk="address" />
-            </th>
-            <th
-              className="px-4 py-3 text-left align-middle"
-              aria-sort={
-                sortKey === 'position'
-                  ? sortDir === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : 'none'
-              }
-            >
-              <HeaderButton label="Position" sk="position" />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <AnimatePresence initial={false}>
-            {sortedRows.map(
-              ({
-                Comp,
-                key,
-                tx,
-                collateralAssetTicker,
-                sortedMarketsForColors,
-              }) => (
-                <Comp
-                  key={key}
-                  tx={tx}
-                  collateralAssetTicker={collateralAssetTicker}
-                  sortedMarketsForColors={sortedMarketsForColors}
-                />
-              )
-            )}
-          </AnimatePresence>
-        </tbody>
-      </table>
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm [&>thead>tr>th:nth-child(2)]:w-[320px] [&>tbody>tr>td:nth-child(2)]:w-[320px] [&>thead>tr>th:nth-child(6)]:w-[250px] [&>tbody>tr>td:nth-child(6)>div]:max-w-[250px] [&>tbody>tr>td:nth-child(6)>div]:truncate [&>tbody>tr:hover]:bg-muted/50 [&>tbody>tr>td]:text-brand-white">
+          <thead className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
+            <tr>
+              <th
+                className="px-4 py-3 text-left align-middle"
+                aria-sort={
+                  sortKey === 'time'
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
+                <HeaderButton label="Time" sk="time" />
+              </th>
+              <th
+                className="px-4 py-3 text-left align-middle"
+                aria-sort={
+                  sortKey === 'question'
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
+                <HeaderButton label="Question" sk="question" />
+              </th>
+              <th
+                className="px-4 py-3 text-left align-middle"
+                aria-sort={
+                  sortKey === 'action'
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
+                <HeaderButton label="Signal" sk="action" />
+              </th>
+              <th
+                className="px-4 py-3 text-left align-middle"
+                aria-sort={
+                  sortKey === 'amount'
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
+                <HeaderButton label="Amount" sk="amount" />
+              </th>
+              <th
+                className="px-4 py-3 text-left align-middle"
+                aria-sort={
+                  sortKey === 'address'
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
+                <HeaderButton label="Address" sk="address" />
+              </th>
+              <th
+                className="px-4 py-3 text-left align-middle"
+                aria-sort={
+                  sortKey === 'position'
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
+                <HeaderButton label="Position" sk="position" />
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <AnimatePresence initial={false}>
+              {sortedRows.map(
+                ({
+                  Comp,
+                  key,
+                  tx,
+                  collateralAssetTicker,
+                  sortedMarketsForColors,
+                }) => (
+                  <Comp
+                    key={key}
+                    tx={tx}
+                    collateralAssetTicker={collateralAssetTicker}
+                    sortedMarketsForColors={sortedMarketsForColors}
+                  />
+                )
+              )}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

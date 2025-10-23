@@ -294,7 +294,7 @@ export default function TraderPositionsTable({
                 onClick={() =>
                   column.toggleSorting(column.getIsSorted() === 'asc')
                 }
-                className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
                 aria-sort={
                   column.getIsSorted() === false
                     ? 'none'
@@ -340,7 +340,7 @@ export default function TraderPositionsTable({
                       if (!marketAddr || marketId === undefined)
                         return (
                           <div className="space-y-2">
-                            <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em]">
+                            <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em]">
                               {question}
                             </h2>
                             <div className="text-sm flex items-center gap-2">
@@ -366,7 +366,7 @@ export default function TraderPositionsTable({
                         );
                       return (
                         <div className="space-y-2">
-                          <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em]">
+                          <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em]">
                             <Link
                               href={`/markets/${chainShortName}:${marketAddr}/${marketId}`}
                               className="group"
@@ -415,7 +415,7 @@ export default function TraderPositionsTable({
               onClick={() =>
                 column.toggleSorting(column.getIsSorted() === 'asc')
               }
-              className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
               aria-sort={
                 column.getIsSorted() === false
                   ? 'none'
@@ -524,7 +524,7 @@ export default function TraderPositionsTable({
                 onClick={() =>
                   column.toggleSorting(column.getIsSorted() === 'asc')
                 }
-                className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
                 aria-sort={
                   column.getIsSorted() === false
                     ? 'none'
@@ -555,7 +555,7 @@ export default function TraderPositionsTable({
                       height={20}
                     />
                   ) : null}
-                  <div className="[&_span.font-mono]:text-foreground">
+                  <div className="[&_span.font-mono]:text-brand-white">
                     <AddressDisplay address={position.owner || ''} />
                   </div>
                 </div>
