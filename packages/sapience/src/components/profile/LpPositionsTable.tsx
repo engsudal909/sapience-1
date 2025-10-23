@@ -674,9 +674,9 @@ export default function LpPositionsTable({
 
   return (
     <div>
-      <div className="rounded border bg-card overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
         <Table className="table-auto">
-          <TableHeader className="hidden xl:table-header-group bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+          <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -701,12 +701,12 @@ export default function LpPositionsTable({
             {table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="xl:table-row block border-b last:border-b-0 space-y-3 xl:space-y-0 px-4 py-4 xl:px-0 xl:py-0"
+                className="xl:table-row block border-b last:border-b-0 space-y-3 xl:space-y-0 px-4 py-4 xl:px-0 xl:py-0 hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''} ${cell.column.id === 'position' ? 'max-w-[360px]' : ''}`}
+                    className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''} ${cell.column.id === 'position' ? 'max-w-[360px]' : ''}`}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>

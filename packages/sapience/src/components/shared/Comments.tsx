@@ -411,20 +411,20 @@ const Comments = ({
                       >
                         {/* Question and Prediction */}
                         <div className="space-y-3">
-                          <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] flex items-center gap-2">
-                            {comment.marketAddress ? (
-                              <Link
-                                href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
-                                className="group"
-                              >
-                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                                  {comment.question}
-                                </span>
-                              </Link>
-                            ) : (
-                              comment.question
-                            )}
-                          </h2>
+                          {comment.marketAddress ? (
+                            <Link
+                              href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
+                              className="group"
+                            >
+                              <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80 break-words whitespace-normal">
+                                {comment.question}
+                              </div>
+                            </Link>
+                          ) : (
+                            <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors break-words whitespace-normal">
+                              {comment.question}
+                            </div>
+                          )}
                           {/* Meta row is rendered below content */}
                         </div>
                         {/* Comment content */}
@@ -475,12 +475,12 @@ const Comments = ({
                             )}
                           </span>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                            <div className="relative">
+                            <div className="relative translate-y-[1px]">
                               <EnsAvatar
                                 address={comment.address}
-                                className="w-5 h-5 rounded-sm ring-1 ring-border/50"
-                                width={20}
-                                height={20}
+                                className="w-4 h-4 rounded-sm ring-1 ring-border/50"
+                                width={16}
+                                height={16}
                               />
                             </div>
                             <div className="text-sm text-muted-foreground/80 font-medium">

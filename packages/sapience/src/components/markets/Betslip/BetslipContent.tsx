@@ -70,6 +70,9 @@ export const BetslipContent = ({
     clearParlaySelections,
   } = useBetSlipContext();
   const effectiveParlayMode = isParlayMode;
+  const hasItems = effectiveParlayMode
+    ? parlaySelections.length > 0
+    : betSlipPositions.length > 0;
 
   // Note: RFQ quote request logic is now handled inside BetslipParlayForm
   // This was moved to reduce prop drilling and keep related logic together
@@ -77,42 +80,41 @@ export const BetslipContent = ({
   return (
     <>
       <div className="w-full h-full flex flex-col">
-        <div className="relative px-4 pt-1.5 pb-1.5 lg:bg-muted/50 lg:border-b lg:border-border/40">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center h-10">
-            <span className="text-lg font-medium">Make a Prediction</span>
-            <div className="col-start-3 justify-self-end">
-              {(effectiveParlayMode
-                ? parlaySelections.length > 0
-                : betSlipPositions.length > 0) && (
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={
-                    effectiveParlayMode ? clearParlaySelections : clearBetSlip
-                  }
-                  title="Reset"
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
+        <div className="relative px-4 pt-2 pb-2 lg:hidden">
+          <div className="flex items-center justify-between">
+            <h3 className="eyebrow text-foreground font-sans">
+              Make a Prediction
+            </h3>
+            {(effectiveParlayMode
+              ? parlaySelections.length > 0
+              : betSlipPositions.length > 0) && (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm"
+                onClick={
+                  effectiveParlayMode ? clearParlaySelections : clearBetSlip
+                }
+                title="Reset"
+              >
+                CLEAR
+              </Button>
+            )}
           </div>
         </div>
 
         <div
-          className={`flex-1 min-h-0 ${
-            betSlipPositions.length === 0 ? '' : 'overflow-y-auto'
-          }`}
+          className={`flex-1 min-h-0 ${hasItems ? 'overflow-y-auto pb-4' : ''}`}
         >
           {(
             effectiveParlayMode
               ? parlaySelections.length === 0
               : betSlipPositions.length === 0
           ) ? (
-            <div className="w-full h-full flex items-center justify-center text-center">
-              <div className="flex flex-col items-center gap-3">
+            <div className="w-full h-full flex items-center justify-center text-center text-brand-white">
+              <div className="flex flex-col items-center gap-2 py-20">
                 <Image src="/usde.svg" alt="USDe" width={42} height={42} />
-                <p className="text-base text-muted-foreground max-w-[180px] mx-auto mb-2">
+                <p className="text-base text-brand-white/90 max-w-[200px] mx-auto bg-transparent">
                   {'Add predictions to see your potential winnings'}
                 </p>
                 {/* Parlay mode toggle removed from betslip empty state */}

@@ -1024,9 +1024,9 @@ export default function UserParlaysTable({
       {rows.length === 0 ? (
         <EmptyTabState message="No parlays found" />
       ) : (
-        <div className="rounded border">
+        <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
           <Table className="table-auto">
-            <TableHeader className="hidden xl:table-header-group bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+            <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -1051,12 +1051,12 @@ export default function UserParlaysTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top"
+                  className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
+                      className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

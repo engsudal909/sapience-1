@@ -1,57 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
 // Hero section for the bots page - smaller than homepage hero but still exciting
 export default function BotsHero() {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (typeof document === 'undefined') return;
-    if (iframe && iframe.contentDocument) {
-      const style = iframe.contentDocument.createElement('style');
-      style.textContent = `
-        @tailwind base;
-        @tailwind components;
-        @tailwind utilities;
-        body { background-color: transparent; margin: 0; padding: 1rem; } /* Example: Ensure transparent background */
-      `;
-      iframe.contentDocument.head.appendChild(style);
-    }
-  }, []);
+  // Removed Spline iframe background
 
   return (
     <div className="relative overflow-hidden flex items-center justify-center w-full pb-8 md:pb-16 lg:pb-24">
       {/* Outer container with padding and iframe background */}
       <div className="relative z-10 w-full px-0 md:px-6 pt-20 md:pt-24 max-w-[1020px] mx-auto">
         <div className="relative overflow-hidden rounded-none md:rounded-xl shadow-inner mt-2">
-          {/* Iframe as background within the outer box */}
-          <div
-            className="absolute inset-0 z-0 overflow-hidden rounded-none md:rounded-xl light"
-            style={{
-              transformOrigin: 'center center',
-              colorScheme: 'light',
-              filter: 'none',
-            }}
-          >
-            <iframe
-              ref={iframeRef}
-              src="https://my.spline.design/particlesbots-7HFsdWxSwiyuWxwi8RkBNbtE/"
-              width="100%"
-              height="100%"
-              className="rounded-xl"
-              style={{
-                colorScheme: 'light',
-                filter: 'none',
-              }}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-            />
-          </div>
-
-          {/* Inner Content card overlaid on top */}
+          {/* Content card */}
           <div className="relative z-10 w-100 text-center bg-background/[0.2] backdrop-blur-[2px] border-y md:border border-gray-500/20 rounded-none md:rounded-xl shadow-sm p-8 lg:p-16">
             <h1 className="font-sans text-2xl lg:text-4xl font-normal mb-2 lg:mb-4">
               Trade with Machine Intelligence

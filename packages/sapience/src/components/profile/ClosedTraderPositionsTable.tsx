@@ -394,9 +394,9 @@ export default function ClosedTraderPositionsTable({
   });
 
   return (
-    <div className="rounded border bg-card overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
       <Table className="table-auto">
-        <TableHeader className="bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+        <TableHeader className="text-sm font-medium text-brand-white border-b">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
@@ -417,12 +417,13 @@ export default function ClosedTraderPositionsTable({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow key={row.id} className="hover:bg-muted/50">
               {row.getVisibleCells().map((cell) => (
                 <TableCell
                   key={cell.id}
                   className={
-                    cell.column.id === 'position' ? 'max-w-[360px]' : undefined
+                    (cell.column.id === 'position' ? 'max-w-[360px] ' : '') +
+                    'text-brand-white'
                   }
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

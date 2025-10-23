@@ -1,11 +1,7 @@
 'use client';
 
 import type * as React from 'react';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
+import { Tabs, TabsTrigger } from '@sapience/sdk/ui/components/ui/tabs';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
   Tooltip,
@@ -16,6 +12,7 @@ import {
 import { LayoutGridIcon, ListIcon } from 'lucide-react';
 import CategoryChips from './CategoryChips';
 import type { FocusArea } from '~/lib/constants/focusAreas';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
 interface Category {
   id: number;
@@ -55,6 +52,26 @@ const FocusAreaFilter: React.FC<FocusAreaFilterProps> = ({
   showViewToggle,
 }) => {
   const visibleViewToggle = showViewToggle ?? true;
+  // Use the same muted primary background treatment as the "All Focus Areas" chip
+  const withAlpha = (c: string, alpha: number) => {
+    const hexMatch = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
+    if (hexMatch.test(c)) {
+      const a = Math.max(0, Math.min(1, alpha));
+      const aHex = Math.round(a * 255)
+        .toString(16)
+        .padStart(2, '0');
+      return `${c}${aHex}`;
+    }
+    const toSlashAlpha = (fn: 'hsl' | 'rgb', inside: string) =>
+      `${fn}(${inside} / ${alpha})`;
+    if (c.startsWith('hsl(')) return toSlashAlpha('hsl', c.slice(4, -1));
+    if (c.startsWith('rgb(')) return toSlashAlpha('rgb', c.slice(4, -1));
+    return c;
+  };
+  const primaryColor = 'hsl(var(--primary))';
+  // Extra-subtle backgrounds
+  const segBg = withAlpha(primaryColor, 0.05);
+  const segActiveBg = withAlpha(primaryColor, 0.09);
   return (
     <div className={containerClassName || 'px-0 py-0 w-full'}>
       <div className="w-full min-w-0 flex flex-col min-[1400px]:flex-row items-start min-[1400px]:items-center gap-2">
@@ -66,20 +83,10 @@ const FocusAreaFilter: React.FC<FocusAreaFilterProps> = ({
               value={parlayMode ? 'perps' : 'spot'}
               onValueChange={(v) => onParlayModeChange(v === 'perps')}
             >
-              <TabsList className="inline-flex items-center p-1">
-                <TabsTrigger
-                  value="perps"
-                  className="text-sm px-3 h-8 leading-none rounded-md"
-                >
-                  Parlays
-                </TabsTrigger>
-                <TabsTrigger
-                  value="spot"
-                  className="text-sm px-3 h-8 leading-none rounded-md"
-                >
-                  Spot
-                </TabsTrigger>
-              </TabsList>
+              <SegmentedTabsList>
+                <TabsTrigger value="perps">Parlays</TabsTrigger>
+                <TabsTrigger value="spot">Spot</TabsTrigger>
+              </SegmentedTabsList>
             </Tabs>
           </div>
 
@@ -91,20 +98,10 @@ const FocusAreaFilter: React.FC<FocusAreaFilterProps> = ({
                 handleStatusFilterClick((v as 'active' | 'all') || 'active')
               }
             >
-              <TabsList className="inline-flex items-center p-1">
-                <TabsTrigger
-                  value="active"
-                  className="text-sm px-3 h-8 leading-none rounded-md"
-                >
-                  Active
-                </TabsTrigger>
-                <TabsTrigger
-                  value="all"
-                  className="text-sm px-3 h-8 leading-none rounded-md"
-                >
-                  All
-                </TabsTrigger>
-              </TabsList>
+              <SegmentedTabsList>
+                <TabsTrigger value="active">Active</TabsTrigger>
+                <TabsTrigger value="all">All</TabsTrigger>
+              </SegmentedTabsList>
             </Tabs>
 
             {visibleViewToggle ? (
@@ -115,7 +112,11 @@ const FocusAreaFilter: React.FC<FocusAreaFilterProps> = ({
                       type="button"
                       variant="secondary"
                       size="icon"
-                      className="ml-2 h-10 w-10 hidden md:inline-flex"
+                      className="ml-2 h-10 w-10 hidden md:inline-flex bg-[var(--seg-bg)] hover:bg-[var(--seg-active)] border-transparent text-muted-foreground hover:text-foreground"
+                      style={{
+                        ['--seg-bg' as any]: segBg,
+                        ['--seg-active' as any]: segActiveBg,
+                      }}
                       aria-label={
                         viewMode === 'grid'
                           ? 'Switch to list view'
