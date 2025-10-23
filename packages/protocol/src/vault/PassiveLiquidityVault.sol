@@ -194,9 +194,9 @@ contract PassiveLiquidityVault is
 
     // ============ Custom totals, Withdrawal and Deposit Functions ============
     /**
-     * @dev Decimals are computed by adding the decimal offset on top of the underlying asset's decimals. This
-     * "original" value is cached during construction of the vault contract. If this read operation fails (e.g., the
-     * asset has not been created yet), a default of 18 is used to represent the underlying asset's decimals.
+     * @dev Returns the number of decimals of the underlying asset. This value is fetched and cached during
+     * construction of the vault contract. If the decimals() call fails during construction (e.g., the asset
+     * contract does not implement decimals()), a default of 18 is used.
      *
      * See {IERC20Metadata-decimals}.
      */
