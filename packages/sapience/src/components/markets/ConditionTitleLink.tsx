@@ -87,7 +87,10 @@ export default function ConditionTitleLink({
         />
       </Dialog>
       {trailing ? (
-        <span className="ml-1 align-baseline">{trailing}</span>
+        <>
+          {' '}
+          <span className="ml-1 align-baseline">{trailing}</span>
+        </>
       ) : null}
     </span>
   );

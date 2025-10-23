@@ -922,7 +922,7 @@ const Betslip = ({
         <div
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
-          <div className="relative bg-card border border-border rounded-md shadow-md h-full flex flex-col">
+          <div className="relative bg-card border border-border rounded-none shadow-md h-full flex flex-col">
             <div
               className="hidden lg:block absolute top-0 left-0 right-0 h-px"
               style={{ background: categoryGradient }}
@@ -937,7 +937,7 @@ const Betslip = ({
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="uppercase font-mono tracking-wider text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
+                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm"
                   onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
                   title="Reset"
                 >
@@ -970,7 +970,7 @@ const Betslip = ({
           align="end"
         >
           <div className="flex-1">
-            <div className="relative bg-card border border-border rounded-md shadow-md">
+            <div className="relative bg-card border border-border rounded-none shadow-md">
               <div
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}
@@ -985,7 +985,7 @@ const Betslip = ({
                   <Button
                     variant="ghost"
                     size="xs"
-                    className="uppercase font-mono tracking-wider text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
+                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm"
                     onClick={
                       isParlayMode ? clearParlaySelections : clearBetSlip
                     }

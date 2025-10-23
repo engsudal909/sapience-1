@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import * as React from 'react';
+import { Button } from '@sapience/sdk/ui/components/ui/button';
 import type { MarketWithContext } from './MarketsPage';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import type { MarketGroupClassification } from '~/lib/types';
@@ -12,7 +14,6 @@ import { useMarketGroupChartData } from '~/hooks/graphql/useMarketGroupChartData
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { DEFAULT_WAGER_AMOUNT } from '~/lib/utils/betslipUtils';
 import { useSettings } from '~/lib/context/SettingsContext';
-import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 export interface MarketCardProps {
   chainId: number;
@@ -33,6 +34,7 @@ const MarketCard = ({
   market,
   yesMarketId,
   noMarketId,
+  color,
   displayQuestion,
   isActive,
   marketClassification,
@@ -244,21 +246,34 @@ const MarketCard = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
+        className="bg-brand-black text-brand-white/90 rounded-b-none rounded-t-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ backgroundColor: color }}
+        />
         <div className="flex-1 flex flex-col h-full">
           <div className="block group">
             <div className="transition-colors">
               <div className="flex flex-col px-4 py-3 gap-3">
                 <div className="flex flex-col min-w-0 flex-1">
                   <h3 className="leading-snug min-h-[44px] min-w-0">
-                    <ConditionTitleLink
-                      conditionId={undefined}
-                      title={displayQuestion}
-                      endTime={undefined}
-                      description={undefined}
-                      clampLines={2}
-                    />
+                    <Link
+                      href={`/markets/${chainShortName}:${marketAddress}`}
+                      className="group"
+                    >
+                      <span
+                        className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60"
+                        style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {displayQuestion}
+                      </span>
+                    </Link>
                   </h3>
                   {/* Market Prediction moved to bottom action section */}
                 </div>
@@ -285,6 +300,8 @@ const MarketCard = ({
                   onNo={handleNoClick}
                   className="w-full"
                   size="sm"
+                  yesLabel="PREDICT YES"
+                  noLabel="PREDICT NO"
                   selectedYes={yesNoSelection.selectedYes}
                   selectedNo={yesNoSelection.selectedNo}
                   yesOddsText={
@@ -317,6 +334,8 @@ const MarketCard = ({
                   }}
                   className="w-full"
                   size="sm"
+                  yesLabel="PREDICT YES"
+                  noLabel="PREDICT NO"
                   yesOddsText={
                     showAmericanOdds
                       ? toAmericanOdds(latestPrices[market.marketId])
@@ -333,6 +352,21 @@ const MarketCard = ({
                   }
                 />
               )}
+            {!isActive && (
+              <Button
+                variant="secondary"
+                className="w-full md:min-w-[10rem]"
+                size="lg"
+                asChild
+              >
+                <Link
+                  href={`/markets/${chainShortName}:${marketAddress}`}
+                  className="group inline-flex items-center"
+                >
+                  CLOSED
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </motion.div>

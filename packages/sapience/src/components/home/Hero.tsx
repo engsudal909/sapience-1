@@ -47,7 +47,7 @@ export default function Hero() {
             />
             <video
               ref={videoRef}
-              className="relative w-full max-w-[320px] md:max-w-[320px] lg:max-w-[360px] xl:max-w-[400px] 2xl:max-w-[440px] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8"
+              className="relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8"
               autoPlay
               muted
               loop
@@ -58,20 +58,22 @@ export default function Hero() {
             </video>
           </div>
           <div className="rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
-            <h1 className="font-heading text-lg leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
+            <h1 className="font-heading text-2xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
               Forecast the future with next-gen prediction markets
             </h1>
-            <div className="mt-2 md:mt-3 flex items-center gap-3 md:gap-4 text-foreground">
+            <div className="mt-5 md:mt-3 flex flex-col md:flex-row items-center gap-3 md:gap-4 text-foreground">
               <span className="eyebrow">TRANSPARENT</span>
-              <span className="text-foreground/50">|</span>
+              <div className="md:hidden h-px w-8 bg-foreground opacity-50" />
+              <span className="hidden md:inline text-foreground/50">|</span>
               <span className="eyebrow">PERMISSIONLESS</span>
-              <span className="text-foreground/50">|</span>
+              <div className="md:hidden h-px w-8 bg-foreground opacity-50" />
+              <span className="hidden md:inline text-foreground/50">|</span>
               <span className="eyebrow">OPEN SOURCE</span>
             </div>
           </div>
         </div>
       </div>
-      <div className="relative z-10 w-full bg-brand-black text-foreground">
+      <div className="relative z-10 w-full">
         <Ticker />
       </div>
     </section>

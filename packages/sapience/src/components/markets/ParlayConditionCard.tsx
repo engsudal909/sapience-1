@@ -86,7 +86,7 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-brand-black text-brand-white/90 rounded-b-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
+        className="bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
         <div
           className="absolute top-0 left-0 right-0 h-px"
@@ -122,6 +122,8 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
               onNo={handleNo}
               className="w-full"
               size="sm"
+              yesLabel="PREDICT YES"
+              noLabel="PREDICT NO"
               selectedYes={selectionState.selectedYes}
               selectedNo={selectionState.selectedNo}
             />

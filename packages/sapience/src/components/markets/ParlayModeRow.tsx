@@ -78,15 +78,15 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
   ]);
 
   return (
-    <div className="border-b last:border-b-0 border-border">
-      <div className="bg-card border-muted flex flex-row transition-colors items-stretch relative">
+    <div className="mt-2 first:mt-0">
+      <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row items-stretch relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono">
         <div
-          className="w-1 min-w-[4px] max-w-[4px]"
-          style={{ backgroundColor: color, margin: '-1px 0' }}
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ backgroundColor: color }}
         />
-        <div className="flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-5 py-4 md:py-3 md:pr-3 gap-3">
+        <div className="flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-4 py-3 md:py-3 md:pr-3 gap-3">
           <div className="flex-grow min-w-0">
-            <div className="text-xl">
+            <h3 className="text-base leading-snug">
               <ConditionTitleLink
                 conditionId={id}
                 title={displayQ}
@@ -94,7 +94,7 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
                 description={description}
                 clampLines={1}
               />
-            </div>
+            </h3>
             <div className="mt-2 text-sm text-foreground/70 flex items-center gap-1">
               <span>Current Forecast:</span>
               <MarketPredictionRequest conditionId={id} />
@@ -105,7 +105,9 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
               onYes={handleYes}
               onNo={handleNo}
               className="w-full md:min-w-[10rem]"
-              size="lg"
+              size="sm"
+              yesLabel="PREDICT YES"
+              noLabel="PREDICT NO"
               selectedYes={selectionState.selectedYes}
               selectedNo={selectionState.selectedNo}
             />

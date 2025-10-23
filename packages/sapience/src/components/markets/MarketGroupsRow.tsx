@@ -310,6 +310,10 @@ const MarketGroupsRow = ({
     <div className="w-full">
       {/* Main Row Container for Color Bar + Content */}
       <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 flex flex-row transition-colors items-stretch min-h-[88px] md:min-h-[72px] relative font-mono">
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ backgroundColor: color }}
+        />
         {/* Content Container */}
         <div className="relative flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-4 pt-4 pb-4 md:py-2 gap-3">
           {/* Left Side: Question + Prediction */}
@@ -319,14 +323,14 @@ const MarketGroupsRow = ({
                 href={`/markets/${chainShortName}:${marketAddress}`}
                 className="group"
               >
-                <span className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80">
+                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60">
                   {displayQuestion}
                 </span>
               </Link>
             </h3>
             {/* Prediction Section (conditionally rendered) */}
             {canShowPredictionElement && (
-              <div className="text-xs text-foreground/70 flex items-center gap-1">
+              <div className="text-sm text-foreground/70 flex items-center gap-1">
                 <span>Current Forecast:</span>
                 <MarketPrediction />
               </div>
@@ -380,7 +384,7 @@ const MarketGroupsRow = ({
                         className="group inline-flex items-center"
                       >
                         <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                          Closed
+                          CLOSED
                         </span>
                       </Link>
                     </Button>
@@ -394,9 +398,9 @@ const MarketGroupsRow = ({
                     // Numeric markets keep single action
                     <Button
                       variant="default"
-                      size="lg"
+                      size="sm"
                       onClick={() => handleAddToBetSlip(activeMarket)}
-                      className="w-28 text-base"
+                      className="w-full md:min-w-[10rem] text-base"
                     >
                       <Image
                         src="/susde-icon.svg"
@@ -420,7 +424,9 @@ const MarketGroupsRow = ({
                           onYes={() => handleAddToBetSlip(yesMarket, true)}
                           onNo={() => handleAddToBetSlip(noMarket, false)}
                           className="w-full md:min-w-[10rem]"
-                          size="lg"
+                          size="sm"
+                          yesLabel="PREDICT YES"
+                          noLabel="PREDICT NO"
                           selectedYes={yesNoSelection.selectedYes}
                           selectedNo={yesNoSelection.selectedNo}
                           yesOddsText={
@@ -445,7 +451,7 @@ const MarketGroupsRow = ({
                     href={`/markets/${chainShortName}:${marketAddress}`}
                     className="group inline-flex items-center"
                   >
-                    Closed
+                    CLOSED
                   </Link>
                 </Button>
               )}
@@ -531,6 +537,8 @@ const MarketGroupsRow = ({
                                   }
                                   className="w-full md:min-w-[10rem]"
                                   size="lg"
+                                  yesLabel="PREDICT YES"
+                                  noLabel="PREDICT NO"
                                   selectedYes={selectedYes}
                                   selectedNo={selectedNo}
                                 />

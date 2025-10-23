@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
@@ -22,6 +23,7 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
   const { id, question, shortName, endTime, description } = condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
     useBetSlipContext();
+  const router = useRouter();
 
   const displayQ = shortName || question;
 
@@ -46,12 +48,14 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
       question: displayQ,
       prediction: true,
     });
+    router.push('/markets');
   }, [
     id,
     displayQ,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,
+    router,
   ]);
 
   const handleNo = React.useCallback(() => {
@@ -66,12 +70,14 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
       question: displayQ,
       prediction: false,
     });
+    router.push('/markets');
   }, [
     id,
     displayQ,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,
+    router,
   ]);
 
   return (

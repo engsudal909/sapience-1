@@ -131,16 +131,16 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
         </div>
       </div>
 
-      <div className="mt-0 mb-4 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6 xl:gap-8">
+      <div className="mt-0 mb-4 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
         {isLoading || combos.length === 0 ? (
           <>
-            <div className="bg-brand-black text-brand-white/70 rounded-b-lg border border-brand-white/10 overflow-hidden shadow-sm h-20 flex items-center justify-center">
+            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 flex items-center justify-center">
               Loading…
             </div>
-            <div className="bg-brand-black text-brand-white/70 rounded-b-lg border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
+            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
               Loading…
             </div>
-            <div className="bg-brand-black text-brand-white/70 rounded-b-lg border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
+            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
               Loading…
             </div>
           </>
@@ -161,7 +161,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
             return (
               <div
                 key={`combo-${idx}`}
-                className={`relative bg-brand-black text-brand-white/90 rounded-b-lg border border-brand-white/10 overflow-hidden shadow-sm p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
+                className={`relative bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
               >
                 <div
                   className="absolute top-0 left-0 right-0 h-px"
@@ -174,7 +174,9 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                       className="border-b border-border/70 last:border-b-0 flex-1"
                     >
                       <div className="flex items-stretch">
-                        <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div
+                          className={`flex-1 min-w-0 px-3 ${i === 0 ? 'pt-3 pb-2.5' : 'py-2.5'} flex items-center justify-between gap-3`}
+                        >
                           <h3 className="text-sm leading-snug min-w-0 max-w-full">
                             <ConditionTitleLink
                               conditionId={leg.condition.id}
@@ -219,7 +221,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                         </div>
                       </div>
                       <Button
-                        className="w-full gap-2"
+                        className="w-full gap-2 tracking-wider"
                         variant="outline"
                         type="button"
                         onClick={() => {
@@ -235,7 +237,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                         }}
                       >
                         <SquareStackIcon className="h-4 w-4" />
-                        Pick Parlay
+                        PICK PARLAY
                       </Button>
                     </div>
                   </div>

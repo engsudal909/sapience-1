@@ -629,7 +629,18 @@ const VaultsPageContent = () => {
           <h1 className="text-3xl md:text-5xl font-heading font-normal">
             Vaults
           </h1>
-          {/* Deploy Vault action hidden until implementation is available */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              className="cursor-not-allowed"
+              onClick={(e) => e.preventDefault()}
+            >
+              Deploy a vault
+            </Button>
+            <span className="text-xs text-muted-foreground">Coming soon</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8">
