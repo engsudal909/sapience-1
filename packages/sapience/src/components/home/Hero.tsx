@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Ticker from '~/components/home/Ticker';
 import HeroBackgroundLines from '~/components/home/HeroBackgroundLines';
 import PulsingGradient from '~/components/shared/PulsingGradient';
 
 export default function Hero() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -23,9 +24,11 @@ export default function Hero() {
 
     if (v.readyState >= 2) {
       attemptPlay();
+      setIsVideoReady(true);
     } else {
       const onCanPlay = () => {
         attemptPlay();
+        setIsVideoReady(true);
         v.removeEventListener('canplay', onCanPlay);
       };
       v.addEventListener('canplay', onCanPlay);
@@ -37,7 +40,9 @@ export default function Hero() {
       <HeroBackgroundLines />
       <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-16 md:pt-24 pb-0 flex-1 flex flex-col justify-center">
         <div className="relative z-10 w-full flex flex-col items-center">
-          <div className="relative">
+          <div
+            className={`relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] aspect-[3/2] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+          >
             <PulsingGradient
               className="inset-[-10px] rounded-[18px] -z-10"
               durationMs={9600}
@@ -47,12 +52,13 @@ export default function Hero() {
             />
             <video
               ref={videoRef}
-              className="relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8"
+              className="absolute inset-0 w-full h-full object-cover"
               autoPlay
               muted
               loop
               playsInline
               preload="auto"
+              onLoadedData={() => setIsVideoReady(true)}
             >
               <source src="/hero.mp4" type="video/mp4" />
             </video>

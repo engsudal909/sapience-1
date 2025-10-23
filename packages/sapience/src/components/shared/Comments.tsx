@@ -475,12 +475,12 @@ const Comments = ({
                             )}
                           </span>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                            <div className="relative">
+                            <div className="relative translate-y-[1px]">
                               <EnsAvatar
                                 address={comment.address}
-                                className="w-5 h-5 rounded-sm ring-1 ring-border/50"
-                                width={20}
-                                height={20}
+                                className="w-4 h-4 rounded-sm ring-1 ring-border/50"
+                                width={16}
+                                height={16}
                               />
                             </div>
                             <div className="text-sm text-muted-foreground/80 font-medium">

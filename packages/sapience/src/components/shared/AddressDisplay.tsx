@@ -112,7 +112,7 @@ const AddressDisplay = ({
       : '';
 
   const isVaultAddress =
-    address.toLowerCase() === '0x29e1d43ccc51b9916c89fcf54edd7cc9b9db856d';
+    address.toLowerCase() === '0xcc1c64e849395d31d059a4bd19391af64d8855d7';
 
   return (
     <div
