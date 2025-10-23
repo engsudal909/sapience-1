@@ -411,20 +411,20 @@ const Comments = ({
                       >
                         {/* Question and Prediction */}
                         <div className="space-y-3">
-                          <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] flex items-center gap-2">
-                            {comment.marketAddress ? (
-                              <Link
-                                href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
-                                className="group"
-                              >
-                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                                  {comment.question}
-                                </span>
-                              </Link>
-                            ) : (
-                              comment.question
-                            )}
-                          </h2>
+                          {comment.marketAddress ? (
+                            <Link
+                              href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
+                              className="group"
+                            >
+                              <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80 break-words whitespace-normal">
+                                {comment.question}
+                              </div>
+                            </Link>
+                          ) : (
+                            <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors break-words whitespace-normal">
+                              {comment.question}
+                            </div>
+                          )}
                           {/* Meta row is rendered below content */}
                         </div>
                         {/* Comment content */}

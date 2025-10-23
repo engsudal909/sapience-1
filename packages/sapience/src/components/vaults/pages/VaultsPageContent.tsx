@@ -11,6 +11,12 @@ import {
   TabsList,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@sapience/sdk/ui/components/ui/tooltip';
+import { Vault } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
@@ -630,16 +636,25 @@ const VaultsPageContent = () => {
             Vaults
           </h1>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              className="cursor-not-allowed"
-              onClick={(e) => e.preventDefault()}
-            >
-              Deploy a vault
-            </Button>
-            <span className="text-xs text-muted-foreground">Coming soon</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-not-allowed">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="inline-flex items-center gap-2"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <Vault className="h-4 w-4" />
+                    Deploy Vault
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 

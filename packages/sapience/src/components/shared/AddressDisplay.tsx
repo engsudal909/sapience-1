@@ -112,7 +112,7 @@ const AddressDisplay = ({
       : '';
 
   const isVaultAddress =
-    address.toLowerCase() === '0xcc1c64e849395d31d059a4bd19391af64d8855d7';
+    address.toLowerCase() === '0x29e1d43ccc51b9916c89fcf54edd7cc9b9db856d';
 
   return (
     <div
@@ -151,10 +151,10 @@ const AddressDisplay = ({
             <Button
               variant="ghost"
               size="icon"
-              className={`${buttonSizeClass} ${buttonSvgOverrideClass}`}
+              className={`${buttonSizeClass} ${buttonSvgOverrideClass} group bg-transparent hover:bg-transparent focus:bg-transparent focus-visible:bg-transparent active:bg-transparent`}
             >
               <User
-                className={`${iconSizeClass} text-muted-foreground opacity-80 hover:text-accent-gold hover:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
+                className={`${iconSizeClass} text-muted-foreground opacity-80 group-hover:text-accent-gold group-hover:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
               />
             </Button>
           </Link>
@@ -166,10 +166,10 @@ const AddressDisplay = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`${buttonSizeClass} ${buttonSvgOverrideClass}`}
+                className={`${buttonSizeClass} ${buttonSvgOverrideClass} group bg-transparent hover:bg-transparent focus:bg-transparent focus-visible:bg-transparent active:bg-transparent data-[state=open]:bg-transparent`}
               >
                 <ExternalLink
-                  className={`${iconSizeClass} text-muted-foreground opacity-80 hover:text-accent-gold hover:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
+                  className={`${iconSizeClass} text-muted-foreground opacity-80 group-hover:text-accent-gold group-hover:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
                 />
               </Button>
             </PopoverTrigger>

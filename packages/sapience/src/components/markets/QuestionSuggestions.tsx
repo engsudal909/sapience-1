@@ -135,9 +135,7 @@ const QuestionSuggestions = ({
   return (
     <div className="p-6 gap-1.5 flex flex-col">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm text-muted-foreground">
-          Make a Prediction
-        </h3>
+        <h3 className="eyebrow text-foreground font-sans">Make a Prediction</h3>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
