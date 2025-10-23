@@ -54,13 +54,16 @@ export const SegmentedTabsList: React.FC<SegmentedTabsListProps> = ({
       triggerClassName,
       childClassName
     );
-    return React.cloneElement(child as React.ReactElement, {
-      className: mergedClassName,
-      style: {
-        ...(child.props as any)?.style,
-        ['--seg-active' as any]: segActiveBg,
-      },
-    });
+    return React.cloneElement(
+      child as React.ReactElement<any>,
+      {
+        className: mergedClassName,
+        style: {
+          ...(child.props as any)?.style,
+          ['--seg-active' as any]: segActiveBg,
+        },
+      } as any
+    );
   });
 
   return (
