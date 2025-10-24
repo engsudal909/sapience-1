@@ -33,7 +33,7 @@ export default function HowItWorks() {
         <div className="grid grid-cols-1 gap-0 md:gap-6 xl:gap-10 2xl:gap-12 xl:grid-cols-3 max-w-full overflow-x-hidden">
           {steps.map((text, index) => (
             <div key={index} className="relative min-w-0">
-              <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 px-4 pt-4 pb-6 md:px-5 md:pt-5 md:pb-8 w-full max-w-full sm:max-w-[340px] md:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] text-center min-w-0 mx-auto">
+              <div className="bg-brand-black text-brand-white/90 rounded-lg border border-brand-white/10 px-4 pt-4 pb-6 md:px-5 md:pt-5 md:pb-8 w-full max-w-[290px] sm:max-w-[340px] md:max-w-[400px] lg:max-w-[440px] xl:max-w-[480px] text-center min-w-0 mx-auto">
                 <div className="flex justify-center mb-1 md:mb-2">
                   <div className="w-24 h-24 md:w-28 md:h-28 overflow-hidden">
                     <Image

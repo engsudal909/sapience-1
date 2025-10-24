@@ -9,7 +9,7 @@ import { BookOpen } from 'lucide-react';
 const Footer = () => {
   return (
     <footer className="block w-full border-t border-border/20 bg-background/60 backdrop-blur-sm relative z-[40]">
-      <div className="mx-auto px-4 py-2 flex items-center justify-between">
+      <div className="mx-auto px-4 pt-3 pb-2 sm:py-2 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
         <div className="flex items-center gap-1.5 text-xs">
           <span className="text-[hsl(var(--brand-white))]">Powered by</span>
           <a
@@ -29,8 +29,8 @@ const Footer = () => {
           </a>
         </div>
 
-        <div className="flex items-center gap-3.5">
-          <div className="flex items-center gap-3 text-xs">
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3.5">
+          <div className="flex items-center gap-3 text-xs order-2 sm:order-1">
             <Link
               href="https://docs.sapience.xyz/terms-of-service"
               target="_blank"
@@ -48,7 +48,7 @@ const Footer = () => {
               Privacy Policy
             </Link>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 order-1 sm:order-2">
             <Button size="icon" className="h-4 w-4 rounded-full" asChild>
               <a
                 href="https://github.com/sapiencexyz/sapience"

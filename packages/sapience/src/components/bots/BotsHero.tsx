@@ -70,8 +70,8 @@ export default function BotsHero() {
               <source src="/hero_bot.mp4" type="video/mp4" />
             </video>
           </div>
-          <div className="rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
-            <h1 className="font-heading text-2xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-md">
+          <div className="w-full md:w-auto max-w-[300px] md:max-w-none rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
+            <h1 className="font-heading text-xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-md">
               Build AI-powered agents that forecast the future and trade
               prediction markets
             </h1>
@@ -80,9 +80,7 @@ export default function BotsHero() {
               onClick={handleScrollClick}
               className="mt-3 font-mono text-sm inline-flex items-center gap-1"
             >
-              <span className="gold-link">
-                Deploy your first bot in minutes
-              </span>
+              <span className="gold-link">Deploy an agent in minutes</span>
             </button>
           </div>
         </div>

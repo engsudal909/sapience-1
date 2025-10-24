@@ -18,7 +18,7 @@ export default function BiddingBotSection() {
                 </a>{' '}
                 traders. Have it bid in{' '}
                 <a href="/auction" className="gold-link">
-                  real-time auctions
+                  auctions
                 </a>{' '}
                 with the best odds it can offer while managing risk.
               </p>
