@@ -18,6 +18,8 @@ import "../vault/interfaces/IPassiveLiquidityVault.sol";
 /**
  * @title PredictionMarket
  * @notice Implementation of the Prediction Market contract with orderbook functionality
+ * @dev This contract implements ERC721 for prediction NFTs but take into account those NFTs are not transferable to contracts implementing IPassiveLiquidityVault.
+ * @dev Also notice that, on transfers, it will attempt to call `IERC165(destination_address).supportsInterface(type( )`
  */
 contract PredictionMarket is
     ERC721,
@@ -519,11 +521,6 @@ contract PredictionMarket is
         returns (address from)
     {
         from = super._update(to, tokenId, auth);
-
-        // Add verification before the transfer
-        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
-            _verifyTransfer(auth, to, tokenId);
-        }
         
         uint256 predictionId = nftToPredictionId[tokenId];
         if (predictionId == 0) {
@@ -571,6 +568,11 @@ contract PredictionMarket is
                 userCollateralDeposits[from] -= prediction.takerCollateral;
                 userCollateralDeposits[to] += prediction.takerCollateral;
             }
+        }
+
+        // Add verification before the transfer (moved to the botton since it can have a side effect calling to.supportsInterface())
+        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
+            _verifyTransfer(auth, to, tokenId);
         }
 
         return from;
