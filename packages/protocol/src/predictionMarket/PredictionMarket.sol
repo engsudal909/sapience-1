@@ -570,7 +570,7 @@ contract PredictionMarket is
             }
         }
 
-        // Add verification before the transfer (moved to the botton since it can have a side effect calling to.supportsInterface())
+        // Add verification before the transfer (moved to the bottom since it can have a side effect calling to.supportsInterface())
         if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
             _verifyTransfer(auth, to, tokenId);
         }
