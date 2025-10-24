@@ -800,6 +800,49 @@ contract PassiveLiquidityVaultTest is Test {
         
         assertFalse(vault.emergencyMode(), "Emergency mode should be disabled");
     }
+
+    // Tests that the MaxUtilizationRateUpdated event is properly emitted when setting max utilization rate
+    function testSetMaxUtilizationRateEmitsEvent() public {
+        uint256 newMaxRate = 0.9e18; // 90% in WAD
+        
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit IPassiveLiquidityVault.MaxUtilizationRateUpdated(vault.maxUtilizationRate(), newMaxRate);
+        vault.setMaxUtilizationRate(newMaxRate);
+        vm.stopPrank();
+        
+        assertEq(vault.maxUtilizationRate(), newMaxRate, "Max utilization rate should be updated");
+    }
+
+    // Tests that the ProjectedUtilizationRateUpdated event is properly emitted when approving funds usage
+    function testApproveFundsUsageEmitsProjectedUtilizationEvent() public {
+        uint256 depositAmount = DEPOSIT_AMOUNT * 2;
+        _approveAndDeposit(user1, depositAmount);
+        
+        uint256 deployAmount = DEPOSIT_AMOUNT;
+        
+        // Calculate expected values before deployment
+        uint256 currentUtilizationRate = vault.utilizationRate();
+        uint256 availableAssetsValue = vault.availableAssets();
+        uint256 deployedLiquidity = vault.totalDeployed();
+        uint256 totalAssetsValue = availableAssetsValue + deployedLiquidity;
+        
+        // Calculate projected utilization rate after deployment
+        uint256 utilizedPlusApprovals = deployedLiquidity + deployAmount;
+        uint256 projectedUtilizationRate = totalAssetsValue > 0
+            ? (utilizedPlusApprovals * vault.WAD()) / totalAssetsValue
+            : 0;
+        
+        vm.startPrank(manager);
+        vm.expectEmit(true, true, true, true);
+        emit IPassiveLiquidityVault.ProjectedUtilizationRateUpdated(currentUtilizationRate, projectedUtilizationRate);
+        vault.approveFundsUsage(address(protocol1), deployAmount);
+        vm.stopPrank();
+        
+        // Verify the approval was successful by checking the protocol is in active protocols
+        assertTrue(vault.getActiveProtocolsCount() > 0, "Protocol should be added to active protocols");
+        assertEq(vault.getActiveProtocol(0), address(protocol1), "Protocol should be the first active protocol");
+    }
     
     // ============ Access Control Tests ============
     

@@ -761,7 +761,7 @@ contract PassiveLiquidityVault is
         uint256 currentUtilizationRate = totalAssetsValue > 0
             ? ((deployedLiquidity * WAD) / totalAssetsValue)
             : 0;
-        emit UtilizationRateUpdated(currentUtilizationRate, projectedUtilizationRate);
+        emit ProjectedUtilizationRateUpdated(currentUtilizationRate, projectedUtilizationRate);
     }
 
     function cleanInactiveProtocols() external onlyManager {
@@ -870,7 +870,7 @@ contract PassiveLiquidityVault is
         // After a change in max utilization rate, reconcile approvals to keep utilization within bounds
         _reconcileApprovals();
 
-        emit UtilizationRateUpdated(oldRate, newMaxRate);
+        emit MaxUtilizationRateUpdated(oldRate, newMaxRate);
     }
 
     /**
