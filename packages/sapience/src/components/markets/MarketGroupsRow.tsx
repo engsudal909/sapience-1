@@ -309,7 +309,7 @@ const MarketGroupsRow = ({
   return (
     <div className="w-full">
       {/* Main Row Container for Color Bar + Content */}
-      <div className="bg-brand-black text-brand-white/90 border border-brand-white/10 flex flex-row transition-colors items-stretch min-h-[88px] md:min-h-[72px] relative font-mono">
+      <div className="bg-brand-black text-brand-white/90 flex flex-row transition-colors items-stretch min-h-[88px] md:min-h-[72px] relative font-mono">
         <div
           className="absolute top-0 bottom-0 left-0 w-px"
           style={{ backgroundColor: color }}

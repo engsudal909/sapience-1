@@ -78,8 +78,8 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
   ]);
 
   return (
-    <div className="mt-2 first:mt-0">
-      <div className="bg-brand-black text-brand-white/90 border border-brand-white/10 flex flex-row items-stretch relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono">
+    <div className="">
+      <div className="bg-brand-black text-brand-white/90 flex flex-row items-stretch relative overflow-hidden transition-shadow duration-200 font-mono">
         <div
           className="absolute top-0 bottom-0 left-0 w-px"
           style={{ backgroundColor: color }}

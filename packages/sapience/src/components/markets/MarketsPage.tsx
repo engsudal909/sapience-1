@@ -92,7 +92,7 @@ const getDayKey = (timestamp: number): string => {
 // Helper to format end date display using date-fns
 const formatEndDate = (timestamp: number): string => {
   const date = new Date(timestamp * 1000);
-  return format(date, 'MMMM d, yyyy');
+  return `Settling ${format(date, 'MMMM do')}`;
 };
 
 const MarketsPage = () => {
@@ -122,7 +122,7 @@ const MarketsPage = () => {
   const [viewModeByMode, setViewModeByMode] = React.useState<{
     spot: 'list' | 'grid';
     parlay: 'list' | 'grid';
-  }>({ spot: 'grid', parlay: 'grid' });
+  }>({ spot: 'list', parlay: 'list' });
   const currentViewMode = parlayMode
     ? viewModeByMode.parlay
     : viewModeByMode.spot;
@@ -725,10 +725,10 @@ const MarketsPage = () => {
                         transition={{ duration: 0.25 }}
                       >
                         <div className="flex flex-col mb-2">
-                          <h3 className="font-medium text-sm text-muted-foreground mb-2">
+                          <h3 className="eyebrow text-foreground mb-2">
                             {formatEndDate(dayEndTimes[dayKey])}
                           </h3>
-                          <div className="space-y-2">
+                          <div className="divide-y divide-brand-white/10">
                             {marketGroupsByDay[dayKey].map((marketGroup) => (
                               <motion.div
                                 layout
@@ -737,7 +737,7 @@ const MarketsPage = () => {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.25 }}
-                                className="mt-2 first:mt-0"
+                                className=""
                               >
                                 <MarketGroupsRow
                                   marketAddress={marketGroup.marketAddress}
@@ -851,12 +851,12 @@ const MarketsPage = () => {
                       transition={{ duration: 0.25 }}
                     >
                       <div className="flex flex-col mb-2">
-                        <h3 className="font-medium text-sm text-muted-foreground mb-2">
+                        <h3 className="eyebrow text-foreground mb-2">
                           {dayKey === 'No end time'
                             ? 'No end time'
                             : formatEndDate(rfqDayEndTimes[dayKey])}
                         </h3>
-                        <div className="space-y-2">
+                        <div className="divide-y divide-brand-white/10">
                           {[...(rfqConditionsByDay[dayKey] || [])]
                             .sort((a, b) => {
                               const aT = a.endTime ?? 0;
