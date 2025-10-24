@@ -121,11 +121,10 @@ const RFQTab = ({
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [filter, setFilter] = useState<ConditionFilter>('all');
 
-  // UMA Resolver config (same as used elsewhere in admin)
+  
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
   const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
 
-  // Minimal ABI to read wrapped market status
   const umaWrappedMarketAbi = [
     {
       inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
@@ -142,7 +141,6 @@ const RFQTab = ({
     },
   ] as const;
 
-  // Batch-read settlement status for all conditions
   const settlementStatusContracts = useMemo(() => {
     return (conditions || []).map((c) => {
       let marketId: `0x${string}` | undefined;
