@@ -81,14 +81,14 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
   ]);
 
   return (
-    <div className="w-auto max-w-[85vw] md:max-w-[640px] font-mono">
+    <div className="w-auto font-mono">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
         className="flex flex-row items-stretch relative overflow-hidden"
       >
-        <div className="flex-1 flex flex-col">
+        <div className="flex flex-col max-w-[92vw] md:max-w-[720px]">
           <div className="group">
             <div className="px-4 pt-1 pb-2">
               <h3 className="text-base leading-snug min-w-0">
@@ -97,7 +97,8 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
                   title={displayQ}
                   endTime={endTime}
                   description={description}
-                  clampLines={2}
+                  clampLines={null}
+                  noWrap
                 />
               </h3>
             </div>

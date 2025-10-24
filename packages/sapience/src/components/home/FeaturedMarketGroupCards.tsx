@@ -229,7 +229,7 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
           <CarouselContent className="-ml-2 items-stretch py-3 md:py-4">
             {memoItems.map((c, idx) => (
               <React.Fragment key={`${c.id}-${idx}`}>
-                <CarouselItem className="pl-2 w-auto min-w-[440px] flex-none">
+                <CarouselItem className="pl-2 w-auto flex-none">
                   <TickerMarketCard
                     condition={{
                       id: c.id,

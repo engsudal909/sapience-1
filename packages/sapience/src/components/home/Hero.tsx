@@ -63,18 +63,16 @@ export default function Hero() {
               <source src="/hero.mp4" type="video/mp4" />
             </video>
           </div>
-          <div className="rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
-            <h1 className="font-heading text-2xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
+          <div className="w-full md:w-auto max-w-[300px] md:max-w-none rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
+            <h1 className="font-heading text-xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
               Forecast the future with next-gen prediction markets
             </h1>
-            <div className="mt-5 md:mt-3 flex flex-col md:flex-row items-center gap-3 md:gap-4 text-foreground">
-              <span className="eyebrow">TRANSPARENT</span>
-              <div className="md:hidden h-px w-8 bg-foreground opacity-50" />
-              <span className="hidden md:inline text-foreground/50">|</span>
-              <span className="eyebrow">PERMISSIONLESS</span>
-              <div className="md:hidden h-px w-8 bg-foreground opacity-50" />
-              <span className="hidden md:inline text-foreground/50">|</span>
-              <span className="eyebrow">OPEN SOURCE</span>
+            <div className="hidden md:mt-3 md:flex flex-row items-center md:gap-4 text-foreground">
+              <span className="eyebrow text-xs md:text-sm">TRANSPARENT</span>
+              <span className="text-foreground/50 text-xs md:text-sm">|</span>
+              <span className="eyebrow text-xs md:text-sm">PERMISSIONLESS</span>
+              <span className="text-foreground/50 text-xs md:text-sm">|</span>
+              <span className="eyebrow text-xs md:text-sm">OPEN SOURCE</span>
             </div>
           </div>
         </div>
