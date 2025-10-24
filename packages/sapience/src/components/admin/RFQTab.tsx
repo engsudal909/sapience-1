@@ -121,7 +121,6 @@ const RFQTab = ({
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [filter, setFilter] = useState<ConditionFilter>('all');
 
-  
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
   const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
 
@@ -642,13 +641,14 @@ const RFQTab = ({
 
   const rows: RFQRow[] = useMemo(() => {
     const now = Math.floor(Date.now() / 1000);
-    
+
     const mapped = (conditions || []).map((c, index) => {
       // Get settlement status from batch contract read
       const settlementResult = settlementData?.[index];
-      const isSettled = settlementResult?.status === 'success' 
-        ? Boolean(settlementResult.result?.[2])
-        : undefined;
+      const isSettled =
+        settlementResult?.status === 'success'
+          ? Boolean(settlementResult.result?.[2])
+          : undefined;
 
       return {
         id: c.id,
@@ -676,11 +676,11 @@ const RFQTab = ({
         // Show only: past end + have settlement data + NOT settled
         return isPastEnd && row._hasData && row._isSettled === false;
       }
-      
+
       if (filter === 'upcoming') {
         return isUpcoming;
       }
-      
+
       if (filter === 'settled') {
         // Show only: explicitly settled (regardless of end time)
         return row._isSettled === true;
@@ -748,7 +748,10 @@ const RFQTab = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Filter:</span>
-          <Select value={filter} onValueChange={(value) => setFilter(value as ConditionFilter)}>
+          <Select
+            value={filter}
+            onValueChange={(value) => setFilter(value as ConditionFilter)}
+          >
             <SelectTrigger className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
