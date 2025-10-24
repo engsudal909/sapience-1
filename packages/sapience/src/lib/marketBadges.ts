@@ -5,11 +5,8 @@
 
 export const BADGE_ICON_BY_KEYWORD: Record<string, string> = {
   // Cities
-  london: 'london.svg',
   nyc: 'nyc.svg',
   'new-york': 'nyc.svg',
-  // Teams / examples
-  giants: 'giants.svg',
 };
 
 function toTokens(label: string): string[] {
@@ -34,5 +31,3 @@ export function findBadgeForLabel(label: string): string | null {
   }
   return null;
 }
-
-

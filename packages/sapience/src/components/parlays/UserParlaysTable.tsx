@@ -637,8 +637,8 @@ export default function UserParlaysTable({
                     variant="outline"
                     className={
                       l.choice === 'Yes'
-                        ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 shrink-0'
-                        : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 shrink-0'
+                        ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 shrink-0 font-mono'
+                        : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 shrink-0 font-mono'
                     }
                   >
                     {l.choice}
