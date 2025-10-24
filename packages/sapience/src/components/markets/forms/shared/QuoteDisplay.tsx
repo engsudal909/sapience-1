@@ -33,8 +33,8 @@ export default function QuoteDisplay({
     if (isLoading) {
       return (
         <div className="mt-1.5 mb-3 text-right text-xs">
-          <span className="font-medium text-foreground">{labelText}</span>{' '}
-          <span className="text-muted-foreground">Loading...</span>
+          <span className="font-medium text-brand-white">{labelText}</span>{' '}
+          <span className="text-brand-white/70">Loading...</span>
         </div>
       );
     }
@@ -49,8 +49,8 @@ export default function QuoteDisplay({
 
     return (
       <div className="mt-1.5 mb-3 text-right text-xs">
-        <span className="font-medium text-foreground">{labelText}</span>{' '}
-        <span className="text-foreground inline-flex items-center gap-1">
+        <span className="font-medium text-brand-white">{labelText}</span>{' '}
+        <span className="text-brand-white inline-flex items-center gap-1">
           {(() => {
             try {
               const raw = BigInt(quoteData.maxSize);
@@ -92,9 +92,9 @@ export default function QuoteDisplay({
               height={20}
               className="opacity-90 w-5 h-5"
             />
-            <span className="font-medium text-foreground">{labelText}</span>
+            <span className="font-medium text-brand-white">{labelText}</span>
           </span>
-          <span className="text-muted-foreground">Loading...</span>
+          <span className="text-brand-white/70">Loading...</span>
         </div>
       </div>
     );
@@ -129,9 +129,9 @@ export default function QuoteDisplay({
             height={20}
             className="opacity-90 w-5 h-5"
           />
-          <span className="font-medium text-foreground">{labelText}</span>
+          <span className="font-medium text-brand-white">{labelText}</span>
         </span>
-        <span className="text-foreground inline-flex items-center whitespace-nowrap">
+        <span className="text-brand-white inline-flex items-center whitespace-nowrap">
           {(() => {
             try {
               const raw = BigInt(quoteData.maxSize);

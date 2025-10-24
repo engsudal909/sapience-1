@@ -150,7 +150,7 @@ const QuestionSuggestions = ({
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-card border border-border shadow-sm overflow-hidden">
         <div>
           {suggestedMarkets.map((market, index) => (
             <QuestionItem
@@ -158,6 +158,7 @@ const QuestionSuggestions = ({
               item={market}
               onClick={onMarketSelect}
               showBorder={index < suggestedMarkets.length - 1}
+              showUnderline={false}
             />
           ))}
         </div>

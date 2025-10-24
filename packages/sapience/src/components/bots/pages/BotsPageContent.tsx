@@ -6,13 +6,12 @@ const BotsHero = dynamic(() => import('~/components/bots/BotsHero'), {
   ssr: false,
 });
 
-const TemplateSection = dynamic(
-  () => import('~/components/bots/BuildAgentSection'),
+const ForecastingBotSection = dynamic(
+  () => import('~/components/bots/ForecastingBotSection'),
   { ssr: false }
 );
-
-const BotsQuickStart = dynamic(
-  () => import('~/components/bots/BotsQuickStart'),
+const BiddingBotSection = dynamic(
+  () => import('~/components/bots/BiddingBotSection'),
   { ssr: false }
 );
 
@@ -20,8 +19,8 @@ const BotsPageContent = () => {
   return (
     <main className="min-h-screen w-full">
       <BotsHero />
-      <BotsQuickStart />
-      <TemplateSection />
+      <ForecastingBotSection />
+      <BiddingBotSection />
     </main>
   );
 };

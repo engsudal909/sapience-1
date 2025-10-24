@@ -15,7 +15,6 @@ import { Textarea } from '@sapience/sdk/ui/components/ui/textarea';
 import { Switch } from '@sapience/sdk/ui/components/ui/switch';
 import {
   Tabs,
-  TabsList,
   TabsTrigger,
   TabsContent,
 } from '@sapience/sdk/ui/components/ui/tabs';
@@ -28,6 +27,7 @@ import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useChat } from '~/lib/context/ChatContext';
 import { useSettings } from '~/lib/context/SettingsContext';
 import LottieLoader from '~/components/shared/LottieLoader';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
 type SettingFieldProps = {
   id: string;
@@ -298,7 +298,7 @@ const SettingsPageContent = () => {
     <div className="relative min-h-screen">
       {/* Main Content */}
       <div className="container max-w-[750px] mx-auto px-4 pt-32 pb-12 relative z-10">
-        <h1 className="text-3xl md:text-5xl font-heading font-normal mb-4 md:mb-8">
+        <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
           Settings
         </h1>
 
@@ -332,36 +332,27 @@ const SettingsPageContent = () => {
             }}
             className="w-full"
           >
-            <div className="flex flex-col md:flex-row justify-between w-full items-center md:items-center mb-5 flex-shrink-0 gap-3">
-              <TabsList className="order-2 md:order-1 grid w-full md:w-auto grid-cols-1 md:grid-cols-none md:grid-flow-col md:auto-cols-auto h-auto gap-2">
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="network"
-                >
+            <div className="mb-3">
+              <SegmentedTabsList>
+                <TabsTrigger value="network">
                   <span className="inline-flex items-center gap-1.5">
                     <Share2 className="w-4 h-4" />
                     Network
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="agent"
-                >
+                <TabsTrigger value="agent">
                   <span className="inline-flex items-center gap-1.5">
                     <Bot className="w-4 h-4" />
                     Agent
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="appearance"
-                >
+                <TabsTrigger value="appearance">
                   <span className="inline-flex items-center gap-1.5">
                     <Monitor className="w-4 h-4" />
                     Appearance
                   </span>
                 </TabsTrigger>
-              </TabsList>
+              </SegmentedTabsList>
             </div>
 
             <TabsContent value="network">

@@ -25,14 +25,14 @@ export default function ProfileHeader({ address }: ProfileHeaderProps) {
           <AddressDisplay
             address={address}
             disableProfileLink
-            className="text-lg"
+            className="text-lg text-brand-white"
           />
         </div>
         <div className="hidden sm:block scale-125 origin-left">
           <AddressDisplay
             address={address}
             disableProfileLink
-            className="text-xl !gap-1.5"
+            className="text-xl text-brand-white !gap-1.5"
           />
         </div>
       </div>

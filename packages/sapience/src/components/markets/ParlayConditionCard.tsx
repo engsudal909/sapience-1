@@ -95,9 +95,9 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="block group">
             <div className="transition-colors">
-              <div className="flex flex-col px-4 py-3 gap-2">
-                <div className="flex flex-col min-w-0 flex-1">
-                  <h3 className="text-base leading-snug min-h-[44px] min-w-0 overflow-hidden">
+              <div className="flex flex-col px-4 pt-4 pb-2 gap-2">
+                <div className="flex flex-col min-w-0">
+                  <h3 className="text-base leading-snug min-w-0 overflow-hidden">
                     <ConditionTitleLink
                       conditionId={id}
                       title={displayQ}
@@ -110,8 +110,8 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
               </div>
             </div>
           </div>
-          <div className="mt-auto px-4 pt-0 pb-4">
-            <div className="text-sm text-foreground/70 w-full mb-3">
+          <div className="px-4 pt-0 pb-4">
+            <div className="text-sm text-foreground/70 w-full mb-2">
               <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
                 <span>Current Forecast:</span>
                 <MarketPredictionRequest conditionId={id} className="" />

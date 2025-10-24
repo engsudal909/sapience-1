@@ -333,14 +333,14 @@ export default function BetslipParlayForm({
                             height={20}
                             className="opacity-90 w-5 h-5"
                           />
-                          <span className="font-medium text-foreground">
+                          <span className="font-medium text-brand-white">
                             To Win:
                           </span>
-                          <span className="text-foreground inline-flex items-center whitespace-nowrap">
+                          <span className="text-brand-white inline-flex items-center whitespace-nowrap">
                             {humanTotal} {symbol}
                           </span>
                         </span>
-                        <span className="ml-auto text-xs font-normal text-foreground text-right">
+                        <span className="ml-auto text-xs font-normal text-brand-white text-right">
                           <span className="whitespace-nowrap">Expires in</span>
                           <br />
                           <span className="whitespace-nowrap">

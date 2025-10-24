@@ -543,7 +543,7 @@ export default function FeedPage() {
               </Link>
             </div>
           </div>
-          <div className="rounded border bg-card">
+          <div>
             {errorMessage ? (
               <div className="px-4 py-3 text-sm text-destructive">
                 {errorMessage}

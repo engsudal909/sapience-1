@@ -7,6 +7,7 @@ import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import {
   Tabs,
+  TabsList,
   TabsContent,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
@@ -21,7 +22,6 @@ import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
-import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
@@ -275,10 +275,20 @@ const VaultsPageContent = () => {
 
   const renderVaultForm = () => (
     <Tabs defaultValue="deposit" className="w-full">
-      <SegmentedTabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="deposit">Deposit</TabsTrigger>
-        <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
-      </SegmentedTabsList>
+      <TabsList className="grid w-full grid-cols-2 mb-3">
+        <TabsTrigger
+          value="deposit"
+          className="data-[state=active]:text-brand-white"
+        >
+          Deposit
+        </TabsTrigger>
+        <TabsTrigger
+          value="withdraw"
+          className="data-[state=active]:text-brand-white"
+        >
+          Withdraw
+        </TabsTrigger>
+      </TabsList>
 
       <TabsContent value="deposit" className="space-y-2 mt-1">
         {/* Amount Input */}
@@ -345,7 +355,7 @@ const VaultsPageContent = () => {
           {/* Deposit Button */}
           <Button
             size="lg"
-            className="w-full text-base"
+            className="w-full text-base bg-brand-white text-brand-black hover:bg-brand-white/90"
             disabled={
               !depositAmount ||
               isVaultPending ||
@@ -453,7 +463,7 @@ const VaultsPageContent = () => {
           {/* Withdraw Button */}
           <Button
             size="lg"
-            className="w-full text-base"
+            className="w-full text-base bg-brand-white text-brand-black hover:bg-brand-white/90"
             disabled={
               !withdrawAmount ||
               isVaultPending ||
@@ -692,7 +702,6 @@ const VaultsPageContent = () => {
                         Protocol Vault
                       </h3>
                       <p className="text-muted-foreground text-sm">
-                        This vault bids on parlays.{' '}
                         <Link
                           href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
                           className="gold-link"
@@ -714,8 +723,8 @@ const VaultsPageContent = () => {
                   {/* Vault Stats */}
                   <div className="space-y-4">
                     {/* Utilization Block */}
-                    <div className="p-5 bg-muted/50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="p-5 pt-4 rounded-lg bg-[hsl(var(--primary)/_0.05)]">
+                      <div className="flex items-center justify-between mb-2 text-foreground">
                         <div className="text-sm font-normal">
                           Utilization Rate: {utilizationDisplay}
                         </div>
@@ -723,7 +732,7 @@ const VaultsPageContent = () => {
                           Deployed: {deployedDisplay} testUSDe
                         </div>
                       </div>
-                      <div className="w-full h-4 rounded-sm bg-muted/60 overflow-hidden shadow-inner">
+                      <div className="w-full h-4 rounded-sm bg-[hsl(var(--primary)/_0.09)] overflow-hidden shadow-inner">
                         <div
                           className="h-4 bg-accent-gold rounded-sm transition-all"
                           style={{ width: `${utilizationPercent}%` }}

@@ -65,8 +65,8 @@ export default function ConditionTitleLink({
       // (stops at text when short, reaches ellipsis when truncated)
       return `inline-block max-w-full align-baseline p-0 m-0 bg-transparent ${shared} border-b border-dotted border-brand-white/40 pb-[1px] hover:border-brand-white/80`;
     }
-    // Multi-line clamp: block + bottom dotted border (spans the full container width)
-    return `block w-full text-left p-0 m-0 bg-transparent ${shared} border-b border-dotted border-brand-white/40 pb-[1px] hover:border-brand-white/80`;
+    // Multi-line clamp: use dotted text underline so it only spans the text width across wrapped lines
+    return `inline align-baseline p-0 m-0 bg-transparent ${shared} underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80`;
   })();
 
   return (
