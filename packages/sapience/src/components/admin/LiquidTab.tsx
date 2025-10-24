@@ -41,13 +41,12 @@ const LiquidTab = () => {
         (m) => m.endTimestamp && m.endTimestamp >= now
       );
 
-      const hasSettled = group.markets?.some(
-        (m) => m.settled === true
-      );
+      const hasSettled = group.markets?.some((m) => m.settled === true);
 
       if (filter === 'needs-settlement') return hasNeedsSettlement;
       if (filter === 'active') return hasActive && !hasNeedsSettlement;
-      if (filter === 'settled') return hasSettled && !hasNeedsSettlement && !hasActive;
+      if (filter === 'settled')
+        return hasSettled && !hasNeedsSettlement && !hasActive;
 
       return true;
     });
@@ -58,7 +57,10 @@ const LiquidTab = () => {
       {/* Filter Dropdown */}
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Filter:</span>
-        <Select value={filter} onValueChange={(value) => setFilter(value as MarketFilter)}>
+        <Select
+          value={filter}
+          onValueChange={(value) => setFilter(value as MarketFilter)}
+        >
           <SelectTrigger className="w-[200px]">
             <SelectValue />
           </SelectTrigger>
@@ -71,7 +73,8 @@ const LiquidTab = () => {
         </Select>
         {filter !== 'all' && (
           <span className="text-sm text-muted-foreground">
-            ({filteredMarketGroups.length} {filteredMarketGroups.length === 1 ? 'market' : 'markets'})
+            ({filteredMarketGroups.length}{' '}
+            {filteredMarketGroups.length === 1 ? 'market' : 'markets'})
           </span>
         )}
       </div>
@@ -92,10 +95,11 @@ const LiquidTab = () => {
       {!isLoading && filteredMarketGroups.length > 0 ? (
         <DataTable columns={columns} data={filteredMarketGroups} />
       ) : (
-        !isLoading && !error && (
+        !isLoading &&
+        !error && (
           <p className="text-muted-foreground">
-            {filter === 'all' 
-              ? 'No market groups found.' 
+            {filter === 'all'
+              ? 'No market groups found.'
               : `No ${filter.replace('-', ' ')} markets found.`}
           </p>
         )
