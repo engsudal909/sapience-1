@@ -13,7 +13,7 @@ import { SearchBar } from '@sapience/sdk/ui';
 import ParlayConditionCard from './ParlayConditionCard';
 import MarketCard from './MarketCard';
 import MarketGroupsRow from './MarketGroupsRow';
-import ParlayModeRow from './ParlayModeRow';
+import ConditionRow from './ConditionRow';
 import FocusAreaFilter from './FocusAreaFilter';
 import {
   useEnrichedMarketGroups,
@@ -871,7 +871,7 @@ const MarketsPage = () => {
                               const color =
                                 styleInfo?.color || DEFAULT_CATEGORY_COLOR;
                               return (
-                                <ParlayModeRow
+                                <ConditionRow
                                   key={c.id}
                                   condition={c}
                                   color={color}

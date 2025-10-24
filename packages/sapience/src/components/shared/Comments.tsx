@@ -475,7 +475,7 @@ const Comments = ({
                                 </Badge>
                               );
                             })()}
-                          <span className="text-sm text-muted-foreground/70 font-medium">
+                          <span className="text-sm text-muted-foreground/70 font-medium font-mono">
                             {formatRelativeTime(
                               new Date(comment.timestamp).getTime()
                             )}

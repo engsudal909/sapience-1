@@ -5,8 +5,9 @@ import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
+import MarketBadge from '~/components/markets/MarketBadge';
 
-export interface ParlayModeRowProps {
+export interface ConditionRowProps {
   condition: {
     id?: string;
     question: string;
@@ -20,7 +21,7 @@ export interface ParlayModeRowProps {
   color: string;
 }
 
-const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
+const ConditionRow: React.FC<ConditionRowProps> = ({ condition, color }) => {
   const { id, question, shortName, endTime, description } = condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
     useBetSlipContext();
@@ -85,19 +86,22 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
           style={{ backgroundColor: color }}
         />
         <div className="flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-4 py-3 md:py-3 md:pr-3 gap-3">
-          <div className="flex-grow min-w-0">
-            <h3 className="text-base leading-snug">
-              <ConditionTitleLink
-                conditionId={id}
-                title={displayQ}
-                endTime={endTime}
-                description={description}
-                clampLines={1}
-              />
-            </h3>
-            <div className="mt-2 text-sm text-foreground/70 flex items-center gap-1">
-              <span>Current Forecast:</span>
-              <MarketPredictionRequest conditionId={id} />
+          <div className="flex items-center gap-3 flex-grow min-w-0">
+            <MarketBadge label={displayQ} size={48} color={color} />
+            <div className="min-w-0 flex-grow">
+              <h3 className="text-base leading-snug">
+                <ConditionTitleLink
+                  conditionId={id}
+                  title={displayQ}
+                  endTime={endTime}
+                  description={description}
+                  clampLines={1}
+                />
+              </h3>
+              <div className="mt-2 text-sm text-foreground/70 flex items-center gap-1">
+                <span>Current Forecast:</span>
+                <MarketPredictionRequest conditionId={id} />
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-end shrink-0 w-full md:w-auto">
@@ -118,4 +122,4 @@ const ParlayModeRow: React.FC<ParlayModeRowProps> = ({ condition, color }) => {
   );
 };
 
-export default ParlayModeRow;
+export default ConditionRow;
