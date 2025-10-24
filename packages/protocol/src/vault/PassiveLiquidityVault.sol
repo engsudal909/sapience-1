@@ -866,6 +866,10 @@ contract PassiveLiquidityVault is
             revert InvalidRate(newMaxRate, WAD);
         uint256 oldRate = maxUtilizationRate;
         maxUtilizationRate = newMaxRate;
+
+        // After a change in max utilization rate, reconcile approvals to keep utilization within bounds
+        _reconcileApprovals();
+
         emit UtilizationRateUpdated(oldRate, newMaxRate);
     }
 
