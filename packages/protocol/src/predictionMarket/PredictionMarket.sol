@@ -52,6 +52,7 @@ contract PredictionMarket is
     error InvalidMakerNonce();
     error NotOwner();
     error TransferNotAllowed();
+    error TransferInProcess();
 
     // ============ State Variables ============
     IPredictionStructs.Settings public config;
@@ -84,6 +85,8 @@ contract PredictionMarket is
     mapping(address => EnumerableSet.UintSet) private unfilledOrdersByMaker;
     
     EnumerableSet.UintSet private unfilledOrderIds;
+
+    bool private _verifyTransferInProcess = false;
 
 
     // ============ Constructor ============
@@ -201,6 +204,8 @@ contract PredictionMarket is
     }
 
     function burn(uint256 tokenId, bytes32 refCode) external nonReentrant {
+        if (_verifyTransferInProcess) revert TransferInProcess(); // Prevent reentrancy from transfer verification
+
         uint256 predictionId = nftToPredictionId[tokenId];
 
         // 1- Get prediction from Store
@@ -255,6 +260,8 @@ contract PredictionMarket is
         uint256 tokenId,
         bytes32 refCode
     ) external nonReentrant {
+        if (_verifyTransferInProcess) revert TransferInProcess(); // Prevent reentrancy from transfer verification
+
         uint256 predictionId = nftToPredictionId[tokenId];
 
         // 1- Get prediction from store
@@ -502,10 +509,16 @@ contract PredictionMarket is
      * @notice This prevents prediction NFTs from being deposited into vaults
      */
     function _verifyTransfer(address , address to, uint256 ) internal virtual {
+        if (_verifyTransferInProcess) revert TransferInProcess(); // Prevent reentrancy from transfer verification
+
+        _verifyTransferInProcess = true;
+
         // Prevent transfers to PassiveLiquidityVault contracts
         if (_isPassiveLiquidityVault(to)) {
             revert TransferNotAllowed();
         }
+
+        _verifyTransferInProcess = false;
     }
 
     /**
@@ -525,6 +538,12 @@ contract PredictionMarket is
         uint256 predictionId = nftToPredictionId[tokenId];
         if (predictionId == 0) {
             return from;
+        }
+
+        // CRITICAL: Verify transfer BEFORE any state changes to prevent reentrancy. _verifyTransfer includes a reentrancy guard.
+        // This prevents malicious contracts from manipulating prediction state during supportsInterface() callback
+        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
+            _verifyTransfer(auth, to, tokenId);
         }
 
         IPredictionStructs.PredictionData storage prediction = predictions[predictionId];
@@ -568,11 +587,6 @@ contract PredictionMarket is
                 userCollateralDeposits[from] -= prediction.takerCollateral;
                 userCollateralDeposits[to] += prediction.takerCollateral;
             }
-        }
-
-        // Add verification before the transfer (moved to the bottom since it can have a side effect calling to.supportsInterface())
-        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
-            _verifyTransfer(auth, to, tokenId);
         }
 
         return from;
