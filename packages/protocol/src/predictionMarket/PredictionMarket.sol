@@ -540,12 +540,6 @@ contract PredictionMarket is
             return from;
         }
 
-        // CRITICAL: Verify transfer BEFORE any state changes to prevent reentrancy. _verifyTransfer includes a reentrancy guard.
-        // This prevents malicious contracts from manipulating prediction state during supportsInterface() callback
-        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
-            _verifyTransfer(auth, to, tokenId);
-        }
-
         IPredictionStructs.PredictionData storage prediction = predictions[predictionId];
 
         bool isMakerToken = tokenId == prediction.makerNftTokenId;
@@ -587,6 +581,12 @@ contract PredictionMarket is
                 userCollateralDeposits[from] -= prediction.takerCollateral;
                 userCollateralDeposits[to] += prediction.takerCollateral;
             }
+        }
+
+        // _verifyTransfer includes a reentrancy guard.
+        // This prevents malicious contracts from manipulating prediction state during supportsInterface() callback
+        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
+            _verifyTransfer(auth, to, tokenId);
         }
 
         return from;
