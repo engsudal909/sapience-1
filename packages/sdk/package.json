@@ -62,7 +62,7 @@
     "build": "pnpm run build:lib && pnpm build-storybook",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "lint": "eslint .",
+    "lint": "eslint . --quiet",
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {

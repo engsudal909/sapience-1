@@ -14,7 +14,6 @@ import {
 } from '@sapience/sdk/ui/components/ui/tabs';
 import Link from 'next/link';
 import { NumberDisplay } from '@sapience/sdk/ui/components/NumberDisplay';
-import LoaderWithMessage from '~/components/shared/LoaderWithMessage';
 import {
   TransactionTimeCell,
   TransactionAmountCell,
@@ -324,11 +323,10 @@ const AuctionPageContent: React.FC = () => {
             {displayMessages.filter((m) => m.type === 'auction.started')
               .length === 0 ? (
               <div className="flex justify-center py-24">
-                <LoaderWithMessage
-                  width={32}
-                  height={32}
-                  message="Listening for messages..."
-                />
+                <span className="inline-flex items-center gap-1 text-foreground">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
+                  <span>Listening for messages...</span>
+                </span>
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
@@ -422,11 +420,10 @@ const AuctionPageContent: React.FC = () => {
                 m.type === 'vault_quote.update'
             ).length === 0 ? (
               <div className="flex justify-center py-24">
-                <LoaderWithMessage
-                  width={32}
-                  height={32}
-                  message="Listening for messages..."
-                />
+                <span className="inline-flex items-center gap-1 text-foreground">
+                  <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
+                  <span>Listening for messages...</span>
+                </span>
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden bg-brand-black">

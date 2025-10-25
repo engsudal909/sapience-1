@@ -87,7 +87,12 @@ const ConditionRow: React.FC<ConditionRowProps> = ({ condition, color }) => {
         />
         <div className="flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-4 py-3 md:py-3 md:pr-3 gap-3">
           <div className="flex items-center gap-3 flex-grow min-w-0">
-            <MarketBadge label={displayQ} size={48} color={color} />
+            <MarketBadge
+              label={displayQ}
+              size={48}
+              color={color}
+              categorySlug={condition.category?.slug}
+            />
             <div className="min-w-0 flex-grow">
               <h3 className="text-base leading-snug">
                 <ConditionTitleLink

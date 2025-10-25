@@ -67,12 +67,25 @@ export default function Hero() {
             <h1 className="font-heading text-xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
               Forecast the future with next-gen prediction markets
             </h1>
-            <div className="hidden md:mt-3 md:flex flex-row items-center md:gap-4 text-foreground">
-              <span className="eyebrow text-xs md:text-sm">TRANSPARENT</span>
+            {/* Mobile: single-line variant */}
+            <div className="mt-3 md:hidden flex items-center justify-center text-foreground">
+              <span className="eyebrow font-mono text-accent-gold text-xs">
+                PERMISSIONLESS + OPEN SOURCE
+              </span>
+            </div>
+            {/* Desktop and up: original layout */}
+            <div className="mt-3 hidden md:flex flex-row items-center gap-4 justify-center text-foreground">
+              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
+                TRANSPARENT
+              </span>
               <span className="text-foreground/50 text-xs md:text-sm">|</span>
-              <span className="eyebrow text-xs md:text-sm">PERMISSIONLESS</span>
+              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
+                PERMISSIONLESS
+              </span>
               <span className="text-foreground/50 text-xs md:text-sm">|</span>
-              <span className="eyebrow text-xs md:text-sm">OPEN SOURCE</span>
+              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
+                OPEN SOURCE
+              </span>
             </div>
           </div>
         </div>

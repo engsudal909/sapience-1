@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import { findBadgeForLabel } from '~/lib/marketBadges';
+import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 
 export interface MarketBadgeProps {
   label: string;
   size?: number; // px
   className?: string;
   color?: string; // category color (hsl(...), rgb(...), or #hex)
+  categorySlug?: string | null;
 }
 
 const DEFAULT_SIZE = 32;
@@ -29,6 +31,7 @@ export default function MarketBadge({
   size = DEFAULT_SIZE,
   className,
   color,
+  categorySlug,
 }: MarketBadgeProps) {
   const filename = React.useMemo(() => findBadgeForLabel(label), [label]);
   const dimension = `${size}px`;
@@ -93,6 +96,10 @@ export default function MarketBadge({
     );
   }
 
+  const CategoryIcon = React.useMemo(
+    () => getCategoryIcon(categorySlug),
+    [categorySlug]
+  );
   const initials = getInitials(label);
   const style: React.CSSProperties = color
     ? {
@@ -122,7 +129,11 @@ export default function MarketBadge({
       aria-label={label}
       title={label}
     >
-      {initials}
+      {categorySlug ? (
+        <CategoryIcon className="w-[60%] h-[60%]" style={{ strokeWidth: 1 }} />
+      ) : (
+        initials
+      )}
     </div>
   );
 }
