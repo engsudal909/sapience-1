@@ -51,6 +51,7 @@ interface AddressDisplayProps {
   compact?: boolean;
   showFullAddress?: boolean;
   disablePopover?: boolean;
+  hideVaultIcon?: boolean;
 }
 
 // Constants for the button and icon sizes
@@ -68,6 +69,7 @@ const AddressDisplay = ({
   compact,
   showFullAddress,
   disablePopover,
+  hideVaultIcon,
 }: AddressDisplayProps) => {
   const { toast } = useToast();
   const { data: ensName } = useEnsName(address);
@@ -121,7 +123,7 @@ const AddressDisplay = ({
     >
       <span className={`font-mono ${nameTextClass}`}>{displayName}</span>
       <div className={`flex items-center ${iconsGapClass}`}>
-        {isVaultAddress && (
+        {isVaultAddress && !hideVaultIcon && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

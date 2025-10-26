@@ -16,7 +16,7 @@ import {
   BurnParlayNFTTransactionRow,
   type UiTransaction,
 } from '~/components/markets/DataDrawer/TransactionCells';
-import LoaderWithMessage from '~/components/shared/LoaderWithMessage';
+
 import { useForecasts } from '~/hooks/graphql/useForecasts';
 import AddressFilter from '~/components/shared/AddressFilter';
 
@@ -441,11 +441,10 @@ export default function FeedPage() {
               </div>
             </div>
             <div className="flex items-center justify-center py-24">
-              <LoaderWithMessage
-                width={32}
-                height={32}
-                message="Querying recent activity..."
-              />
+              <span className="inline-flex items-center gap-1 text-foreground">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
+                <span>Querying recent activity...</span>
+              </span>
             </div>
           </div>
         </div>

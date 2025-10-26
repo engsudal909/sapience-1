@@ -52,14 +52,13 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    /* Category palette (used for deterministic category coloring) */
-    --category-1: 217 91% 60%; /* blue */
-    --category-2: 270 95% 75%; /* purple */
-    --category-3: 142 72% 45%; /* green */
-    --category-4: 38 92% 55%; /* amber */
-    --category-5: 350 90% 55%; /* red (deeper, less orange) */
-    --category-6: 330 80% 68%; /* pink */
-    --category-7: 24 95% 56%; /* orange */
+    --category-1: 220 75% 58%; /* Blue */
+    --category-2: 265 65% 58%; /* Violet */
+    --category-3: 160 48% 40%; /* Deep Green */
+    --category-4: 44 65% 50%; /* Antique Gold */
+    --category-5: 355 72% 48%; /* Crimson */
+    --category-6: 335 60% 54%; /* Magenta */
+    --category-7: 20 75% 55%; /* Burnt Orange */
     --radius: 0.5rem;
   }
   .dark {
@@ -108,13 +107,15 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     /* Category palette */
-    --category-1: 217 91% 75%;
-    --category-2: 270 95% 82%;
-    --category-3: 142 72% 60%;
-    --category-4: 38 92% 66%;
-    --category-5: 350 90% 62%;
-    --category-6: 330 85% 72%;
-    --category-7: 24 95% 66%;
+    --category-1: 220 75% 58%; /* electric navy */
+    --category-2: 265 70% 63%; /* luxe violet */
+    --category-3: 160 48% 40%;
+
+    --category-4: 44 65% 50%;
+
+    --category-5: 355 72% 48%; /* deep cool red */
+    --category-6: 330 65% 56%; /* confident magenta */
+    --category-7: 18 78% 58%; /* burnt orange */
   }
 }
 
@@ -185,6 +186,31 @@
         0 calc(100% - var(--gold-underline-offset)),
         140% calc(100% - var(--gold-underline-offset));
     }
+  }
+  @keyframes gold-sheen-sweep {
+    0% {
+      background-position: -40% 0;
+    }
+    64% {
+      background-position: 140% 0;
+    }
+    100% {
+      background-position: 140% 0;
+    }
+  }
+  .gold-sheen {
+    /* Animated sheen overlay that mimics the gold-link hover sweep */
+    --gold-sheen-width: 30%;
+    background-image: linear-gradient(
+      to right,
+      hsl(var(--accent-gold) / 0) 0%,
+      hsl(var(--accent-gold) / 0.6) 50%,
+      hsl(var(--accent-gold) / 0) 100%
+    );
+    background-repeat: no-repeat;
+    background-size: var(--gold-sheen-width) 100%;
+    background-position: -40% 0;
+    animation: gold-sheen-sweep 2s linear infinite;
   }
 }
 

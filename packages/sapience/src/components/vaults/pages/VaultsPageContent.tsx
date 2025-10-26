@@ -23,6 +23,8 @@ import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import NumberDisplay from '~/components/shared/NumberDisplay';
+import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import EnsAvatar from '~/components/shared/EnsAvatar';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { PROTOCOL_VAULT_ADDRESS } from '~/lib/constants';
@@ -655,7 +657,7 @@ const VaultsPageContent = () => {
   }, [utilizationPercent]);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative">
       {/* Main Content */}
       <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
         <div className="mb-5 md:mb-10 flex items-center justify-between">
@@ -701,14 +703,20 @@ const VaultsPageContent = () => {
                       <h3 className="text-2xl font-medium mb-1">
                         Protocol Vault
                       </h3>
-                      <p className="text-muted-foreground text-sm">
-                        <Link
-                          href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
-                          className="gold-link"
-                        >
-                          View Portfolio
-                        </Link>
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <EnsAvatar
+                          address={PROTOCOL_VAULT_ADDRESS}
+                          width={16}
+                          height={16}
+                          className="shrink-0"
+                        />
+                        <AddressDisplay
+                          address={PROTOCOL_VAULT_ADDRESS}
+                          compact
+                          className="text-xs text-muted-foreground"
+                          hideVaultIcon
+                        />
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">
@@ -732,12 +740,20 @@ const VaultsPageContent = () => {
                           Deployed: {deployedDisplay} testUSDe
                         </div>
                       </div>
-                      <div className="w-full h-4 rounded-sm bg-[hsl(var(--primary)/_0.09)] overflow-hidden shadow-inner">
+                      <div className="w-full h-2 rounded-sm bg-[hsl(var(--primary)/_0.09)] overflow-hidden shadow-inner">
                         <div
-                          className="h-4 bg-accent-gold rounded-sm transition-all"
+                          className="h-2 bg-accent-gold rounded-sm transition-all gold-sheen"
                           style={{ width: `${utilizationPercent}%` }}
                         />
                       </div>
+                      <p className="mt-2 text-xs">
+                        <Link
+                          href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
+                          className="gold-link"
+                        >
+                          View Portfolio
+                        </Link>
+                      </p>
                     </div>
                     {/* APY Row intentionally omitted until calculation available */}
                   </div>
