@@ -127,7 +127,7 @@ const AddressDisplay = ({
               <TooltipTrigger asChild>
                 <Link href="/vaults" className="flex items-center">
                   <Vault
-                    className={`${vaultIconSizeClass} text-ethena/90`}
+                    className={`${vaultIconSizeClass} text-accent-gold`}
                     strokeWidth={1.25}
                     absoluteStrokeWidth
                   />
