@@ -45,7 +45,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { Copy, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, fromUnixTime } from 'date-fns';
-import { useReadContract } from 'wagmi';
+import { useReadContract, useReadContracts } from 'wagmi';
 import { keccak256, concatHex, toHex } from 'viem';
 import { umaResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
@@ -97,6 +97,8 @@ type RFQTabProps = {
   onCsvImportOpenChange?: (open: boolean) => void;
 };
 
+type ConditionFilter = 'all' | 'needs-settlement' | 'upcoming' | 'settled';
+
 const RFQTab = ({
   createOpen,
   setCreateOpen,
@@ -117,6 +119,56 @@ const RFQTab = ({
   const [description, setDescription] = useState('');
   const [similarMarketsText, setSimilarMarketsText] = useState('');
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [filter, setFilter] = useState<ConditionFilter>('all');
+
+  const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
+  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
+
+  const umaWrappedMarketAbi = [
+    {
+      inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
+      name: 'wrappedMarkets',
+      outputs: [
+        { internalType: 'bytes32', name: 'marketId', type: 'bytes32' },
+        { internalType: 'bool', name: 'assertionSubmitted', type: 'bool' },
+        { internalType: 'bool', name: 'settled', type: 'bool' },
+        { internalType: 'bool', name: 'resolvedToYes', type: 'bool' },
+        { internalType: 'bytes32', name: 'assertionId', type: 'bytes32' },
+      ],
+      stateMutability: 'view',
+      type: 'function',
+    },
+  ] as const;
+
+  const settlementStatusContracts = useMemo(() => {
+    return (conditions || []).map((c) => {
+      let marketId: `0x${string}` | undefined;
+      try {
+        if (c.claimStatement && c.endTime) {
+          const claimHex = toHex(c.claimStatement);
+          const colonHex = toHex(':');
+          const endTimeHex = toHex(BigInt(c.endTime), { size: 32 });
+          const packed = concatHex([claimHex, colonHex, endTimeHex]);
+          marketId = keccak256(packed);
+        }
+      } catch {
+        marketId = undefined;
+      }
+
+      return {
+        address: UMA_RESOLVER_ADDRESS,
+        abi: umaWrappedMarketAbi,
+        functionName: 'wrappedMarkets' as const,
+        args: marketId ? [marketId] : undefined,
+        chainId: UMA_CHAIN_ID,
+      };
+    });
+  }, [conditions]);
+
+  const { data: settlementData } = useReadContracts({
+    contracts: settlementStatusContracts,
+    query: { enabled: conditions && conditions.length > 0 },
+  });
 
   // CSV Import state (support controlled or uncontrolled usage)
   const [csvImportOpenInternal, setCsvImportOpenInternal] = useState(false);
@@ -301,27 +353,6 @@ const RFQTab = ({
     setImportProgress(0);
     setCsvImportOpen(false);
   };
-
-  // UMA Resolver config (same as used elsewhere in admin)
-  const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
-  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
-
-  // Minimal ABI to read wrapped market status
-  const umaWrappedMarketAbi = [
-    {
-      inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-      name: 'wrappedMarkets',
-      outputs: [
-        { internalType: 'bytes32', name: 'marketId', type: 'bytes32' },
-        { internalType: 'bool', name: 'assertionSubmitted', type: 'bool' },
-        { internalType: 'bool', name: 'settled', type: 'bool' },
-        { internalType: 'bool', name: 'resolvedToYes', type: 'bool' },
-        { internalType: 'bytes32', name: 'assertionId', type: 'bytes32' },
-      ],
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ] as const;
 
   function ConditionStatusBadges({
     claimStatement,
@@ -609,18 +640,57 @@ const RFQTab = ({
   );
 
   const rows: RFQRow[] = useMemo(() => {
-    return (conditions || []).map((c) => ({
-      id: c.id,
-      question: c.question,
-      shortName: c.shortName,
-      category: c.category || undefined,
-      endTime: c.endTime,
-      public: c.public,
-      claimStatement: c.claimStatement,
-      description: c.description,
-      similarMarketUrls: c.similarMarkets,
-    }));
-  }, [conditions]);
+    const now = Math.floor(Date.now() / 1000);
+
+    const mapped = (conditions || []).map((c, index) => {
+      // Get settlement status from batch contract read
+      const settlementResult = settlementData?.[index];
+      const isSettled =
+        settlementResult?.status === 'success'
+          ? Boolean(settlementResult.result?.[2])
+          : undefined;
+
+      return {
+        id: c.id,
+        question: c.question,
+        shortName: c.shortName,
+        category: c.category || undefined,
+        endTime: c.endTime,
+        public: c.public,
+        claimStatement: c.claimStatement,
+        description: c.description,
+        similarMarketUrls: c.similarMarkets,
+        _isSettled: isSettled,
+        _hasData: settlementResult?.status === 'success',
+      };
+    });
+
+    // Filter based on selected filter
+    const filtered = mapped.filter((row) => {
+      if (filter === 'all') return true;
+
+      const isPastEnd = row.endTime && row.endTime <= now;
+      const isUpcoming = row.endTime && row.endTime > now;
+
+      if (filter === 'needs-settlement') {
+        // Show only: past end + have settlement data + NOT settled
+        return isPastEnd && row._hasData && row._isSettled === false;
+      }
+
+      if (filter === 'upcoming') {
+        return isUpcoming;
+      }
+
+      if (filter === 'settled') {
+        // Show only: explicitly settled (regardless of end time)
+        return row._isSettled === true;
+      }
+
+      return true;
+    });
+
+    return filtered;
+  }, [conditions, filter, settlementData]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -673,10 +743,34 @@ const RFQTab = ({
   };
 
   return (
-    <div>
-      {/* CSV Import Button (only when uncontrolled) */}
-      {onCsvImportOpenChange ? null : (
-        <div className="flex justify-end">
+    <div className="space-y-4">
+      {/* Filter and Import Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Filter:</span>
+          <Select
+            value={filter}
+            onValueChange={(value) => setFilter(value as ConditionFilter)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Show All</SelectItem>
+              <SelectItem value="needs-settlement">Needs Settlement</SelectItem>
+              <SelectItem value="upcoming">Upcoming</SelectItem>
+              <SelectItem value="settled">Settled</SelectItem>
+            </SelectContent>
+          </Select>
+          {filter !== 'all' && (
+            <span className="text-sm text-muted-foreground">
+              ({rows.length} {rows.length === 1 ? 'condition' : 'conditions'})
+            </span>
+          )}
+        </div>
+
+        {/* CSV Import Button (only when uncontrolled) */}
+        {onCsvImportOpenChange ? null : (
           <Button
             onClick={() => setCsvImportOpen(true)}
             variant="outline"
@@ -685,8 +779,8 @@ const RFQTab = ({
             <Upload className="h-4 w-4" />
             Import CSV
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* CSV Import Dialog */}
       <Dialog open={csvImportOpen} onOpenChange={setCsvImportOpen}>

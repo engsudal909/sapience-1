@@ -13,11 +13,13 @@ import { Timer } from 'lucide-react';
 interface EndTimeDisplayProps {
   endTime?: number | null;
   size?: 'normal' | 'large';
+  appearance?: 'default' | 'brandWhite';
 }
 
 const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
   endTime,
   size = 'normal',
+  appearance = 'default',
 }) => {
   if (typeof endTime !== 'number') {
     // If endTime is not a number (e.g., null, undefined, or wrong type), show nothing.
@@ -40,6 +42,12 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
       : baseBadgeClasses;
     const largeBadgeClassName =
       `${desktopBaseBadgeClasses} inline-flex ${isPast ? '' : outlineExtras}`.trim();
+    const brandWhiteBadgeExtras =
+      appearance === 'brandWhite'
+        ? 'text-brand-white border-brand-white/20'
+        : '';
+    const timerColorClass =
+      appearance === 'brandWhite' ? 'text-brand-white' : '';
     const fullLabel = new Intl.DateTimeFormat(undefined, {
       year: 'numeric',
       month: 'long',
@@ -58,9 +66,9 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
               <span className="inline-flex cursor-default md:hidden">
                 <Badge
                   variant={isPast ? 'secondary' : 'outline'}
-                  className={smallBadgeClassName}
+                  className={`${smallBadgeClassName} ${brandWhiteBadgeExtras}`}
                 >
-                  <Timer className="h-4 w-4 mr-1" />
+                  <Timer className={`h-4 w-4 mr-1 ${timerColorClass}`} />
                   {label} {displayTime}
                 </Badge>
               </span>
@@ -75,10 +83,10 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
         <span className="hidden md:inline-flex cursor-default">
           <Badge
             variant={isPast ? 'secondary' : 'outline'}
-            className={largeBadgeClassName}
+            className={`${largeBadgeClassName} ${brandWhiteBadgeExtras}`}
           >
             <Timer
-              className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1 -mt-0.5 opacity-70`}
+              className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1 -mt-0.5 ${appearance === 'brandWhite' ? '' : 'opacity-70'} ${timerColorClass}`}
             />
             {label} {displayTime}
             <span

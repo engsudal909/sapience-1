@@ -1,9 +1,5 @@
 'use client';
 
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@sapience/sdk/ui/components/ui/toggle-group';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import Slider from '@sapience/sdk/ui/components/ui/slider';
@@ -19,20 +15,19 @@ import { Textarea } from '@sapience/sdk/ui/components/ui/textarea';
 import { Switch } from '@sapience/sdk/ui/components/ui/switch';
 import {
   Tabs,
-  TabsList,
   TabsTrigger,
   TabsContent,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
-import { useTheme } from 'next-themes';
-import { Moon, Sun, Monitor, Key, Share2, Bot } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Monitor, Key, Share2, Bot } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useChat } from '~/lib/context/ChatContext';
 import { useSettings } from '~/lib/context/SettingsContext';
 import LottieLoader from '~/components/shared/LottieLoader';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
 type SettingFieldProps = {
   id: string;
@@ -158,9 +153,7 @@ const SettingField = ({
 };
 
 const SettingsPageContent = () => {
-  const { theme, setTheme } = useTheme();
   const { openChat } = useChat();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const {
     graphqlEndpoint,
     apiBaseUrl,
@@ -234,30 +227,6 @@ const SettingsPageContent = () => {
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
 
-  // Force light mode rendering for the iframe (match Vaults page)
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleIframeLoad);
-      return () => iframe.removeEventListener('load', handleIframeLoad);
-    }
-  }, []);
-
   useEffect(() => {
     if (!mounted) return;
     setGqlInput(graphqlEndpoint || defaults.graphqlEndpoint);
@@ -327,28 +296,9 @@ const SettingsPageContent = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Spline Background - Full Width (match Vaults) */}
-      <div className="absolute inset-0 pointer-events-none top-0 left-0 w-full h-100dvh -scale-y-100 -translate-y-1/4 opacity-50 dark:opacity-75">
-        <iframe
-          ref={iframeRef}
-          src="https://my.spline.design/particlesfutarchy-SDhuN0OYiCRHRPt2fFec4bCm/"
-          className="w-full h-full"
-          style={{
-            opacity: 0.5,
-            border: 'none',
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        />
-        <div className="absolute top-0 left-0 h-full w-[100px] bg-gradient-to-r from-background to-transparent hidden md:block" />
-      </div>
-
-      {/* Main Content (match Vaults spacing) */}
+      {/* Main Content */}
       <div className="container max-w-[750px] mx-auto px-4 pt-32 pb-12 relative z-10">
-        <h1 className="text-3xl md:text-5xl font-heading font-normal mb-4 md:mb-8">
+        <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
           Settings
         </h1>
 
@@ -382,36 +332,27 @@ const SettingsPageContent = () => {
             }}
             className="w-full"
           >
-            <div className="flex flex-col md:flex-row justify-between w-full items-center md:items-center mb-5 flex-shrink-0 gap-3">
-              <TabsList className="order-2 md:order-1 grid w-full md:w-auto grid-cols-1 md:grid-cols-none md:grid-flow-col md:auto-cols-auto h-auto gap-2">
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="network"
-                >
+            <div className="mb-3">
+              <SegmentedTabsList>
+                <TabsTrigger value="network">
                   <span className="inline-flex items-center gap-1.5">
                     <Share2 className="w-4 h-4" />
                     Network
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="agent"
-                >
+                <TabsTrigger value="agent">
                   <span className="inline-flex items-center gap-1.5">
                     <Bot className="w-4 h-4" />
                     Agent
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="appearance"
-                >
+                <TabsTrigger value="appearance">
                   <span className="inline-flex items-center gap-1.5">
                     <Monitor className="w-4 h-4" />
                     Appearance
                   </span>
                 </TabsTrigger>
-              </TabsList>
+              </SegmentedTabsList>
             </div>
 
             <TabsContent value="network">
@@ -555,47 +496,6 @@ const SettingsPageContent = () => {
               <Card className="bg-background">
                 <CardContent className="p-8">
                   <div className="space-y-6">
-                    <div className="grid gap-2">
-                      <Label htmlFor="theme">Theme</Label>
-                      <div id="theme" className="flex flex-col gap-1">
-                        {mounted && (
-                          <ToggleGroup
-                            type="single"
-                            value={theme ?? 'dark'}
-                            onValueChange={(val) => {
-                              if (!val) return;
-                              setTheme(val);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="w-full md:w-auto bg-background py-1 rounded-lg justify-start gap-2 md:gap-3"
-                          >
-                            <ToggleGroupItem
-                              value="light"
-                              aria-label="Light mode"
-                            >
-                              <Sun className="h-4 w-4" />
-                              <span>Light</span>
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="system"
-                              aria-label="System mode"
-                            >
-                              <Monitor className="h-4 w-4" />
-                              <span>System</span>
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="dark"
-                              aria-label="Dark mode"
-                            >
-                              <Moon className="h-4 w-4" />
-                              <span>Dark</span>
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        )}
-                      </div>
-                    </div>
-
                     <div className="grid gap-1">
                       <Label htmlFor="show-american-odds">
                         Show American Odds

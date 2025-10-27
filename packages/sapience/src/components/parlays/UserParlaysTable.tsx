@@ -50,8 +50,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
-import ConditionDialog from '~/components/markets/ConditionDialog';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
 import { useUserParlays } from '~/hooks/graphql/useUserParlays';
@@ -533,7 +532,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -568,7 +567,7 @@ export default function UserParlaysTable({
           });
           return (
             <div>
-              <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] mb-0.5">
+              <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em] mb-0.5">
                 Position #{row.original.positionId}
               </h2>
               <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -627,29 +626,19 @@ export default function UserParlaysTable({
             <div className="space-y-1">
               {row.original.legs.map((l, idx) => (
                 <div key={idx} className="text-sm flex items-center gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <button
-                        type="button"
-                        className="font-medium underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors hover:decoration-foreground/60 truncate max-w-[520px] text-left cursor-default"
-                        title={String(l.question)}
-                      >
-                        {l.question}
-                      </button>
-                    </DialogTrigger>
-                    <ConditionDialog
-                      conditionId={l.conditionId}
-                      title={l.question}
-                      endTime={l.endTime}
-                      description={l.description}
-                    />
-                  </Dialog>
+                  <ConditionTitleLink
+                    conditionId={l.conditionId}
+                    title={l.question}
+                    endTime={l.endTime}
+                    description={l.description}
+                    clampLines={1}
+                  />
                   <Badge
                     variant="outline"
                     className={
                       l.choice === 'Yes'
-                        ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 shrink-0'
-                        : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 shrink-0'
+                        ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 shrink-0 font-mono'
+                        : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 shrink-0 font-mono'
                     }
                   >
                     {l.choice}
@@ -709,7 +698,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -772,7 +761,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -1024,9 +1013,9 @@ export default function UserParlaysTable({
       {rows.length === 0 ? (
         <EmptyTabState message="No parlays found" />
       ) : (
-        <div className="rounded border">
+        <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
           <Table className="table-auto">
-            <TableHeader className="hidden xl:table-header-group bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+            <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -1051,12 +1040,12 @@ export default function UserParlaysTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top"
+                  className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
+                      className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

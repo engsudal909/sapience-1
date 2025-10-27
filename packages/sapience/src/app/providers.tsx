@@ -118,7 +118,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
-        enableSystem={true}
+        forcedTheme="dark"
         disableTransitionOnChange
       >
         <QueryClientProvider client={queryClient}>

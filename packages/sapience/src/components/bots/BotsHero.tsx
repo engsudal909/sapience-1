@@ -1,69 +1,90 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import HeroBackgroundLines from '~/components/home/HeroBackgroundLines';
+import PulsingGradient from '~/components/shared/PulsingGradient';
 
-// Hero section for the bots page - smaller than homepage hero but still exciting
 export default function BotsHero() {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   useEffect(() => {
-    const iframe = iframeRef.current;
-    if (typeof document === 'undefined') return;
-    if (iframe && iframe.contentDocument) {
-      const style = iframe.contentDocument.createElement('style');
-      style.textContent = `
-        @tailwind base;
-        @tailwind components;
-        @tailwind utilities;
-        body { background-color: transparent; margin: 0; padding: 1rem; } /* Example: Ensure transparent background */
-      `;
-      iframe.contentDocument.head.appendChild(style);
+    const v = videoRef.current;
+    if (!v) return;
+    // Try to ensure autoplay starts even if the browser blocks the initial attempt
+    const attemptPlay = () => {
+      const playPromise = v.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch(() => {
+          // ignore autoplay rejection; user interaction will start playback
+        });
+      }
+    };
+
+    if (v.readyState >= 2) {
+      attemptPlay();
+      setIsVideoReady(true);
+    } else {
+      const onCanPlay = () => {
+        attemptPlay();
+        setIsVideoReady(true);
+        v.removeEventListener('canplay', onCanPlay);
+      };
+      v.addEventListener('canplay', onCanPlay);
+      return () => v.removeEventListener('canplay', onCanPlay);
     }
   }, []);
 
+  const handleScrollClick = () => {
+    const viewportHeight =
+      (window as any).visualViewport?.height ?? window.innerHeight;
+    const offset = Math.max(viewportHeight - 100, 0);
+    window.scrollBy({ top: offset, behavior: 'smooth' });
+  };
+
   return (
-    <div className="relative overflow-hidden flex items-center justify-center w-full pb-8 md:pb-16 lg:pb-24">
-      {/* Outer container with padding and iframe background */}
-      <div className="relative z-10 w-full px-0 md:px-6 pt-20 md:pt-24 max-w-[1020px] mx-auto">
-        <div className="relative overflow-hidden rounded-none md:rounded-xl shadow-inner mt-2">
-          {/* Iframe as background within the outer box */}
+    <section className="relative isolate flex flex-col min-h-[100svh] w-full overflow-hidden">
+      <HeroBackgroundLines />
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-16 md:pt-24 pb-0 flex-1 flex flex-col justify-center">
+        <div className="relative z-10 w-full flex flex-col items-center">
           <div
-            className="absolute inset-0 z-0 overflow-hidden rounded-none md:rounded-xl light"
-            style={{
-              transformOrigin: 'center center',
-              colorScheme: 'light',
-              filter: 'none',
-            }}
+            className={`relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] aspect-[3/2] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
           >
-            <iframe
-              ref={iframeRef}
-              src="https://my.spline.design/particlesbots-7HFsdWxSwiyuWxwi8RkBNbtE/"
-              width="100%"
-              height="100%"
-              className="rounded-xl"
-              style={{
-                colorScheme: 'light',
-                filter: 'none',
-              }}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+            <PulsingGradient
+              className="inset-[-10px] rounded-[18px] -z-10"
+              durationMs={9600}
+              gradient={
+                'radial-gradient(ellipse 80% 90% at 50% 50%, hsl(var(--accent-gold)/0.14) 0%, hsl(var(--accent-gold)/0.06) 45%, transparent 70%)'
+              }
             />
+            <video
+              ref={videoRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              onLoadedData={() => setIsVideoReady(true)}
+            >
+              <source src="/hero_bot.mp4" type="video/mp4" />
+            </video>
           </div>
-
-          {/* Inner Content card overlaid on top */}
-          <div className="relative z-10 w-100 text-center bg-background/[0.2] backdrop-blur-[2px] border-y md:border border-gray-500/20 rounded-none md:rounded-xl shadow-sm p-8 lg:p-16">
-            <h1 className="font-sans text-2xl lg:text-4xl font-normal mb-2 lg:mb-4">
-              Trade with Machine Intelligence
+          <div className="w-full md:w-auto max-w-[300px] md:max-w-none rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
+            <h1 className="font-heading text-xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-md">
+              Build AI-powered agents that forecast the future and trade
+              prediction markets
             </h1>
-
-            <p className="md:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Create software leveraging large language models that can conduct
-              research and trade prediction markets with superhuman ability.
-            </p>
+            <button
+              type="button"
+              onClick={handleScrollClick}
+              className="mt-3 font-mono text-sm inline-flex items-center gap-1"
+            >
+              <span className="gold-link">Deploy an agent in minutes</span>
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
