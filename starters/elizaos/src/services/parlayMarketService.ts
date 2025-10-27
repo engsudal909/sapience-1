@@ -1,5 +1,4 @@
 import { elizaLogger, IAgentRuntime, ModelType } from "@elizaos/core";
-import type { SapienceService } from "./sapienceService.js";
 
 interface ParlayPrediction {
   marketId: string;
@@ -7,152 +6,71 @@ interface ParlayPrediction {
   probability: number;
   confidence: number;
   reasoning: string;
-  outcome: boolean; // true for YES, false for NO
+  outcome: boolean;
 }
 
-interface ParlayBet {
-  marketIds: string[];
-  predictions: ParlayPrediction[];
-  totalConfidence: number;
-  timestamp: number;
-}
-
-// Track last parlay bet timestamp for 24-hour rate limiting
 let lastParlayTimestamp = 0;
 
 export class ParlayMarketService {
   private runtime: IAgentRuntime;
   private readonly MIN_CONFIDENCE_THRESHOLD = 0.6;
   private readonly MIN_HOURS_BETWEEN_PARLAYS = 24;
-  private readonly MIN_PREDICTION_CHANGE = 10; // 10% change required
+  private readonly MIN_PREDICTION_CHANGE = 10;
   
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
   }
 
-  /**
-   * Fetch conditions (parlay markets) from the correct API endpoint
-   * Parlay markets are stored as "conditions" in the GraphQL API, not in the spot markets endpoint
-   */
   async fetchParlayMarkets(): Promise<any[]> {
     try {
-      const sapienceService = this.runtime.getService("sapience") as SapienceService;
-      if (!sapienceService) {
-        elizaLogger.error("[ParlayMarket] Sapience service not available");
-        return [];
-      }
-
       elizaLogger.info("[ParlayMarket] Fetching parlay conditions from GraphQL API");
       
-      // Use the correct GraphQL query for conditions (parlay markets)
-      // First let's try to find the correct tool name by listing available tools
-      elizaLogger.info("[ParlayMarket] Attempting to fetch conditions via available GraphQL tools");
-      
-      let conditionsResponse;
-      
-      // Try different potential GraphQL tool names
-      const graphqlToolNames = ["query_sapience_graphql", "graphql", "graphql_query", "query", "conditions"];
-      
-      for (const toolName of graphqlToolNames) {
-        try {
-          elizaLogger.info(`[ParlayMarket] Trying GraphQL tool: ${toolName}`);
-          // Structure the call differently based on the tool
-          if (toolName === "query_sapience_graphql") {
-            conditionsResponse = await sapienceService.callTool("sapience", toolName, {
-              query: `
-                query Conditions($take: Int) {
-                  conditions(orderBy: { createdAt: desc }, take: $take) {
-                    id
-                    createdAt
-                    question
-                    shortName
-                    endTime
-                    public
-                    claimStatement
-                    description
-                    similarMarkets
-                    category {
-                      id
-                      name
-                      slug
-                    }
-                  }
-                }
-              `,
-              variables: JSON.stringify({ take: 100 })
-            });
-          } else {
-            conditionsResponse = await sapienceService.callTool("sapience", toolName, {
-              query: `
-                query Conditions($take: Int) {
-                  conditions(orderBy: { createdAt: desc }, take: $take) {
-                    id
-                    createdAt
-                    question
-                    shortName
-                    endTime
-                    public
-                    claimStatement
-                    description
-                    similarMarkets
-                    category {
-                      id
-                      name
-                      slug
-                    }
-                  }
-                }
-              `,
-              variables: {
-                take: 100
-              }
-            });
+      const graphqlEndpoint = "https://api.sapience.xyz/graphql";
+      const query = `
+        query Conditions($take: Int, $skip: Int) {
+          conditions(orderBy: { createdAt: desc }, take: $take, skip: $skip) {
+            id
+            createdAt
+            question
+            shortName
+            endTime
+            public
+            claimStatement
+            description
+            similarMarkets
+            category {
+              id
+              name
+              slug
+            }
           }
-          
-          elizaLogger.info(`[ParlayMarket] Tool ${toolName} response preview: ${conditionsResponse?.content?.[0]?.text?.substring(0, 200) || "No response"}...`);
-          
-          if (conditionsResponse?.content?.[0]?.text && !conditionsResponse.content[0].text.includes("MCP")) {
-            elizaLogger.info(`[ParlayMarket] Successfully fetched conditions using tool: ${toolName}`);
-            break;
-          }
-        } catch (error) {
-          elizaLogger.info(`[ParlayMarket] Tool ${toolName} failed: ${error.message}`);
         }
-      }
+      `;
+      
+      const response = await fetch(graphqlEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { take: 100, skip: 0 }
+        })
+      });
 
-      if (!conditionsResponse?.content?.[0]?.text) {
-        elizaLogger.error("[ParlayMarket] Failed to fetch conditions from GraphQL - no response content");
-        return [];
-      }
-
-      const responseText = conditionsResponse.content[0].text;
+      const responseText = await response.text();
+      elizaLogger.info(`[ParlayMarket] GraphQL response status: ${response.status}`);
       elizaLogger.info(`[ParlayMarket] GraphQL response preview: ${responseText.substring(0, 200)}...`);
       
-      if (responseText.includes("MCP")) {
-        elizaLogger.error("[ParlayMarket] Received MCP error response instead of GraphQL data");
-        elizaLogger.info("[ParlayMarket] Falling back to REST API for conditions");
-        
-        // Try to fetch conditions via REST API as fallback
-        try {
-          const restResponse = await sapienceService.callTool("sapience", "list_conditions", {});
-          if (restResponse?.content?.[0]?.text) {
-            const restData = JSON.parse(restResponse.content[0].text);
-            elizaLogger.info(`[ParlayMarket] REST API returned ${restData.length || 0} conditions`);
-            return restData || [];
-          }
-        } catch (restError) {
-          elizaLogger.info(`[ParlayMarket] REST API fallback also failed: ${restError.message}`);
-        }
-        
+      if (!response.ok) {
+        elizaLogger.error(`[ParlayMarket] GraphQL request failed with status ${response.status}`);
         return [];
       }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        elizaLogger.error(`[ParlayMarket] Failed to parse GraphQL response: ${parseError.message}`);
-        elizaLogger.error(`[ParlayMarket] Response text: ${responseText}`);
+      
+      const data = JSON.parse(responseText);
+      
+      if (data.errors) {
+        elizaLogger.error(`[ParlayMarket] GraphQL errors: ${JSON.stringify(data.errors)}`);
         return [];
       }
       
@@ -163,30 +81,30 @@ export class ParlayMarketService {
         return [];
       }
 
-      // Filter for public conditions that are still active
-      const now = Math.floor(Date.now() / 1000);
-      const activeConditions = conditions.filter((condition: any) => {
-        return condition.public && 
-               condition.endTime && 
-               condition.endTime > now;
-      });
-
-      elizaLogger.info(`[ParlayMarket] Found ${activeConditions.length} active parlay conditions out of ${conditions.length} total`);
-      
-      if (activeConditions.length > 0) {
-        elizaLogger.info(`[ParlayMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
-      }
-      
-      return activeConditions;
+      return this.filterActiveConditions(conditions);
     } catch (error) {
       elizaLogger.error("[ParlayMarket] Error fetching parlay conditions:", error);
       return [];
     }
   }
 
-  /**
-   * Generate predictions for parlay conditions without on-chain attestation
-   */
+  private filterActiveConditions(conditions: any[]): any[] {
+    const now = Math.floor(Date.now() / 1000);
+    const activeConditions = conditions.filter((condition: any) => {
+      return condition.public && 
+             condition.endTime && 
+             condition.endTime > now;
+    });
+
+    elizaLogger.info(`[ParlayMarket] Found ${activeConditions.length} active parlay conditions out of ${conditions.length} total`);
+    
+    if (activeConditions.length > 0) {
+      elizaLogger.info(`[ParlayMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
+    }
+    
+    return activeConditions;
+  }
+
   async generateParlayPredictions(conditions: any[]): Promise<ParlayPrediction[]> {
     const predictions: ParlayPrediction[] = [];
     
@@ -204,9 +122,6 @@ export class ParlayMarketService {
     return predictions;
   }
 
-  /**
-   * Generate a single condition prediction
-   */
   private async generateSinglePrediction(condition: any): Promise<ParlayPrediction | null> {
     try {
       const endDate = condition.endTime ? new Date(condition.endTime * 1000).toISOString() : "Unknown";
@@ -263,12 +178,7 @@ Focus on objective factors and data-driven analysis.`;
     }
   }
 
-  /**
-   * Select the best markets for a parlay bet
-   * Picks top 3 by confidence, adds more if there are ties
-   */
   selectParlayLegs(predictions: ParlayPrediction[]): ParlayPrediction[] {
-    // Filter by minimum confidence
     const eligible = predictions.filter(p => p.confidence >= this.MIN_CONFIDENCE_THRESHOLD);
     
     if (eligible.length === 0) {
@@ -276,20 +186,17 @@ Focus on objective factors and data-driven analysis.`;
       return [];
     }
 
-    // Sort by confidence (highest first)
     eligible.sort((a, b) => b.confidence - a.confidence);
 
-    // Take top 3
     const selected: ParlayPrediction[] = [];
     let targetCount = 3;
     
     for (let i = 0; i < eligible.length && i < targetCount; i++) {
       selected.push(eligible[i]);
       
-      // If we have 3 and the next one has the same confidence, include it too
       if (i === 2 && i + 1 < eligible.length && 
           eligible[i].confidence === eligible[i + 1].confidence) {
-        targetCount++; // Allow one more
+        targetCount++;
       }
     }
 
@@ -299,9 +206,6 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
     return selected;
   }
 
-  /**
-   * Check if we can place a new parlay bet (simple 24-hour rate limiting)
-   */
   canPlaceParlay(): { allowed: boolean; reason: string } {
     if (lastParlayTimestamp === 0) {
       return { allowed: true, reason: "First parlay bet" };
@@ -322,24 +226,17 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
     };
   }
 
-  /**
-   * Record a parlay bet for rate limiting
-   */
   recordParlayBet(): void {
     lastParlayTimestamp = Date.now();
     elizaLogger.info("[ParlayMarket] Recorded parlay bet timestamp for rate limiting");
   }
 
-  /**
-   * Main method to analyze conditions and prepare parlay
-   */
   async analyzeParlayOpportunity(): Promise<{
     predictions: ParlayPrediction[];
     canTrade: boolean;
     reason: string;
   }> {
     try {
-      // Fetch eligible conditions (parlay markets)
       const conditions = await this.fetchParlayMarkets();
       if (conditions.length === 0) {
         return {
@@ -349,7 +246,6 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
         };
       }
 
-      // Generate predictions
       const allPredictions = await this.generateParlayPredictions(conditions);
       if (allPredictions.length === 0) {
         return {
@@ -359,7 +255,6 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
         };
       }
 
-      // Select best legs for parlay
       const selectedPredictions = this.selectParlayLegs(allPredictions);
       if (selectedPredictions.length < 2) {
         return {
@@ -369,7 +264,6 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
         };
       }
 
-      // Check rate limiting
       const rateCheck = this.canPlaceParlay();
       
       return {

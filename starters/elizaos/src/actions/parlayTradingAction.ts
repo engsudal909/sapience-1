@@ -11,7 +11,6 @@ import { encodeAbiParameters } from 'viem';
 import { privateKeyToAddress } from "viem/accounts";
 import ParlayMarketService from "../services/parlayMarketService.js";
 
-// Sapience WebSocket endpoint for parlay auctions
 const SAPIENCE_WS_URL = "wss://api.sapience.xyz/auction";
 
 interface PredictedOutcomeInputStub {
@@ -58,9 +57,9 @@ function buildAuctionStartPayload(
 
 interface ParlayTradingConfig {
   enabled: boolean;
-  wagerAmount: string; // In USDe units (18 decimals), default $1
-  minProbabilityThreshold: number; // Only trade if confidence is above this
-  maxSlippage: number; // Maximum acceptable slippage %
+  wagerAmount: string;
+  minProbabilityThreshold: number;
+  maxSlippage: number;
 }
 
 interface Bid {
@@ -89,7 +88,6 @@ export const parlayTradingAction: Action = {
     callback?: HandlerCallback,
   ) => {
     try {
-      // Check if trading is enabled via environment variable
       const tradingEnabled = process.env.ENABLE_PARLAY_TRADING === "true";
       if (!tradingEnabled) {
         elizaLogger.info("[ParlayTrading] Trading disabled via ENABLE_PARLAY_TRADING env var");
@@ -102,10 +100,7 @@ export const parlayTradingAction: Action = {
 
       elizaLogger.info("[ParlayTrading] Starting parlay analysis...");
 
-      // Initialize parlay market service
       const parlayService = new ParlayMarketService(runtime);
-
-      // Analyze parlay opportunity
       const analysis = await parlayService.analyzeParlayOpportunity();
 
       if (!analysis.canTrade) {
@@ -128,15 +123,13 @@ export const parlayTradingAction: Action = {
 
       elizaLogger.info(`[ParlayTrading] Found ${analysis.predictions.length}-leg parlay opportunity`);
 
-      // Get trading configuration
       const config: ParlayTradingConfig = {
         enabled: true,
-        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || process.env.WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
+        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || process.env.WAGER_AMOUNT || "1000000000000000000",
         minProbabilityThreshold: parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6"),
-        maxSlippage: parseFloat(process.env.MAX_TRADING_SLIPPAGE || "5"), // 5%
+        maxSlippage: parseFloat(process.env.MAX_TRADING_SLIPPAGE || "5"),
       };
 
-      // Check if all legs meet minimum confidence
       const lowConfidenceLegs = analysis.predictions.filter(p => p.confidence < config.minProbabilityThreshold);
       if (lowConfidenceLegs.length > 0) {
         elizaLogger.info(`[ParlayTrading] ${lowConfidenceLegs.length} legs below trading confidence threshold`);
@@ -147,7 +140,6 @@ export const parlayTradingAction: Action = {
         return;
       }
 
-      // Build parlay outcomes
       const parlayOutcomes = analysis.predictions.map(pred => ({
         marketId: pred.marketId,
         market: pred.market,
@@ -160,7 +152,6 @@ ${parlayOutcomes.map(leg =>
   `  - ${leg.market.question?.substring(0, 50)}... → ${leg.outcome ? 'YES' : 'NO'} (${leg.probability}%)`
 ).join('\n')}`);
 
-      // Execute the parlay trade
       const auctionResult = await executeParlay({
         parlayOutcomes,
         wagerAmount: config.wagerAmount,
@@ -169,9 +160,7 @@ ${parlayOutcomes.map(leg =>
       });
 
       if (auctionResult.success) {
-        // Record the parlay bet for rate limiting
         parlayService.recordParlayBet();
-
         elizaLogger.info(`[ParlayTrading] ${parlayOutcomes.length}-leg parlay executed successfully: ${auctionResult.txHash}`);
         
         await callback?.({
@@ -250,30 +239,40 @@ async function executeParlay({
   return new Promise((resolve) => {
     const ws = new WebSocket(SAPIENCE_WS_URL);
 
-    // Timeout handling
     const timeout = setTimeout(() => {
+      elizaLogger.warn("[ParlayTrading] Auction timeout after 5 minutes");
       ws.close();
-      resolve({ success: false, error: "Auction timeout" });
-    }, 30000);
+      resolve({ success: false, error: "Auction timeout after 5 minutes" });
+    }, 300000);
 
     let resolveOnce = (result: any) => {
       clearTimeout(timeout);
+      clearInterval(keepalive);
       resolve(result);
-      resolveOnce = () => {}; // Prevent multiple calls
+      resolveOnce = () => {};
     };
+
+    let keepalive: NodeJS.Timeout;
 
     try {
       ws.onopen = () => {
         elizaLogger.info("[ParlayTrading] Connected to auction WebSocket");
+        
+        keepalive = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            try {
+              ws.send(JSON.stringify({ type: "ping" }));
+              elizaLogger.debug("[ParlayTrading] Sent keepalive ping");
+            } catch (e) {
+              elizaLogger.warn("[ParlayTrading] Failed to send keepalive ping");
+            }
+          }
+        }, 20000);
 
         try {
-          // Build predicted outcomes for auction
           const outcomes: PredictedOutcomeInputStub[] = parlayOutcomes.map(leg => {
-            const condition = leg.market; // This is actually a condition now
-            
-            // For conditions, use the condition ID directly as it's already in the correct format
+            const condition = leg.market;
             const conditionId = condition.id.startsWith('0x') ? condition.id : `0x${condition.id}`;
-            // Ensure it's padded to 32 bytes (66 chars including 0x)
             const paddedConditionId = conditionId.padEnd(66, '0');
             
             elizaLogger.info(`[ParlayTrading] Leg: ${condition.question?.substring(0, 50)} - ${leg.outcome ? 'YES' : 'NO'}`);
@@ -285,9 +284,8 @@ async function executeParlay({
             };
           });
 
-          // Use UMA resolver for conditions (parlay markets)
           const UMA_RESOLVER = "0xa6147867264374F324524E30C02C331cF28aa879";
-          const marketGroup = UMA_RESOLVER; // Conditions use UMA resolver
+          const marketGroup = UMA_RESOLVER;
 
           elizaLogger.info(`[ParlayTrading] Using resolver: ${marketGroup}`);
 
@@ -295,13 +293,12 @@ async function executeParlay({
           elizaLogger.info(`[ParlayTrading] Payload built: ${JSON.stringify(payload)}`);
 
           const auctionMessage = {
-            type: "start",
+            type: "auction.start",
             payload: {
               maker: privateKeyToAddress(privateKey as `0x${string}`),
               wager: wagerAmount,
               resolver: payload.resolver,
-              outcomes: outcomes.map(o => o.prediction),
-              makerNonce: Math.floor(Math.random() * 1000000).toString(),
+              predictedOutcomes: payload.predictedOutcomes,
             },
           };
 
@@ -318,10 +315,10 @@ async function executeParlay({
           const message = JSON.parse(event.data);
           elizaLogger.info(`[ParlayTrading] Received message: ${JSON.stringify(message)}`);
 
-          if (message.type === "ack") {
+          if (message.type === "auction.ack") {
             elizaLogger.info(`[ParlayTrading] Auction acknowledged: ${JSON.stringify(message.payload)}`);
-          } else if (message.type === "bids") {
-            const bids = message.payload;
+          } else if (message.type === "auction.bids") {
+            const bids = message.payload.bids || [];
             elizaLogger.info(`[ParlayTrading] Received ${bids.length} bids`);
 
             if (bids.length === 0) {
@@ -329,11 +326,9 @@ async function executeParlay({
               return;
             }
 
-            // Select best bid
             const bestBid = selectBestBid(bids, parlayOutcomes[0].outcome);
             elizaLogger.info(`[ParlayTrading] Selected best bid: ${JSON.stringify(bestBid)}`);
 
-            // Accept the bid
             try {
               const txHash = await acceptBid({ bid: bestBid, privateKey, rpcUrl });
               resolveOnce({ success: true, txHash });
@@ -356,12 +351,16 @@ async function executeParlay({
       };
 
       ws.onclose = (event) => {
+        clearInterval(keepalive);
         elizaLogger.info(`[ParlayTrading] WebSocket closed: ${event.code} ${event.reason}`);
-        if (event.code === 1006) {
+        if (event.code === 1000) {
+          elizaLogger.info("[ParlayTrading] WebSocket closed normally");
+        } else if (event.code === 1006) {
           elizaLogger.warn("[ParlayTrading] Connection closed abnormally - server may not be available");
           resolveOnce({ success: false, error: "Auction service not available" });
         } else {
-          resolveOnce({ success: false, error: "WebSocket disconnected" });
+          elizaLogger.warn(`[ParlayTrading] WebSocket closed with code ${event.code}: ${event.reason}`);
+          resolveOnce({ success: false, error: `WebSocket disconnected (${event.code})` });
         }
       };
     } catch (error: any) {
@@ -399,7 +398,6 @@ async function acceptBid({
   try {
     const { submitTransaction } = await loadSdk();
 
-    // First, approve the collateral token
     const approveCalldata = await buildApproveCalldata({
       tokenAddress: bid.collateralToken,
       spender: bid.predictionMarket,
@@ -420,7 +418,6 @@ async function acceptBid({
     elizaLogger.info(`[ParlayTrading] Approval TX: ${approveTx.hash}`);
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Execute mint transaction
     const mintCalldata = await buildMintCalldata({
       bid,
       maker: privateKeyToAddress(privateKey as `0x${string}`),
@@ -498,7 +495,7 @@ async function buildMintCalldata({
         name: "mint",
         type: "function",
         inputs: [
-          { name: "request", type: "tuple", components: [] }, // Simplified
+          { name: "request", type: "tuple", components: [] },
         ],
         outputs: [],
       },
