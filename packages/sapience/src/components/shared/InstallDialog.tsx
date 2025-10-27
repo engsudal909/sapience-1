@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
-import LottieLoader from './LottieLoader';
 
 const LOCAL_STORAGE_KEY = 'sapiencePwaInstallDismissed';
 const DISMISSAL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -100,25 +99,22 @@ const InstallDialog = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[90%] sm:max-w-[425px] mx-auto">
+      <DialogContent className="max-w-[90%] sm:max-w-[425px] mx-auto top-1/2 translate-y-[-50%]">
         <div className="mx-auto w-full max-w-sm">
-          <DialogHeader className="mb-6">
-            <div className="flex justify-center mt-6 mb-1 opacity-80">
-              <LottieLoader width={48} height={48} />
-            </div>
-            <DialogTitle className="text-center text-xl font-medium">
+          <DialogHeader className="my-4">
+            <DialogTitle className="text-center text-2xl font-normal">
               Install Sapience
             </DialogTitle>
-            <DialogDescription className="max-w-[200px] mx-auto">
-              It's way better this way and just takes a second. Trust us.
+            <DialogDescription className="max-w-[220px] mx-auto">
+              It's way better like this and just takes a second. Trust us.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 rounded-lg bg-muted p-4 text-center mb-3">
+          <div className="space-y-3 rounded bg-brand-black text-brand-white font-mono text-xs p-5 text-center mb-2">
             <div className="space-y-2">
               <p>
                 Tap the{' '}
                 <span className="mx-0.5 inline-flex translate-y-[3px] items-center">
-                  <Share className="h-5 w-5" />
+                  <Share className="h-4 w-4 text-accent-gold" />
                 </span>{' '}
                 icon in your browser
               </p>
@@ -127,7 +123,7 @@ const InstallDialog = () => {
               <p>
                 Select{' '}
                 <span className="mx-0.5 inline-flex translate-y-[3px] items-center">
-                  <PlusSquare className="h-5 w-5" />
+                  <PlusSquare className="h-4 w-4 text-accent-gold" />
                 </span>{' '}
                 Add to Home Screen
               </p>

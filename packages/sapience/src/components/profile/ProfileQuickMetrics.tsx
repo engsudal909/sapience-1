@@ -70,7 +70,7 @@ function MetricBadge({
           {icon}
         </span>
       ) : null}
-      <span className="font-medium">{label}</span>
+      <span className="font-medium text-brand-white">{label}</span>
     </>
   );
 
@@ -81,7 +81,7 @@ function MetricBadge({
         aria-hidden="true"
         className="hidden md:inline-block mx-2.5 h-4 w-px bg-muted-foreground/30"
       />
-      <span className="tabular-nums">{value}</span>
+      <span className="tabular-nums text-brand-white">{value}</span>
       {sublabel ? (
         <span className="ml-1 text-muted-foreground font-normal">
           {sublabel}
@@ -102,7 +102,7 @@ function MetricBadge({
                   aria-hidden="true"
                   className="mx-2 h-3.5 w-px bg-muted-foreground/30 inline-block"
                 />
-                <span className="tabular-nums">{value}</span>
+                <span className="tabular-nums text-brand-white">{value}</span>
                 {sublabel ? (
                   <span className="ml-1 text-muted-foreground font-normal">
                     {sublabel}

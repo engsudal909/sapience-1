@@ -211,7 +211,7 @@ export default function LpPositionsTable({
               onClick={() =>
                 column.toggleSorting(column.getIsSorted() === 'asc')
               }
-              className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
               aria-sort={
                 column.getIsSorted() === false
                   ? 'none'
@@ -253,21 +253,24 @@ export default function LpPositionsTable({
                   <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em]">
                     {question}
                   </h2>
-                  <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <span>
-                      {context === 'profile'
-                        ? `#${position.positionId} created ${new Date(
-                            position.createdAt
-                          ).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            timeZoneName: 'short',
-                          })}`
-                        : `Position #${position.positionId}`}
+                  <div className="text-sm flex items-center gap-2">
+                    <span className="text-brand-white font-medium">
+                      {`Position #${position.positionId}`}
                     </span>
+                    {context === 'profile' ? (
+                      <span className="text-muted-foreground">
+                        {`created ${new Date(
+                          position.createdAt
+                        ).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZoneName: 'short',
+                        })}`}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -284,21 +287,24 @@ export default function LpPositionsTable({
                     </span>
                   </Link>
                 </h2>
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  <span>
-                    {context === 'profile'
-                      ? `Position #${position.positionId} created ${new Date(
-                          position.createdAt
-                        ).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          timeZoneName: 'short',
-                        })}`
-                      : `Position #${position.positionId}`}
+                <div className="text-sm flex items-center gap-2">
+                  <span className="text-brand-white font-medium">
+                    {`Position #${position.positionId}`}
                   </span>
+                  {context === 'profile' ? (
+                    <span className="text-muted-foreground">
+                      {`created ${new Date(
+                        position.createdAt
+                      ).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZoneName: 'short',
+                      })}`}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             );
@@ -320,7 +326,7 @@ export default function LpPositionsTable({
           variant="ghost"
           size="sm"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
           aria-sort={
             column.getIsSorted() === false
               ? 'none'
@@ -362,7 +368,7 @@ export default function LpPositionsTable({
             variant="ghost"
             size="sm"
             onClick={column.getToggleSortingHandler()}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -494,7 +500,7 @@ export default function LpPositionsTable({
               onClick={() =>
                 column.toggleSorting(column.getIsSorted() === 'asc')
               }
-              className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
               aria-sort={
                 column.getIsSorted() === false
                   ? 'none'
@@ -674,9 +680,9 @@ export default function LpPositionsTable({
 
   return (
     <div>
-      <div className="rounded border bg-card overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
         <Table className="table-auto">
-          <TableHeader className="hidden xl:table-header-group bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+          <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -701,12 +707,12 @@ export default function LpPositionsTable({
             {table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="xl:table-row block border-b last:border-b-0 space-y-3 xl:space-y-0 px-4 py-4 xl:px-0 xl:py-0"
+                className="xl:table-row block border-b last:border-b-0 space-y-3 xl:space-y-0 px-4 py-4 xl:px-0 xl:py-0 hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''} ${cell.column.id === 'position' ? 'max-w-[360px]' : ''}`}
+                    className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''} ${cell.column.id === 'position' ? 'max-w-[360px]' : ''}`}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>

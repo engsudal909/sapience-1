@@ -37,6 +37,8 @@ import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
 const TAB_VALUES = ['trades', 'parlays', 'lp', 'forecasts'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
+// (removed segmented tab background helper)
+
 const ProfilePageContent = () => {
   const params = useParams();
   const address = (params.address as string).toLowerCase() as Address;
@@ -217,20 +219,32 @@ const ProfilePageContent = () => {
             onValueChange={handleTabChange}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4 h-auto gap-2 mb-5">
-              <TabsTrigger className="w-full" value="trades">
+            <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4 mb-3">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="trades"
+              >
                 <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
                 Trades
               </TabsTrigger>
-              <TabsTrigger className="w-full" value="parlays">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="parlays"
+              >
                 <SquareStackIcon className="h-4 w-4 mr-2" />
                 Parlays
               </TabsTrigger>
-              <TabsTrigger className="w-full" value="lp">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="lp"
+              >
                 <DropletsIcon className="h-4 w-4 mr-2" />
                 Liquidity
               </TabsTrigger>
-              <TabsTrigger className="w-full" value="forecasts">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="forecasts"
+              >
                 <Telescope className="h-4 w-4 mr-2" />
                 Forecasts
               </TabsTrigger>

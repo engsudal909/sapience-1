@@ -1,48 +1,42 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import { passiveLiquidityVault } from '@sapience/sdk/contracts';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import {
   Tabs,
-  TabsContent,
   TabsList,
+  TabsContent,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import {
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
+  TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { useAccount } from 'wagmi';
+import { Vault } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
-import { Vault as VaultIcon } from 'lucide-react';
-import { passiveLiquidityVault } from '@sapience/sdk/contracts';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
-import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
+import { useAccount } from 'wagmi';
+import Link from 'next/link';
 import NumberDisplay from '~/components/shared/NumberDisplay';
-
-// Shared Coming Soon Overlay Component
-const ComingSoonOverlay = () => (
-  <div className="absolute inset-0 z-[60] bg-background/30 backdrop-blur-sm flex items-center justify-center rounded-md">
-    <div className="text-center">
-      <h3 className="text-lg font-semibold text-muted-foreground">
-        Coming Soon
-      </h3>
-    </div>
-  </div>
-);
+import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import EnsAvatar from '~/components/shared/EnsAvatar';
+import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
+import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
+import { PROTOCOL_VAULT_ADDRESS } from '~/lib/constants';
 
 const VaultsPageContent = () => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { isConnected } = useAccount();
+  const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   // Constants for vault integration
   const VAULT_CHAIN_ID = DEFAULT_CHAIN_ID; // default chain
   const VAULT_ADDRESS = passiveLiquidityVault[DEFAULT_CHAIN_ID]?.address;
 
-  // Vaults feature flag detection
-  const [vaultsFeatureEnabled, setVaultsFeatureEnabled] = useState(false);
+  // Vaults are always enabled
 
   // Vault integration
   const {
@@ -53,7 +47,7 @@ const VaultsPageContent = () => {
     pendingRequest,
     userAssetBalance,
     assetDecimals,
-    isLoadingUserData,
+    isLoadingUserData: _isLoadingUserData,
     isVaultPending,
     deposit,
     requestWithdrawal,
@@ -151,30 +145,42 @@ const VaultsPageContent = () => {
 
   // Removed withdrawal delay header display; keep minimal derived UI state only
 
+  // Prefill deposit with minimum amount once when available
+  const didPrefillMinRef = useRef(false);
   useEffect(() => {
+    if (didPrefillMinRef.current) return;
+    if (!assetDecimals) return;
+    const min = minDeposit ?? 0n;
+    if (min <= 0n) return;
     try {
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        // Allow enabling via URL ?vaults=true (dev convenience)
-        if (params.get('vaults') === 'true') {
-          window.localStorage.setItem('sapience.vaults', 'true');
-        }
-        const stored = window.localStorage.getItem('sapience.vaults');
-        setVaultsFeatureEnabled(stored === 'true');
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('[VaultPage] feature flags', {
-            stored,
-            NEXT_PUBLIC_ENABLE_VAULTS: process.env.NEXT_PUBLIC_ENABLE_VAULTS,
-          });
-
-          console.debug('[VaultPage] inputs', {
-            VAULT_CHAIN_ID,
-            VAULT_ADDRESS,
-          });
-        }
+      const currentWei = depositAmount
+        ? (() => {
+            try {
+              return parseUnits(depositAmount, assetDecimals);
+            } catch {
+              return 0n;
+            }
+          })()
+        : 0n;
+      if (!depositAmount || currentWei < min) {
+        setDepositAmount(formatAssetAmount(min));
+        didPrefillMinRef.current = true;
       }
     } catch {
-      setVaultsFeatureEnabled(false);
+      /* noop */
+    }
+  }, [assetDecimals, minDeposit, depositAmount, formatAssetAmount]);
+
+  useEffect(() => {
+    try {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[VaultPage] inputs', {
+          VAULT_CHAIN_ID,
+          VAULT_ADDRESS,
+        });
+      }
+    } catch {
+      /* noop */
     }
   }, []);
 
@@ -227,35 +233,6 @@ const VaultsPageContent = () => {
     }
   }, [withdrawSharesWei, userData]);
 
-  // Force light mode rendering for the iframe
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      // Guard already exists here, but keeping it doesn't hurt
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          // Try to inject a style element to force light mode
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          // Security policy might prevent this
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      // Ensure load event listener is attached only once iframe exists
-      iframe.addEventListener('load', handleIframeLoad);
-      // Clean up listener on unmount
-      return () => iframe.removeEventListener('load', handleIframeLoad);
-    }
-  }, []); // Empty dependency array ensures this runs once client-side
-
   // Live cooldown countdown (HH:MM:SS)
   const [cooldownDisplay, setCooldownDisplay] = useState<string>('');
   useEffect(() => {
@@ -272,9 +249,11 @@ const VaultsPageContent = () => {
         const totalHours = Math.floor(remaining / 3600);
         const minutes = Math.floor((remaining % 3600) / 60);
         const seconds = remaining % 60;
-        const pad = (n: number) => String(n).padStart(2, '0');
+        const hourLabel = totalHours === 1 ? 'hour' : 'hours';
+        const minuteLabel = minutes === 1 ? 'minute' : 'minutes';
+        const secondLabel = seconds === 1 ? 'second' : 'seconds';
         setCooldownDisplay(
-          `${pad(totalHours)}:${pad(minutes)}:${pad(seconds)}`
+          `${totalHours} ${hourLabel}, ${minutes} ${minuteLabel}, and ${seconds} ${secondLabel}`
         );
       } catch {
         setCooldownDisplay('');
@@ -286,11 +265,31 @@ const VaultsPageContent = () => {
     return () => window.clearInterval(id);
   }, [isInteractionDelayActive, lastInteractionAt, interactionDelay]);
 
+  // Desktop-only top gradient bar across categories in filter order (match BetSlip)
+  const categoryGradient = useMemo(() => {
+    const colors = FOCUS_AREAS.map((fa) => fa.color);
+    if (colors.length === 0) return 'transparent';
+    if (colors.length === 1) return colors[0];
+    const step = 100 / (colors.length - 1);
+    const stops = colors.map((c, i) => `${c} ${i * step}%`);
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }, []);
+
   const renderVaultForm = () => (
     <Tabs defaultValue="deposit" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="deposit">Deposit</TabsTrigger>
-        <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2 mb-3">
+        <TabsTrigger
+          value="deposit"
+          className="data-[state=active]:text-brand-white"
+        >
+          Deposit
+        </TabsTrigger>
+        <TabsTrigger
+          value="withdraw"
+          className="data-[state=active]:text-brand-white"
+        >
+          Withdraw
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="deposit" className="space-y-2 mt-1">
@@ -331,7 +330,11 @@ const VaultsPageContent = () => {
           estDepositShares > 0n &&
           ((minDeposit ?? 0n) === 0n || depositWei >= (minDeposit ?? 0n)) ? (
             <div className="text-right">
-              Requested Shares: {formatSharesAmount(estDepositShares)} sapLP
+              Requested Shares:{' '}
+              {formatDecimalWithCommasFixed2(
+                formatSharesAmount(estDepositShares)
+              )}{' '}
+              sapLP
             </div>
           ) : (
             (minDeposit ?? 0n) > 0n && (
@@ -343,9 +346,9 @@ const VaultsPageContent = () => {
         </div>
 
         {/* Cooldown + Deposit Button Group */}
-        <div className="mt-6 space-y-2">
+        <div className="space-y-2 pt-3 md:pt-4">
           {isInteractionDelayActive && (
-            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
+            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300 mb-2">
               This vault implements a cooldown period. Please wait{' '}
               {cooldownDisplay} before submitting another request.
             </div>
@@ -354,34 +357,47 @@ const VaultsPageContent = () => {
           {/* Deposit Button */}
           <Button
             size="lg"
-            className="w-full text-base"
+            className="w-full text-base bg-brand-white text-brand-black hover:bg-brand-white/90"
             disabled={
-              !isConnected ||
               !depositAmount ||
               isVaultPending ||
-              vaultData?.paused ||
+              !!vaultData?.paused ||
               belowMinDeposit ||
-              quoteSignatureValid === false ||
-              isInteractionDelayActive
+              !pricePerShare ||
+              pricePerShare === '0' ||
+              isInteractionDelayActive ||
+              !!(pendingRequest && !pendingRequest.processed)
             }
             onClick={async () => {
+              if (!isConnected) {
+                try {
+                  await Promise.resolve(connectOrCreateWallet?.());
+                } catch {
+                  // ignore wallet connect errors
+                }
+                return;
+              }
               setPendingAction('deposit');
               await deposit(depositAmount, VAULT_CHAIN_ID);
               setDepositAmount('');
               setPendingAction(undefined);
             }}
           >
-            {!isConnected
-              ? 'Log in'
+            {pendingRequest && !pendingRequest.processed
+              ? 'Request Pending'
               : isVaultPending && pendingAction === 'deposit'
                 ? 'Processing...'
                 : vaultData?.paused
                   ? 'Vault Paused'
-                  : quoteSignatureValid === false
-                    ? 'Invalid Quote Signature'
-                    : requiresApproval
-                      ? 'Approve & Deposit'
-                      : 'Submit Deposit'}
+                  : isInteractionDelayActive
+                    ? 'Cooldown in progress'
+                    : quoteSignatureValid === false
+                      ? 'Waiting for Price Quote'
+                      : !pricePerShare || pricePerShare === '0'
+                        ? 'No Price Available'
+                        : requiresApproval
+                          ? 'Approve & Deposit'
+                          : 'Submit Deposit'}
           </Button>
         </div>
 
@@ -400,7 +416,7 @@ const VaultsPageContent = () => {
                 className="text-lg bg-transparent border-none p-0 h-auto font-normal placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <div className="flex items-center gap-2">
-                <span className="text-lg text-muted-foreground">testUSDe</span>
+                <span className="text-lg text-muted-foreground">sapLP</span>
               </div>
             </div>
           </div>
@@ -438,9 +454,9 @@ const VaultsPageContent = () => {
         </div>
 
         {/* Cooldown + Withdraw Button Group */}
-        <div className="mt-6 space-y-2">
+        <div className="space-y-2 pt-3 md:pt-4">
           {isInteractionDelayActive && (
-            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300">
+            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-800 dark:text-yellow-300 mb-2">
               This vault implements a cooldown period. Please wait{' '}
               {cooldownDisplay} before submitting another request.
             </div>
@@ -449,30 +465,44 @@ const VaultsPageContent = () => {
           {/* Withdraw Button */}
           <Button
             size="lg"
-            className="w-full text-base"
+            className="w-full text-base bg-brand-white text-brand-black hover:bg-brand-white/90"
             disabled={
-              !isConnected ||
               !withdrawAmount ||
               isVaultPending ||
-              vaultData?.paused ||
-              quoteSignatureValid === false ||
-              isInteractionDelayActive
+              !!vaultData?.paused ||
+              !pricePerShare ||
+              pricePerShare === '0' ||
+              isInteractionDelayActive ||
+              !!(pendingRequest && !pendingRequest.processed) ||
+              withdrawExceedsShareBalance
             }
             onClick={async () => {
+              if (!isConnected) {
+                try {
+                  await Promise.resolve(connectOrCreateWallet?.());
+                } catch {
+                  // ignore wallet connect errors
+                }
+                return;
+              }
               setPendingAction('withdraw');
               await requestWithdrawal(withdrawAmount, VAULT_CHAIN_ID);
               setPendingAction(undefined);
             }}
           >
-            {!isConnected
-              ? 'Log in'
+            {pendingRequest && !pendingRequest.processed
+              ? 'Request Pending'
               : isVaultPending && pendingAction === 'withdraw'
                 ? 'Processing...'
                 : vaultData?.paused
                   ? 'Vault Paused'
-                  : quoteSignatureValid === false
-                    ? 'Invalid Quote Signature'
-                    : 'Request Withdrawal'}
+                  : withdrawExceedsShareBalance
+                    ? 'Insufficient Balance'
+                    : isInteractionDelayActive
+                      ? 'Cooldown in progress'
+                      : !pricePerShare || pricePerShare === '0'
+                        ? 'No Price Available'
+                        : 'Request Withdrawal'}
           </Button>
         </div>
 
@@ -481,247 +511,334 @@ const VaultsPageContent = () => {
     </Tabs>
   );
 
-  return (
-    <div className="relative min-h-screen">
-      {/* Spline Background - Full Width */}
-      <div className="absolute inset-0 pointer-events-none top-0 left-0 w-full h-100dvh -scale-y-100 -translate-y-1/4 opacity-50 dark:opacity-75">
-        <iframe
-          ref={iframeRef}
-          src="https://my.spline.design/particlesfutarchy-SDhuN0OYiCRHRPt2fFec4bCm/"
-          className="w-full h-full"
-          style={{
-            opacity: 0.5,
-            border: 'none',
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        />
-        <div className="absolute top-0 left-0 h-full w-[100px] bg-gradient-to-r from-background to-transparent hidden md:block" />
-      </div>
+  const formatIntWithCommas = (intStr: string): string => {
+    try {
+      const neg = intStr.startsWith('-');
+      const digits =
+        (neg ? intStr.slice(1) : intStr).replace(/\D+/g, '') || '0';
+      const withCommas = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return (neg ? '-' : '') + withCommas;
+    } catch {
+      return '0';
+    }
+  };
 
+  const formatDecimalWithCommasFixed2 = (value: string): string => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return '0.00';
+      const neg = trimmed.startsWith('-');
+      const t = neg ? trimmed.slice(1) : trimmed;
+      const [intRaw, fracRaw = ''] = t.split('.');
+      const intPart = intRaw.replace(/\D+/g, '') || '0';
+      const frac = fracRaw.replace(/\D+/g, '') + '000';
+      const d1 = frac.charCodeAt(0) - 48;
+      const d2 = frac.charCodeAt(1) - 48;
+      const d3 = frac.charCodeAt(2) - 48;
+      let two = d1 * 10 + d2;
+      let carry = 0;
+      if (d3 >= 5) {
+        two += 1;
+        if (two >= 100) {
+          two -= 100;
+          carry = 1;
+        }
+      }
+      const twoStr = two.toString().padStart(2, '0');
+
+      let intOut = intPart;
+      if (carry) {
+        let c = 1;
+        let res = '';
+        for (let i = intPart.length - 1; i >= 0; i--) {
+          const code = intPart.charCodeAt(i);
+          const isDigit = code >= 48 && code <= 57;
+          const digit = (isDigit ? code - 48 : 0) + c;
+          if (digit >= 10) {
+            res = String(digit - 10) + res;
+            c = 1;
+          } else {
+            res = String(digit) + res;
+            c = 0;
+          }
+        }
+        if (c) res = '1' + res;
+        intOut = res;
+      }
+
+      const intWithCommas = formatIntWithCommas(intOut);
+      return (neg ? '-' : '') + intWithCommas + '.' + twoStr;
+    } catch {
+      return '0.00';
+    }
+  };
+
+  // Derived vault metrics for display
+  const tvlWei = useMemo(() => {
+    try {
+      const totalAssetsWei = vaultData?.totalAssets ?? 0n;
+      if (totalAssetsWei > 0n) return totalAssetsWei;
+
+      // Fallback: derive TVL from totalSupply * pricePerShare when assets aren't populated
+      if (
+        vaultData?.totalSupply &&
+        pricePerShare &&
+        pricePerShare !== '0' &&
+        assetDecimals !== undefined
+      ) {
+        try {
+          const ppsScaled = parseUnits(pricePerShare, assetDecimals);
+          return (
+            (vaultData.totalSupply * ppsScaled) / 10n ** BigInt(assetDecimals)
+          );
+        } catch {
+          // ignore fallback errors and return 0n below
+        }
+      }
+
+      return 0n;
+    } catch {
+      return 0n;
+    }
+  }, [vaultData, pricePerShare, assetDecimals]);
+
+  const deployedWei = useMemo(() => {
+    try {
+      return vaultData?.totalDeployed ?? 0n;
+    } catch {
+      return 0n;
+    }
+  }, [vaultData]);
+
+  const utilizationPercent = useMemo(() => {
+    try {
+      // Primary: on-chain utilization rate in basis points
+      if (vaultData?.utilizationRate !== undefined) {
+        const pct = Number(vaultData.utilizationRate) / 100; // bps -> percent
+        if (!Number.isFinite(pct)) return 0;
+        return Math.max(0, Math.min(100, pct));
+      }
+      // Fallback: compute from deployed/total
+      if (tvlWei > 0n) {
+        const bps = Number((deployedWei * 10000n) / tvlWei);
+        const pct = bps / 100;
+        if (!Number.isFinite(pct)) return 0;
+        return Math.max(0, Math.min(100, pct));
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
+  }, [vaultData, tvlWei, deployedWei]);
+
+  // Preformatted display strings
+  const tvlDisplay = useMemo(() => {
+    try {
+      return formatDecimalWithCommasFixed2(formatAssetAmount(tvlWei));
+    } catch {
+      return '0';
+    }
+  }, [tvlWei, formatAssetAmount]);
+
+  const deployedDisplay = useMemo(() => {
+    try {
+      return formatDecimalWithCommasFixed2(formatAssetAmount(deployedWei));
+    } catch {
+      return '0';
+    }
+  }, [deployedWei, formatAssetAmount]);
+
+  const utilizationDisplay = useMemo(() => {
+    try {
+      return `${Math.round(utilizationPercent)}%`;
+    } catch {
+      return '0%';
+    }
+  }, [utilizationPercent]);
+
+  return (
+    <div className="relative">
       {/* Main Content */}
       <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
         <div className="mb-5 md:mb-10 flex items-center justify-between">
-          <h1 className="text-3xl md:text-5xl font-heading font-normal">
+          <h1 className="text-3xl md:text-5xl font-sans font-normal text-foreground">
             Vaults
           </h1>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex pointer-events-auto" tabIndex={0}>
-                <Button size="sm" disabled aria-label="Coming soon">
-                  <VaultIcon className="h-8 w-8" aria-hidden="true" />
-                  Deploy Vault
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Coming soon</TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-not-allowed">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="inline-flex items-center gap-2"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <Vault className="h-4 w-4" />
+                    Deploy Vault
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8">
           {/* Vault */}
           <div>
-            {/* TEMP: Gate Active UI behind env. Set NEXT_PUBLIC_ENABLE_VAULTS="1" to enable. */}
-            {vaultsFeatureEnabled &&
-            process.env.NEXT_PUBLIC_ENABLE_VAULTS === '1' ? (
-              /* Active Vault Interface */
-              <Card className="relative isolate overflow-hidden bg-card border border-border rounded-xl shadow-sm">
-                <CardContent className="p-6">
-                  <div className="space-y-6">
-                    {/* Vault Header */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-2xl font-medium mb-1">
-                          Protocol Vault
-                        </h3>
-                        <p className="text-muted-foreground text-lg">
-                          This vault is used to bid on parlay requests.
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">
-                          Your Deposits
-                        </div>
-                        <div className="text-lg font-medium">
-                          {isLoadingUserData
-                            ? '...'
-                            : userData
-                              ? formatSharesAmount(userData?.balance ?? 0n)
-                              : '0.00'}{' '}
-                          testUSDe
-                        </div>
+            <Card className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm">
+              <div
+                className="hidden lg:block absolute top-0 left-0 right-0 h-px"
+                style={{ background: categoryGradient }}
+              />
+              <CardContent className="p-6">
+                <div className="space-y-6">
+                  {/* Vault Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-2xl font-medium mb-1">
+                        Protocol Vault
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <EnsAvatar
+                          address={PROTOCOL_VAULT_ADDRESS}
+                          width={16}
+                          height={16}
+                          className="shrink-0"
+                        />
+                        <AddressDisplay
+                          address={PROTOCOL_VAULT_ADDRESS}
+                          compact
+                          className="text-xs text-muted-foreground"
+                          hideVaultIcon
+                        />
                       </div>
                     </div>
-
-                    {/* Deposit/Withdraw Tabs */}
-                    {renderVaultForm()}
-
-                    {/* Pending Requests (mapping-based) */}
-                    {pendingRequest && !pendingRequest.processed && (
-                      <div className="mt-4 space-y-2">
-                        <div className="p-3 bg-muted/30 border border-border rounded-md">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="text-sm text-muted-foreground">
-                              <p className="font-medium">
-                                {pendingRequest.isDeposit
-                                  ? 'Pending Deposit'
-                                  : 'Pending Withdrawal'}
-                              </p>
-                              <p className="text-xs">
-                                {pendingRequest.isDeposit ? (
-                                  <>
-                                    {formatAssetAmount(pendingRequest.assets)}{' '}
-                                    testUSDe
-                                    {depositQueuePosition
-                                      ? ` · Queue #${depositQueuePosition}`
-                                      : ''}
-                                  </>
-                                ) : (
-                                  <>
-                                    {formatSharesAmount(pendingRequest.shares)}{' '}
-                                    sapLP
-                                  </>
-                                )}
-                              </p>
-                            </div>
-                            {pendingRequest.isDeposit ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={
-                                  Date.now() <
-                                  (Number(pendingRequest.timestamp) +
-                                    Number(expirationTime ?? 0n)) *
-                                    1000
-                                }
-                                onClick={async () => {
-                                  setPendingAction('cancelDeposit');
-                                  await cancelDeposit(VAULT_CHAIN_ID);
-                                  setPendingAction(undefined);
-                                }}
-                              >
-                                {isVaultPending &&
-                                pendingAction === 'cancelDeposit'
-                                  ? 'Processing...'
-                                  : 'Cancel'}
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={
-                                  Date.now() <
-                                  (Number(pendingRequest.timestamp) +
-                                    Number(expirationTime ?? 0n)) *
-                                    1000
-                                }
-                                onClick={async () => {
-                                  setPendingAction('cancelWithdrawal');
-                                  await cancelWithdrawal(VAULT_CHAIN_ID);
-                                  setPendingAction(undefined);
-                                }}
-                              >
-                                {isVaultPending &&
-                                pendingAction === 'cancelWithdrawal'
-                                  ? 'Processing...'
-                                  : 'Cancel'}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">
+                        Total Value Locked
                       </div>
-                    )}
+                      <div className="text-xl font-normal font-mono">
+                        {tvlDisplay} testUSDe
+                      </div>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ) : (
-              /* Coming Soon State - Normal Interface with Overlay */
-              <Card className="relative isolate overflow-hidden bg-card border border-border rounded-xl shadow-sm">
-                <CardContent
-                  className={`relative z-10 p-6 ${!vaultsFeatureEnabled ? 'pointer-events-none select-none filter blur-sm' : ''}`}
-                >
-                  <div className="space-y-6">
-                    {/* Vault Header */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-2xl font-medium">
-                          Parlay Liquidity Vault
-                        </h3>
+
+                  {/* Vault Stats */}
+                  <div className="space-y-4">
+                    {/* Utilization Block */}
+                    <div className="p-5 pt-4 rounded-lg bg-[hsl(var(--primary)/_0.05)]">
+                      <div className="flex items-center justify-between mb-2 text-foreground">
+                        <div className="text-sm font-normal">
+                          Utilization Rate: {utilizationDisplay}
+                        </div>
+                        <div className="text-sm font-normal">
+                          Deployed: {deployedDisplay} testUSDe
+                        </div>
                       </div>
+                      <div className="w-full h-2 rounded-sm bg-[hsl(var(--primary)/_0.09)] overflow-hidden shadow-inner">
+                        <div
+                          className="h-2 bg-accent-gold rounded-sm transition-all gold-sheen"
+                          style={{ width: `${utilizationPercent}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs">
+                        <Link
+                          href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
+                          className="gold-link"
+                        >
+                          View Portfolio
+                        </Link>
+                      </p>
                     </div>
+                    {/* APY Row intentionally omitted until calculation available */}
+                  </div>
 
-                    {/* Deposit/Withdraw Tabs */}
-                    {renderVaultForm()}
+                  {/* Deposit/Withdraw Tabs */}
+                  {renderVaultForm()}
 
-                    {/* Pending Requests (mapping-based) */}
-                    {pendingRequest && !pendingRequest.processed && (
-                      <div className="mt-4 space-y-2">
-                        <div className="p-3 bg-muted/30 border border-border rounded-md">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="text-sm text-muted-foreground">
-                              <p className="font-medium">
-                                {pendingRequest.isDeposit
-                                  ? 'Pending Deposit'
-                                  : 'Pending Withdrawal'}
-                              </p>
-                              <p className="text-xs">
-                                {pendingRequest.isDeposit ? (
-                                  <>
-                                    {formatAssetAmount(pendingRequest.assets)}{' '}
-                                    testUSDe
-                                    {depositQueuePosition
-                                      ? ` · Queue #${depositQueuePosition}`
-                                      : ''}
-                                  </>
-                                ) : (
-                                  <>
-                                    {formatSharesAmount(pendingRequest.shares)}{' '}
-                                    sapLP
-                                  </>
-                                )}
-                              </p>
-                            </div>
+                  {/* Pending Requests (mapping-based) */}
+                  {pendingRequest && !pendingRequest.processed && (
+                    <div className="mt-4 space-y-2">
+                      <div className="p-3 bg-muted/30 border border-brand-white/10 rounded-md">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="text-sm text-muted-foreground">
+                            <p className="font-medium">
+                              {pendingRequest.isDeposit
+                                ? 'Pending Deposit'
+                                : 'Pending Withdrawal'}
+                            </p>
+                            <p className="text-xs">
+                              {pendingRequest.isDeposit ? (
+                                <>
+                                  {formatAssetAmount(pendingRequest.assets)}{' '}
+                                  testUSDe
+                                  {depositQueuePosition
+                                    ? ` · Queue #${depositQueuePosition}`
+                                    : ''}
+                                </>
+                              ) : (
+                                <>
+                                  {formatSharesAmount(pendingRequest.shares)}{' '}
+                                  sapLP
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          {pendingRequest.isDeposit ? (
                             <Button
                               variant="outline"
                               size="sm"
                               disabled={
-                                Date.now() <
+                                Date.now() >=
                                 (Number(pendingRequest.timestamp) +
                                   Number(expirationTime ?? 0n)) *
                                   1000
                               }
                               onClick={async () => {
-                                const act = pendingRequest.isDeposit
-                                  ? 'cancelDeposit'
-                                  : 'cancelWithdrawal';
-                                setPendingAction(act);
-                                if (act === 'cancelDeposit')
-                                  await cancelDeposit(VAULT_CHAIN_ID);
-                                else await cancelWithdrawal(VAULT_CHAIN_ID);
+                                setPendingAction('cancelDeposit');
+                                await cancelDeposit(VAULT_CHAIN_ID);
                                 setPendingAction(undefined);
                               }}
                             >
                               {isVaultPending &&
-                              pendingAction &&
-                              ((pendingAction === 'cancelDeposit' &&
-                                pendingRequest.isDeposit) ||
-                                (pendingAction === 'cancelWithdrawal' &&
-                                  !pendingRequest.isDeposit))
+                              pendingAction === 'cancelDeposit'
                                 ? 'Processing...'
                                 : 'Cancel'}
                             </Button>
-                          </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                Date.now() >=
+                                (Number(pendingRequest.timestamp) +
+                                  Number(expirationTime ?? 0n)) *
+                                  1000
+                              }
+                              onClick={async () => {
+                                setPendingAction('cancelWithdrawal');
+                                await cancelWithdrawal(VAULT_CHAIN_ID);
+                                setPendingAction(undefined);
+                              }}
+                            >
+                              {isVaultPending &&
+                              pendingAction === 'cancelWithdrawal'
+                                ? 'Processing...'
+                                : 'Cancel'}
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-                {!vaultsFeatureEnabled && <ComingSoonOverlay />}
-              </Card>
-            )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

@@ -56,6 +56,13 @@ function buildAuctionStartPayload(
   return { resolver, predictedOutcomes };
 }
 
+interface ParlayTradingConfig {
+  enabled: boolean;
+  wagerAmount: string; // In USDe units (18 decimals), default $1
+  minProbabilityThreshold: number; // Only trade if confidence is above this
+  maxSlippage: number; // Maximum acceptable slippage %
+}
+
 interface Bid {
   id: string;
   maker: string;
@@ -122,15 +129,19 @@ export const parlayTradingAction: Action = {
       elizaLogger.info(`[ParlayTrading] Found ${analysis.predictions.length}-leg parlay opportunity`);
 
       // Get trading configuration
-      const wagerAmount = process.env.WAGER_AMOUNT || "1000000000000000000"; // $1 in USDe
-      const minTradingConfidence = parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6");
+      const config: ParlayTradingConfig = {
+        enabled: true,
+        wagerAmount: process.env.PARLAY_WAGER_AMOUNT || process.env.WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
+        minProbabilityThreshold: parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6"),
+        maxSlippage: parseFloat(process.env.MAX_TRADING_SLIPPAGE || "5"), // 5%
+      };
 
       // Check if all legs meet minimum confidence
-      const lowConfidenceLegs = analysis.predictions.filter(p => p.confidence < minTradingConfidence);
+      const lowConfidenceLegs = analysis.predictions.filter(p => p.confidence < config.minProbabilityThreshold);
       if (lowConfidenceLegs.length > 0) {
         elizaLogger.info(`[ParlayTrading] ${lowConfidenceLegs.length} legs below trading confidence threshold`);
         await callback?.({
-          text: `Parlay skipped: ${lowConfidenceLegs.length} legs below confidence threshold ${minTradingConfidence}`,
+          text: `Parlay skipped: ${lowConfidenceLegs.length} legs below confidence threshold ${config.minProbabilityThreshold}`,
           content: { analysis },
         });
         return;
@@ -152,7 +163,7 @@ ${parlayOutcomes.map(leg =>
       // Execute the parlay trade
       const auctionResult = await executeParlay({
         parlayOutcomes,
-        wagerAmount,
+        wagerAmount: config.wagerAmount,
         privateKey: process.env.ETHEREUM_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY || "",
         rpcUrl: process.env.EVM_PROVIDER_URL || "https://arb1.arbitrum.io/rpc",
       });

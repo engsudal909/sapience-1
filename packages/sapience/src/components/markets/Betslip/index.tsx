@@ -54,6 +54,7 @@ import {
 } from '~/lib/utils/betslipUtils';
 import { tickToPrice } from '~/lib/utils/tickUtils';
 import { calculateCollateralLimit, DEFAULT_SLIPPAGE } from '~/utils/trade';
+import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 
 interface BetslipProps {
   variant?: 'triggered' | 'panel';
@@ -71,6 +72,8 @@ const Betslip = ({
     isPopoverOpen,
     setIsPopoverOpen,
     clearBetSlip,
+    parlaySelections,
+    clearParlaySelections,
     positionsWithMarketData,
   } = useBetSlipContext();
   const { isFlipped } = useWagerFlip();
@@ -191,6 +194,16 @@ const Betslip = ({
   }, [minCollateralRaw, collateralDecimals]);
 
   // Disable logic is handled by page-level UI; no internal toggling
+
+  // Desktop-only top gradient bar across categories in filter order
+  const categoryGradient = useMemo(() => {
+    const colors = FOCUS_AREAS.map((fa) => fa.color);
+    if (colors.length === 0) return 'transparent';
+    if (colors.length === 1) return colors[0];
+    const step = 100 / (colors.length - 1);
+    const stops = colors.map((c, i) => `${c} ${i * step}%`);
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }, []);
 
   // Create separate form schemas for individual and parlay modes
   const formSchema: z.ZodType<any> = useMemo(() => {
@@ -888,12 +901,12 @@ const Betslip = ({
               />
             </Button>
           </DrawerTrigger>
-          <DrawerContent className="h-[85vh]">
+          <DrawerContent className="h-[85vh] betslip bg-brand-black overflow-hidden">
             <DrawerHeader className="pb-0">
               <DrawerTitle className="text-left"></DrawerTitle>
             </DrawerHeader>
             <div
-              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full`}
+              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full flex flex-col min-h-0`}
             >
               <BetslipContent {...contentProps} />
             </div>
@@ -905,11 +918,35 @@ const Betslip = ({
 
   if (variant === 'panel') {
     return (
-      <div className="w-full h-full flex flex-col">
+      <div className="w-full h-full flex flex-col betslip">
         <div
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
-          <BetslipContent {...contentProps} />
+          <div className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden">
+            <div
+              className="hidden lg:block absolute top-0 left-0 right-0 h-px"
+              style={{ background: categoryGradient }}
+            />
+            <div className="hidden lg:flex items-center justify-between px-4 pt-4 pb-2">
+              <h3 className="eyebrow text-foreground font-sans py-1">
+                Make a Prediction
+              </h3>
+              {(isParlayMode
+                ? parlaySelections.length > 0
+                : betSlipPositions.length > 0) && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm"
+                  onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
+                  title="Reset"
+                >
+                  CLEAR
+                </Button>
+              )}
+            </div>
+            <BetslipContent {...contentProps} />
+          </div>
         </div>
       </div>
     );
@@ -929,11 +966,37 @@ const Betslip = ({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className={`${betSlipPositions.length === 0 ? 'w-80 h-[24rem] p-0' : 'w-[20rem] p-0'} flex flex-col`}
+          className={`${betSlipPositions.length === 0 ? 'w-80 h-[24rem] p-0' : 'w-[20rem] p-0'} flex flex-col max-h-[80vh] overflow-hidden bg-transparent border-0 shadow-none betslip`}
           align="end"
         >
-          <div className="flex-1">
-            <BetslipContent {...contentProps} />
+          <div className="flex-1 min-h-0">
+            <div className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden">
+              <div
+                className="hidden lg:block absolute top-0 left-0 right-0 h-px"
+                style={{ background: categoryGradient }}
+              />
+              <div className="hidden lg:flex items-center justify-between px-4 pt-4 pb-2">
+                <h3 className="eyebrow text-foreground font-sans py-1">
+                  Make a Prediction
+                </h3>
+                {(isParlayMode
+                  ? parlaySelections.length > 0
+                  : betSlipPositions.length > 0) && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm"
+                    onClick={
+                      isParlayMode ? clearParlaySelections : clearBetSlip
+                    }
+                    title="Reset"
+                  >
+                    CLEAR
+                  </Button>
+                )}
+              </div>
+              <BetslipContent {...contentProps} />
+            </div>
           </div>
         </PopoverContent>
       </Popover>
