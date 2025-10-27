@@ -38,7 +38,7 @@ export default function SusdeCollateralSection() {
                       alt="USDe"
                       width={16}
                       height={16}
-                      className="h-4 w-4"
+                      className="h-4 w-4 scale-125 mr-0.5"
                     />
                     Learn More
                   </Button>

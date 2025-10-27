@@ -1,31 +1,24 @@
 ---
 title: "Trading on Sapience — Overview"
-description: "How trading works across market types and liquidity structures."
+description: "A beginner's guide to trading on Sapience prediction markets."
 ---
 
-### Overview
+# Overview
 
-Trading on Sapience means you’re participating in onchain prediction markets where every outcome, trade, and payout is transparent. The system is built to serve everyone — from casual forecasters to pro traders — with features that make trading efficient, fair, and composable.
+## What are prediction markets?
 
-**Architecture Overview**
+Prediction markets are trading platforms where participants wager on the outcomes of future events. Unlike traditional betting, these markets create tradable positions that reflect the collective probability of an outcome occurring. When someone believes an event is likely or not, they can take the current odds or wager against them.
 
-- Sapience supports different market types (binary outcomes, numeric / continuous, conditional marketplaces like parlays).
-- There are two main liquidity structures: batch auctions and CLOB-style (central order book) setups, depending on how active or long-lived the market is.
-- USDe serves as the native collateral: it’s reward-bearing, meaning holding or using USDe has yield advantages baked in.
-- Liquidity doesn’t stay locked in inactive markets; it moves where demand exists, so pricing and depth stay healthier.
+## Why Sapience?
 
-DIAGRAM
+Sapience is community‑first with no fees collected by an exchange, fully [open source](https://github.com/sapiencexyz/sapience), and trustless by design—immutable smart contracts and decentralized settlement remove the need to trust an intermediary.
 
-**Explore each section for detailed explanations on:**
+Under the hood, Sapience supports two complementary market types for different use cases. Auctions power multi‑condition predictions (parlays) with RFQ‑like matching, while spot markets enable continuous trading of single outcomes with efficient price discovery. All trading happens on [Arbitrum](https://arbitrum.io) using [Ethena](https://ethena.fi)'s reward‑bearing synthetic dollar USDe as collateral.
 
-- Market Types – Binary, numeric, and conditional markets (like parlays).
-- Market Creation & Lifecycle – How markets are proposed, traded, resolved, and settled.
-- Pricing – How shares are priced through batch auctions, RFQ quotes, and order books.
-- Resolution & Disputes – Oracles, clarification process, and how disputes are handled.
-- Order Types – Market orders, conditional bundles, and parlay wagers.
-- Liquidity Provision – How LPs provide capital, earn fees, and use vaults.
-- Trading Fees – Fee structures, discounts, and how they reward active participation.
-- Deposits & Withdrawals – Using USDe as collateral and how funds flow in/out of the protocol.
-- Risk & Safeguards – How Sapience protects LPs through batch auctions and portfolio-level risk management.
+## Getting Started
 
+You can use an Ethereum account to trade prediction markets. The [Sapience app](https://www.sapience.xyz) allows you to make an account seamlessly using email or SMS authentication and fund it seamlessly. (You can backup your private key and use the account with any other application that's built on Ethereum if you'd like.)
 
+Builders can follow this [Getting Started guide](/builder-guide/getting-started/get-started) to create an Ethereum private key, fund it with ETH for network fees on [Arbitrum](https://arbitrum.io) and [Ethena](https://ethena.fi/)'s synthetic dollar [USDe](https://arbiscan.io/token/0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34) to wager.
+
+**The invite-only trading competition is using [testUSDe](https://arbiscan.io/address/0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA) as collateral, which you can request in [Discord](https://discord.gg/sapience).**

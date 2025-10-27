@@ -4,33 +4,35 @@ import { cn } from '../lib/utils';
 
 export interface ColoredRadioOptionProps {
   label: React.ReactNode;
-  color: string; // hex color like #4ADE80
+  color?: string; // optional; not used for Yes/No
+  variant?: 'yes' | 'no';
   checked: boolean;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
   disabled?: boolean;
 }
 
-function withAlpha(hexColor: string, alpha: number): string {
-  const a = Math.max(0, Math.min(1, alpha));
-  const alphaByte = Math.round(a * 255);
-  const alphaHex = alphaByte.toString(16).padStart(2, '0');
-  const normalized = hexColor.replace('#', '').trim();
-  const base = normalized.length === 8 ? normalized.slice(0, 6) : normalized;
-  return `#${base}${alphaHex}`;
-}
-
 export const ColoredRadioOption: React.FC<ColoredRadioOptionProps> = ({
   label,
   color,
+  variant,
   checked,
   onClick,
   className,
   disabled,
 }) => {
-  const unselectedBg = withAlpha(color, 0.08);
-  const hoverBg = withAlpha(color, 0.16);
-  const borderColor = withAlpha(color, 0.24);
+  // Determine yes/no variant
+  const labelText = typeof label === 'string' ? label : '';
+  const detectYes = /\byes\b/i.test(labelText);
+  const detectNo = /\bno\b/i.test(labelText);
+  const resolvedVariant: 'yes' | 'no' | undefined = variant ?? (detectYes ? 'yes' : detectNo ? 'no' : undefined);
+
+  const variantClasses =
+    resolvedVariant === 'yes'
+      ? 'border-green-500 bg-green-500/10 text-foreground hover:bg-green-500/15'
+      : resolvedVariant === 'no'
+        ? 'border-red-500 bg-red-500/10 text-foreground hover:bg-red-500/15'
+        : '';
 
   return (
     <Button
@@ -40,37 +42,32 @@ export const ColoredRadioOption: React.FC<ColoredRadioOptionProps> = ({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'text-center justify-start font-normal border flex items-center gap-3 text-foreground',
+        'text-center justify-start text-base font-semibold border flex items-center gap-3',
+        resolvedVariant ? variantClasses : 'text-foreground',
         className
       )}
-      style={{
-        backgroundColor: unselectedBg,
-        borderColor,
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.backgroundColor = hoverBg;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.backgroundColor = unselectedBg;
-      }}
     >
       <span
-        className="inline-flex items-center justify-center rounded-full"
-        style={{
-          width: 16,
-          height: 16,
-          border: `2px solid ${color}`,
-        }}
+        className={cn(
+          'inline-flex items-center justify-center rounded-full w-4 h-4 border-2',
+          resolvedVariant === 'yes'
+            ? 'border-green-500'
+            : resolvedVariant === 'no'
+              ? 'border-red-500'
+              : 'border-border'
+        )}
         aria-hidden
       >
         {checked ? (
           <span
-            className="block rounded-full"
-            style={{
-              width: 8,
-              height: 8,
-              backgroundColor: color,
-            }}
+            className={cn(
+              'block rounded-full w-2 h-2',
+              resolvedVariant === 'yes'
+                ? 'bg-green-500'
+                : resolvedVariant === 'no'
+                  ? 'bg-red-500'
+                  : 'bg-foreground'
+            )}
           />
         ) : null}
       </span>

@@ -1,0 +1,25 @@
+---
+title: "Auction Markets"
+description: "Build parlays and trade via short-lived RFQ-style auctions with onchain settlement."
+---
+
+# Auction Markets
+
+## Overview
+
+Auctions power Sapience's primary system for conditional predictions. They enable you to combine multiple prediction outcomes into a single parlay and trade them through a short-lived RFQ-style matching process.
+
+**Parlays** let you express multi-condition forecasts. Example: "Team A wins AND turnout ≥ 60%." If every condition resolves as predicted, the parlay wins; one incorrect leg loses the entire position.
+
+- **Why parlays?** Higher potential payout for compound forecasts, simple win/lose outcome, and expressive predictions beyond a single market.
+- **Probability intuition:** When outcomes are independent, the parlay's implied probability is the product of individual probabilities — hence lower combined probability and higher potential payoff.
+
+## How Auctions Work
+
+Auctions use an **RFQ (Request-for-Quote) model**:
+
+1. Taker starts an auction by announcing their parlay (predicted outcomes + wager) to the relayer
+2. Makers submit competing bids with their desired wager amounts and signed quotes
+3. Maker selects the best bid (typically highest wager among non-expired quotes)
+4. The taker transfers collateral and mints NFTs for both the taker and maker (the parlay and anti-parlay)
+5. After the verifier smart contract is able to settle the wager, the NFTs can be burned and the winner receives the collateral. 

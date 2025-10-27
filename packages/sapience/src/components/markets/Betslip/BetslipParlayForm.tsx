@@ -14,13 +14,14 @@ import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
+import { Info } from 'lucide-react';
 import { WagerInput } from '~/components/markets/forms';
 import WagerDisclaimer from '~/components/markets/forms/shared/WagerDisclaimer';
-import LottieLoader from '~/components/shared/LottieLoader';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { formatNumber } from '~/lib/utils/util';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 interface BetslipParlayFormProps {
   methods: UseFormReturn<{
@@ -145,6 +146,50 @@ export default function BetslipParlayForm({
     lastQuoteRequestMs != null &&
     nowMs - lastQuoteRequestMs >= 5000;
 
+  // Crossfade between disclaimer and hint when bids may not arrive
+  const HINT_FADE_MS = 300;
+  const [disclaimerMounted, setDisclaimerMounted] = useState(true);
+  const [disclaimerVisible, setDisclaimerVisible] = useState(true);
+  const [hintMounted, setHintMounted] = useState(false);
+  const [hintVisible, setHintVisible] = useState(false);
+
+  useEffect(() => {
+    let timeout1: number | undefined;
+    let timeout2: number | undefined;
+
+    if (showNoBidsHint) {
+      if (!hintMounted) {
+        // Fade out disclaimer, then show hint
+        setDisclaimerVisible(false);
+        timeout1 = window.setTimeout(() => {
+          setDisclaimerMounted(false);
+          setHintMounted(true);
+          // Next frame to ensure CSS transition applies
+          requestAnimationFrame(() => setHintVisible(true));
+        }, HINT_FADE_MS);
+      }
+    } else {
+      if (hintMounted) {
+        // Fade out hint, then show disclaimer
+        setHintVisible(false);
+        timeout2 = window.setTimeout(() => {
+          setHintMounted(false);
+          setDisclaimerMounted(true);
+          requestAnimationFrame(() => setDisclaimerVisible(true));
+        }, HINT_FADE_MS);
+      } else {
+        // Ensure disclaimer is visible by default
+        setDisclaimerMounted(true);
+        setDisclaimerVisible(true);
+      }
+    }
+
+    return () => {
+      if (timeout1) window.clearTimeout(timeout1);
+      if (timeout2) window.clearTimeout(timeout2);
+    };
+  }, [showNoBidsHint, hintMounted]);
+
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
@@ -196,21 +241,33 @@ export default function BetslipParlayForm({
       <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 p-4">
         <div className="space-y-4">
           {parlaySelections.map((s) => (
-            <div key={s.id} className="pb-4 mb-4 border-b border-border">
+            <div
+              key={s.id}
+              className="pb-4 mb-4 border-b border-brand-white/10"
+            >
               <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <h3 className="text-md text-foreground whitespace-normal break-words">
-                    {s.question}
-                    {'\u00A0'}
-                    <span className="relative -top-0.5">
-                      <Badge
-                        variant="outline"
-                        className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 dark:bg-emerald-500/70 dark:text-foreground shrink-0' : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 dark:bg-rose-500/70 dark:text-foreground shrink-0'}`}
-                      >
-                        {s.prediction ? 'Yes' : 'No'}
-                      </Badge>
-                    </span>
-                  </h3>
+                <div className="flex-1 min-w-0">
+                  <div className="text-md text-foreground">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <ConditionTitleLink
+                          conditionId={s.conditionId}
+                          title={s.question}
+                          endTime={undefined}
+                          description={undefined}
+                          clampLines={1}
+                        />
+                      </div>
+                      <span className="relative -top-0.5 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono' : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
+                        >
+                          {s.prediction ? 'Yes' : 'No'}
+                        </Badge>
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <button
                   onClick={() => removeParlaySelection(s.id)}
@@ -266,8 +323,8 @@ export default function BetslipParlayForm({
                   const suffix = secs === 1 ? 'second' : 'seconds';
 
                   return (
-                    <div className="mt-3 mb-3">
-                      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-primary/30 bg-primary/10 px-3 py-2.5 w-full min-h-[48px]">
+                    <div className="mt-3 mb-4">
+                      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full min-h-[48px] shadow-[0_0_10px_rgba(136,180,245,0.25)]">
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
                           <Image
                             src="/usde.svg"
@@ -276,14 +333,14 @@ export default function BetslipParlayForm({
                             height={20}
                             className="opacity-90 w-5 h-5"
                           />
-                          <span className="font-medium text-foreground">
+                          <span className="font-medium text-brand-white">
                             To Win:
                           </span>
-                          <span className="text-foreground inline-flex items-center whitespace-nowrap">
+                          <span className="text-brand-white inline-flex items-center whitespace-nowrap">
                             {humanTotal} {symbol}
                           </span>
                         </span>
-                        <span className="ml-auto text-xs font-normal text-foreground text-right">
+                        <span className="ml-auto text-xs font-normal text-brand-white text-right">
                           <span className="whitespace-nowrap">Expires in</span>
                           <br />
                           <span className="whitespace-nowrap">
@@ -306,13 +363,13 @@ export default function BetslipParlayForm({
                   {isSubmitting ? 'Submitting Wager...' : 'Submit Wager'}
                 </Button>
                 <div className="mt-1 py-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <LottieLoader width={16} height={16} />
+                  <span className="flex items-center gap-1 text-foreground">
+                    <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
                     <span>Broadcasting a request for bids...</span>
                   </span>
                   <button
                     type="button"
-                    className="text-primary underline"
+                    className="text-foreground underline"
                     onClick={() => setIsLimitDialogOpen(true)}
                   >
                     Limit Order
@@ -332,24 +389,37 @@ export default function BetslipParlayForm({
                   Waiting for Bids...
                 </Button>
                 <div className="mt-2 py-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <LottieLoader width={16} height={16} />
+                  <span className="flex items-center gap-1 text-foreground">
+                    <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
                     <span>Broadcasting a request for bids...</span>
                   </span>
                   <button
                     type="button"
-                    className="text-primary underline"
+                    className="text-foreground underline"
                     onClick={() => setIsLimitDialogOpen(true)}
                   >
                     Limit Order
                   </button>
                 </div>
-                {showNoBidsHint ? (
-                  <div className="text-xs text-muted-foreground font-medium mt-2">
-                    Some combinations may not receive bids
+                {hintMounted ? (
+                  <div
+                    className={`text-xs text-foreground font-medium mt-2 transition-opacity duration-300 ${
+                      hintVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <Info className="inline-block align-top w-3.5 h-3.5" />
+                      <span>Some combinations may not receive bids</span>
+                    </span>
                   </div>
                 ) : null}
-                <WagerDisclaimer className="mt-3" />
+                {disclaimerMounted ? (
+                  <WagerDisclaimer
+                    className={`mt-3 transition-opacity duration-300 ${
+                      disclaimerVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                ) : null}
               </div>
             )}
           </div>

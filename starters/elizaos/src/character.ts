@@ -7,8 +7,8 @@ export const character: Character = {
     "@elizaos/plugin-sql",
     "@elizaos/plugin-bootstrap",
 
-    // Model provider - OpenAI for GPT-4 access
-    "@elizaos/plugin-openai",
+    // Model provider
+    "@elizaos/plugin-openrouter",
   ],
   settings: {
     secrets: {},
@@ -16,16 +16,16 @@ export const character: Character = {
     temperature: 0.2,
     embeddingModel: "text-embedding-3-small",
     autonomousMode: {
-      enabled: true,
-      interval: 3600000, // 1 hour
-      minConfidence: 0.2,
-      batchSize: 50,
+      enabled: process.env.AUTO_MODE_ENABLED === 'true' || true,
+      interval: parseInt(process.env.AUTO_MODE_INTERVAL || '300000'), // 5 minutes default
+      minConfidence: parseFloat(process.env.AUTO_MODE_MIN_CONFIDENCE || '0.6'), // Normal threshold
+      batchSize: parseInt(process.env.AUTO_MODE_BATCH_SIZE || '5'),
     },
     sapience: {
       servers: {
         sapience: {
           type: "http",
-          url: "http://localhost:3001/mcp", // url: 'https://api.sapience.xyz/mcp',
+          url: 'https://api.sapience.xyz/mcp',
         },
       },
     },

@@ -1,11 +1,11 @@
 ---
-title: "Batch Auction Relayer API"
-description: "Overview and integration notes for the Batch Auction WebSocket."
+title: "Auction Relayer API"
+description: "Overview and integration notes for the Auction WebSocket."
 ---
 
-# Batch Auction Relayer API
+# Auction Relayer API
 
-The Auction WebSocket connects makers and takers for short-lived batch auctions. Makers announce an auction; takers submit bids; the relayer validates and forwards bids back to the maker.
+The Auction WebSocket connects makers and takers for short-lived auctions. Makers announce an auction; takers submit bids; the relayer validates and forwards bids back to the maker.
 
 - **Maker →** `auction.start` → relayer acks with `auction.ack` and broadcasts `auction.started`
 - **Taker →** `bid.submit` → relayer acks with `bid.ack` and streams `auction.bids` to the maker
@@ -100,6 +100,6 @@ Relayer keeps all valid bids for the auction. The UI or maker should select the 
 
 ## Next steps
 
-- Read the full message schemas and typed-signature details in the Reference: [Batch Auction Relayer Reference](/builder-guide/reference/auction-relayer)
+- Read the full message schemas and typed-signature details in the Reference: [Auction Relayer Reference](/builder-guide/reference/auction-relayer)
 - See a working taker bot in `packages/api/src/auction/botExample.ts` for practical integration patterns.
 

@@ -146,7 +146,7 @@ export default function BetslipSinglesForm({
           return (
             <div
               key={positionData.position.id}
-              className={`mb-4 ${!isLast ? 'border-b border-border pb-5' : ''}`}
+              className={`mb-4 ${!isLast ? 'border-b border-brand-white/10 pb-3' : ''}`}
             >
               {positionData.error && (
                 <>

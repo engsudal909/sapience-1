@@ -32,15 +32,15 @@ export default function QuoteDisplay({
   if (isCompact) {
     if (isLoading) {
       return (
-        <div className="mt-1.5 text-right text-xs">
-          <span className="font-medium text-foreground">{labelText}</span>{' '}
-          <span className="text-muted-foreground">Loading...</span>
+        <div className="mt-1.5 mb-3 text-right text-xs">
+          <span className="font-medium text-brand-white">{labelText}</span>{' '}
+          <span className="text-brand-white/70">Loading...</span>
         </div>
       );
     }
     if (quoteError) {
       return (
-        <div className="mt-1.5 text-right text-xs text-destructive">
+        <div className="mt-1.5 mb-3 text-right text-xs text-destructive">
           {quoteError}
         </div>
       );
@@ -48,9 +48,9 @@ export default function QuoteDisplay({
     if (!quoteData) return null;
 
     return (
-      <div className="mt-1.5 text-right text-xs">
-        <span className="font-medium text-foreground">{labelText}</span>{' '}
-        <span className="text-foreground inline-flex items-center gap-1">
+      <div className="mt-1.5 mb-3 text-right text-xs">
+        <span className="font-medium text-brand-white">{labelText}</span>{' '}
+        <span className="text-brand-white inline-flex items-center gap-1">
           {(() => {
             try {
               const raw = BigInt(quoteData.maxSize);
@@ -83,7 +83,7 @@ export default function QuoteDisplay({
   if (isLoading) {
     return (
       <div className="mt-3">
-        <div className="flex items-center gap-2 rounded-md border-[1.5px] border-primary/30 bg-primary/10 px-3 py-2.5 w-full whitespace-nowrap h-12">
+        <div className="flex items-center gap-2 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full whitespace-nowrap h-12 shadow-[0_0_10px_rgba(136,180,245,0.25)]">
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
             <Image
               src="/usde.svg"
@@ -92,9 +92,9 @@ export default function QuoteDisplay({
               height={20}
               className="opacity-90 w-5 h-5"
             />
-            <span className="font-medium text-foreground">{labelText}</span>
+            <span className="font-medium text-brand-white">{labelText}</span>
           </span>
-          <span className="text-muted-foreground">Loading...</span>
+          <span className="text-brand-white/70">Loading...</span>
         </div>
       </div>
     );
@@ -120,7 +120,7 @@ export default function QuoteDisplay({
 
   return (
     <div className="mt-3">
-      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-primary/30 bg-primary/10 px-3 py-2.5 w-full whitespace-nowrap h-12">
+      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full whitespace-nowrap h-12 shadow-[0_0_10px_rgba(136,180,245,0.25)]">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
           <Image
             src="/usde.svg"
@@ -129,9 +129,9 @@ export default function QuoteDisplay({
             height={20}
             className="opacity-90 w-5 h-5"
           />
-          <span className="font-medium text-foreground">{labelText}</span>
+          <span className="font-medium text-brand-white">{labelText}</span>
         </span>
-        <span className="text-foreground inline-flex items-center whitespace-nowrap">
+        <span className="text-brand-white inline-flex items-center whitespace-nowrap">
           {(() => {
             try {
               const raw = BigInt(quoteData.maxSize);

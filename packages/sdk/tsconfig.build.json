@@ -6,6 +6,7 @@
   },
   "include": [
     "index.ts",
+    "mcp/**/*",
     "abis/**/*",
     "constants/**/*",
     "contracts/**/*",

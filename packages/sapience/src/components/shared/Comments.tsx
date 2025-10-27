@@ -411,20 +411,20 @@ const Comments = ({
                       >
                         {/* Question and Prediction */}
                         <div className="space-y-3">
-                          <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] flex items-center gap-2">
-                            {comment.marketAddress ? (
-                              <Link
-                                href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
-                                className="group"
-                              >
-                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                                  {comment.question}
-                                </span>
-                              </Link>
-                            ) : (
-                              comment.question
-                            )}
-                          </h2>
+                          {comment.marketAddress ? (
+                            <Link
+                              href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
+                              className="group"
+                            >
+                              <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80 break-words whitespace-normal">
+                                {comment.question}
+                              </div>
+                            </Link>
+                          ) : (
+                            <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors break-words whitespace-normal">
+                              {comment.question}
+                            </div>
+                          )}
                           {/* Meta row is rendered below content */}
                         </div>
                         {/* Comment content */}
@@ -444,22 +444,28 @@ const Comments = ({
                               const isNumericMarket =
                                 comment.marketClassification === '3';
                               const percent = comment.predictionPercent;
-                              const shouldColor =
-                                !isNumericMarket &&
+                              const baseClasses =
+                                'px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 uppercase font-mono';
+
+                              let variant: 'default' | 'outline' = 'default';
+                              let className = baseClasses;
+
+                              if (isNumericMarket) {
+                                className =
+                                  baseClasses +
+                                  ' bg-secondary text-secondary-foreground';
+                              } else if (
                                 typeof percent === 'number' &&
-                                percent !== 50;
-                              const isGreen = shouldColor && percent > 50;
-                              const isRed = shouldColor && percent < 50;
-                              const variant = shouldColor
-                                ? 'outline'
-                                : 'default';
-                              const className = shouldColor
-                                ? isGreen
-                                  ? 'border-green-500/40 bg-green-500/10 text-green-600'
-                                  : isRed
-                                    ? 'border-red-500/40 bg-red-500/10 text-red-600'
-                                    : ''
-                                : '';
+                                percent !== 50
+                              ) {
+                                variant = 'outline';
+                                className =
+                                  baseClasses +
+                                  (percent > 50
+                                    ? ' border-yes/40 bg-yes/10 text-yes'
+                                    : ' border-no/40 bg-no/10 text-no');
+                              }
+
                               return (
                                 <Badge
                                   variant={variant as any}
@@ -469,18 +475,18 @@ const Comments = ({
                                 </Badge>
                               );
                             })()}
-                          <span className="text-sm text-muted-foreground/70 font-medium">
+                          <span className="text-sm text-muted-foreground/70 font-medium font-mono">
                             {formatRelativeTime(
                               new Date(comment.timestamp).getTime()
                             )}
                           </span>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                            <div className="relative">
+                            <div className="relative translate-y-[2px]">
                               <EnsAvatar
                                 address={comment.address}
-                                className="w-5 h-5 rounded-sm ring-1 ring-border/50"
-                                width={20}
-                                height={20}
+                                className="w-4 h-4 rounded-sm ring-1 ring-border/50"
+                                width={16}
+                                height={16}
                               />
                             </div>
                             <div className="text-sm text-muted-foreground/80 font-medium">

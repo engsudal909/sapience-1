@@ -2,18 +2,10 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@sapience/sdk/ui/components/ui/dialog';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
-import SafeMarkdown from '~/components/shared/SafeMarkdown';
-import EndTimeDisplay from '~/components/shared/EndTimeDisplay';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 export interface ParlayConditionCardProps {
   condition: {
@@ -89,71 +81,39 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
   // auction/nonce state is required here.
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-card border rounded-md border-border/70 flex flex-row items-stretch h-full md:min-h-[100px] relative overflow-hidden shadow-sm transition-shadow duration-200"
+        className="bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 flex flex-row items-stretch relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
         <div
-          className="w-1 min-w-[4px] max-w-[4px]"
-          style={{ backgroundColor: color, margin: '-1px 0' }}
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ backgroundColor: color }}
         />
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="block group">
             <div className="transition-colors">
-              <div className="flex flex-col px-4 py-3 gap-2">
-                <div className="flex flex-col min-w-0 flex-1">
-                  <h3 className="text-base leading-snug min-h-[44px]">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <button type="button" className="text-left w-full">
-                          <span
-                            className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {displayQ}
-                          </span>
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="w-[92vw] max-w-3xl break-words overflow-x-hidden">
-                        <DialogHeader>
-                          <DialogTitle className="break-words whitespace-normal text-2xl font-medium">
-                            {displayQ}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div>
-                          <div className="flex items-center mb-4">
-                            <EndTimeDisplay endTime={endTime} size="large" />
-                          </div>
-                          {description ? (
-                            <div className="text-sm leading-relaxed break-words [&_a]:break-all">
-                              <SafeMarkdown
-                                content={description}
-                                className="break-words [&_a]:break-all"
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+              <div className="flex flex-col px-4 pt-4 pb-2 gap-2">
+                <div className="flex flex-col min-w-0">
+                  <h3 className="text-base leading-snug min-w-0 overflow-hidden">
+                    <ConditionTitleLink
+                      conditionId={id}
+                      title={displayQ}
+                      endTime={endTime}
+                      description={description}
+                      clampLines={1}
+                    />
                   </h3>
                 </div>
               </div>
             </div>
           </div>
-          <div className="mt-auto px-4 pt-0 pb-4">
-            <div className="text-xs md:text-sm text-muted-foreground w-full mb-3">
-              <div className="truncate whitespace-nowrap min-w-0 h-4 md:h-5 flex items-center gap-1">
-                <span className="text-muted-foreground">
-                  Market Prediction:
-                </span>
+          <div className="px-4 pt-0 pb-4">
+            <div className="text-sm text-foreground/70 w-full mb-2">
+              <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
+                <span>Current Forecast:</span>
                 <MarketPredictionRequest conditionId={id} className="" />
               </div>
             </div>
@@ -162,6 +122,8 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
               onNo={handleNo}
               className="w-full"
               size="sm"
+              yesLabel="PREDICT YES"
+              noLabel="PREDICT NO"
               selectedYes={selectionState.selectedYes}
               selectedNo={selectionState.selectedNo}
             />

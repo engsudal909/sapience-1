@@ -13,7 +13,7 @@ import { SearchBar } from '@sapience/sdk/ui';
 import ParlayConditionCard from './ParlayConditionCard';
 import MarketCard from './MarketCard';
 import MarketGroupsRow from './MarketGroupsRow';
-import ParlayModeRow from './ParlayModeRow';
+import ConditionRow from './ConditionRow';
 import FocusAreaFilter from './FocusAreaFilter';
 import {
   useEnrichedMarketGroups,
@@ -92,7 +92,7 @@ const getDayKey = (timestamp: number): string => {
 // Helper to format end date display using date-fns
 const formatEndDate = (timestamp: number): string => {
   const date = new Date(timestamp * 1000);
-  return format(date, 'MMMM d, yyyy');
+  return `Settling ${format(date, 'MMMM do')}`;
 };
 
 const MarketsPage = () => {
@@ -122,7 +122,7 @@ const MarketsPage = () => {
   const [viewModeByMode, setViewModeByMode] = React.useState<{
     spot: 'list' | 'grid';
     parlay: 'list' | 'grid';
-  }>({ spot: 'grid', parlay: 'grid' });
+  }>({ spot: 'list', parlay: 'list' });
   const currentViewMode = parlayMode
     ? viewModeByMode.parlay
     : viewModeByMode.spot;
@@ -651,7 +651,7 @@ const MarketsPage = () => {
       <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-16 lg:pb-0">
         {/* Top controls section (not sticky) */}
         <div>
-          <div className="mt-2 md:mt-0 mb-4 md:mb-0">
+          <div className="mt-4 md:mt-0 mb-4 md:mb-0">
             <SearchBar
               isMobile={isMobile}
               value={searchTerm}
@@ -684,7 +684,7 @@ const MarketsPage = () => {
         {parlayMode &&
         selectedCategorySlug === null &&
         searchTerm.trim() === '' ? (
-          <SuggestedBetslips />
+          <SuggestedBetslips className="mb-2 md:mb-3" />
         ) : null}
 
         {/* Results area */}
@@ -725,10 +725,10 @@ const MarketsPage = () => {
                         transition={{ duration: 0.25 }}
                       >
                         <div className="flex flex-col mb-2">
-                          <h3 className="font-medium text-sm text-muted-foreground mb-2">
+                          <h3 className="eyebrow text-foreground mb-2">
                             {formatEndDate(dayEndTimes[dayKey])}
                           </h3>
-                          <div className="border border-muted rounded shadow-sm bg-card overflow-hidden">
+                          <div className="divide-y divide-brand-white/10">
                             {marketGroupsByDay[dayKey].map((marketGroup) => (
                               <motion.div
                                 layout
@@ -737,7 +737,7 @@ const MarketsPage = () => {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.25 }}
-                                className="border-b last:border-b-0 border-border"
+                                className=""
                               >
                                 <MarketGroupsRow
                                   marketAddress={marketGroup.marketAddress}
@@ -769,13 +769,13 @@ const MarketsPage = () => {
                     transition={{ duration: 0.25 }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-sm text-muted-foreground">
+                      <h3 className="eyebrow text-foreground">
                         {statusFilter === 'all'
                           ? 'All Prediction Markets'
                           : 'Ending Soon'}
                       </h3>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
                       {groupedMarketGroups.map((group) => {
                         const preferred =
                           group.markets.find((m) => m.optionName === 'Yes') ||
@@ -787,7 +787,7 @@ const MarketsPage = () => {
                           (m) => m.optionName === 'No'
                         )?.marketId;
                         return (
-                          <div key={group.key} className="min-h-[160px]">
+                          <div key={group.key} className="md:min-h-[160px]">
                             <MarketCard
                               chainId={group.chainId}
                               marketAddress={group.marketAddress}
@@ -851,12 +851,12 @@ const MarketsPage = () => {
                       transition={{ duration: 0.25 }}
                     >
                       <div className="flex flex-col mb-2">
-                        <h3 className="font-medium text-sm text-muted-foreground mb-2">
+                        <h3 className="eyebrow text-foreground mb-2">
                           {dayKey === 'No end time'
                             ? 'No end time'
                             : formatEndDate(rfqDayEndTimes[dayKey])}
                         </h3>
-                        <div className="border border-muted rounded shadow-sm bg-card overflow-hidden">
+                        <div className="divide-y divide-brand-white/10">
                           {[...(rfqConditionsByDay[dayKey] || [])]
                             .sort((a, b) => {
                               const aT = a.endTime ?? 0;
@@ -871,7 +871,7 @@ const MarketsPage = () => {
                               const color =
                                 styleInfo?.color || DEFAULT_CATEGORY_COLOR;
                               return (
-                                <ParlayModeRow
+                                <ConditionRow
                                   key={c.id}
                                   condition={c}
                                   color={color}
@@ -891,14 +891,14 @@ const MarketsPage = () => {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between mt-0 mb-2">
+                    <h3 className="eyebrow text-foreground">
                       {statusFilter === 'all'
                         ? 'All Prediction Markets'
                         : 'Ending Soon'}
                     </h3>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
                     {filteredRfqConditions.map((c) => {
                       const categorySlug = c.category?.slug || '';
                       const styleInfo = categorySlug
@@ -906,9 +906,11 @@ const MarketsPage = () => {
                         : undefined;
                       const color = styleInfo?.color || DEFAULT_CATEGORY_COLOR;
                       return (
-                        <div key={c.id} className="min-h-[100px]">
-                          <ParlayConditionCard condition={c} color={color} />
-                        </div>
+                        <ParlayConditionCard
+                          key={c.id}
+                          condition={c}
+                          color={color}
+                        />
                       );
                     })}
                   </div>
@@ -922,7 +924,7 @@ const MarketsPage = () => {
       {/* Desktop/Tablet sticky betslip sidebar */}
       {!isMobile ? (
         <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6">
-          <div className="border border-border rounded shadow-lg bg-card overflow-hidden h-[calc(100dvh-120px)]">
+          <div className="rounded-none shadow-lg overflow-hidden h-[calc(100dvh-96px)]">
             <div className="h-full overflow-y-auto">
               <Betslip
                 variant="panel"

@@ -29,12 +29,15 @@ import { useUserParlays } from '~/hooks/graphql/useUserParlays';
 import { SCHEMA_UID } from '~/lib/constants/eas';
 import LottieLoader from '~/components/shared/LottieLoader';
 import EmptyProfileState from '~/components/profile/EmptyProfileState';
+import EmptyTabState from '~/components/shared/EmptyTabState';
 import ProfileStats from '~/components/profile/ProfileStats';
 import ProfileQuickMetrics from '~/components/profile/ProfileQuickMetrics';
 import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
 
 const TAB_VALUES = ['trades', 'parlays', 'lp', 'forecasts'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
+
+// (removed segmented tab background helper)
 
 const ProfilePageContent = () => {
   const params = useParams();
@@ -186,7 +189,7 @@ const ProfilePageContent = () => {
   }, [hasLoadedOnce, hasTrades, hasLp, hasForecasts]);
 
   return (
-    <div className="container max-w-6xl mx-auto py-24 lg:py-32 px-4">
+    <div className="mx-auto py-24 lg:py-32 px-3 md:px-6 lg:px-8 w-full">
       <ShareAfterRedirect address={address} />
       <div className="mb-5 lg:mb-10">
         <ProfileHeader address={address} />
@@ -216,20 +219,32 @@ const ProfilePageContent = () => {
             onValueChange={handleTabChange}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4 h-auto gap-2 mb-5">
-              <TabsTrigger className="w-full" value="trades">
+            <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4 mb-3">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="trades"
+              >
                 <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
                 Trades
               </TabsTrigger>
-              <TabsTrigger className="w-full" value="parlays">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="parlays"
+              >
                 <SquareStackIcon className="h-4 w-4 mr-2" />
                 Parlays
               </TabsTrigger>
-              <TabsTrigger className="w-full" value="lp">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="lp"
+              >
                 <DropletsIcon className="h-4 w-4 mr-2" />
                 Liquidity
               </TabsTrigger>
-              <TabsTrigger className="w-full" value="forecasts">
+              <TabsTrigger
+                className="data-[state=active]:text-brand-white"
+                value="forecasts"
+              >
                 <Telescope className="h-4 w-4 mr-2" />
                 Forecasts
               </TabsTrigger>
@@ -259,7 +274,7 @@ const ProfilePageContent = () => {
               ) : null}
               {traderPositionsOpen.length === 0 &&
               traderPositionsClosed.length === 0 ? (
-                <EmptyProfileState />
+                <EmptyTabState message="No trades found" />
               ) : null}
             </TabsContent>
 

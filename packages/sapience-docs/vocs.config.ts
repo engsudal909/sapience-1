@@ -6,15 +6,6 @@ export default defineConfig({
     light: "/sapience.svg",
     dark: "/sapience-dark.svg",
   },
-  topNav: [],
-  banner: {
-    dismissable: "false" as unknown as boolean,
-    backgroundColor: "#0588f0",
-    textColor: "white",
-    height: "40px",
-    content:
-      "Docs are heavily under construction. Some information is incorrect. Share feedback in [Discord](https://discord.gg/sapience).",
-  },
   head: [
     ["link", { rel: "stylesheet", href: "/styles.css" }],
   ] as any,
@@ -48,35 +39,31 @@ export default defineConfig({
   },
   sidebar: {
     "/": [
+      { text: "Open App", link: "https://sapience.xyz" },
       { text: "User Guide", link: "/user-guide/introduction/what-is-sapience", match: "/user-guide" as any },
-      { text: "Builder Guide", link: "/builder-guide/getting-started/what-is-sapience", match: "/builder-guide" as any },
-      {
-        text: "Getting Started",
-        items: [
-          {
-            text: "What is Sapience?",
-            link: "/builder-guide/getting-started/what-is-sapience",
-          },
-          { text: "Quickstart", link: "/builder-guide/getting-started/quickstart" },
-        ],
-      },
+      { text: "Builder Guide", link: "/builder-guide/getting-started/get-started", match: "/builder-guide" as any },
       {
         text: "Build Something Awesome",
         items: [
+          { text: "Get Started", link: "/builder-guide/getting-started/get-started" },
           { text: "Forecasting Agent", link: "/builder-guide/guides/forecasting-agent" },
           {
-            text: "Prediction Market Trading Bot",
+            text: "Trading Agent",
+            link: "/builder-guide/guides/trading-auction-intent-markets",
+          },
+          {
+            text: "Market Making Agent",
+            link: "/builder-guide/guides/market-making-agent",
+          },
+          {
+            text: "Spot Market Trading Agent",
             link: "/builder-guide/guides/trading-bots",
           },
           {
-            text: "Liquidity Provisioning Bot",
+            text: "Spot Market Liquidity Agent",
             link: "/builder-guide/guides/liquidity-provisioning-bots",
           },
-          {
-            text: "Batch Auction Market Bot",
-            link: "/builder-guide/guides/trading-auction-intent-markets",
-          },
-          { text: "Custom Trading App", link: "/builder-guide/guides/custom-trading-app" },
+          { text: "Customize Trading App", link: "/builder-guide/guides/customize-trading-app" },
           {
             text: "Dashboards, Games, and more",
             link: "/builder-guide/guides/design-dashboards-games",
@@ -88,7 +75,7 @@ export default defineConfig({
         items: [
           { text: "GraphQL", link: "/builder-guide/api/graphql" },
           { text: "Quoter", link: "/builder-guide/api/quoter" },
-          { text: "Batch Auction Relayer", link: "/builder-guide/api/auction-relayer" },
+          { text: "Auction Relayer", link: "/builder-guide/api/auction-relayer" },
           { text: "MCP", link: "/builder-guide/api/mcp" },
         ],
       },
@@ -100,20 +87,21 @@ export default defineConfig({
             link: "/builder-guide/reference/contracts-and-addresses",
           },
           { text: "GraphQL Schema", link: "/builder-guide/reference/graphql-schema" },
-          { text: "Batch Auction Relayer", link: "/builder-guide/reference/auction-relayer" },
+          { text: "Auction Relayer", link: "/builder-guide/reference/auction-relayer" },
           {
             text: "Oracles & Settlement",
             link: "/builder-guide/reference/oracles-and-settlement",
           },
-          { text: "UI components", link: "/builder-guide/storybook" },
+          { text: "UI Components", link: "/builder-guide/storybook" },
         ],
       },
       { text: "FAQ", link: "/builder-guide/faq" },
       { text: "Contributing", link: "/builder-guide/contributing" },
     ],
     "/user-guide": [
+      { text: "Open App", link: "https://sapience.xyz" },
       { text: "User Guide", link: "/user-guide/introduction/what-is-sapience", match: "/user-guide" as any },
-      { text: "Builder Guide", link: "/builder-guide/getting-started/what-is-sapience", match: "/builder-guide" as any },
+      { text: "Builder Guide", link: "/builder-guide/getting-started/get-started", match: "/builder-guide" as any },
       {
         text: "Introduction",
         items: [
@@ -122,56 +110,31 @@ export default defineConfig({
             link: "/user-guide/introduction/what-is-sapience",
           },
           {
-            text: "Why Build on Sapience?",
-            link: "/user-guide/introduction/why-build-on-sapience",
+            text: "Glossary",
+            link: "/user-guide/other-resources/glossary",
           },
         ],
       },
       {
-        text: "Trading on Sapience",
+        text: "Trading Prediction Markets",
         items: [
           { text: "Overview", link: "/user-guide/trading/overview" },
-          { text: "Market Types", link: "/user-guide/trading/market-types" },
-          {
-            text: "Market Lifecycle",
-            link: "/user-guide/trading/market-lifecycle",
-          },
-          {
-            text: "Pricing & Order Types",
-            link: "/user-guide/trading/pricing-and-order-types",
-          },
-          {
-            text: "Resolution & Disputes",
-            link: "/user-guide/trading/resolution-and-disputes",
-          },
+          { text: "Auction Markets", link: "/user-guide/trading/auction-markets" },
+          { text: "Spot Markets", link: "/user-guide/trading/spot-markets" },
+          { text: "Verification & Settlement", link: "/user-guide/trading/resolution-and-disputes" },
         ],
       },
       {
-        text: "Liquidity Provisioning",
+        text: "Providing Liquidity",
         items: [
-          { text: "Overview", link: "/user-guide/liquidity-provisioning" },
-          {
-            text: "Tutorial",
-            link: "/user-guide/liquidity-provisioning/tutorial",
-          },
+          { text: "Overview", link: "/user-guide/liquidity-overview" },
+          { text: "Auction Liquidity", link: "/user-guide/batch-auction-liquidity" },
+          { text: "Spot Liquidity", link: "/user-guide/liquidity-provisioning" },
+          { text: "Liquidity Vaults", link: "/user-guide/liquidity-vaults" },
         ],
       },
       {
-        text: "Deposits & Withdrawals",
-        items: [
-          { text: "Overview", link: "/user-guide/deposits-and-withdrawals" },
-        ],
-      },
-      {
-        text: "Risks & Safeguards",
-        items: [{ text: "Overview", link: "/user-guide/risks-and-safeguards" }],
-      },
-      {
-        text: "Fees & Incentives",
-        items: [{ text: "Overview", link: "/user-guide/fees-and-incentives" }],
-      },
-      {
-        text: "Other Resources",
+        text: "Resources",
         items: [
           { text: "Audits", link: "/user-guide/other-resources/audits" },
           {
@@ -183,10 +146,6 @@ export default defineConfig({
             link: "/user-guide/other-resources/community",
           },
           { text: "FAQ", link: "/user-guide/other-resources/faq" },
-          {
-            text: "Glossary of Terms",
-            link: "/user-guide/other-resources/glossary",
-          },
         ],
       },
     ],

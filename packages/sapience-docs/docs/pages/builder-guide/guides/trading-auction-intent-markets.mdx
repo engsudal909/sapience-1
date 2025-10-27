@@ -1,91 +1,45 @@
 ---
-title: "Build a Batch Auction Bot"
-description: "Connect, listen for auctions, and reply with signed bids in minutes."
+title: "Build a Auction Bot"
+description: "Start auctions, receive bids, and accept the best quote."
 ---
 
 import BuilderGuideAlert from '../../../components/BuilderGuideAlert'
 
 <BuilderGuideAlert />
 
-# Build a Batch Auction Bot
+# Build a Trading Agent
 
-This guide walks you through integrating with the Batch Auction Relayer to submit competitive, time-bound bids. You will:
+This guide shows your agent can request odds for a wager it would like to place on a forecast.
 
-- Connect to the WebSocket
-- Listen for `auction.started`
-- Submit `bid.submit` with a short deadline and a signature placeholder
-
-For deeper details, see Reference → Batch Auction Relayer.
-
-## Prerequisites
-
-- Node 18+
-- Basic familiarity with WebSockets and EVM addresses
-- If you plan to actually fill, ensure ERC-20 approvals for the contract (see notes)
-
-## Endpoint
-
-- Production: `wss://api.sapience.xyz/auction` (confirm base URL)
-- Local (monorepo): `ws://localhost:3001/auction`
-
-## 1) Listen for auctions
+## Start auctions and receive bids
 
 ```ts
 const ws = new WebSocket('ws://localhost:3001/auction');
 
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: 'auction.start',
+    payload: {
+      maker: '0xMaker...',
+      wager: '1000000000000000000',
+      resolver: '0xResolver...',
+      predictedOutcomes: ['0xabc...'],
+      makerNonce: 1,
+    },
+  }));
+};
+
 ws.onmessage = (ev) => {
-  try {
-    const msg = JSON.parse(String(ev.data));
-    if (msg.type === 'auction.started') {
-      const auction = msg.payload;
-      console.log('auctionId=', auction.auctionId, 'wager=', auction.wager);
-    }
-  } catch (e) {
-    console.error('Failed to parse message:', e);
+  const msg = JSON.parse(String(ev.data));
+  if (msg.type === 'auction.ack') {
+    console.log('auctionId =', msg.payload.auctionId);
+  }
+  if (msg.type === 'auction.bids') {
+    const best = pickBest(msg.payload.bids);
+    console.log('best bid =', best);
   }
 };
-```
 
-Makers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `maker`, `wager`, `resolver`, and `predictedOutcomes`.
-
-## 2) Construct and send bids
-
-Each bid must include:
-- `auctionId`: from `auction.started`
-- `taker`: your EOA address
-- `takerWager`: your contribution (wei)
-- `takerDeadline`: unix seconds expiry (keep short, e.g., 30–90s)
-- `takerSignature`: hex signature (see Reference for typed payload); use a placeholder in dev
-
-Minimal example (no real signing):
-```ts
-function createBid(auction) {
-  const now = Math.floor(Date.now()/1000);
-  return {
-    type: 'bid.submit',
-    payload: {
-      auctionId: auction.auctionId,
-      taker: '0xTaker789...',
-      takerWager: (BigInt(auction.wager)/2n).toString(),
-      takerDeadline: now + 60,
-      takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
-    },
-  };
-}
-```
-
-Send it:
-```ts
-ws.send(JSON.stringify(createBid(auction)));
-```
-
-You will receive `bid.ack` with either `{}` on success or `{ error }` on failure. Subscribers to that `auctionId` (including the maker’s socket) receive `auction.bids { auctionId, bids[] }` updates.
-
-## 3) Selecting bids (maker side)
-
-Makers receive `auction.bids` only on the socket that started the auction. A simple strategy is to pick the highest `takerWager` that hasn’t expired:
-
-```ts
 function pickBest(bids) {
   const now = Math.floor(Date.now()/1000);
   const valid = bids.filter(b => b.takerDeadline > now);
@@ -94,55 +48,51 @@ function pickBest(bids) {
 }
 ```
 
-## 4) ERC-20 approvals (both sides)
+Makers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `maker`, `wager`, `resolver`, and `predictedOutcomes`.
 
-- Maker must approve the contract to pull `wager`
-- Taker must approve the contract to pull `takerWager`
+## Accept a Bid
 
-A reference helper is included in `packages/api/src/auction/botExample.ts` to auto-check allowances and send approvals via `viem` when environment variables are configured.
+After selecting a bid, call `PredictionMarket.mint` using the current auction parameters and the selected bid fields.
 
-## 5) Optional strict signature verification
-
-The relayer always applies structural checks and expiry enforcement. When configured, it can also perform stricter EIP-712 verification that mirrors the on-chain `PredictionMarket` `mint` expectations. See the Reference for the typed payload and domain.
-
-## Full example bot
-
-See `packages/api/src/auction/botExample.ts` for a working taker bot:
-- Connects to the WebSocket and logs lifecycle events
-- Offers 50% of maker’s `wager` by default
-- Submits bids with a short deadline
-- Optionally ensures ERC-20 approvals if environment variables are set
-
-Key snippet:
 ```ts
-// on auction.started
-const wager = BigInt(auction.wager);
-const takerWager = wager / 2n;
-const nowSec = Math.floor(Date.now() / 1000);
-const bid = {
-  type: 'bid.submit',
-  payload: {
-    auctionId: auction.auctionId,
-    taker: '0x0000000000000000000000000000000000000001',
-    takerWager: takerWager.toString(),
-    takerDeadline: nowSec + 60,
+import { writeContract } from 'viem/actions';
+import { erc20Abi } from 'viem';
+import { abi as PredictionMarketAbi } from './PredictionMarket.abi';
+
+// Approve maker collateral for PredictionMarket to pull
+await writeContract({
+  address: '0xCollateralToken...',
+  abi: erc20Abi,
+  functionName: 'approve',
+  args: ['0xPredictionMarket...', '1000000000000000000'], // makerCollateral
+});
+
+const bestBid = /* from auction.bids */
+  {
+    taker: '0xTaker...',
+    takerWager: '500000000000000000',
+    takerDeadline: Math.floor(Date.now()/1000) + 60,
     takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
-  },
+    makerNonce: 1,
+  };
+
+const mintReq = {
+  encodedPredictedOutcomes: '0xabc...',
+  resolver: '0xResolver...',
+  makerCollateral: '1000000000000000000',
+  takerCollateral: bestBid.takerWager,
+  maker: '0xMaker...',
+  taker: bestBid.taker,
+  takerSignature: bestBid.takerSignature,
+  takerDeadline: String(bestBid.takerDeadline),
+  refCode: '0x' + '00'.repeat(32),
+  makerNonce: String(bestBid.makerNonce),
 };
-ws.send(JSON.stringify(bid));
+
+await writeContract({
+  address: '0xPredictionMarket...',
+  abi: PredictionMarketAbi,
+  functionName: 'mint',
+  args: [mintReq],
+});
 ```
-
-## Troubleshooting
-
-- `rate_limited` close (1008): reduce message rate; batch updates if needed
-- `message_too_large` close (1009): reduce payload size (under 64,000 bytes)
-- `auction_not_found_or_expired`: the `auctionId` is invalid or TTL elapsed
-- `invalid_auction_id`: missing or malformed `auctionId`
-- `quote_expired`: use a future `takerDeadline`
-- `invalid_taker_bid_signature_format`: ensure hex string with `0x` prefix
-
-## Reference
-
-- Message details, validation, and typed signatures: `[Batch Auction Relayer Reference](/builder-guide/reference/auction-relayer)`
-- Contract context and on-chain semantics: `packages/protocol/src/predictionMarket/PredictionMarket.sol`
-

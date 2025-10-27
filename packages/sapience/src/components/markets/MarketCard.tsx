@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import * as React from 'react';
+import { Button } from '@sapience/sdk/ui/components/ui/button';
 import type { MarketWithContext } from './MarketsPage';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import type { MarketGroupClassification } from '~/lib/types';
@@ -20,7 +21,7 @@ export interface MarketCardProps {
   market: MarketWithContext;
   yesMarketId?: number;
   noMarketId?: number;
-  color: string;
+  color?: string;
   displayQuestion: string;
   isActive?: boolean;
   marketClassification?: MarketGroupClassification;
@@ -77,8 +78,9 @@ const MarketCard = ({
   }, [chartData]);
 
   const formatPriceAsPercentage = (price: number) => {
-    if (price <= 0) return 'Price N/A';
-    const percentage = price * 100;
+    if (!Number.isFinite(price)) return 'Price N/A';
+    const percentage = Math.max(0, Math.min(100, price * 100));
+    if (percentage < 1) return '<1% chance';
     return `${Math.round(percentage)}% chance`;
   };
 
@@ -244,19 +246,18 @@ const MarketCard = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="bg-card border rounded-md border-border/70 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200"
+        className="bg-brand-black text-brand-white/90 rounded-b-none rounded-t-lg border border-brand-white/10 flex flex-row items-stretch h-full md:min-h-[160px] relative overflow-hidden shadow-sm transition-shadow duration-200 font-mono"
       >
         <div
-          className="w-1 min-w-[4px] max-w-[4px]"
-          style={{ backgroundColor: color, margin: '-1px 0' }}
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ backgroundColor: color }}
         />
-
         <div className="flex-1 flex flex-col h-full">
           <div className="block group">
             <div className="transition-colors">
               <div className="flex flex-col px-4 py-3 gap-3">
                 <div className="flex flex-col min-w-0 flex-1">
-                  <h3 className="leading-snug min-h-[44px]">
+                  <h3 className="leading-snug min-h-[44px] min-w-0">
                     <Link
                       href={`/markets/${chainShortName}:${marketAddress}`}
                       className="group"
@@ -282,15 +283,13 @@ const MarketCard = ({
 
           <div className={`mt-auto px-4 pt-0 ${bottomPaddingClass}`}>
             <div
-              className="text-xs md:text-sm text-muted-foreground w-full mb-3"
+              className="text-sm text-foreground/70 w-full mb-3"
               style={{
                 visibility: canShowPredictionElement ? 'visible' : 'hidden',
               }}
             >
-              <div className="truncate whitespace-nowrap min-w-0 h-4 md:h-5 flex items-center">
-                <span className="text-muted-foreground mr-0.5">
-                  Market Prediction:
-                </span>
+              <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
+                <span>Current Forecast:</span>
                 <MarketPrediction />
               </div>
             </div>
@@ -301,6 +300,8 @@ const MarketCard = ({
                   onNo={handleNoClick}
                   className="w-full"
                   size="sm"
+                  yesLabel="PREDICT YES"
+                  noLabel="PREDICT NO"
                   selectedYes={yesNoSelection.selectedYes}
                   selectedNo={yesNoSelection.selectedNo}
                   yesOddsText={
@@ -333,6 +334,8 @@ const MarketCard = ({
                   }}
                   className="w-full"
                   size="sm"
+                  yesLabel="PREDICT YES"
+                  noLabel="PREDICT NO"
                   yesOddsText={
                     showAmericanOdds
                       ? toAmericanOdds(latestPrices[market.marketId])
@@ -349,6 +352,21 @@ const MarketCard = ({
                   }
                 />
               )}
+            {!isActive && (
+              <Button
+                variant="secondary"
+                className="w-full md:min-w-[10rem]"
+                size="lg"
+                asChild
+              >
+                <Link
+                  href={`/markets/${chainShortName}:${marketAddress}`}
+                  className="group inline-flex items-center"
+                >
+                  CLOSED
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </motion.div>

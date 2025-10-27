@@ -1,0 +1,66 @@
+---
+title: "Market Making Agent"
+description: "Deploy a market making agent to provide liquidity on Sapience."
+---
+
+import BuilderGuideAlert from '../../../components/BuilderGuideAlert'
+
+<BuilderGuideAlert />
+
+# Market Making Agent
+
+This guide shows how a market maker listens for auction requests and provides signed bids.
+
+## Maker (liquidity provider) flow
+
+1. Connect to the WebSocket
+2. Listen for `auction.started { auctionId, maker, wager, resolver, predictedOutcomes[] }`
+3. Construct and send `bid.submit { auctionId, taker, takerWager, takerDeadline, takerSignature, makerNonce }`
+4. Receive `bid.ack { error? }`
+5. Optionally `auction.subscribe { auctionId }` to keep receiving `auction.bids`
+
+## Minimal listener and bid (Node)
+
+```ts
+import WebSocket from 'ws';
+
+const ws = new WebSocket('wss://api.sapience.xyz/auction');
+
+ws.on('message', (data) => {
+  try {
+    const msg = JSON.parse(String(data));
+    if (msg.type === 'auction.started') {
+      const auction = msg.payload;
+      const bid = createBid(auction);
+      ws.send(JSON.stringify(bid));
+    }
+  } catch (e) {
+    console.error('parse error', e);
+  }
+});
+
+function createBid(auction: any) {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    type: 'bid.submit',
+    payload: {
+      auctionId: auction.auctionId,
+      taker: '0xMakerEOAUsedToProvideLiquidity...',
+      takerWager: (BigInt(auction.wager) / 2n).toString(),
+      takerDeadline: now + 60,
+      takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
+      makerNonce: 1,
+    },
+  } as const;
+}
+```
+
+## Notes
+
+- Ensure ERC‑20 approvals for the collateral token if you automate on-chain fills
+- The relayer enforces structure and expiry; optional strict EIP‑712 verification mirrors on‑chain `SignatureProcessor`
+
+## Reference
+
+- Builder Reference: `[Auction Relayer](/builder-guide/reference/auction-relayer)`
+- On-chain: `packages/protocol/src/predictionMarket/PredictionMarket.sol`

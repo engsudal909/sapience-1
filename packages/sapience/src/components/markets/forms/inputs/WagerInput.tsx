@@ -29,7 +29,7 @@ interface WagerInputProps {
 // Define the wager schema that will be used across all forms
 export const wagerAmountSchema = z
   .string()
-  .min(1, 'Please enter a wager amount')
+  .min(1, '')
   .refine((val) => Number(val) > 0, {
     message: 'Amount must be greater than 0',
   });
@@ -110,7 +110,7 @@ export function WagerInput({
           const firstError = error.errors[0];
           setError(name, {
             type: 'manual',
-            message: firstError?.message || 'Invalid wager amount',
+            message: firstError?.message ?? 'Invalid wager amount',
           });
         }
       }
@@ -152,7 +152,7 @@ export function WagerInput({
           className={`pr-24 ${errors[name] ? 'border-destructive' : ''} ${inputClassName || ''}`}
           {...register(name, {
             validate: (val) => {
-              if (!val) return 'Please enter a wager amount';
+              if (!val) return '';
               if (Number(val) <= 0) return 'Amount must be greater than 0';
               return true;
             },
@@ -188,11 +188,12 @@ export function WagerInput({
             Minimum: {minAmount} {collateralSymbol}
           </p>
         )}
-      {errors[name] && (
-        <p className="text-destructive text-sm mb-2">
-          {errors[name]?.message?.toString()}
-        </p>
-      )}
+      {errors[name] &&
+        (errors[name]?.message ? (
+          <p className="text-destructive text-sm mb-2">
+            {errors[name]?.message?.toString()}
+          </p>
+        ) : null)}
     </div>
   );
 }

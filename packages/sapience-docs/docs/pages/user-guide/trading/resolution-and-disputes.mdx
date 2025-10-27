@@ -1,22 +1,16 @@
 ---
-title: "Resolution & Disputes"
+title: "Verification & Settlement"
 description: "Oracles, clarification, and dispute processes for market integrity."
 ---
 
-### Resolution & Disputes
+# Verification & Settlement
 
-#### How Markets Are Resolved
+Prediction markets are settled using UMA. Additional verifier contracts are under development.
 
-- Each market has a designated oracle or data source that reports the final outcome.
-- Once resolved, payouts are distributed automatically to holders of winning shares.
+## UMA
 
-#### Clarification
-
-- If a question is ambiguous, governance or protocol moderators may clarify wording before resolution. This ensures fairness and consistency.
-
-#### Disputes
-
-- If participants disagree with the reported outcome, a dispute mechanism can be triggered.
-- Disputes escalate to a transparent process where evidence is reviewed and final resolution is enforced onchain.
-
-
+* After the end time of a market/condition has passed and the market deployer can submit a resolution to UMA, also providing a bond.
+* During a challenge window (the "assertion liveness") following submission, anyone can dispute this settlement by posting an equal-sized bond.
+* If no dispute is submitted during this period, market participants can then withdraw collateral based on the value of their position according to the settlement.
+* If a dispute is submitted, UMA tokenholders vote to determine whether the assertion is true or false. Another settlement must be submitted for the market.
+* If the vote resolves to true, the disputer loses their bond. If the vote resolves to false, the asserter loses their bond. 

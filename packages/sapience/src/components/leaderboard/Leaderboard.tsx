@@ -22,7 +22,6 @@ import { cn } from '@sapience/sdk/ui/lib/utils';
 import {
   Tabs,
   TabsContent,
-  TabsList,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import {
@@ -32,8 +31,11 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { Info, BarChart2, Target } from 'lucide-react';
+import { useAccount } from 'wagmi';
 import ProfitCell from './ProfitCell';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import EnsAvatar from '~/components/shared/EnsAvatar';
 import type { AggregatedLeaderboardEntry } from '~/hooks/graphql/useLeaderboard';
 import { useLeaderboard } from '~/hooks/graphql/useLeaderboard';
 import {
@@ -88,13 +90,13 @@ const Leaderboard = () => {
   };
 
   return (
-    <div className="container max-w-[480px] mx-auto py-32">
-      <h1 className="text-3xl md:text-5xl font-heading font-normal mb-6">
+    <div className="container max-w-[560px] mx-auto py-32">
+      <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
         Leaderboard
       </h1>
       <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
         <div className="mb-3">
-          <TabsList>
+          <SegmentedTabsList>
             <TabsTrigger value="pnl">
               <span className="inline-flex items-center gap-1.5">
                 <BarChart2 className="w-4 h-4" />
@@ -107,7 +109,7 @@ const Leaderboard = () => {
                 Accuracy
               </span>
             </TabsTrigger>
-          </TabsList>
+          </SegmentedTabsList>
         </div>
         <TabsContent value="pnl">
           <p className="text-xl font-heading font-normal mb-6 text-muted-foreground leading-relaxed">
@@ -143,6 +145,7 @@ const Leaderboard = () => {
 
 const PnLLeaderboard = () => {
   const { leaderboardData, isLoading } = useLeaderboard();
+  const { address } = useAccount();
 
   const columns = useMemo<ColumnDef<AggregatedLeaderboardEntry>[]>(
     () => [
@@ -184,7 +187,7 @@ const PnLLeaderboard = () => {
   }
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -196,7 +199,7 @@ const PnLLeaderboard = () => {
                 <TableHead
                   key={header.id}
                   className={cn(
-                    'p-3 text-left text-muted-foreground font-medium text-xs md:text-sm',
+                    'p-3 text-left text-brand-white font-medium text-xs md:text-sm',
                     {
                       'text-center': header.id === 'rank',
                       'w-14 md:w-16': header.id === 'rank',
@@ -214,51 +217,111 @@ const PnLLeaderboard = () => {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.length > 0 ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="hover:bg-muted/50 border-b last:border-b-0"
-              >
-                {row.getVisibleCells().map((cell) => (
+          {(() => {
+            const rows = table.getRowModel().rows;
+            const pinnedRow =
+              address && rows.length > 0
+                ? rows.find((r) => {
+                    const owner =
+                      r.getValue('owner') ??
+                      (r as unknown as { original?: { owner?: string } })
+                        ?.original?.owner;
+                    return (
+                      typeof owner === 'string' &&
+                      owner.toLowerCase() === address.toLowerCase()
+                    );
+                  })
+                : undefined;
+            if (rows.length === 0) {
+              return (
+                <TableRow>
                   <TableCell
-                    key={cell.id}
-                    className={cn('p-3 text-sm md:text-base', {
-                      'text-right font-normal': cell.column.id === 'rank',
-                      'w-14 md:w-16': cell.column.id === 'rank',
-                      'text-right whitespace-nowrap':
-                        cell.column.id === 'totalPnL',
-                    })}
+                    colSpan={columns.length}
+                    className="h-24 text-center text-muted-foreground text-sm md:text-base"
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    Results pending
                   </TableCell>
+                </TableRow>
+              );
+            }
+            return (
+              <>
+                {pinnedRow ? (
+                  <TableRow
+                    key={`pinned-${pinnedRow.id}`}
+                    className="bg-muted/40 border-b"
+                  >
+                    {pinnedRow.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right whitespace-nowrap':
+                              cell.column.id === 'totalPnL',
+                          }
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ) : null}
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="hover:bg-muted/50 border-b last:border-b-0"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right whitespace-nowrap':
+                              cell.column.id === 'totalPnL',
+                          }
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="h-24 text-center text-muted-foreground text-sm md:text-base"
-              >
-                Results pending
-              </TableCell>
-            </TableRow>
-          )}
+              </>
+            );
+          })()}
         </TableBody>
       </Table>
     </div>
   );
 };
 
-const OwnerCell = ({ cell }: { cell: { getValue: () => unknown } }) => (
-  <AddressDisplay address={cell.getValue() as string} />
-);
+const OwnerCell = ({ cell }: { cell: { getValue: () => unknown } }) => {
+  const address = cell.getValue() as string;
+  return (
+    <div className="flex items-center gap-2.5">
+      <EnsAvatar address={address} width={22} height={22} />
+      <AddressDisplay address={address} />
+    </div>
+  );
+};
 
 export default Leaderboard;
 
 const AccuracyLeaderboard = () => {
   const { data, isLoading } = useAccuracyLeaderboard(100);
+  const { address } = useAccount();
 
   const columns = useMemo<ColumnDef<ForecasterScore>[]>(
     () => [
@@ -267,9 +330,7 @@ const AccuracyLeaderboard = () => {
         id: 'attester',
         header: () => 'Ethereum Account Address',
         accessorKey: 'attester',
-        cell: ({ cell }) => (
-          <AddressDisplay address={cell.getValue() as string} />
-        ),
+        cell: OwnerCell,
       },
       {
         id: 'accuracyScore',
@@ -312,7 +373,7 @@ const AccuracyLeaderboard = () => {
   }
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -324,7 +385,7 @@ const AccuracyLeaderboard = () => {
                 <TableHead
                   key={header.id}
                   className={cn(
-                    'p-3 text-left text-muted-foreground font-medium text-xs md:text-sm',
+                    'p-3 text-left text-brand-white font-medium text-xs md:text-sm',
                     {
                       'text-center': header.id === 'rank',
                       'w-14 md:w-16': header.id === 'rank',
@@ -342,36 +403,88 @@ const AccuracyLeaderboard = () => {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.length > 0 ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="hover:bg-muted/50 border-b last:border-b-0"
-              >
-                {row.getVisibleCells().map((cell) => (
+          {(() => {
+            const rows = table.getRowModel().rows;
+            const pinnedRow =
+              address && rows.length > 0
+                ? rows.find((r) => {
+                    const attester =
+                      r.getValue('attester') ??
+                      (r as unknown as { original?: { attester?: string } })
+                        ?.original?.attester;
+                    return (
+                      typeof attester === 'string' &&
+                      attester.toLowerCase() === address.toLowerCase()
+                    );
+                  })
+                : undefined;
+            if (rows.length === 0) {
+              return (
+                <TableRow>
                   <TableCell
-                    key={cell.id}
-                    className={cn('p-3 text-sm md:text-base', {
-                      'text-right font-normal': cell.column.id === 'rank',
-                      'w-14 md:w-16': cell.column.id === 'rank',
-                      'text-right': cell.column.id === 'accuracyScore',
-                    })}
+                    colSpan={columns.length}
+                    className="h-24 text-center text-muted-foreground text-sm md:text-base"
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    No results found for this period
                   </TableCell>
+                </TableRow>
+              );
+            }
+            return (
+              <>
+                {pinnedRow ? (
+                  <TableRow
+                    key={`pinned-${pinnedRow.id}`}
+                    className="bg-muted/40 border-b"
+                  >
+                    {pinnedRow.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right': cell.column.id === 'accuracyScore',
+                          }
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ) : null}
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="hover:bg-muted/50 border-b last:border-b-0"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          'p-3 text-sm md:text-base text-brand-white',
+                          {
+                            'text-right font-normal': cell.column.id === 'rank',
+                            'w-14 md:w-16': cell.column.id === 'rank',
+                            'text-right': cell.column.id === 'accuracyScore',
+                          }
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="h-24 text-center text-muted-foreground text-sm md:text-base"
-              >
-                No results found for this period
-              </TableCell>
-            </TableRow>
-          )}
+              </>
+            );
+          })()}
         </TableBody>
       </Table>
     </div>

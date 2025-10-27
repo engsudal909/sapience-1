@@ -133,8 +133,9 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   });
 
   const formatPriceAsPercentage = React.useCallback((price: number) => {
-    if (!(price > 0)) return 'Price N/A';
-    const percentage = price * 100;
+    if (!Number.isFinite(price)) return 'Price N/A';
+    const percentage = Math.max(0, Math.min(100, price * 100));
+    if (percentage < 1) return '<1% chance';
     return `${Math.round(percentage)}% chance`;
   }, []);
 
@@ -163,7 +164,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       const taker = BigInt(String(best?.takerWager || '0'));
       const denom = maker + taker;
       const prob = denom > 0n ? Number(maker) / Number(denom) : 0.5;
-      const clamped = Math.max(0.01, Math.min(0.99, prob));
+      const clamped = Math.max(0, Math.min(0.99, prob));
       setRequestedPrediction(clamped);
       if (typeof onPrediction === 'function') onPrediction(clamped);
     } catch {
@@ -294,7 +295,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     >
       {requestedPrediction == null ? (
         isRequesting ? (
-          <span className="text-muted-foreground">Requesting...</span>
+          <span className="text-foreground/70">Requesting...</span>
         ) : (
           <button
             type="button"
