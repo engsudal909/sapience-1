@@ -245,7 +245,7 @@ export const spotTradingAction: Action = {
       // Get trading configuration
       const config: SpotTradingConfig = {
         enabled: true,
-        wagerAmount: process.env.WAGER_AMOUNT || process.env.PARLAY_WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
+        wagerAmount: process.env.WAGER_AMOUNT || "1000000000000000000", // $1 in USDe (18 decimals)
         minProbabilityThreshold: parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6"),
         chainId: parseInt(process.env.CHAIN_ID || "42161"), // Default to Arbitrum, but allow override
       };

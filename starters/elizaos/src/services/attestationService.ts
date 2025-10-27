@@ -3,6 +3,7 @@ import { elizaLogger, IAgentRuntime, ModelType, Memory, HandlerCallback } from "
 import type { SapienceService } from "./sapienceService.js";
 import { loadSdk } from "../utils/sdk.js";
 import { privateKeyToAddress } from "viem/accounts";
+import ParlayMarketService from "./parlayMarketService.js";
 
 interface AttestationConfig {
   enabled: boolean;
@@ -10,6 +11,7 @@ interface AttestationConfig {
   minConfidence: number;
   batchSize: number;
   probabilityChangeThreshold: number;
+  minTimeBetweenAttestations: number; // minimum hours between attestations on same market
 }
 
 // Global singleton instance
@@ -20,6 +22,7 @@ export class AttestationService {
   private config!: AttestationConfig;
   private intervalId?: NodeJS.Timeout;
   private isRunning: boolean = false;
+  private parlayService?: ParlayMarketService;
 
   constructor(runtime: IAgentRuntime) {
     if (globalInstance) {
@@ -32,10 +35,18 @@ export class AttestationService {
       interval: 300000, // 5 minutes
       minConfidence: 0.6,
       batchSize: 5,
-      probabilityChangeThreshold: 0.1,
+      probabilityChangeThreshold: 10, // 10% change required
+      minTimeBetweenAttestations: 24, // 24 hours minimum
     };
 
     globalInstance = this;
+    
+    // Initialize parlay service if parlay trading is enabled
+    if (process.env.ENABLE_PARLAY_TRADING === "true") {
+      this.parlayService = new ParlayMarketService(runtime);
+      elizaLogger.info("[AttestationService] Parlay trading enabled - initialized ParlayMarketService");
+    }
+    
     this.initializeService().catch((error) => {
       elizaLogger.error("[AttestationService] Failed to initialize:", error);
     });
@@ -137,6 +148,15 @@ export class AttestationService {
           }
         }
       }
+
+      // Attempt parlay trading if enabled
+      if (this.parlayService && process.env.ENABLE_PARLAY_TRADING === "true") {
+        try {
+          await this.attemptParlayTrading();
+        } catch (error) {
+          elizaLogger.error("[AttestationService] Failed parlay trading attempt:", error);
+        }
+      }
     } catch (error) {
       elizaLogger.error("[AttestationService] Cycle failed:", error);
     }
@@ -168,22 +188,32 @@ export class AttestationService {
 
         const hoursSince = (Date.now() - new Date(matchingAttestation.createdAt).getTime()) / (1000 * 60 * 60);
         
-        if (hoursSince >= 24) {
-          const currentPrediction = await this.generatePrediction(market);
-          if (currentPrediction && matchingAttestation.prediction) {
-            const previousProbability = this.decodeProbability(matchingAttestation.prediction);
-            if (previousProbability !== null) {
-              const probabilityChange = Math.abs(currentPrediction.probability - previousProbability);
-              if (probabilityChange >= this.config.probabilityChangeThreshold) {
-                market._attestationReason = `Probability changed by ${probabilityChange.toFixed(1)}%`;
-                candidateMarkets.push(market);
-              }
+        // Check if minimum time has passed (24 hours by default)
+        if (hoursSince < this.config.minTimeBetweenAttestations) {
+          elizaLogger.info(`[AttestationService] Market ${marketId}: Only ${hoursSince.toFixed(1)} hours since last attestation, need ${this.config.minTimeBetweenAttestations} hours`);
+          continue;
+        }
+
+        // Generate current prediction to compare with previous
+        const currentPrediction = await this.generatePrediction(market);
+        if (currentPrediction && matchingAttestation.prediction) {
+          const previousProbability = this.decodeProbability(matchingAttestation.prediction);
+          if (previousProbability !== null) {
+            const probabilityChange = Math.abs(currentPrediction.probability - previousProbability);
+            
+            // Only attest if probability changed by at least 10%
+            if (probabilityChange >= this.config.probabilityChangeThreshold) {
+              market._attestationReason = `Probability changed by ${probabilityChange.toFixed(1)}% (from ${previousProbability.toFixed(0)}% to ${currentPrediction.probability}%)`;
+              market._currentPrediction = currentPrediction; // Store prediction to avoid regenerating
+              candidateMarkets.push(market);
+            } else {
+              elizaLogger.info(`[AttestationService] Market ${marketId}: Probability change ${probabilityChange.toFixed(1)}% below threshold ${this.config.probabilityChangeThreshold}%`);
             }
           }
         }
       } catch (error) {
-        market._attestationReason = "Could not verify previous attestation";
-        candidateMarkets.push(market);
+        elizaLogger.warn(`[AttestationService] Market ${market.id}: Error checking previous attestation - ${error.message}`);
+        // Don't add to candidates if we can't verify properly
       }
     }
 
@@ -282,7 +312,8 @@ Analyze this prediction market and respond with ONLY valid JSON:
       const marketId = market.marketId || market.id;
       console.log(`🔍 Analyzing market #${marketId}: ${market.question?.substring(0, 60)}...`);
 
-      const prediction = await this.generatePrediction(market);
+      // Use stored prediction if available (from filtering), otherwise generate new one
+      const prediction = market._currentPrediction || await this.generatePrediction(market);
       if (!prediction) return;
 
       if (prediction.confidence < this.config.minConfidence) {
@@ -363,6 +394,61 @@ Analyze this prediction market and respond with ONLY valid JSON:
       await tradingAction.handler(this.runtime, tradingMessage, undefined, {}, tradingCallback);
     } catch (error) {
       elizaLogger.error("[AttestationService] Spot trading failed:", error);
+    }
+  }
+
+  private async attemptParlayTrading(): Promise<void> {
+    try {
+      if (!this.parlayService) return;
+
+      console.log("🎯 Analyzing parlay opportunities...");
+
+      // Analyze parlay opportunity
+      const analysis = await this.parlayService.analyzeParlayOpportunity();
+
+      if (!analysis.canTrade) {
+        elizaLogger.info(`[AttestationService] Parlay trading skipped: ${analysis.reason}`);
+        return;
+      }
+
+      if (analysis.predictions.length < 2) {
+        elizaLogger.info("[AttestationService] Not enough high-confidence predictions for parlay");
+        return;
+      }
+
+      console.log(`🎯 Found ${analysis.predictions.length}-leg parlay opportunity! Executing trade...`);
+
+      // Find and execute parlay trading action
+      const parlayAction = this.runtime.actions?.find((a) => a.name === "PARLAY_TRADING");
+      if (!parlayAction) {
+        elizaLogger.error("[AttestationService] PARLAY_TRADING action not found");
+        return;
+      }
+
+      const parlayMessage: Memory = {
+        entityId: "00000000-0000-0000-0000-000000000000" as any,
+        agentId: this.runtime.agentId,
+        roomId: "00000000-0000-0000-0000-000000000000" as any,
+        content: {
+          text: "Execute autonomous parlay trading",
+          action: "PARLAY_TRADING",
+        },
+        createdAt: Date.now(),
+      };
+
+      const parlayCallback: HandlerCallback = async (response: any) => {
+        if (response.content?.success) {
+          console.log(`🎯 Parlay executed successfully: ${response.content.txHash}`);
+          console.log(`   Legs: ${response.content.legs?.length || 0}`);
+        } else {
+          console.log(`❌ Parlay failed: ${response.content?.error || 'Unknown error'}`);
+        }
+        return [];
+      };
+
+      await parlayAction.handler(this.runtime, parlayMessage, undefined, {}, parlayCallback);
+    } catch (error) {
+      elizaLogger.error("[AttestationService] Parlay trading failed:", error);
     }
   }
 
