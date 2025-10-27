@@ -925,12 +925,12 @@ export function TransactionRow({
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
       <td
-        className={`px-4 py-3 ${isParlay ? 'border-l-[4px] border-l-black dark:border-l-white' : ''}`}
+        className={`px-4 py-3 ${isParlay ? 'border-l border-l-black dark:border-l-white' : ''}`}
         style={
           leftColor
             ? {
                 borderLeftColor: leftColor,
-                borderLeftWidth: 4,
+                borderLeftWidth: 1,
                 borderLeftStyle: 'solid',
               }
             : undefined
@@ -1017,12 +1017,12 @@ export function MintParlayNFTTransactionRow({
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
       <td
-        className={`px-4 py-3 ${isParlay ? 'border-l-[4px] border-l-black dark:border-l-white' : ''}`}
+        className={`px-4 py-3 ${isParlay ? 'border-l border-l-black dark:border-l-white' : ''}`}
         style={
           leftColor
             ? {
                 borderLeftColor: leftColor,
-                borderLeftWidth: 4,
+                borderLeftWidth: 1,
                 borderLeftStyle: 'solid',
               }
             : undefined

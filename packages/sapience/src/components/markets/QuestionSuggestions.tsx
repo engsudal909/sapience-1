@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import QuestionItem from '../shared/QuestionItem';
+import RefreshIconButton from '~/components/shared/RefreshIconButton';
 
 interface QuestionSuggestionsProps {
   markets: any[];
@@ -135,26 +135,22 @@ const QuestionSuggestions = ({
   return (
     <div className="p-6 gap-1.5 flex flex-col">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-sm text-muted-foreground">
-          Make a Prediction
-        </h3>
+        <h3 className="eyebrow text-foreground font-sans">Make a Prediction</h3>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
+              <RefreshIconButton
                 onClick={() => setRefreshNonce((n) => n + 1)}
-                aria-label="Randomize suggested questions"
+                ariaLabel="Randomize suggested questions"
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+                iconClassName="w-4 h-4"
+              />
             </TooltipTrigger>
             <TooltipContent>Randomize suggested questions</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-card border border-border shadow-sm overflow-hidden">
         <div>
           {suggestedMarkets.map((market, index) => (
             <QuestionItem
@@ -162,6 +158,7 @@ const QuestionSuggestions = ({
               item={market}
               onClick={onMarketSelect}
               showBorder={index < suggestedMarkets.length - 1}
+              showUnderline={false}
             />
           ))}
         </div>

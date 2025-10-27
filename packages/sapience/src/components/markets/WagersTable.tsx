@@ -222,7 +222,7 @@ const WagersTable: React.FC<WagersTableProps> = ({
           return (
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-medium">
+                <span className="font-medium text-brand-white">
                   Position #
                   {
                     (

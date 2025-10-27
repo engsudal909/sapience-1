@@ -14,8 +14,8 @@ import ChatWidget from '~/components/shared/ChatWidget';
 import FloatingChatButton from '~/components/shared/FloatingChatButton';
 import ConsoleMessage from '~/components/shared/ConsoleMessage';
 import InstallDialog from '~/components/shared/InstallDialog';
-import GlobalSplineBackground from '~/components/shared/GlobalSplineBackground';
 import '~/styles/globals.css';
+import { ibmPlexMono } from '~/app/fonts';
 
 type RootLayoutProps = {
   children: React.ReactNode;
@@ -34,10 +34,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   metadataBase: new URL(APP_URL),
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico', type: 'image/x-icon', sizes: 'any' },
-    ],
+    icon: [{ url: '/favicon.ico', type: 'image/x-icon', sizes: 'any' }],
     apple: [
       {
         url: LARGE_ICON_PATH,
@@ -110,13 +107,12 @@ export const viewport: Viewport = {
 
 const RootLayout = ({ children }: RootLayoutProps) => {
   return (
-    <html lang="en">
+    <html lang="en" className={`${ibmPlexMono.variable}`}>
       <body className="overflow-x-hidden">
         <Providers>
           <LoadingProvider>
             <ChatProvider>
               <GlobalLoader />
-              <GlobalSplineBackground />
               <TooltipProvider>
                 <Layout>{children}</Layout>
               </TooltipProvider>
