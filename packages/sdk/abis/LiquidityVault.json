@@ -1,5 +1,5 @@
 {
-  "address": "0xcC1c64e849395D31d059a4bd19391af64D8855d7",
+  "address": "0xDb90a48a359b4ca17eF4e760201564d910De921C",
   "abi": [
     {
       "type": "constructor",
@@ -42,20 +42,7 @@
     },
     {
       "type": "function",
-      "name": "BASIS_POINTS",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "MIN_DEPOSIT",
+      "name": "WAD",
       "inputs": [],
       "outputs": [
         {
@@ -186,6 +173,32 @@
     },
     {
       "type": "function",
+      "name": "batchProcessDeposit",
+      "inputs": [
+        {
+          "name": "requesters",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "batchProcessWithdrawal",
+      "inputs": [
+        {
+          "name": "requesters",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "cancelDeposit",
       "inputs": [],
       "outputs": [],
@@ -194,6 +207,13 @@
     {
       "type": "function",
       "name": "cancelWithdrawal",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "cleanInactiveProtocols",
       "inputs": [],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -358,6 +378,44 @@
           "name": "",
           "type": "bytes32",
           "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getAvailableShares",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getLockedShares",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -1229,22 +1287,6 @@
     },
     {
       "type": "error",
-      "name": "AmountTooSmall",
-      "inputs": [
-        {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "minimum",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "ECDSAInvalidSignature",
       "inputs": []
     },
@@ -1555,11 +1597,6 @@
     },
     {
       "type": "error",
-      "name": "NotImplemented",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "OnlyManager",
       "inputs": [
         {
@@ -1635,6 +1672,27 @@
     },
     {
       "type": "error",
+      "name": "SharesLockedForWithdrawal",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "lockedShares",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "attemptedTransfer",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "StringTooLong",
       "inputs": [
         {
@@ -1673,9 +1731,9 @@
     "sapLP"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0xb9053e0b9b8aca1e613888c496f0fe63dfc05268b5be6750d9f05a0a2808c7e1",
-  "deployTxnBlockNumber": "386456648",
-  "deployTimestamp": "1759700128",
+  "deployTxnHash": "0x4f77fe059569c0766ee65bfc1918ff0d020b651168f22c60dd282ffbf0a530a4",
+  "deployTxnBlockNumber": "387900232",
+  "deployTimestamp": "1760060342",
   "sourceName": "src/vault/PassiveLiquidityVault.sol",
   "contractName": "PassiveLiquidityVault",
   "deployedOn": "deploy.PassiveLiquidityVault",
