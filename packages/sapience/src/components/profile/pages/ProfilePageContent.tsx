@@ -30,7 +30,6 @@ import { SCHEMA_UID } from '~/lib/constants/eas';
 import LottieLoader from '~/components/shared/LottieLoader';
 import EmptyProfileState from '~/components/profile/EmptyProfileState';
 import EmptyTabState from '~/components/shared/EmptyTabState';
-import ProfileStats from '~/components/profile/ProfileStats';
 import ProfileQuickMetrics from '~/components/profile/ProfileQuickMetrics';
 import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
 
@@ -191,8 +190,8 @@ const ProfilePageContent = () => {
   return (
     <div className="mx-auto py-24 lg:py-32 px-3 md:px-6 lg:px-8 w-full">
       <ShareAfterRedirect address={address} />
-      <div className="mb-5 lg:mb-10">
-        <ProfileHeader address={address} />
+      <div className="mb-3 lg:mb-6">
+        <ProfileHeader address={address} className="mb-0" />
       </div>
 
       <div className="mb-5">
@@ -204,10 +203,6 @@ const ProfilePageContent = () => {
             parlays={parlays ?? []}
           />
         ) : null}
-      </div>
-
-      <div className="mb-5">
-        <ProfileStats address={address} />
       </div>
 
       {hasLoadedOnce ? (

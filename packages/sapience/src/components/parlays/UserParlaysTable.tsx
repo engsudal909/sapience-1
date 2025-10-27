@@ -148,7 +148,7 @@ function PredictionsScroller({
       {showRightGradient && (
         <div
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-background to-transparent"
+          className="pointer-events-none absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-brand-black to-transparent"
         />
       )}
     </div>
@@ -818,7 +818,7 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'USDe';
+          const symbol = 'testUSDe';
           const totalPayout = Number(
             formatEther(row.original.totalPayoutWei || 0n)
           );
