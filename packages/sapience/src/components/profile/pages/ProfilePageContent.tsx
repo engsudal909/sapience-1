@@ -188,7 +188,7 @@ const ProfilePageContent = () => {
   }, [hasLoadedOnce, hasTrades, hasLp, hasForecasts]);
 
   return (
-    <div className="mx-auto pt-24 lg:pt-24 pb-0 px-3 md:px-6 lg:px-8 w-full">
+    <div className="mx-auto pt-24 lg:pt-24 pb-0 px-3 md:px-6 lg:px-8 w-full min-h-full flex flex-col">
       <ShareAfterRedirect address={address} />
       <div className="mb-6">
         <ProfileHeader address={address} className="mb-0" />
@@ -209,13 +209,13 @@ const ProfilePageContent = () => {
         !(hasTrades || hasParlays || hasLp || hasForecasts) ? (
           <EmptyProfileState />
         ) : (
-          <div className="-mx-3 md:-mx-6 lg:-mx-8 bg-brand-black pb-0">
+          <div className="-mx-3 md:-mx-6 lg:-mx-8 bg-brand-black pb-0 lg:flex-1 lg:flex lg:flex-col">
             <Tabs
               value={tabValue}
               onValueChange={handleTabChange}
-              className="w-full"
+              className="w-full flex-1 flex flex-col"
             >
-              <TabsList className="!grid h-auto w-full grid-cols-1 lg:grid-cols-4 gap-2 mb-0 rounded-none px-3">
+              <TabsList className="!grid h-auto w-full grid-cols-1 lg:grid-cols-4 gap-2 mb-0 rounded-none px-2 md:px-3">
                 <TabsTrigger
                   className="w-full justify-center transition-colors hover:text-brand-white/80 data-[state=active]:text-brand-white"
                   value="parlays"
@@ -246,11 +246,20 @@ const ProfilePageContent = () => {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="parlays" className="mt-0">
-                <UserParlaysTable account={address} showHeaderText={false} />
+              <TabsContent
+                value="parlays"
+                className="mt-0 flex-1 flex flex-col"
+              >
+                {hasParlays ? (
+                  <UserParlaysTable account={address} showHeaderText={false} />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No parlays found" />
+                  </div>
+                )}
               </TabsContent>
 
-              <TabsContent value="trades" className="mt-0">
+              <TabsContent value="trades" className="mt-0 flex-1 flex flex-col">
                 {traderPositionsOpen.length > 0 ? (
                   <div>
                     <h3 className="font-medium text-sm text-muted-foreground mb-2">
@@ -274,16 +283,33 @@ const ProfilePageContent = () => {
                 ) : null}
                 {traderPositionsOpen.length === 0 &&
                 traderPositionsClosed.length === 0 ? (
-                  <EmptyTabState message="No trades found" />
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No trades found" />
+                  </div>
                 ) : null}
               </TabsContent>
 
-              <TabsContent value="lp" className="mt-0">
-                <LpPositionsTable positions={lpPositions} context="profile" />
+              <TabsContent value="lp" className="mt-0 flex-1 flex flex-col">
+                {hasLp ? (
+                  <LpPositionsTable positions={lpPositions} context="profile" />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No liquidity positions found" />
+                  </div>
+                )}
               </TabsContent>
 
-              <TabsContent value="forecasts" className="mt-0">
-                <ForecastsTable attestations={attestations} />
+              <TabsContent
+                value="forecasts"
+                className="mt-0 flex-1 flex flex-col"
+              >
+                {hasForecasts ? (
+                  <ForecastsTable attestations={attestations} />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No forecasts found" />
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
