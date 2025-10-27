@@ -179,7 +179,7 @@ export default function ClosedTraderPositionsTable({
           variant="ghost"
           size="sm"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
           aria-sort={
             column.getIsSorted() === false
               ? 'none'
@@ -242,7 +242,7 @@ export default function ClosedTraderPositionsTable({
           variant="ghost"
           size="sm"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
           aria-sort={
             column.getIsSorted() === false
               ? 'none'
@@ -279,7 +279,7 @@ export default function ClosedTraderPositionsTable({
           variant="ghost"
           size="sm"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
           aria-sort={
             column.getIsSorted() === false
               ? 'none'
@@ -316,7 +316,7 @@ export default function ClosedTraderPositionsTable({
           variant="ghost"
           size="sm"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
           aria-sort={
             column.getIsSorted() === false
               ? 'none'
@@ -394,7 +394,7 @@ export default function ClosedTraderPositionsTable({
   });
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+    <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
       <Table className="table-auto">
         <TableHeader className="text-sm font-medium text-brand-white border-b">
           {table.getHeaderGroups().map((headerGroup) => (

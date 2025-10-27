@@ -14,7 +14,6 @@ import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
-import { Info } from 'lucide-react';
 import { WagerInput } from '~/components/markets/forms';
 import WagerDisclaimer from '~/components/markets/forms/shared/WagerDisclaimer';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
@@ -144,7 +143,7 @@ export default function BetslipParlayForm({
   const showNoBidsHint =
     !bestBid &&
     lastQuoteRequestMs != null &&
-    nowMs - lastQuoteRequestMs >= 5000;
+    nowMs - lastQuoteRequestMs >= 3000;
 
   // Crossfade between disclaimer and hint when bids may not arrive
   const HINT_FADE_MS = 300;
@@ -407,9 +406,8 @@ export default function BetslipParlayForm({
                       hintVisible ? 'opacity-100' : 'opacity-0'
                     }`}
                   >
-                    <span className="inline-flex items-center gap-1">
-                      <Info className="inline-block align-top w-3.5 h-3.5" />
-                      <span>Some combinations may not receive bids</span>
+                    <span className="text-accent-gold">
+                      Some combinations may not receive bids
                     </span>
                   </div>
                 ) : null}

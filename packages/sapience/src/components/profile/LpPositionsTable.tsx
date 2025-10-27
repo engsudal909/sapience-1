@@ -89,22 +89,43 @@ function CollateralCell({
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-1">
-        <NumberDisplay value={displayValue} />
-        <span>{symbol}</span>
+        <NumberDisplay
+          value={displayValue}
+          className="tabular-nums text-brand-white font-mono"
+        />
+        <span className="tabular-nums text-brand-white font-mono">
+          {symbol}
+        </span>
       </div>
       {inlineShares ? (
         <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 whitespace-nowrap">
-          <NumberDisplay value={baseTokenAmount} /> {baseSymbol} Shares
+          <NumberDisplay
+            value={baseTokenAmount}
+            className="tabular-nums font-mono"
+          />{' '}
+          {baseSymbol} Shares
           <span aria-hidden="true">·</span>
-          <NumberDisplay value={quoteTokenAmount} /> {quoteSymbol} Shares
+          <NumberDisplay
+            value={quoteTokenAmount}
+            className="tabular-nums font-mono"
+          />{' '}
+          {quoteSymbol} Shares
         </div>
       ) : (
         <div className="text-xs text-muted-foreground mt-0.5">
           <div>
-            <NumberDisplay value={baseTokenAmount} /> {baseSymbol} Shares
+            <NumberDisplay
+              value={baseTokenAmount}
+              className="tabular-nums font-mono"
+            />{' '}
+            {baseSymbol} Shares
           </div>
           <div>
-            <NumberDisplay value={quoteTokenAmount} /> {quoteSymbol} Shares
+            <NumberDisplay
+              value={quoteTokenAmount}
+              className="tabular-nums font-mono"
+            />{' '}
+            {quoteSymbol} Shares
           </div>
         </div>
       )}
@@ -211,7 +232,7 @@ export default function LpPositionsTable({
               onClick={() =>
                 column.toggleSorting(column.getIsSorted() === 'asc')
               }
-              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
               aria-sort={
                 column.getIsSorted() === false
                   ? 'none'
@@ -326,7 +347,7 @@ export default function LpPositionsTable({
           variant="ghost"
           size="sm"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+          className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
           aria-sort={
             column.getIsSorted() === false
               ? 'none'
@@ -368,7 +389,7 @@ export default function LpPositionsTable({
             variant="ghost"
             size="sm"
             onClick={column.getToggleSortingHandler()}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -437,18 +458,29 @@ export default function LpPositionsTable({
         return (
           <div className="flex flex-col">
             <div className="flex items-center gap-1">
-              <NumberDisplay value={valueNumber ?? 0} />
-              <span>{symbol}</span>
+              <NumberDisplay
+                value={valueNumber ?? 0}
+                className="tabular-nums text-brand-white font-mono"
+              />
+              <span className="tabular-nums text-brand-white font-mono">
+                {symbol}
+              </span>
             </div>
             <div className="text-xs mt-0.5">
-              <span className={pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
+              <span
+                className={`tabular-nums font-mono ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}
+              >
                 ({pnlPercentage.toFixed(2)}%)
               </span>
             </div>
             {(feesValueNumber ?? 0) > 0 ? (
               <div className="text-xs text-muted-foreground mt-0.5">
                 <span className="font-medium">Fees Earned:</span>{' '}
-                <NumberDisplay value={feesValueNumber ?? 0} /> {symbol}
+                <NumberDisplay
+                  value={feesValueNumber ?? 0}
+                  className="tabular-nums font-mono"
+                />{' '}
+                {symbol}
               </div>
             ) : null}
           </div>
@@ -500,7 +532,7 @@ export default function LpPositionsTable({
               onClick={() =>
                 column.toggleSorting(column.getIsSorted() === 'asc')
               }
-              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
               aria-sort={
                 column.getIsSorted() === false
                   ? 'none'
