@@ -263,7 +263,7 @@ const MarketCard = ({
                       className="group"
                     >
                       <span
-                        className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60"
+                        className="font-mono text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80"
                         style={{
                           display: '-webkit-box',
                           WebkitLineClamp: 2,

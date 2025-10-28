@@ -97,7 +97,7 @@ const ChartLegend: React.FC<ChartLegendProps> = ({
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-brand-white">
               {formatValue(value)}
               {baseLabel === MARKET_PREDICTION_LABEL &&
               !isMultipleChoice &&
@@ -115,7 +115,7 @@ const ChartLegend: React.FC<ChartLegendProps> = ({
             className="h-2.5 w-2.5 rounded-full"
             style={{ backgroundColor: indexLineColor, opacity: 0.7 }} // Match line style
           />
-          <span className="font-medium text-foreground">
+          <span className="font-medium text-brand-white">
             {formatValue(latestIndexValue)}
           </span>
           <span className="text-muted-foreground">Index</span>

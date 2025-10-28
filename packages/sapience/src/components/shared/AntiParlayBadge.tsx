@@ -29,7 +29,9 @@ export default function AntiParlayBadge({
           variant="outline"
           className={`inline-flex items-center gap-1 pr-1 ${className ?? ''}`}
         >
-          <span className={labelClassName}>Anti-Parlay</span>
+          <span className={`text-brand-white ${labelClassName ?? ''}`}>
+            Anti-Parlay
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <button

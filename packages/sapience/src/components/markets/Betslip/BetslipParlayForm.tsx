@@ -14,7 +14,6 @@ import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
-import { Info } from 'lucide-react';
 import { WagerInput } from '~/components/markets/forms';
 import WagerDisclaimer from '~/components/markets/forms/shared/WagerDisclaimer';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
@@ -144,7 +143,7 @@ export default function BetslipParlayForm({
   const showNoBidsHint =
     !bestBid &&
     lastQuoteRequestMs != null &&
-    nowMs - lastQuoteRequestMs >= 5000;
+    nowMs - lastQuoteRequestMs >= 3000;
 
   // Crossfade between disclaimer and hint when bids may not arrive
   const HINT_FADE_MS = 300;
@@ -261,7 +260,7 @@ export default function BetslipParlayForm({
                       <span className="relative -top-0.5 shrink-0">
                         <Badge
                           variant="outline"
-                          className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono' : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
+                          className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono' : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono'}`}
                         >
                           {s.prediction ? 'Yes' : 'No'}
                         </Badge>
@@ -407,9 +406,8 @@ export default function BetslipParlayForm({
                       hintVisible ? 'opacity-100' : 'opacity-0'
                     }`}
                   >
-                    <span className="inline-flex items-center gap-1">
-                      <Info className="inline-block align-top w-3.5 h-3.5" />
-                      <span>Some combinations may not receive bids</span>
+                    <span className="text-accent-gold">
+                      Some combinations may not receive bids
                     </span>
                   </div>
                 ) : null}

@@ -41,7 +41,7 @@ const LottieLoader = ({
           const { View } = useLottie(options);
           return (
             <span
-              className={`inline-flex items-center align-middle whitespace-nowrap dark:invert ${className}`}
+              className={`inline-flex items-center align-middle whitespace-nowrap opacity-50 ${className}`}
               style={{ width, height }}
             >
               {View}

@@ -3,14 +3,19 @@
 import EnsAvatar from '~/components/shared/EnsAvatar';
 
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import { cn } from '@sapience/sdk/ui/lib/utils';
 
 interface ProfileHeaderProps {
   address: string;
+  className?: string;
 }
 
-export default function ProfileHeader({ address }: ProfileHeaderProps) {
+export default function ProfileHeader({
+  address,
+  className,
+}: ProfileHeaderProps) {
   return (
-    <div className="mb-6 flex flex-row items-center gap-4">
+    <div className={cn('flex flex-row items-center gap-4', className)}>
       <EnsAvatar
         address={address}
         className="w-16 h-16"

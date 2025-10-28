@@ -110,13 +110,13 @@ function PredictionsScroller({
   }, [updateGradientVisibility]);
 
   return (
-    <div className="relative w-full max-w-[380px]">
+    <div className="relative w-full max-w-full xl:max-w-[320px]">
       <div
         ref={containerRef}
-        className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
+        className="overflow-hidden xl:overflow-x-auto whitespace-normal xl:whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="flex items-center gap-3 pr-16">
+        <div className="flex items-start gap-3 pr-0 xl:pr-16 flex-wrap xl:flex-nowrap">
           {showAntiParlay && (
             <div className="shrink-0">
               <AntiParlayBadge />
@@ -148,7 +148,7 @@ function PredictionsScroller({
       {showRightGradient && (
         <div
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-full w-16 bg-gradient-to-l from-background to-transparent"
+          className="pointer-events-none absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-brand-black to-transparent group-hover:from-muted/50 transition-colors"
         />
       )}
     </div>
@@ -625,7 +625,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -660,6 +660,9 @@ export default function UserParlaysTable({
           });
           return (
             <div>
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                Created
+              </div>
               <div className="text-[15px] leading-[1.35] tracking-[-0.01em] mb-0.5 whitespace-nowrap">
                 <TooltipProvider>
                   <Tooltip>
@@ -686,6 +689,9 @@ export default function UserParlaysTable({
         header: () => <span>Predictions</span>,
         cell: ({ row }) => (
           <div className="text-sm">
+            <div className="xl:hidden text-xs text-muted-foreground mb-1">
+              Predictions
+            </div>
             <PredictionsScroller
               legs={row.original.legs}
               showAntiParlay={row.original.addressRole === 'taker'}
@@ -701,25 +707,31 @@ export default function UserParlaysTable({
         size: 220,
         minSize: 160,
         header: () => <span>Counterparty</span>,
-        cell: ({ row }) =>
-          row.original.counterpartyAddress ? (
-            <div className="whitespace-nowrap text-[15px]">
-              <div className="flex items-center gap-2">
-                <EnsAvatar
-                  address={row.original.counterpartyAddress}
-                  className="w-5 h-5 rounded-sm ring-1 ring-border/50"
-                  width={20}
-                  height={20}
-                />
-                <AddressDisplay
-                  address={row.original.counterpartyAddress}
-                  className="text-[15px]"
-                />
-              </div>
+        cell: ({ row }) => (
+          <div>
+            <div className="xl:hidden text-xs text-muted-foreground mb-1">
+              Counterparty
             </div>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+            {row.original.counterpartyAddress ? (
+              <div className="whitespace-nowrap text-[15px]">
+                <div className="flex items-center gap-2">
+                  <EnsAvatar
+                    address={row.original.counterpartyAddress}
+                    className="w-5 h-5 rounded-sm ring-1 ring-border/50"
+                    width={20}
+                    height={20}
+                  />
+                  <AddressDisplay
+                    address={row.original.counterpartyAddress}
+                    className="text-[15px]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </div>
+        ),
       },
 
       {
@@ -742,7 +754,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -775,8 +787,17 @@ export default function UserParlaysTable({
 
           return (
             <div>
-              <div className="whitespace-nowrap">
-                <NumberDisplay value={viewerWager} /> {symbol}
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                Wager
+              </div>
+              <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                <NumberDisplay
+                  value={viewerWager}
+                  className="tabular-nums text-brand-white font-mono"
+                />{' '}
+                <span className="tabular-nums text-brand-white font-mono">
+                  {symbol}
+                </span>
               </div>
             </div>
           );
@@ -798,7 +819,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -818,16 +839,34 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'USDe';
+          const symbol = 'testUSDe';
           const totalPayout = Number(
             formatEther(row.original.totalPayoutWei || 0n)
           );
           if (row.original.status === 'lost') {
-            return <span className="text-muted-foreground">—</span>;
+            return (
+              <div>
+                <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                  To Win
+                </div>
+                <span className="text-muted-foreground">—</span>
+              </div>
+            );
           }
           return (
-            <div className="whitespace-nowrap">
-              <NumberDisplay value={totalPayout} /> {symbol}
+            <div>
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                To Win
+              </div>
+              <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                <NumberDisplay
+                  value={totalPayout}
+                  className="tabular-nums text-brand-white font-mono"
+                />{' '}
+                <span className="tabular-nums text-brand-white font-mono">
+                  {symbol}
+                </span>
+              </div>
             </div>
           );
         },
@@ -846,7 +885,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -870,7 +909,14 @@ export default function UserParlaysTable({
           const isClosed = row.original.status !== 'active';
 
           if (!isClosed) {
-            return <span className="text-muted-foreground">Pending</span>;
+            return (
+              <div>
+                <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                  Profit/Loss
+                </div>
+                <span className="text-muted-foreground">Pending</span>
+              </div>
+            );
           }
 
           const pnlValue = Number(
@@ -889,15 +935,24 @@ export default function UserParlaysTable({
 
           return (
             <div>
-              <div className="whitespace-nowrap">
-                <span>
-                  {pnlValue >= 0 ? '+' : '-'}
-                  <NumberDisplay value={Math.abs(pnlValue)} /> {symbol}
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                Profit/Loss
+              </div>
+              <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                <span className="tabular-nums text-brand-white font-mono">
+                  {pnlValue < 0 ? '-' : ''}
+                </span>
+                <NumberDisplay
+                  value={Math.abs(pnlValue)}
+                  className="tabular-nums text-brand-white font-mono"
+                />{' '}
+                <span className="tabular-nums text-brand-white font-mono">
+                  {symbol}
                 </span>
               </div>
               {viewerWager > 0 && (
                 <div
-                  className={`text-xs ${pnlValue >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                  className={`text-xs tabular-nums font-mono ${pnlValue >= 0 ? 'text-green-600' : 'text-red-600'}`}
                 >
                   ({roi >= 0 ? '+' : ''}
                   {roi.toFixed(2)}%)
@@ -1098,7 +1153,7 @@ export default function UserParlaysTable({
       {rows.length === 0 ? (
         <EmptyTabState message="No parlays found" />
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+        <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
           <Table className="table-auto">
             <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
               {table.getHeaderGroups().map((headerGroup) => (
@@ -1125,7 +1180,7 @@ export default function UserParlaysTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
+                  className="group xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
