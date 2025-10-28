@@ -108,7 +108,10 @@ export async function POST(request: Request) {
         'until',
         new Date(expiry).toISOString()
       );
-      return NextResponse.json({ policyIds: [policyId], expiry }, { status: 200 });
+      return NextResponse.json(
+        { policyIds: [policyId], expiry },
+        { status: 200 }
+      );
     }
 
     // Build policy JSON (DENY by default, ALLOW selected methods until expiry on chain)
@@ -178,7 +181,10 @@ export async function POST(request: Request) {
       'expiry',
       expiry
     );
-    return NextResponse.json({ policyIds: [policyId], expiry }, { status: 200 });
+    return NextResponse.json(
+      { policyIds: [policyId], expiry },
+      { status: 200 }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

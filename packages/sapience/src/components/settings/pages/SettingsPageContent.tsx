@@ -23,7 +23,10 @@ import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot, Sun, Moon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@sapience/sdk/ui/components/ui/toggle-group';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@sapience/sdk/ui/components/ui/toggle-group';
 import { useTheme } from 'next-themes';
 import { usePrivy, useSessionSigners, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
@@ -346,19 +349,24 @@ const SettingsPageContent = () => {
         }),
       });
       if (!res.ok) return;
-      const data = (await res.json()) as { policyIds: string[]; expiry: number };
-      
+      const data = (await res.json()) as {
+        policyIds: string[];
+        expiry: number;
+      };
+
       // Add session signers with the created policy IDs
       if (process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID) {
         await addSessionSigners({
           address: activeAddress,
-          signers: [{
-            signerId: process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID,
-            policyIds: data.policyIds
-          }]
+          signers: [
+            {
+              signerId: process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID,
+              policyIds: data.policyIds,
+            },
+          ],
         });
       }
-      
+
       setSessionMode('session');
       setSessionExpiry(data.expiry);
       setSessionDurationMs(durationMs);
@@ -405,7 +413,6 @@ const SettingsPageContent = () => {
     { label: '24h', ms: 24 * 60 * 60 * 1000 },
     { label: '7d', ms: 7 * 24 * 60 * 60 * 1000 },
   ];
-
 
   useEffect(() => {
     if (!mounted) return;

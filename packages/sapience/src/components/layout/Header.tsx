@@ -1,12 +1,11 @@
 'use client';
 
-import type {
-  PrivyErrorCode as PrivyErrorCodeEnum} from '@privy-io/react-auth';
+import type { PrivyErrorCode as PrivyErrorCodeEnum } from '@privy-io/react-auth';
 import {
   usePrivy,
   useWallets,
   useConnectOrCreateWallet,
-  useSessionSigners
+  useSessionSigners,
 } from '@privy-io/react-auth';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
@@ -185,10 +184,13 @@ const Header = () => {
   const { connectOrCreateWallet } = useConnectOrCreateWallet({
     onSuccess: async ({ wallet }: any) => {
       console.log('connectOrCreateWallet onSuccess', wallet);
-      console.log("sessions quorum id", process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID);
-      console.log("connected wallet", connectedWallet);
+      console.log(
+        'sessions quorum id',
+        process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID
+      );
+      console.log('connected wallet', connectedWallet);
       // TODO: add support inside error handler since already created accounts drop down to error handler
-      if ( process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID && connectedWallet) {
+      if (process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID && connectedWallet) {
         try {
           // Create session policies first
           const sessionResponse = await fetch('/api/session/create', {
@@ -206,26 +208,38 @@ const Header = () => {
           console.log('sessionResponse', sessionResponse);
 
           if (sessionResponse.ok) {
-            const sessionData = await sessionResponse.json() as { policyIds: string[]; expiry: number };
-            console.log('Session created with policy IDs:', sessionData.policyIds);
-            
+            const sessionData = (await sessionResponse.json()) as {
+              policyIds: string[];
+              expiry: number;
+            };
+            console.log(
+              'Session created with policy IDs:',
+              sessionData.policyIds
+            );
+
             // Use the returned policy IDs in addSessionSigners
             await addSessionSigners({
               address: connectedWallet.address,
-              signers: [{
+              signers: [
+                {
                   signerId: process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID,
-                  policyIds: sessionData.policyIds
-              }]
+                  policyIds: sessionData.policyIds,
+                },
+              ],
             });
             console.log('addSessionSigners success');
           } else {
-            console.error('Failed to create session, falling back to empty policy IDs');
+            console.error(
+              'Failed to create session, falling back to empty policy IDs'
+            );
             await addSessionSigners({
               address: connectedWallet.address,
-              signers: [{
+              signers: [
+                {
                   signerId: process.env.NEXT_PUBLIC_PRIVY_SESSIONS_QUORUM_ID,
-                  policyIds: []
-              }]
+                  policyIds: [],
+                },
+              ],
             });
           }
         } catch (error) {
