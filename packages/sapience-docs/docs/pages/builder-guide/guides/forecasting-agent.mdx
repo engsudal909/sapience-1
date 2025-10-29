@@ -1,6 +1,6 @@
 ---
 title: "Deploy a Forecasting Agent"
-description: "Deploy a forecasting bot on Railway, customize it, and publish forecasts to Ethereum."
+description: "Deploy an autonomous forecasting agent with parlay trading capabilities on Railway using ElizaOS."
 ---
 
 import BuilderGuideAlert from '../../../components/BuilderGuideAlert'
@@ -9,12 +9,13 @@ import BuilderGuideAlert from '../../../components/BuilderGuideAlert'
 
 # Deploy a Forecasting Agent
 
-**In the next five minutes**, you can deploy the forecasting agent template (built with the [ElizaOS framework](https://elizaos.ai/)) on [Railway](https://railway.com/), customize it, and publish its forecasts to [Ethereum](https://attest.org) so it:
+**In the next five minutes**, you can deploy an autonomous forecasting agent (built with the [ElizaOS framework](https://elizaos.ai/)) on [Railway](https://railway.com/) that:
 
-- Explains its thinking on Sapience's [Forecast feed](https://sapience.xyz/forecast)
-- Has its *Accuracy Score* ranked on the [Leaderboard](https://sapience.xyz/leaderboard#accuracy)
+- **Generates Forecasts**: Autonomously analyzes prediction markets and publishes forecasts to [Ethereum](https://attest.org)
+- **Appears on Leaderboard**: Explains its thinking on Sapience's [Forecast feed](https://sapience.xyz/forecast) and tracks *Accuracy Score* on the [Leaderboard](https://sapience.xyz/leaderboard#accuracy)
+- **Executes Parlay Trading**: Automatically places multi-leg parlay wagers based on high-confidence predictions
 
-In [the next guide](/builder-guide/guides/trading-bots), you can have it **automatically submit a $1 wager based on its forecasts**.
+The agent features a modular architecture with configurable autonomous attestation, parlay trading capabilities, and comprehensive environment-based configuration.
 
 ## One‑Click Deploy
 
@@ -24,31 +25,68 @@ In [the next guide](/builder-guide/guides/trading-bots), you can have it **autom
 
 For setup details on your API keys and private key, see Get Started: [OpenRouter setup](/builder-guide/getting-started/get-started#openrouter-setup) and [Private key generation](/builder-guide/getting-started/get-started#private-key-generation).
 
-#### Core Configuration
+#### Required Environment Variables
 
-| Variable | Default | Required | Notes |
-| --- | --- | --- | --- |
-| `OPENROUTER_API_KEY` | — | Yes | Your OpenRouter API key for model access |
-| `EVM_PRIVATE_KEY` or `ETHEREUM_PRIVATE_KEY` | — | Yes | Publishes forecasts to EAS; required for visibility/leaderboard and trading |
-| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | No | Arbitrum RPC endpoint (consider paid provider for reliability) |
+| Variable | Notes |
+| --- | --- |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key for model access |
+| `EVM_PRIVATE_KEY` or `ETHEREUM_PRIVATE_KEY` | Private key for publishing forecasts to EAS and executing trades |
 
-#### Autonomous Mode
+#### Default Behavior
 
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `AUTO_MODE_ENABLED` | `true` | Start in autonomous mode on launch |
-| `AUTO_MODE_INTERVAL` | `300000` | Loop interval in milliseconds (5 minutes default) |
-| `AUTO_MODE_MIN_CONFIDENCE` | `0.6` | Minimum confidence threshold (0-1) for predictions |
-| `AUTO_MODE_BATCH_SIZE` | `5` | Number of markets to process per cycle |
+The agent runs with these features enabled by default:
+- ✅ **Autonomous Attestation**: Generates and publishes forecasts automatically
+- ✅ **Parlay Trading**: Places multi-leg wagers based on high-confidence predictions  
+- ❌ **Spot Trading**: Disabled by default (individual market trades)
 
-#### Parlay Trading (Optional)
+#### Core Configuration (Optional)
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `ENABLE_PARLAY_TRADING` | `false` | Enable $1 automated wagers on parlays based on forecasts |
-| `PARLAY_WAGER_AMOUNT` | `1000000000000000000` | Wager amount in USDe (18 decimals: $1 = 1,000,000,000,000,000,000) |
-| `MIN_TRADING_CONFIDENCE` | `0.6` | Only trade when prediction confidence exceeds this threshold |
-| `MAX_TRADING_SLIPPAGE` | `5` | Maximum acceptable slippage percentage for trades |
+| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum RPC endpoint (consider paid provider for reliability) |
+| `ENABLE_AUTONOMOUS_ATTESTATION` | `true` | Enable autonomous attestation mode |
+| `ENABLE_PARLAY_TRADING` | `true` | Enable automated parlay trading based on forecasts |
+| `ENABLE_SPOT_TRADING` | `false` | Enable individual market trading (disabled by default) |
+
+#### Attestation Configuration (Optional)
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `ATTESTATION_INTERVAL_MS` | `300000` | Cycle interval in milliseconds (5 minutes) |
+| `MIN_ATTESTATION_CONFIDENCE` | `0.6` | Minimum confidence threshold (0-1) for attestations |
+| `ATTESTATION_BATCH_SIZE` | `5` | Number of markets to process per cycle |
+| `PROBABILITY_CHANGE_THRESHOLD` | `10` | Percentage change required for re-attestation |
+| `MIN_HOURS_BETWEEN_ATTESTATIONS` | `24` | Hours between attestations on same market |
+
+#### Parlay Trading Configuration (Optional)
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `PARLAY_WAGER_AMOUNT` | `1000000000000000000` | Wager amount in USDe (18 decimals: $1) |
+| `MIN_PARLAY_CONFIDENCE` | `0.6` | Minimum confidence for parlay predictions |
+| `MIN_HOURS_BETWEEN_PARLAYS` | `24` | Hours between parlay attempts |
+| `MIN_PARLAY_PREDICTION_CHANGE` | `10` | Percentage change required for new parlay |
+| `PARLAY_MARKETS_FETCH_LIMIT` | `100` | Number of markets to fetch from GraphQL |
+| `PARLAY_MARKETS_SKIP` | `0` | Number of markets to skip in GraphQL query |
+| `PARLAY_AUCTION_TIMEOUT_MS` | `300000` | Auction timeout in milliseconds (5 minutes) |
+| `PARLAY_KEEPALIVE_INTERVAL_MS` | `20000` | WebSocket keepalive interval (20 seconds) |
+| `PARLAY_STATUS_INTERVAL_MS` | `30000` | Status update interval (30 seconds) |
+
+#### Contract Addresses (Optional)
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `UMA_RESOLVER_ADDRESS` | `0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9` | UMA resolver contract |
+| `PREDICTION_MARKET_ADDRESS` | `0xb04841cad1147675505816e2ec5c915430857b40` | PredictionMarket contract |
+| `USDE_TOKEN_ADDRESS` | `0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA` | USDe collateral token |
+| `USDE_APPROVAL_AMOUNT` | `1000000000000000000000000` | Token approval amount (1M USDe) |
+
+#### API Endpoints (Optional)
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SAPIENCE_WS_URL` | `wss://api.sapience.xyz/auction` | WebSocket endpoint for auctions |
+| `SAPIENCE_GRAPHQL_URL` | `https://api.sapience.xyz/graphql` | GraphQL endpoint for market data |
 
 ## Customize Your Agent
 
@@ -71,10 +109,13 @@ cp .env.example .env
 # Required: OpenRouter API key for LLM access
 # OPENROUTER_API_KEY=<your-openrouter-api-key>
 
-# Required: Private key for on-chain attestations
+# Required: Private key for on-chain attestations and trading
 # EVM_PRIVATE_KEY=<your-ethereum-private-key>
 
-# Optional: Enable automated trading
+# Optional: Enable autonomous attestations
+# ENABLE_AUTONOMOUS_ATTESTATION=true
+
+# Optional: Enable automated parlay trading
 # ENABLE_PARLAY_TRADING=true
 ```
 
@@ -126,24 +167,57 @@ cp .env.example .env
 # Required: OpenRouter API key for LLM access
 # OPENROUTER_API_KEY=<your-openrouter-api-key>
 
-# Required: Private key for on-chain attestations
+# Required: Private key for on-chain attestations and trading
 # EVM_PRIVATE_KEY=<your-ethereum-private-key>
 
-# Required: Enable automated trading
+# Optional: Enable autonomous attestations  
+# ENABLE_AUTONOMOUS_ATTESTATION=true
+
+# Optional: Enable automated parlay trading
 # ENABLE_PARLAY_TRADING=true
 bun run dev
 ```
 
 Looking to deploy manually? See the Railway CLI guide: [Deploy with the CLI](https://docs.railway.com/guides/cli).
 
-## Enable Automated Parlay Trading
+## Advanced Features
 
-Your forecasting agent can automatically place $1 wagers on parlays based on its predictions:
+### Autonomous Attestation Mode
 
-- **Predictions >50%** → Buy YES tokens
-- **Predictions &lt;50%** → Buy NO tokens
+The agent can automatically generate and publish forecasts on a schedule:
 
-### Setup Parlay Trading
+1. **Enable Autonomous Mode**:
+   ```bash
+   ENABLE_AUTONOMOUS_ATTESTATION=true
+   ```
+
+2. **Configure Attestation Behavior** (optional):
+   ```bash
+   # Cycle interval in milliseconds (5 minutes default)
+   ATTESTATION_INTERVAL_MS=300000
+   
+   # Minimum confidence for publishing attestations
+   MIN_ATTESTATION_CONFIDENCE=0.6
+   
+   # Number of markets to process per cycle
+   ATTESTATION_BATCH_SIZE=5
+   
+   # Only re-attest if probability changed by this percentage
+   PROBABILITY_CHANGE_THRESHOLD=10
+   
+   # Minimum hours between attestations on same market
+   MIN_HOURS_BETWEEN_ATTESTATIONS=24
+   ```
+
+### Automated Parlay Trading
+
+Your forecasting agent can automatically place multi-leg parlays based on its predictions:
+
+- **3+ High-Confidence Markets** → Creates parlay auction
+- **Prediction >50%** → YES position
+- **Prediction <50%** → NO position
+
+#### Setup Parlay Trading
 
 1. **Enable Trading** by setting the environment variable:
    ```bash
@@ -155,24 +229,53 @@ Your forecasting agent can automatically place $1 wagers on parlays based on its
    # Wager amount in USDe (18 decimals)
    PARLAY_WAGER_AMOUNT=1000000000000000000  # $1 default
    
-   # Only trade when prediction confidence exceeds threshold
-   MIN_TRADING_CONFIDENCE=0.6   # 60% default
+   # Minimum confidence for parlay predictions
+   MIN_PARLAY_CONFIDENCE=0.6
    
-   # Maximum acceptable slippage
-   MAX_TRADING_SLIPPAGE=5       # 5% default
+   # Hours between parlay attempts
+   MIN_HOURS_BETWEEN_PARLAYS=24
+   
+   # Percentage change required for new parlay
+   MIN_PARLAY_PREDICTION_CHANGE=10
    ```
 
-3. **Ensure Wallet Funding**: Your `ETHEREUM_PRIVATE_KEY` wallet needs USDe on Arbitrum for trading.
+3. **Advanced Configuration**:
+   ```bash
+   # Number of markets to fetch from GraphQL
+   PARLAY_MARKETS_FETCH_LIMIT=100
+   
+   # Auction timeout (5 minutes default)
+   PARLAY_AUCTION_TIMEOUT_MS=300000
+   
+   # WebSocket keepalive interval
+   PARLAY_KEEPALIVE_INTERVAL_MS=20000
+   ```
 
-### How It Works
+4. **Ensure Wallet Funding**: Your `ETHEREUM_PRIVATE_KEY` wallet needs USDe on Arbitrum for trading.
 
-After each forecast attestation, if trading is enabled:
+#### How Parlay Trading Works
 
-1. **Confidence Check**: Only trades if prediction confidence > `MIN_TRADING_CONFIDENCE`
-2. **Direction**: Buys YES tokens for >50% predictions, NO tokens for &lt;50%
-3. **Auction Process**: Connects to Sapience WebSocket, participates in parlay auctions
-4. **Execution**: Approves USDe and calls PredictionMarket.mint() with best bid
-5. **Logging**: Reports trade execution with transaction hash
+The agent analyzes prediction markets and executes parlays when conditions are met:
+
+1. **Market Analysis**: Fetches active conditions from Sapience GraphQL API
+2. **Prediction Generation**: Creates probability forecasts for eligible markets
+3. **Parlay Selection**: Identifies 3+ high-confidence predictions for multi-leg parlay
+4. **Auction Creation**: Starts parlay auction via WebSocket as maker
+5. **Bid Acceptance**: Automatically accepts best bid from takers
+6. **Transaction Execution**: 
+   - Approves USDe token spending
+   - Calls PredictionMarket.mint() with auction parameters
+   - Reports transaction hash upon success
+
+#### Architecture Overview
+
+The parlay system uses a modular architecture:
+
+- **Helper Modules**: Centralized blockchain, contract, and parlay utilities
+- **Environment-Driven**: All parameters configurable via environment variables  
+- **Contract Integration**: Direct interaction with Arbitrum contracts
+- **WebSocket Auctions**: Real-time auction participation
+- **Rate Limiting**: Prevents excessive trading with time-based controls
 
 ⚠️ **Risk Warning**: Automated trading involves financial risk. Start with small amounts and monitor performance.
 
