@@ -26,14 +26,14 @@ export const umaResolver: ChainAddressMap = {
 
 export const passiveLiquidityVault: ChainAddressMap = {
   42161: {
-    address: '0xdb90a48a359b4ca17ef4e760201564d910de921c',
+    address: '0xcc1c64e849395d31d059a4bd19391af64d8855d7',
     legacy: [] as const,
   },
 } as const;
 
 export const collateralToken: ChainAddressMap = {
   42161: {
-    address: '0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA',
+    address: '0xfeb8c4d5efbaff6e928ea090bc660c363f883dba',
     legacy: [] as const,
   },
 } as const;
