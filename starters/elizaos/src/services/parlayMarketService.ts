@@ -13,9 +13,9 @@ let lastParlayTimestamp = 0;
 
 export class ParlayMarketService {
   private runtime: IAgentRuntime;
-  private readonly MIN_CONFIDENCE_THRESHOLD = 0.6;
-  private readonly MIN_HOURS_BETWEEN_PARLAYS = 24;
-  private readonly MIN_PREDICTION_CHANGE = 10;
+  private readonly MIN_CONFIDENCE_THRESHOLD = parseFloat(process.env.MIN_PARLAY_CONFIDENCE || "0.6");
+  private readonly MIN_HOURS_BETWEEN_PARLAYS = parseFloat(process.env.MIN_HOURS_BETWEEN_PARLAYS || "24");
+  private readonly MIN_PREDICTION_CHANGE = parseFloat(process.env.MIN_PARLAY_PREDICTION_CHANGE || "10");
   
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -25,7 +25,7 @@ export class ParlayMarketService {
     try {
       elizaLogger.info("[ParlayMarket] Fetching parlay conditions from GraphQL API");
       
-      const graphqlEndpoint = "https://api.sapience.xyz/graphql";
+      const graphqlEndpoint = process.env.SAPIENCE_GRAPHQL_URL || "https://api.sapience.xyz/graphql";
       const query = `
         query Conditions($take: Int, $skip: Int) {
           conditions(orderBy: { createdAt: desc }, take: $take, skip: $skip) {
@@ -54,7 +54,10 @@ export class ParlayMarketService {
         },
         body: JSON.stringify({
           query,
-          variables: { take: 100, skip: 0 }
+          variables: { 
+            take: parseInt(process.env.PARLAY_MARKETS_FETCH_LIMIT || "100"), 
+            skip: parseInt(process.env.PARLAY_MARKETS_SKIP || "0") 
+          }
         })
       });
 

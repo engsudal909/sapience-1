@@ -31,12 +31,12 @@ export class AttestationService {
 
     this.runtime = runtime;
     this.config = {
-      enabled: false,
-      interval: 300000, // 5 minutes
-      minConfidence: 0.6,
-      batchSize: 5,
-      probabilityChangeThreshold: 10, // 10% change required
-      minTimeBetweenAttestations: 24, // 24 hours minimum
+      enabled: process.env.ENABLE_AUTONOMOUS_ATTESTATION === "true",
+      interval: parseInt(process.env.ATTESTATION_INTERVAL_MS || "300000"),
+      minConfidence: parseFloat(process.env.MIN_ATTESTATION_CONFIDENCE || "0.6"),
+      batchSize: parseInt(process.env.ATTESTATION_BATCH_SIZE || "5"),
+      probabilityChangeThreshold: parseFloat(process.env.PROBABILITY_CHANGE_THRESHOLD || "10"),
+      minTimeBetweenAttestations: parseFloat(process.env.MIN_HOURS_BETWEEN_ATTESTATIONS || "24"),
     };
 
     globalInstance = this;
@@ -188,23 +188,20 @@ export class AttestationService {
 
         const hoursSince = (Date.now() - new Date(matchingAttestation.createdAt).getTime()) / (1000 * 60 * 60);
         
-        // Check if minimum time has passed (24 hours by default)
         if (hoursSince < this.config.minTimeBetweenAttestations) {
           elizaLogger.info(`[AttestationService] Market ${marketId}: Only ${hoursSince.toFixed(1)} hours since last attestation, need ${this.config.minTimeBetweenAttestations} hours`);
           continue;
         }
 
-        // Generate current prediction to compare with previous
         const currentPrediction = await this.generatePrediction(market);
         if (currentPrediction && matchingAttestation.prediction) {
           const previousProbability = this.decodeProbability(matchingAttestation.prediction);
           if (previousProbability !== null) {
             const probabilityChange = Math.abs(currentPrediction.probability - previousProbability);
             
-            // Only attest if probability changed by at least 10%
             if (probabilityChange >= this.config.probabilityChangeThreshold) {
               market._attestationReason = `Probability changed by ${probabilityChange.toFixed(1)}% (from ${previousProbability.toFixed(0)}% to ${currentPrediction.probability}%)`;
-              market._currentPrediction = currentPrediction; // Store prediction to avoid regenerating
+              market._currentPrediction = currentPrediction;
               candidateMarkets.push(market);
             } else {
               elizaLogger.info(`[AttestationService] Market ${marketId}: Probability change ${probabilityChange.toFixed(1)}% below threshold ${this.config.probabilityChangeThreshold}%`);
@@ -213,7 +210,6 @@ export class AttestationService {
         }
       } catch (error) {
         elizaLogger.warn(`[AttestationService] Market ${market.id}: Error checking previous attestation - ${error.message}`);
-        // Don't add to candidates if we can't verify properly
       }
     }
 
@@ -312,7 +308,6 @@ Analyze this prediction market and respond with ONLY valid JSON:
       const marketId = market.marketId || market.id;
       console.log(`🔍 Analyzing market #${marketId}: ${market.question?.substring(0, 60)}...`);
 
-      // Use stored prediction if available (from filtering), otherwise generate new one
       const prediction = market._currentPrediction || await this.generatePrediction(market);
       if (!prediction) return;
 
@@ -323,7 +318,6 @@ Analyze this prediction market and respond with ONLY valid JSON:
 
       console.log(`📊 Prediction: ${prediction.probability}% YES (confidence: ${prediction.confidence})`);
 
-      // Build and submit attestation
       const { buildAttestationCalldata } = await loadSdk();
       const attestationData = await buildAttestationCalldata(
         {
@@ -332,7 +326,7 @@ Analyze this prediction market and respond with ONLY valid JSON:
           question: market.question,
         },
         prediction,
-        42161, // Arbitrum
+        42161,
       );
 
       if (attestationData) {
@@ -357,7 +351,6 @@ Analyze this prediction market and respond with ONLY valid JSON:
         }
       }
 
-      // Attempt spot trading after attestation
       if (process.env.ENABLE_SPOT_TRADING === "true") {
         await this.attemptSpotTrading(market, prediction);
       }
@@ -425,7 +418,6 @@ Analyze this prediction market and respond with ONLY valid JSON:
         return;
       }
 
-      // Prepare the parlay data in the format expected by parlayTradingAction
       const parlayData = {
         markets: analysis.predictions.map(p => p.market),
         predictions: analysis.predictions.map(p => ({
