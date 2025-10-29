@@ -1,6 +1,21 @@
 import { elizaLogger } from "@elizaos/core";
 import { encodeAbiParameters } from "viem";
 
+interface Bid {
+  auctionId: string;
+  taker: string;
+  takerWager: string;
+  takerDeadline: number;
+  takerSignature: string;
+  maker: string;
+  makerCollateral: string;
+  wager?: string; // fallback for legacy compatibility
+  resolver: string;
+  encodedPredictedOutcomes: string;
+  predictedOutcomes: string[];
+  makerNonce: number;
+}
+
 /**
  * Encode parlay outcomes for UMA resolver
  */
@@ -45,7 +60,7 @@ export async function encodeParlayOutcomes(markets: any[], predictions: any[]): 
 /**
  * Select the best bid from a list of bids
  */
-export function selectBestBid(bids: any[]): any {
+export function selectBestBid(bids: Bid[]): Bid {
   const now = Date.now() / 1000;
   const validBids = bids.filter((bid) => bid.takerDeadline > now);
   

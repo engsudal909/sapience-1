@@ -44,7 +44,7 @@ export function getContractAddresses() {
   return {
     UMA_RESOLVER: (process.env.UMA_RESOLVER_ADDRESS || "0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9") as `0x${string}`,
     PREDICTION_MARKET: (process.env.PREDICTION_MARKET_ADDRESS || "0xb04841cad1147675505816e2ec5c915430857b40") as `0x${string}`,
-    USDE_TOKEN: (process.env.USDE_TOKEN_ADDRESS || "0xfeb8c4d5efbaff6e928ea090bc660c363f883dba") as `0x${string}`,
+    USDE_TOKEN: (process.env.USDE_TOKEN_ADDRESS || "0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA") as `0x${string}`,
   };
 }
 

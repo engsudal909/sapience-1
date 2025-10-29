@@ -1,6 +1,21 @@
 import { elizaLogger } from "@elizaos/core";
 import { createArbitrumPublicClient, createArbitrumWalletClient, getContractAddresses, getTradingConfig } from "./blockchain.js";
 
+interface Bid {
+  auctionId: string;
+  taker: string;
+  takerWager: string;
+  takerDeadline: number;
+  takerSignature: string;
+  maker: string;
+  makerCollateral: string;
+  wager?: string; // fallback for legacy compatibility
+  resolver: string;
+  encodedPredictedOutcomes: string;
+  predictedOutcomes: string[];
+  makerNonce: number;
+}
+
 /**
  * Get the current maker nonce from the PredictionMarket contract
  */
@@ -89,7 +104,7 @@ export async function buildMintCalldata({
   bid,
   maker,
 }: {
-  bid: any;
+  bid: Bid;
   maker: string;
 }): Promise<`0x${string}`> {
   const { encodeFunctionData } = await import("viem");

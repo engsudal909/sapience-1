@@ -26,6 +26,21 @@ import {
   formatWagerAmount 
 } from "../utils/parlay.js";
 
+interface Bid {
+  auctionId: string;
+  taker: string;
+  takerWager: string;
+  takerDeadline: number;
+  takerSignature: string;
+  maker: string;
+  makerCollateral: string;
+  wager?: string; // fallback for legacy compatibility
+  resolver: string;
+  encodedPredictedOutcomes: string;
+  predictedOutcomes: string[];
+  makerNonce: number;
+}
+
 export const parlayTradingAction: Action = {
   name: "PARLAY_TRADING",
   description: "Start parlay auction with 3+ legs and accept best bid from takers",
@@ -245,7 +260,7 @@ async function startParlayAuction({
             const allBids = message.payload?.bids || [];
             elizaLogger.info(`[ParlayTrading] Received ${allBids.length} total bids`);
             
-            const ourBids = allBids.filter((bid: any) => bid?.auctionId === auctionId);
+            const ourBids = allBids.filter((bid: Bid) => bid?.auctionId === auctionId);
             elizaLogger.info(`[ParlayTrading] Found ${ourBids.length} bids for our auction ${auctionId}`);
 
             if (ourBids.length > 0) {
@@ -302,7 +317,7 @@ async function acceptBid({
   privateKey,
   rpcUrl,
 }: {
-  bid: any;
+  bid: Bid;
   privateKey: string;
   rpcUrl: string;
 }): Promise<string> {
