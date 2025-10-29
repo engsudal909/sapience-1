@@ -12,6 +12,7 @@ import {Encoder} from "../../bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {ETHManagement} from "../../bridge/abstract/ETHManagement.sol";
+import {MessagingReceipt} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
 /**
  * @title PredictionMarketLZResolverUmaSide
@@ -41,6 +42,9 @@ contract PredictionMarketLZResolverUmaSide is
     BridgeTypes.BridgeConfig private bridgeConfig;
     address private optimisticOracleV3Address;
 
+    // Asserters allowlist
+    mapping(address => bool) private approvedAsserters;
+
     // Mapping to track assertions from prediction markets
     mapping(bytes32 => bytes32) private marketIdToAssertionId; // marketId => UMA assertionId
     mapping(bytes32 => bytes32) private assertionIdToMarketId; // UMA assertionId => marketId
@@ -63,6 +67,7 @@ contract PredictionMarketLZResolverUmaSide is
     // ============ Configuration Functions ============
     function setBridgeConfig(BridgeTypes.BridgeConfig calldata _bridgeConfig) external onlyOwner {
         bridgeConfig = _bridgeConfig;
+        emit BridgeConfigUpdated(_bridgeConfig);
     }
 
     function getBridgeConfig() external view returns (BridgeTypes.BridgeConfig memory) {
@@ -71,6 +76,7 @@ contract PredictionMarketLZResolverUmaSide is
 
     function setConfig(Settings calldata _config) external onlyOwner {
         config = _config;
+        emit ConfigUpdated(_config.bondCurrency, _config.bondAmount, _config.assertionLiveness, msg.sender);
     }
 
     function setOptimisticOracleV3(address _optimisticOracleV3) external onlyOwner {
@@ -82,6 +88,27 @@ contract PredictionMarketLZResolverUmaSide is
         return optimisticOracleV3Address;
     }
 
+    // ============ Asserter Management ============
+    function approveAsserter(address asserter) external onlyOwner {
+        approvedAsserters[asserter] = true;
+        emit AsserterApproved(asserter);
+    }
+
+    function revokeAsserter(address asserter) external onlyOwner {
+        approvedAsserters[asserter] = false;
+        emit AsserterRevoked(asserter);
+    }
+
+    function isAsserterApproved(address asserter) external view returns (bool) {
+        return approvedAsserters[asserter];
+    }
+
+    // ============ Owner Bond Withdrawal ============
+    function withdrawBond(address token, uint256 amount, address to) external onlyOwner {
+        IERC20(token).safeTransfer(to, amount);
+        emit OwnerWithdrewBond(token, amount, to);
+    }
+
     // ============ Funding Note ============
     // Bond tokens should be transferred to this contract directly via ERC20 transfers.
 
@@ -91,6 +118,9 @@ contract PredictionMarketLZResolverUmaSide is
         uint256 endTime,
         bool resolvedToYes
     ) external nonReentrant {
+        if (!approvedAsserters[msg.sender]) {
+            revert OnlyApprovedAssertersCanCall();
+        }
         if (block.timestamp < endTime) {
             revert MarketNotEnded();
         }
@@ -153,7 +183,7 @@ contract PredictionMarketLZResolverUmaSide is
     function assertionResolvedCallback(
         bytes32 assertionId,
         bool assertedTruthfully
-    ) external nonReentrant {
+    ) external nonReentrant override {
         if (msg.sender != optimisticOracleV3Address) {
             revert OnlyOptimisticOracleV3CanCall();
         }
@@ -189,7 +219,7 @@ contract PredictionMarketLZResolverUmaSide is
         delete marketAsserter[marketId];
     }
 
-    function assertionDisputedCallback(bytes32 assertionId) external {
+    function assertionDisputedCallback(bytes32 assertionId) external override {
         if (msg.sender != optimisticOracleV3Address) {
             revert OnlyOptimisticOracleV3CanCall();
         }
@@ -255,5 +285,11 @@ contract PredictionMarketLZResolverUmaSide is
 
     function getConfig() external view returns (Settings memory) {
         return config;
+    }
+
+    function _lzReceive(Origin calldata _origin, bytes32, bytes calldata _message, address, bytes calldata)
+        internal
+        override {
+        // Do nothing, this is just to satisfy the OApp interface
     }
 }

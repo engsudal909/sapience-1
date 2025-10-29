@@ -19,9 +19,9 @@ The system consists of two contracts with clear separation of concerns:
 
 ### UMA Side
 - **Handles all assertion submissions** directly to UMA
-- **Manages bond tokens** for all submissions
-- **Sends results** back to prediction market side via LayerZero
-- **Simple message flow** - only sends resolution/dispute messages
+- **No internal bond accounting**; contract must be pre-funded with `bondCurrency` via ERC20 transfers
+- **Sends results** back to prediction market side via LayerZero only when asserted truthfully
+- **No LZ message on disputes or untruthful resolutions**
 
 ## Contracts Overview
 
@@ -39,7 +39,6 @@ The system consists of two contracts with clear separation of concerns:
 
 **Key Functions**:
 - `marketResolvedCallback()` - Handle market resolution from UMA
-- `marketDisputedCallback()` - Handle market dispute from UMA
 - `validatePredictionMarkets()` - Validate prediction market data
 - `getPredictionResolution()` - Get resolution status
 
@@ -51,15 +50,14 @@ The system consists of two contracts with clear separation of concerns:
 
 **Key Features**:
 - Implements UMA's `OptimisticOracleV3CallbackRecipientInterface`
-- Manages bond tokens for all submissions
+- Checks ERC20 balance for `bondCurrency` on submission; expects tokens to be pre-funded via ERC20 transfers
 - Handles assertion submissions directly to UMA
-- Sends resolution/dispute messages via LayerZero
+- Sends resolution via LayerZero only when asserted truthfully (no LZ on disputes)
 
 **Key Functions**:
 - `submitAssertion()` - Submit assertion to UMA (public function)
-- `depositBond()` / `withdrawBond()` - Bond management
-- `assertionResolvedCallback()` - UMA callback for resolved assertions
-- `assertionDisputedCallback()` - UMA callback for disputed assertions
+- `assertionResolvedCallback()` - UMA callback; forwards via LZ only when truthful
+- `assertionDisputedCallback()` - UMA callback; emits event only, no LZ message
 
 ## Setup and Configuration
 
@@ -117,11 +115,7 @@ umaResolver.setBridgeConfig(bridgeConfig);
 
 ### 3. Fund UMA Side with Bonds
 
-```solidity
-// Deposit bond tokens to UMA side resolver
-IERC20(USDC_ADDRESS).approve(umaResolver, 10000e6); // 10,000 USDC
-umaResolver.depositBond(USDC_ADDRESS, 10000e6);
-```
+Transfer at least `bondAmount` of `bondCurrency` (ERC20) to the UMA-side resolver contract address before submitting assertions.
 
 ## Usage Flow
 
@@ -141,7 +135,7 @@ umaResolver.submitAssertion(claim, endTime, resolvedToYes);
 The system automatically handles:
 1. UMA processes the assertion
 2. UMA calls back on resolution/dispute
-3. UMA side sends result to prediction market side via LayerZero
+3. UMA side sends result to prediction market side via LayerZero only if asserted truthfully
 4. Prediction market side updates market state
 
 ### 3. Check Resolution (Prediction Market Side)
@@ -162,10 +156,9 @@ bytes memory encodedOutcomes = resolver.encodePredictionOutcomes(outcomes);
 
 ## Message Types
 
-The system uses 2 LayerZero message types:
+The system uses 1 LayerZero message type:
 
-- `CMD_FROM_UMA_MARKET_RESOLVED` (8) - Market resolved callback
-- `CMD_FROM_UMA_MARKET_DISPUTED` (9) - Market disputed callback
+- `CMD_FROM_UMA_MARKET_RESOLVED` (8) - Market resolved callback (only when truthful)
 
 ## Key Benefits
 
@@ -188,25 +181,11 @@ The system uses 2 LayerZero message types:
 - No cross-chain bond transfers
 - Simple access control
 
-## Bond Management
+## Funding
 
-### UMA Side Bond Management
-```solidity
-// Deposit bonds
-umaResolver.depositBond(USDC_ADDRESS, amount);
-
-// Withdraw bonds
-umaResolver.withdrawBond(USDC_ADDRESS, amount);
-
-// Check balance
-uint256 balance = umaResolver.getBondBalance(USDC_ADDRESS);
-```
-
-### Bond Flow
-1. Users deposit bonds to UMA side resolver
-2. UMA side uses bonds for assertion submissions
-3. Bonds are returned to UMA side after resolution
-4. Users can withdraw bonds from UMA side
+1. Transfer `bondCurrency` to UMA-side resolver contract address
+2. UMA side uses these funds for UMA assertion submissions
+3. Bonds are returned by UMA per protocol; contract must be able to receive them
 
 ## Error Handling
 

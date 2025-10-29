@@ -24,6 +24,13 @@ contract PredictionMarketLZResolver is
     using BridgeTypes for BridgeTypes.BridgeConfig;
     using OptionsBuilder for bytes;
 
+    // ============ Custom Errors ============
+    error MustHaveAtLeastOneMarket();
+    error TooManyMarkets();
+    error InvalidSourceChain(uint32 expectedEid, uint32 actualEid);
+    error InvalidSender(address expectedBridge, address actualSender);
+    error InvalidCommandType(uint16 commandType);
+
     // ============ Settings ============
     struct Settings {
         uint256 maxPredictionMarkets;

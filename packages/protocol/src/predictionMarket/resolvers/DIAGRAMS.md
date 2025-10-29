@@ -43,18 +43,17 @@ sequenceDiagram
     participant PMR as Prediction Market Resolver
     participant PM as Prediction Market
     
-    User->>UMR: depositBond(currency, amount)
-    UMR->>Bonds: Store bond tokens
-    
     User->>UMR: submitAssertion(claim, endTime, resolvedToYes)
     
-    Note over UMR: Validate & Use Bonds
-    UMR->>UMR: Check bond balance
-    UMR->>UMR: Deduct bond amount
+    Note over UMR: Check ERC20 balance for bondCurrency
     UMR->>UMA: assertTruth(claim, asserter, ...)
     
     UMA-->>UMR: assertionResolvedCallback()
-    UMR->>LZ2: CMD_FROM_UMA_MARKET_RESOLVED
+    alt assertedTruthfully == true
+        UMR->>LZ2: CMD_FROM_UMA_MARKET_RESOLVED
+    else assertedTruthfully == false
+        UMR->>UMR: Emit MarketResolvedFromUMA (no LZ message)
+    end
     LZ2-->>LZ1: Cross-chain message
     LZ1->>PMR: _lzReceive()
     
@@ -72,11 +71,10 @@ sequenceDiagram
 graph LR
     subgraph "UMA → Prediction Market"
         A[CMD_FROM_UMA_MARKET_RESOLVED]
-        B[CMD_FROM_UMA_MARKET_DISPUTED]
     end
     
     Note1[No messages from PM to UMA]
-    Note2[All submission handled on UMA side]
+    Note2[LZ only on truthful resolutions]
 ```
 
 ## State Management
