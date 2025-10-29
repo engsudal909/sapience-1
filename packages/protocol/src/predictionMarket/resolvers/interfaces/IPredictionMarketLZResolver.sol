@@ -4,11 +4,11 @@ pragma solidity ^0.8.19;
 import {IPredictionMarketResolver} from "../IPredictionMarketResolver.sol";
 
 /**
- * @title IPredictionMarketSimpleResolver
- * @notice Simplified interface for LayerZero-based Prediction Market Resolver
+ * @title IPredictionMarketLZResolver
+ * @notice Interface for LayerZero-based Prediction Market Resolver (PM side)
  * @dev This resolver only receives resolution messages from UMA side via LayerZero
  */
-interface IPredictionMarketSimpleResolver is IPredictionMarketResolver {
+interface IPredictionMarketLZResolver is IPredictionMarketResolver {
     // Custom errors
     error OnlyRemoteResolverCanCall();
     error InvalidMarketId();

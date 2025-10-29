@@ -1,84 +1,21 @@
 # Prediction Market LayerZero Resolver Diagrams
 
-This document contains interaction diagrams for both the complex and simplified versions of the LayerZero-based PredictionMarket Resolvers.
+This document contains interaction diagrams for the LayerZero-based PredictionMarket Resolvers.
 
-## Complex Version Architecture
-
-### System Overview
-```mermaid
-graph TB
-    subgraph "Prediction Market Network"
-        PM[Prediction Market Contract]
-        PMR[PredictionMarketLayerZeroResolver]
-        LZ1[LayerZero Endpoint]
-    end
-    
-    subgraph "UMA Network"
-        UMA[UMA Optimistic Oracle V3]
-        UMR[PredictionMarketUmaLayerZeroResolver]
-        LZ2[LayerZero Endpoint]
-    end
-    
-    PM -->|submitAssertion| PMR
-    PMR -->|LayerZero Message| LZ1
-    LZ1 -.->|Cross-chain| LZ2
-    LZ2 -->|LayerZero Message| UMR
-    UMR -->|assertTruth| UMA
-    UMA -->|callback| UMR
-    UMR -->|LayerZero Message| LZ2
-    LZ2 -.->|Cross-chain| LZ1
-    LZ1 -->|LayerZero Message| PMR
-    PMR -->|update state| PM
-```
-
-### Complex Version Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant PM as Prediction Market
-    participant PMR as Prediction Market Resolver
-    participant LZ1 as LayerZero (PM Side)
-    participant LZ2 as LayerZero (UMA Side)
-    participant UMR as UMA Resolver
-    participant UMA as UMA Optimistic Oracle V3
-    
-    User->>PM: Submit Prediction
-    PM->>PMR: submitAssertion(claim, endTime, resolvedToYes)
-    
-    Note over PMR: Validate & Check Bond
-    PMR->>PMR: Check approved asserters
-    PMR->>PMR: Validate market not ended
-    PMR->>PMR: Transfer bond tokens
-    
-    PMR->>LZ1: CMD_TO_UMA_SUBMIT_ASSERTION
-    LZ1-->>LZ2: Cross-chain message
-    LZ2->>UMR: _lzReceive()
-    
-    UMR->>UMA: assertTruth(claim, asserter, ...)
-    UMA-->>UMR: assertionResolvedCallback()
-    
-    UMR->>LZ2: CMD_FROM_UMA_ASSERTION_RESOLVED
-    LZ2-->>LZ1: Cross-chain message
-    LZ1->>PMR: _lzReceive()
-    
-    PMR->>PMR: assertionResolvedCallback()
-    PMR->>PM: Update market state
-```
-
-## Simplified Version Architecture
+## System Architecture
 
 ### System Overview
 ```mermaid
 graph TB
     subgraph "Prediction Market Network"
         PM[Prediction Market Contract]
-        PMR[PredictionMarketSimpleResolver]
+        PMR[PredictionMarketLZResolver]
         LZ1[LayerZero Endpoint]
     end
     
     subgraph "UMA Network"
         UMA[UMA Optimistic Oracle V3]
-        UMR[PredictionMarketUmaSimpleResolver]
+        UMR[PredictionMarketLZResolverUmaSide]
         LZ2[LayerZero Endpoint]
         Bonds[Bond Management]
     end
@@ -94,7 +31,7 @@ graph TB
     PM -->|check resolution| PMR
 ```
 
-### Simplified Version Flow
+### System Flow
 ```mermaid
 sequenceDiagram
     participant User
@@ -128,25 +65,9 @@ sequenceDiagram
     PMR-->>PM: Return resolution status
 ```
 
-## Message Flow Comparison
+## Message Flow
 
-### Complex Version Messages
-```mermaid
-graph LR
-    subgraph "Prediction Market → UMA"
-        A[CMD_TO_UMA_SUBMIT_ASSERTION]
-    end
-    
-    subgraph "UMA → Prediction Market"
-        B[CMD_FROM_UMA_ASSERTION_RESOLVED]
-        C[CMD_FROM_UMA_ASSERTION_DISPUTED]
-    end
-    
-    A --> B
-    A --> C
-```
-
-### Simplified Version Messages
+### System Messages
 ```mermaid
 graph LR
     subgraph "UMA → Prediction Market"
@@ -158,21 +79,9 @@ graph LR
     Note2[All submission handled on UMA side]
 ```
 
-## State Management Comparison
+## State Management
 
-### Complex Version State
-```mermaid
-stateDiagram-v2
-    [*] --> MarketCreated: submitAssertion()
-    MarketCreated --> AssertionSubmitted: LayerZero message sent
-    AssertionSubmitted --> UMAProcessing: UMA receives assertion
-    UMAProcessing --> Resolved: UMA resolves
-    UMAProcessing --> Disputed: UMA disputes
-    Resolved --> [*]
-    Disputed --> MarketCreated: Can resubmit
-```
-
-### Simplified Version State
+### System State Flow
 ```mermaid
 stateDiagram-v2
     [*] --> UMASubmission: submitAssertion() on UMA side
@@ -183,21 +92,9 @@ stateDiagram-v2
     Disputed --> UMASubmission: Can resubmit
 ```
 
-## Bond Management Comparison
+## Bond Management
 
-### Complex Version Bond Flow
-```mermaid
-graph TD
-    User[User] -->|Transfer Bond| PMR[Prediction Market Resolver]
-    PMR -->|Check Balance| PMR
-    PMR -->|Transfer to UMA| UMR[UMA Resolver]
-    UMR -->|Approve & Submit| UMA[UMA Optimistic Oracle V3]
-    UMA -->|Return Bond| UMR
-    UMR -->|Return Bond| PMR
-    PMR -->|Return Bond| User
-```
-
-### Simplified Version Bond Flow
+### Bond Flow
 ```mermaid
 graph TD
     User[User] -->|Deposit Bond| UMR[UMA Resolver]
@@ -211,40 +108,18 @@ graph TD
 
 ## Deployment Architecture
 
-### Complex Version Deployment
+### System Deployment
 ```mermaid
 graph TB
     subgraph "Prediction Market Network"
         PM[Prediction Market]
-        PMR[PredictionMarketLayerZeroResolver]
-        LZ1[LayerZero Endpoint]
-        Bonds1[Bond Management]
-    end
-    
-    subgraph "UMA Network"
-        UMA[UMA Optimistic Oracle V3]
-        UMR[PredictionMarketUmaLayerZeroResolver]
-        LZ2[LayerZero Endpoint]
-    end
-    
-    PMR --> Bonds1
-    PMR --> LZ1
-    UMR --> LZ2
-    LZ1 -.-> LZ2
-```
-
-### Simplified Version Deployment
-```mermaid
-graph TB
-    subgraph "Prediction Market Network"
-        PM[Prediction Market]
-        PMR[PredictionMarketSimpleResolver]
+        PMR[PredictionMarketLZResolver]
         LZ1[LayerZero Endpoint]
     end
     
     subgraph "UMA Network"
         UMA[UMA Optimistic Oracle V3]
-        UMR[PredictionMarketUmaSimpleResolver]
+        UMR[PredictionMarketLZResolverUmaSide]
         LZ2[LayerZero Endpoint]
         Bonds[Bond Management]
     end
@@ -255,24 +130,9 @@ graph TB
     LZ1 -.-> LZ2
 ```
 
-## Error Handling Flows
+## Error Handling
 
-### Complex Version Error Handling
-```mermaid
-graph TD
-    A[Submit Assertion] --> B{Valid Asserter?}
-    B -->|No| C[OnlyApprovedAssertersCanCall]
-    B -->|Yes| D{Market Ended?}
-    D -->|No| E[MarketNotEnded]
-    D -->|Yes| F{Enough Bond?}
-    F -->|No| G[NotEnoughBondAmount]
-    F -->|Yes| H[Submit to UMA]
-    H --> I{UMA Success?}
-    I -->|No| J[UMA Error]
-    I -->|Yes| K[Success]
-```
-
-### Simplified Version Error Handling
+### System Error Handling
 ```mermaid
 graph TD
     A[Submit Assertion] --> B{Market Ended?}
@@ -285,28 +145,8 @@ graph TD
     G -->|Yes| I[Success]
 ```
 
-## Key Differences Summary
-
-| Aspect | Complex Version | Simplified Version |
-|--------|----------------|-------------------|
-| **Message Direction** | Bidirectional | Unidirectional |
-| **Bond Management** | Cross-chain | UMA side only |
-| **Assertion Submission** | PM side | UMA side |
-| **State Complexity** | High | Low |
-| **Deployment** | Complex | Simple |
-| **Message Types** | 3 | 2 |
-| **Access Control** | Both sides | UMA side only |
-| **Maintenance** | Complex | Simple |
-
 ## Security Considerations
 
-### Complex Version Security
-- Cross-chain bond transfers
-- Multiple access control points
-- Complex state synchronization
-- Bidirectional message validation
-
-### Simplified Version Security
 - Centralized bond management
 - Single access control point
 - Simple state management

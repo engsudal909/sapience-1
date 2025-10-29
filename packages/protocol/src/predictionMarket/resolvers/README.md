@@ -1,53 +1,65 @@
 # Prediction Market LayerZero Resolvers
 
-This directory contains LayerZero-based resolver contracts for the Prediction Market system, designed to work across different networks where UMA may not be available.
+This directory contains a LayerZero-based resolver system for the Prediction Market, designed for cross-chain prediction market resolution.
 
-## Architecture
+## Architecture Overview
 
-The system consists of two main contracts:
+The system consists of two contracts with clear separation of concerns:
 
-1. **PredictionMarketLayerZeroResolver** - Deployed on the prediction market network
-2. **PredictionMarketUmaLayerZeroResolver** - Deployed on the UMA network
+1. **PredictionMarketLZResolver** - Deployed on the prediction market network (receives only)
+2. **PredictionMarketLZResolverUmaSide** - Deployed on the UMA network (handles submission and sends results)
+
+## Key Features
+
+### Prediction Market Side
+- **Only receives** LayerZero messages from UMA side
+- **No assertion submission** - all handled on UMA side
+- **Simple state management** - only tracks market resolutions
+- **No bond management** - bonds handled on UMA side
+
+### UMA Side
+- **Handles all assertion submissions** directly to UMA
+- **Manages bond tokens** for all submissions
+- **Sends results** back to prediction market side via LayerZero
+- **Simple message flow** - only sends resolution/dispute messages
 
 ## Contracts Overview
 
-### PredictionMarketLayerZeroResolver
+### PredictionMarketLZResolver
 
-**Location**: `PredictionMarketLayerZeroResolver.sol`
+**Location**: `PredictionMarketLZResolver.sol`
 
-**Purpose**: Handles prediction market logic and communicates with UMA via LayerZero.
+**Purpose**: Receives and tracks market resolutions from UMA side.
 
 **Key Features**:
 - Implements `IPredictionMarketResolver` interface
-- Manages wrapped markets and their states
-- Handles assertion submissions from approved asserters
-- Receives resolution updates from UMA side via LayerZero
-- Manages bond tokens and validation
+- Only receives LayerZero messages (no sending)
+- Simple market state tracking (settled/resolvedToYes)
+- No bond management or assertion submission
 
 **Key Functions**:
-- `submitAssertion()` - Submit a new assertion to UMA
-- `assertionResolvedCallback()` - Handle resolution from UMA
-- `assertionDisputedCallback()` - Handle dispute notifications from UMA
+- `marketResolvedCallback()` - Handle market resolution from UMA
+- `marketDisputedCallback()` - Handle market dispute from UMA
 - `validatePredictionMarkets()` - Validate prediction market data
 - `getPredictionResolution()` - Get resolution status
 
-### PredictionMarketUmaLayerZeroResolver
+### PredictionMarketLZResolverUmaSide
 
-**Location**: `PredictionMarketUmaLayerZeroResolver.sol`
+**Location**: `PredictionMarketLZResolverUmaSide.sol`
 
-**Purpose**: Handles UMA interactions and forwards results back to the prediction market side.
+**Purpose**: Handles all UMA interactions and sends results to prediction market side.
 
 **Key Features**:
 - Implements UMA's `OptimisticOracleV3CallbackRecipientInterface`
-- Manages UMA assertion submissions
-- Handles UMA callbacks (resolved/disputed)
-- Forwards results back to prediction market side via LayerZero
-- Manages bond token transfers
+- Manages bond tokens for all submissions
+- Handles assertion submissions directly to UMA
+- Sends resolution/dispute messages via LayerZero
 
 **Key Functions**:
+- `submitAssertion()` - Submit assertion to UMA (public function)
+- `depositBond()` / `withdrawBond()` - Bond management
 - `assertionResolvedCallback()` - UMA callback for resolved assertions
 - `assertionDisputedCallback()` - UMA callback for disputed assertions
-- `_handleSubmitAssertion()` - Process assertion submissions from prediction market side
 
 ## Setup and Configuration
 
@@ -55,31 +67,32 @@ The system consists of two main contracts:
 
 #### Prediction Market Side
 ```solidity
-// Deploy PredictionMarketLayerZeroResolver
-PredictionMarketLayerZeroResolver.Settings memory config = PredictionMarketLayerZeroResolver.Settings({
-    maxPredictionMarkets: 100,
-    bondCurrency: USDC_ADDRESS,
-    bondAmount: 1000e6, // 1000 USDC
-    assertionLiveness: 3600, // 1 hour
-    remoteResolver: UMA_SIDE_RESOLVER_ADDRESS
+// Deploy PredictionMarketLZResolver
+PredictionMarketLZResolver.Settings memory config = PredictionMarketLZResolver.Settings({
+    maxPredictionMarkets: 100
 });
 
-address[] memory approvedAsserters = [ASSERTER1, ASSERTER2];
-PredictionMarketLayerZeroResolver resolver = new PredictionMarketLayerZeroResolver(
+PredictionMarketLZResolver resolver = new PredictionMarketLZResolver(
     LAYERZERO_ENDPOINT,
     OWNER,
-    config,
-    approvedAsserters
+    config
 );
 ```
 
 #### UMA Side
 ```solidity
-// Deploy PredictionMarketUmaLayerZeroResolver
-PredictionMarketUmaLayerZeroResolver umaResolver = new PredictionMarketUmaLayerZeroResolver(
+// Deploy PredictionMarketLZResolverUmaSide
+PredictionMarketLZResolverUmaSide.Settings memory umaConfig = PredictionMarketLZResolverUmaSide.Settings({
+    bondCurrency: USDC_ADDRESS,
+    bondAmount: 1000e6, // 1000 USDC
+    assertionLiveness: 3600 // 1 hour
+});
+
+PredictionMarketLZResolverUmaSide umaResolver = new PredictionMarketLZResolverUmaSide(
     LAYERZERO_ENDPOINT,
     OWNER,
-    UMA_OPTIMISTIC_ORACLE_V3_ADDRESS
+    UMA_OPTIMISTIC_ORACLE_V3_ADDRESS,
+    umaConfig
 );
 ```
 
@@ -102,38 +115,39 @@ BridgeTypes.BridgeConfig memory bridgeConfig = BridgeTypes.BridgeConfig({
 umaResolver.setBridgeConfig(bridgeConfig);
 ```
 
-### 3. Configure UMA Integration
+### 3. Fund UMA Side with Bonds
 
 ```solidity
-// Set UMA Optimistic Oracle V3 address
-umaResolver.setOptimisticOracleV3(UMA_OPTIMISTIC_ORACLE_V3_ADDRESS);
+// Deposit bond tokens to UMA side resolver
+IERC20(USDC_ADDRESS).approve(umaResolver, 10000e6); // 10,000 USDC
+umaResolver.depositBond(USDC_ADDRESS, 10000e6);
 ```
 
 ## Usage Flow
 
-### 1. Submit Assertion
+### 1. Submit Assertion (UMA Side)
 
 ```solidity
-// On prediction market side
+// On UMA side - submit assertion directly
 bytes memory claim = "Bitcoin will reach $100,000 by end of 2024";
 uint256 endTime = 1735689600; // Unix timestamp
 bool resolvedToYes = true;
 
-resolver.submitAssertion(claim, endTime, resolvedToYes);
+umaResolver.submitAssertion(claim, endTime, resolvedToYes);
 ```
 
-### 2. Process Resolution
+### 2. Process Resolution (Automatic)
 
 The system automatically handles:
-1. Assertion submission to UMA via LayerZero
-2. UMA processing and potential disputes
-3. Resolution callback back to prediction market side
-4. Market state updates
+1. UMA processes the assertion
+2. UMA calls back on resolution/dispute
+3. UMA side sends result to prediction market side via LayerZero
+4. Prediction market side updates market state
 
-### 3. Check Resolution
+### 3. Check Resolution (Prediction Market Side)
 
 ```solidity
-// Check if markets are resolved
+// On prediction market side - check resolution
 PredictedOutcome[] memory outcomes = [
     PredictedOutcome({
         marketId: marketId,
@@ -148,49 +162,97 @@ bytes memory encodedOutcomes = resolver.encodePredictionOutcomes(outcomes);
 
 ## Message Types
 
-The system uses the following LayerZero message types:
+The system uses 2 LayerZero message types:
 
-- `CMD_TO_UMA_SUBMIT_ASSERTION` (8) - Submit assertion to UMA
-- `CMD_FROM_UMA_ASSERTION_RESOLVED` (9) - Assertion resolved callback
-- `CMD_FROM_UMA_ASSERTION_DISPUTED` (10) - Assertion disputed callback
+- `CMD_FROM_UMA_MARKET_RESOLVED` (8) - Market resolved callback
+- `CMD_FROM_UMA_MARKET_DISPUTED` (9) - Market disputed callback
 
-## Security Considerations
+## Key Benefits
 
-1. **Access Control**: Only approved asserters can submit assertions
-2. **Bond Management**: Bond tokens are properly managed and validated
-3. **Reentrancy Protection**: All external calls are protected
-4. **LayerZero Security**: Messages are validated for source chain and sender
-5. **UMA Integration**: Proper callback handling and state management
+### 1. **Clear Separation of Concerns**
+- Prediction market side: Only receives and tracks
+- UMA side: Only submits and sends results
+
+### 2. **Simple Deployment**
+- No complex cross-chain bond management
+- No approved asserters management on prediction market side
+- Single source of truth for bond management
+
+### 3. **Easy Maintenance**
+- Fewer moving parts
+- Clear message flow
+- Simple state management
+
+### 4. **Better Security**
+- Bond management centralized on UMA side
+- No cross-chain bond transfers
+- Simple access control
+
+## Bond Management
+
+### UMA Side Bond Management
+```solidity
+// Deposit bonds
+umaResolver.depositBond(USDC_ADDRESS, amount);
+
+// Withdraw bonds
+umaResolver.withdrawBond(USDC_ADDRESS, amount);
+
+// Check balance
+uint256 balance = umaResolver.getBondBalance(USDC_ADDRESS);
+```
+
+### Bond Flow
+1. Users deposit bonds to UMA side resolver
+2. UMA side uses bonds for assertion submissions
+3. Bonds are returned to UMA side after resolution
+4. Users can withdraw bonds from UMA side
 
 ## Error Handling
 
-The contracts include comprehensive error handling:
-
-- `OnlyApprovedAssertersCanCall()` - Unauthorized assertion submission
+### Prediction Market Side
 - `OnlyRemoteResolverCanCall()` - Unauthorized callback execution
-- `MarketNotEnded()` - Premature assertion submission
-- `MarketAlreadySettled()` - Duplicate settlement attempt
 - `InvalidMarketId()` - Invalid market reference
+
+### UMA Side
+- `OnlyOptimisticOracleV3CanCall()` - Unauthorized UMA callback
+- `MarketNotEnded()` - Premature assertion submission
+- `AssertionAlreadySubmitted()` - Duplicate submission
 - `NotEnoughBondAmount()` - Insufficient bond tokens
 
 ## Events
 
-Key events for monitoring:
+### Prediction Market Side
+- `MarketResolved` - Market resolved
+- `MarketDisputed` - Market disputed
 
-- `MarketWrapped` - New market created
-- `AssertionSubmitted` - Assertion submitted to UMA
-- `AssertionResolved` - Market resolved
-- `AssertionDisputed` - Market disputed
+### UMA Side
+- `MarketSubmittedToUMA` - Assertion submitted to UMA
+- `MarketResolvedFromUMA` - Market resolved from UMA
+- `MarketDisputedFromUMA` - Market disputed from UMA
+
 
 ## Testing
 
-To test the system:
-
+### Test Flow
 1. Deploy both contracts on test networks
 2. Configure LayerZero endpoints
-3. Submit test assertions
-4. Verify cross-chain communication
-5. Test resolution and dispute flows
+3. Fund UMA side with test bonds
+4. Submit test assertions on UMA side
+5. Verify cross-chain communication
+6. Test resolution and dispute flows
+
+### Test Commands
+```bash
+# Deploy contracts
+npx hardhat run scripts/deploy-resolvers.js --network testnet
+
+# Configure LayerZero
+npx hardhat run scripts/configure-resolvers.js --network testnet
+
+# Test assertions
+npx hardhat run scripts/test-assertions.js --network testnet
+```
 
 ## Dependencies
 

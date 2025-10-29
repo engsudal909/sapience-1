@@ -3,20 +3,20 @@ pragma solidity ^0.8.19;
 
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IPredictionMarketSimpleResolver} from "./interfaces/IPredictionMarketSimpleResolver.sol";
+import {IPredictionMarketLZResolver} from "./interfaces/IPredictionMarketLZResolver.sol";
 import {Encoder} from "../../bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {ETHManagement} from "../../bridge/abstract/ETHManagement.sol";
 
 /**
- * @title PredictionMarketSimpleResolver
+ * @title PredictionMarketLZResolver
  * @notice Simplified LayerZero-based resolver contract for Prediction Market system
  * @dev This contract only receives resolution messages from UMA side via LayerZero
  */
-contract PredictionMarketSimpleResolver is
+contract PredictionMarketLZResolver is
     OApp,
-    IPredictionMarketSimpleResolver,
+    IPredictionMarketLZResolver,
     ReentrancyGuard,
     ETHManagement
 {

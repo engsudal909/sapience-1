@@ -4,11 +4,11 @@ pragma solidity ^0.8.19;
 import {ILayerZeroBridge} from "../../../bridge/interfaces/ILayerZeroBridge.sol";
 
 /**
- * @title IPredictionMarketUmaSimpleResolver
- * @notice Interface for UMA-side Simple LayerZero Prediction Market Resolver
+ * @title IPredictionMarketLZResolverUmaSide
+ * @notice Interface for UMA-side LayerZero Prediction Market Resolver
  * @dev This resolver handles UMA interactions and sends results to prediction market side
  */
-interface IPredictionMarketUmaSimpleResolver is ILayerZeroBridge {
+interface IPredictionMarketLZResolverUmaSide is ILayerZeroBridge {
     // Custom errors
     error OnlyOptimisticOracleV3CanCall();
     error InvalidAssertionId();

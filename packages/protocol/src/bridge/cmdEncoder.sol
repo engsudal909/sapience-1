@@ -12,13 +12,8 @@ library Encoder {
     uint16 constant CMD_FROM_ESCROW_REMOVE_WITHDRAWAL_INTENT = 7;
 
     // Prediction Market Resolver commands
-    uint16 constant CMD_TO_UMA_SUBMIT_ASSERTION = 8;
-    uint16 constant CMD_FROM_UMA_ASSERTION_RESOLVED = 9;
-    uint16 constant CMD_FROM_UMA_ASSERTION_DISPUTED = 10;
-
-    // Simplified Prediction Market Resolver commands
-    uint16 constant CMD_FROM_UMA_MARKET_RESOLVED = 11;
-    uint16 constant CMD_FROM_UMA_MARKET_DISPUTED = 12;
+    uint16 constant CMD_FROM_UMA_MARKET_RESOLVED = 8;
+    uint16 constant CMD_FROM_UMA_MARKET_DISPUTED = 9;
 
     function decodeType(bytes memory data) internal pure returns (uint16, bytes memory) {
         return abi.decode(data, (uint16, bytes));
@@ -75,53 +70,6 @@ library Encoder {
     }
 
     // Prediction Market Resolver commands
-    function encodeToUMASubmitAssertion(
-        bytes32 marketId,
-        bytes memory claim,
-        uint256 endTime,
-        bool resolvedToYes,
-        address asserter,
-        uint64 liveness,
-        address currency,
-        uint256 bond
-    ) internal pure returns (bytes memory) {
-        return abi.encode(marketId, claim, endTime, resolvedToYes, asserter, liveness, currency, bond);
-    }
-
-    function decodeToUMASubmitAssertion(bytes memory data)
-        internal
-        pure
-        returns (bytes32, bytes memory, uint256, bool, address, uint64, address, uint256)
-    {
-        return abi.decode(data, (bytes32, bytes, uint256, bool, address, uint64, address, uint256));
-    }
-
-    function encodeFromUMAAssertionResolved(
-        bytes32 marketId,
-        bytes32 assertionId,
-        bool resolvedToYes,
-        bool assertedTruthfully
-    ) internal pure returns (bytes memory) {
-        return abi.encode(marketId, assertionId, resolvedToYes, assertedTruthfully);
-    }
-
-    function decodeFromUMAAssertionResolved(bytes memory data)
-        internal
-        pure
-        returns (bytes32, bytes32, bool, bool)
-    {
-        return abi.decode(data, (bytes32, bytes32, bool, bool));
-    }
-
-    function encodeFromUMAAssertionDisputed(bytes32 marketId, bytes32 assertionId) internal pure returns (bytes memory) {
-        return abi.encode(marketId, assertionId);
-    }
-
-    function decodeFromUMAAssertionDisputed(bytes memory data) internal pure returns (bytes32, bytes32) {
-        return abi.decode(data, (bytes32, bytes32));
-    }
-
-    // Simplified Prediction Market Resolver commands
     function encodeFromUMAMarketResolved(
         bytes32 marketId,
         bool resolvedToYes,

@@ -7,20 +7,20 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OptimisticOracleV3Interface} from "@uma/core/contracts/optimistic-oracle-v3/interfaces/OptimisticOracleV3Interface.sol";
 import {OptimisticOracleV3CallbackRecipientInterface} from "@uma/core/contracts/optimistic-oracle-v3/interfaces/OptimisticOracleV3CallbackRecipientInterface.sol";
-import {IPredictionMarketUmaLayerZeroResolver} from "./interfaces/IPredictionMarketUmaLayerZeroResolver.sol";
+import {IPredictionMarketLZResolverUmaSide} from "./interfaces/IPredictionMarketLZResolverUmaSide.sol";
 import {Encoder} from "../../bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {ETHManagement} from "../../bridge/abstract/ETHManagement.sol";
 
 /**
- * @title PredictionMarketUmaLayerZeroResolver
- * @notice UMA-side LayerZero resolver contract for Prediction Market system
- * @dev This contract runs on the UMA network and handles UMA interactions
+ * @title PredictionMarketLZResolverUmaSide
+ * @notice Simplified UMA-side LayerZero resolver contract for Prediction Market system
+ * @dev This contract handles UMA interactions and sends results to prediction market side
  */
-contract PredictionMarketUmaLayerZeroResolver is
+contract PredictionMarketLZResolverUmaSide is
     OApp,
-    IPredictionMarketUmaLayerZeroResolver,
+    IPredictionMarketLZResolverUmaSide,
     OptimisticOracleV3CallbackRecipientInterface,
     ReentrancyGuard,
     ETHManagement
@@ -30,7 +30,14 @@ contract PredictionMarketUmaLayerZeroResolver is
     using BridgeTypes for BridgeTypes.BridgeConfig;
     using OptionsBuilder for bytes;
 
-    // ============ State Variables ============
+    // ============ Settings ============
+    struct Settings {
+        address bondCurrency;
+        uint256 bondAmount;
+        uint64 assertionLiveness;
+    }
+
+    Settings public config;
     BridgeTypes.BridgeConfig private bridgeConfig;
     address private optimisticOracleV3Address;
 
@@ -40,13 +47,18 @@ contract PredictionMarketUmaLayerZeroResolver is
     mapping(bytes32 => bool) private marketResolvedToYes; // marketId => resolvedToYes
     mapping(bytes32 => address) private marketAsserter; // marketId => asserter
 
+    // Bond management
+    mapping(address => uint256) private bondBalances; // currency => balance
+
     // ============ Constructor ============
     constructor(
         address _endpoint,
         address _owner,
-        address _optimisticOracleV3
+        address _optimisticOracleV3,
+        Settings memory _config
     ) OApp(_endpoint, _owner) ETHManagement(_owner) {
         optimisticOracleV3Address = _optimisticOracleV3;
+        config = _config;
     }
 
     // ============ Configuration Functions ============
@@ -58,6 +70,10 @@ contract PredictionMarketUmaLayerZeroResolver is
         return bridgeConfig;
     }
 
+    function setConfig(Settings calldata _config) external onlyOwner {
+        config = _config;
+    }
+
     function setOptimisticOracleV3(address _optimisticOracleV3) external onlyOwner {
         optimisticOracleV3Address = _optimisticOracleV3;
         emit OptimisticOracleV3Updated(_optimisticOracleV3);
@@ -67,51 +83,57 @@ contract PredictionMarketUmaLayerZeroResolver is
         return optimisticOracleV3Address;
     }
 
-    // ============ LayerZero Message Handling ============
-    function _lzReceive(Origin calldata _origin, bytes32, bytes calldata _message, address, bytes calldata)
-        internal
-        override
-    {
-        if (_origin.srcEid != bridgeConfig.remoteEid) {
-            revert InvalidSourceChain(bridgeConfig.remoteEid, _origin.srcEid);
-        }
-        if (address(uint160(uint256(_origin.sender))) != bridgeConfig.remoteBridge) {
-            revert InvalidSender(bridgeConfig.remoteBridge, address(uint160(uint256(_origin.sender))));
-        }
-
-        // Handle incoming messages from the prediction market side
-        (uint16 commandType, bytes memory data) = _message.decodeType();
-
-        if (commandType == Encoder.CMD_TO_UMA_SUBMIT_ASSERTION) {
-            _handleSubmitAssertion(data);
-        } else {
-            revert InvalidCommandType(commandType);
-        }
+    // ============ Bond Management Functions ============
+    function depositBond(address bondCurrency, uint256 amount) external nonReentrant {
+        IERC20(bondCurrency).safeTransferFrom(msg.sender, address(this), amount);
+        bondBalances[bondCurrency] += amount;
     }
 
-    // ============ UMA Interaction Functions ============
-    function _handleSubmitAssertion(bytes memory data) internal {
-        (
-            bytes32 marketId,
-            bytes memory claim,
-            uint256 endTime,
-            bool resolvedToYes,
-            address asserter,
-            uint64 liveness,
-            address currency,
-            uint256 bond
-        ) = data.decodeToUMASubmitAssertion();
+    function withdrawBond(address bondCurrency, uint256 amount) external nonReentrant {
+        require(bondBalances[bondCurrency] >= amount, "Insufficient bond balance");
+        bondBalances[bondCurrency] -= amount;
+        IERC20(bondCurrency).safeTransfer(msg.sender, amount);
+    }
 
-        OptimisticOracleV3Interface optimisticOracleV3 = OptimisticOracleV3Interface(optimisticOracleV3Address);
-        IERC20 bondCurrency = IERC20(currency);
+    function getBondBalance(address bondCurrency) external view returns (uint256) {
+        return bondBalances[bondCurrency];
+    }
 
-        // Check if we have enough bond tokens
-        if (bondCurrency.balanceOf(address(this)) < bond) {
-            revert NotEnoughBondAmount(asserter, currency, bond, bondCurrency.balanceOf(address(this)), bondCurrency.balanceOf(address(this)));
+    // ============ UMA Market Validation Functions ============
+    function submitAssertion(
+        bytes calldata claim,
+        uint256 endTime,
+        bool resolvedToYes
+    ) external nonReentrant {
+        if (block.timestamp < endTime) {
+            revert MarketNotEnded();
         }
 
+        bytes32 marketId = keccak256(abi.encodePacked(claim, ":", endTime));
+
+        if (marketIdToAssertionId[marketId] != bytes32(0)) {
+            revert AssertionAlreadySubmitted();
+        }
+
+        OptimisticOracleV3Interface optimisticOracleV3 = OptimisticOracleV3Interface(optimisticOracleV3Address);
+        IERC20 bondCurrency = IERC20(config.bondCurrency);
+
+        // Check if we have enough bond tokens
+        if (bondBalances[config.bondCurrency] < config.bondAmount) {
+            revert NotEnoughBondAmount(
+                msg.sender,
+                config.bondCurrency,
+                config.bondAmount,
+                bondBalances[config.bondCurrency],
+                bondBalances[config.bondCurrency]
+            );
+        }
+
+        // Deduct bond from our balance
+        bondBalances[config.bondCurrency] -= config.bondAmount;
+
         // Approve the bond currency to the Optimistic Oracle V3
-        bondCurrency.forceApprove(address(optimisticOracleV3), bond);
+        bondCurrency.forceApprove(address(optimisticOracleV3), config.bondAmount);
 
         // Get the "false" claim if needed
         bytes memory finalClaim = resolvedToYes ? claim : abi.encodePacked("False: ", claim);
@@ -119,12 +141,12 @@ contract PredictionMarketUmaLayerZeroResolver is
         // Submit the assertion to UMA
         bytes32 umaAssertionId = optimisticOracleV3.assertTruth(
             finalClaim,
-            asserter,
+            msg.sender,
             address(this),
             address(0),
-            liveness,
+            config.assertionLiveness,
             bondCurrency,
-            bond,
+            config.bondAmount,
             optimisticOracleV3.defaultIdentifier(),
             bytes32(0)
         );
@@ -133,12 +155,12 @@ contract PredictionMarketUmaLayerZeroResolver is
         marketIdToAssertionId[marketId] = umaAssertionId;
         assertionIdToMarketId[umaAssertionId] = marketId;
         marketResolvedToYes[marketId] = resolvedToYes;
-        marketAsserter[marketId] = asserter;
+        marketAsserter[marketId] = msg.sender;
 
-        emit AssertionSubmittedToUMA(
+        emit MarketSubmittedToUMA(
             marketId,
             umaAssertionId,
-            asserter,
+            msg.sender,
             claim,
             resolvedToYes
         );
@@ -161,16 +183,15 @@ contract PredictionMarketUmaLayerZeroResolver is
         bool resolvedToYes = marketResolvedToYes[marketId];
 
         // Send resolution back to prediction market side via LayerZero
-        bytes memory commandPayload = Encoder.encodeFromUMAAssertionResolved(
+        bytes memory commandPayload = Encoder.encodeFromUMAMarketResolved(
             marketId,
-            assertionId,
             resolvedToYes,
             assertedTruthfully
         );
 
-        _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_ASSERTION_RESOLVED, commandPayload, false);
+        _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_MARKET_RESOLVED, commandPayload, false);
 
-        emit AssertionResolvedFromUMA(
+        emit MarketResolvedFromUMA(
             marketId,
             assertionId,
             resolvedToYes,
@@ -195,11 +216,11 @@ contract PredictionMarketUmaLayerZeroResolver is
         }
 
         // Send dispute notification back to prediction market side via LayerZero
-        bytes memory commandPayload = Encoder.encodeFromUMAAssertionDisputed(marketId, assertionId);
+        bytes memory commandPayload = Encoder.encodeFromUMAMarketDisputed(marketId);
 
-        _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_ASSERTION_DISPUTED, commandPayload, false);
+        _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_MARKET_DISPUTED, commandPayload, false);
 
-        emit AssertionDisputedFromUMA(marketId, assertionId);
+        emit MarketDisputedFromUMA(marketId, assertionId);
     }
 
     // ============ Helper Functions ============
@@ -251,5 +272,9 @@ contract PredictionMarketUmaLayerZeroResolver is
 
     function getAssertionMarketId(bytes32 assertionId) external view returns (bytes32) {
         return assertionIdToMarketId[assertionId];
+    }
+
+    function getConfig() external view returns (Settings memory) {
+        return config;
     }
 }
