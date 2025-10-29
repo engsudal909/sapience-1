@@ -178,16 +178,12 @@ contract PredictionMarketLZResolver is
         }
     }
 
-    // ============ UMA Callback Functions ============
+    // ============ internal UMA Callback Functions ============
     function marketResolvedCallback(
         bytes32 marketId,
         bool resolvedToYes,
         bool assertedTruthfully
-    ) public {
-        if (msg.sender != address(this)) {
-            revert OnlyRemoteResolverCanCall();
-        }
-
+    ) internal {
         // Create or update the wrapped market
         WrappedMarket storage market = wrappedMarkets[marketId];
         if (market.marketId == bytes32(0)) {
@@ -195,7 +191,7 @@ contract PredictionMarketLZResolver is
             market.marketId = marketId;
         }
 
-        if (assertedTruthfully) {
+        if (assertedTruthfully) { // checking it just in case, the counterpart shouldn't send false, but if the implementation changes this protect setting the wrong values
             market.settled = true;
             market.resolvedToYes = resolvedToYes;
         }

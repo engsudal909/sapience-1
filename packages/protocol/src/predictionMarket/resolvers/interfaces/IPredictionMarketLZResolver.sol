@@ -20,11 +20,4 @@ interface IPredictionMarketLZResolver is IPredictionMarketResolver {
         bool assertedTruthfully,
         uint256 resolutionTime
     );
-
-    // Functions
-    function marketResolvedCallback(
-        bytes32 marketId,
-        bool resolvedToYes,
-        bool assertedTruthfully
-    ) external;
 }

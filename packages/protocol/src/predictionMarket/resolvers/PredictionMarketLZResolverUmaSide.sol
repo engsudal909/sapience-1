@@ -165,14 +165,15 @@ contract PredictionMarketLZResolverUmaSide is
 
         bool resolvedToYes = marketResolvedToYes[marketId];
 
-        // Send resolution back to prediction market side via LayerZero
-        bytes memory commandPayload = Encoder.encodeFromUMAMarketResolved(
-            marketId,
-            resolvedToYes,
-            assertedTruthfully
-        );
-
-        _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_MARKET_RESOLVED, commandPayload, false);
+        // Only forward resolution via LayerZero if UMA confirmed the assertion as truthful
+        if (assertedTruthfully) {
+            bytes memory commandPayload = Encoder.encodeFromUMAMarketResolved(
+                marketId,
+                resolvedToYes,
+                assertedTruthfully
+            );
+            _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_MARKET_RESOLVED, commandPayload, false);
+        }
 
         emit MarketResolvedFromUMA(
             marketId,
@@ -181,7 +182,7 @@ contract PredictionMarketLZResolverUmaSide is
             assertedTruthfully
         );
 
-        // Clean up mappings
+        // Clean up mappings (if asserted truthfully is false, it will allow for new assertions to be submitted)
         delete marketIdToAssertionId[marketId];
         delete assertionIdToMarketId[assertionId];
         delete marketResolvedToYes[marketId];
@@ -197,11 +198,6 @@ contract PredictionMarketLZResolverUmaSide is
         if (marketId == bytes32(0)) {
             revert InvalidAssertionId();
         }
-
-        // Send dispute notification back to prediction market side via LayerZero
-        bytes memory commandPayload = Encoder.encodeFromUMAMarketDisputed(marketId);
-
-        _sendLayerZeroMessageWithQuote(Encoder.CMD_FROM_UMA_MARKET_DISPUTED, commandPayload, false);
 
         emit MarketDisputedFromUMA(marketId, assertionId);
     }
