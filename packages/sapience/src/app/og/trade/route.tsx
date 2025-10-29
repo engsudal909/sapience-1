@@ -16,6 +16,7 @@ import {
   Footer,
   addThousandsSeparators,
   computePotentialReturn,
+  SectionLabel,
 } from '../_shared';
 
 export const runtime = 'edge';
@@ -93,7 +94,11 @@ export async function GET(req: Request) {
                   gap: 16 * scale,
                 }}
               >
-                <PredictionsLabel scale={scale} count={1} />
+                <PredictionsLabel
+                  scale={scale}
+                  count={1}
+                  against={Boolean(lowerDir.includes('on no'))}
+                />
                 <div
                   style={{
                     display: 'flex',
@@ -102,6 +107,7 @@ export async function GET(req: Request) {
                     gap: 12 * scale,
                   }}
                 >
+                  <SectionLabel scale={scale}>Question</SectionLabel>
                   <div
                     style={{
                       display: 'block',
@@ -109,13 +115,15 @@ export async function GET(req: Request) {
                       lineHeight: `${48 * scale}px`,
                       fontWeight: 700,
                       letterSpacing: -0.16 * scale,
-                      color: og.colors.foregroundLight,
+                      color: og.colors.brandWhite,
+                      fontFamily:
+                        'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                     }}
                   >
                     {question}
                   </div>
                   {shouldShowPill && (
-                    <div style={{ display: 'flex', marginTop: 8 * scale }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
                       <Pill
                         text={yesNoLabel || longShortLabel}
                         tone={

@@ -379,7 +379,7 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
     return (
       <div className="w-full md:flex-1 h-full flex items-center justify-center text-muted-foreground border border-muted rounded bg-secondary/20">
         <div className="flex flex-col items-center justify-center gap-2">
-          <LottieLoader width={40} height={40} className="opacity-80" />
+          <LottieLoader width={40} height={40} />
           <span>No wagers yet...</span>
         </div>
       </div>
