@@ -16,7 +16,7 @@ interface IPredictionMarketResolver {
         bytes calldata encodedPredictedOutcomes
     ) external view returns (bool isValid, Error error);
 
-    function resolvePrediction(
+    function getPredictionResolution(
         bytes calldata encodedPredictedOutcomes
-    ) external view returns (bool isValid, Error error, bool makerWon);
+    ) external view returns (bool isResolved, Error error, bool parlaySuccess);
 }

@@ -26,7 +26,7 @@ export const umaResolver: ChainAddressMap = {
 
 export const passiveLiquidityVault: ChainAddressMap = {
   42161: {
-    address: '0xcc1c64e849395d31d059a4bd19391af64d8855d7',
+    address: '0xdb90a48a359b4ca17ef4e760201564d910de921c',
     legacy: [] as const,
   },
 } as const;
