@@ -88,7 +88,13 @@ function MaxPayoutCell({ position }: { position: PositionType }) {
 
     return (
       <>
-        <NumberDisplay value={displayAmount} /> {collateralSymbol}
+        <NumberDisplay
+          value={displayAmount}
+          className="tabular-nums text-brand-white font-mono"
+        />{' '}
+        <span className="tabular-nums text-brand-white font-mono">
+          {collateralSymbol}
+        </span>
       </>
     );
   }
@@ -182,19 +188,36 @@ function PositionValueCell({ position }: { position: PositionType }) {
 
   return (
     <div>
-      <div className="whitespace-nowrap">
-        <NumberDisplay value={currentPositionValue} /> {collateralSymbol}{' '}
+      <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+        <NumberDisplay
+          value={currentPositionValue}
+          className="tabular-nums text-brand-white font-mono"
+        />{' '}
+        <span className="tabular-nums text-brand-white font-mono">
+          {collateralSymbol}
+        </span>{' '}
         {/* A positive pnl means a gain (value > wager), so green. A negative pnl means a loss. */}
         {!shouldHideShareValue && (
-          <small className={pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
+          <small
+            className={`tabular-nums font-mono ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}
+          >
             ({pnlPercentage.toFixed(2)}%)
           </small>
         )}
       </div>
       {!shouldHideShareValue && (
         <div className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1 whitespace-nowrap">
-          Share Value: <NumberDisplay value={avgPricePerToken} /> →{' '}
-          <NumberDisplay value={currentPricePerToken} /> {collateralSymbol}
+          Share Value:{' '}
+          <NumberDisplay
+            value={avgPricePerToken}
+            className="tabular-nums font-mono"
+          />{' '}
+          →{' '}
+          <NumberDisplay
+            value={currentPricePerToken}
+            className="tabular-nums font-mono"
+          />{' '}
+          {collateralSymbol}
         </div>
       )}
     </div>
@@ -294,7 +317,7 @@ export default function TraderPositionsTable({
                 onClick={() =>
                   column.toggleSorting(column.getIsSorted() === 'asc')
                 }
-                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
                 aria-sort={
                   column.getIsSorted() === false
                     ? 'none'
@@ -460,9 +483,14 @@ export default function TraderPositionsTable({
             return (
               <div>
                 <div className="flex flex-wrap items-center gap-1">
-                  <span className="whitespace-nowrap">
-                    <NumberDisplay value={collateralAmount} />{' '}
-                    {collateralSymbol}
+                  <span className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                    <NumberDisplay
+                      value={collateralAmount}
+                      className="tabular-nums text-brand-white font-mono"
+                    />{' '}
+                    <span className="tabular-nums text-brand-white font-mono">
+                      {collateralSymbol}
+                    </span>
                   </span>
                   {isYesNo ? (
                     <>
@@ -524,7 +552,7 @@ export default function TraderPositionsTable({
                 onClick={() =>
                   column.toggleSorting(column.getIsSorted() === 'asc')
                 }
-                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
                 aria-sort={
                   column.getIsSorted() === false
                     ? 'none'
@@ -733,7 +761,7 @@ export default function TraderPositionsTable({
 
   return (
     <div>
-      <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+      <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
         <Table className="table-auto">
           <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
             {table.getHeaderGroups().map((headerGroup) => (

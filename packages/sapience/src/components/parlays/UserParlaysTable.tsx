@@ -21,7 +21,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { ArrowUpDown, ArrowUp, ArrowDown, HelpCircle } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import * as React from 'react';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { useReadContracts, useAccount } from 'wagmi';
@@ -59,6 +59,101 @@ import ShareDialog from '~/components/shared/ShareDialog';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge';
 import EnsAvatar from '~/components/shared/EnsAvatar';
+import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
+
+function PredictionsScroller({
+  legs,
+  showAntiParlay,
+}: {
+  legs: {
+    question: string;
+    choice: 'Yes' | 'No';
+    conditionId?: string;
+    endTime?: number | null;
+    description?: string | null;
+  }[];
+  showAntiParlay: boolean;
+}) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [showRightGradient, setShowRightGradient] = React.useState(false);
+
+  const updateGradientVisibility = React.useCallback(() => {
+    const el = containerRef.current;
+    if (!el) {
+      setShowRightGradient(false);
+      return;
+    }
+    const canScroll = el.scrollWidth > el.clientWidth + 1;
+    if (!canScroll) {
+      setShowRightGradient(false);
+      return;
+    }
+    const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+    setShowRightGradient(!atEnd);
+  }, []);
+
+  React.useEffect(() => {
+    updateGradientVisibility();
+    const el = containerRef.current;
+    if (!el) return;
+    const onScroll = () => updateGradientVisibility();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const onResize = () => updateGradientVisibility();
+    window.addEventListener('resize', onResize);
+    const ro = new ResizeObserver(() => updateGradientVisibility());
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      ro.disconnect();
+    };
+  }, [updateGradientVisibility]);
+
+  return (
+    <div className="relative w-full max-w-full xl:max-w-[320px]">
+      <div
+        ref={containerRef}
+        className="overflow-hidden xl:overflow-x-auto whitespace-normal xl:whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex items-start gap-3 pr-0 xl:pr-16 flex-wrap xl:flex-nowrap">
+          {showAntiParlay && (
+            <div className="shrink-0">
+              <AntiParlayBadge />
+            </div>
+          )}
+          {legs.map((l, idx) => (
+            <div key={idx} className="flex items-center gap-2 shrink-0">
+              <ConditionTitleLink
+                conditionId={l.conditionId}
+                title={l.question}
+                endTime={l.endTime}
+                description={l.description}
+                clampLines={1}
+              />
+              <Badge
+                variant="outline"
+                className={
+                  l.choice === 'Yes'
+                    ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-green-500/40 bg-green-500/10 text-green-600 font-mono'
+                    : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-red-500/40 bg-red-500/10 text-red-600 font-mono'
+                }
+              >
+                {l.choice}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </div>
+      {showRightGradient && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-brand-black to-transparent group-hover:from-muted/50 transition-colors"
+        />
+      )}
+    </div>
+  );
+}
 
 function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
@@ -519,20 +614,18 @@ export default function UserParlaysTable({
   const columns = React.useMemo<ColumnDef<UIParlay>[]>(
     () => [
       {
-        id: 'positionId',
-        accessorFn: (row) => row.positionId,
-        sortingFn: (rowA, rowB) =>
-          rowA.original.createdAt - rowB.original.createdAt,
-        size: 360,
-        minSize: 260,
-        maxSize: 420,
+        id: 'created',
+        accessorFn: (row) => row.createdAt,
+        size: 300,
+        minSize: 0,
+        maxSize: 300,
         header: ({ column }) => (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -541,7 +634,7 @@ export default function UserParlaysTable({
                   : 'descending'
             }
           >
-            Position
+            Created
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp className="ml-1 h-4 w-4" />
             ) : column.getIsSorted() === 'desc' ? (
@@ -567,16 +660,14 @@ export default function UserParlaysTable({
           });
           return (
             <div>
-              <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em] mb-0.5">
-                Position #{row.original.positionId}
-              </h2>
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                Created
+              </div>
+              <div className="text-[15px] leading-[1.35] tracking-[-0.01em] mb-0.5 whitespace-nowrap">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="cursor-help">
-                        created {createdDisplay}
-                      </span>
+                      <span className="cursor-help">{createdDisplay}</span>
                     </TooltipTrigger>
                     <TooltipContent>
                       <div>{exactLocalDisplay}</div>
@@ -584,6 +675,7 @@ export default function UserParlaysTable({
                   </Tooltip>
                 </TooltipProvider>
               </div>
+              <div className="text-sm text-muted-foreground whitespace-nowrap">{`Position #${row.original.positionId}`}</div>
             </div>
           );
         },
@@ -596,56 +688,14 @@ export default function UserParlaysTable({
         minSize: 300,
         header: () => <span>Predictions</span>,
         cell: ({ row }) => (
-          <div className="space-y-1">
-            {row.original.addressRole === 'taker' && (
-              <div className="mb-1">
-                <div className="flex items-center gap-1">
-                  <Badge variant="outline">Anti-Parlay</Badge>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Anti-Parlay details"
-                          className="inline-flex items-center justify-center h-5 w-5 text-muted-foreground hover:text-foreground"
-                        >
-                          <HelpCircle className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          This position is that one or more of these conditions
-                          will not be met.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-            )}
-            <div className="space-y-1">
-              {row.original.legs.map((l, idx) => (
-                <div key={idx} className="text-sm flex items-center gap-2">
-                  <ConditionTitleLink
-                    conditionId={l.conditionId}
-                    title={l.question}
-                    endTime={l.endTime}
-                    description={l.description}
-                    clampLines={1}
-                  />
-                  <Badge
-                    variant="outline"
-                    className={
-                      l.choice === 'Yes'
-                        ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 shrink-0 font-mono'
-                        : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 shrink-0 font-mono'
-                    }
-                  >
-                    {l.choice}
-                  </Badge>
-                </div>
-              ))}
+          <div className="text-sm">
+            <div className="xl:hidden text-xs text-muted-foreground mb-1">
+              Predictions
             </div>
+            <PredictionsScroller
+              legs={row.original.legs}
+              showAntiParlay={row.original.addressRole === 'taker'}
+            />
           </div>
         ),
       },
@@ -657,25 +707,31 @@ export default function UserParlaysTable({
         size: 220,
         minSize: 160,
         header: () => <span>Counterparty</span>,
-        cell: ({ row }) =>
-          row.original.counterpartyAddress ? (
-            <div className="whitespace-nowrap text-[15px]">
-              <div className="flex items-center gap-2">
-                <EnsAvatar
-                  address={row.original.counterpartyAddress}
-                  className="w-5 h-5 rounded-sm ring-1 ring-border/50"
-                  width={20}
-                  height={20}
-                />
-                <AddressDisplay
-                  address={row.original.counterpartyAddress}
-                  className="text-[15px]"
-                />
-              </div>
+        cell: ({ row }) => (
+          <div>
+            <div className="xl:hidden text-xs text-muted-foreground mb-1">
+              Counterparty
             </div>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+            {row.original.counterpartyAddress ? (
+              <div className="whitespace-nowrap text-[15px]">
+                <div className="flex items-center gap-2">
+                  <EnsAvatar
+                    address={row.original.counterpartyAddress}
+                    className="w-5 h-5 rounded-sm ring-1 ring-border/50"
+                    width={20}
+                    height={20}
+                  />
+                  <AddressDisplay
+                    address={row.original.counterpartyAddress}
+                    className="text-[15px]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </div>
+        ),
       },
 
       {
@@ -698,7 +754,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -718,11 +774,7 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'USDe';
-          const isClosed = row.original.status !== 'active';
-          const totalPayout = Number(
-            formatEther(row.original.totalPayoutWei || 0n)
-          );
+          const symbol = 'testUSDe';
           const viewerWagerWei =
             row.original.addressRole === 'maker'
               ? (row.original.makerCollateralWei ?? 0n)
@@ -735,14 +787,86 @@ export default function UserParlaysTable({
 
           return (
             <div>
-              <div className="whitespace-nowrap">
-                <NumberDisplay value={viewerWager} /> {symbol}
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                Wager
               </div>
-              {!isClosed && (
-                <div className="text-sm text-muted-foreground mt-0.5 flex items-baseline gap-1 whitespace-nowrap">
-                  To Win: <NumberDisplay value={totalPayout} /> {symbol}
+              <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                <NumberDisplay
+                  value={viewerWager}
+                  className="tabular-nums text-brand-white font-mono"
+                />{' '}
+                <span className="tabular-nums text-brand-white font-mono">
+                  {symbol}
+                </span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: 'toWin',
+        accessorFn: (row) => {
+          const totalPayout = Number(formatEther(row.totalPayoutWei || 0n));
+          // For sorting, treat lost as 0
+          if (row.status === 'lost') return 0;
+          return totalPayout;
+        },
+        size: 180,
+        minSize: 150,
+        header: ({ column }) => (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
+            aria-sort={
+              column.getIsSorted() === false
+                ? 'none'
+                : column.getIsSorted() === 'asc'
+                  ? 'ascending'
+                  : 'descending'
+            }
+          >
+            To Win
+            {column.getIsSorted() === 'asc' ? (
+              <ArrowUp className="ml-1 h-4 w-4" />
+            ) : column.getIsSorted() === 'desc' ? (
+              <ArrowDown className="ml-1 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
+            )}
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const symbol = 'testUSDe';
+          const totalPayout = Number(
+            formatEther(row.original.totalPayoutWei || 0n)
+          );
+          if (row.original.status === 'lost') {
+            return (
+              <div>
+                <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                  To Win
                 </div>
-              )}
+                <span className="text-muted-foreground">—</span>
+              </div>
+            );
+          }
+          return (
+            <div>
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                To Win
+              </div>
+              <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                <NumberDisplay
+                  value={totalPayout}
+                  className="tabular-nums text-brand-white font-mono"
+                />{' '}
+                <span className="tabular-nums text-brand-white font-mono">
+                  {symbol}
+                </span>
+              </div>
             </div>
           );
         },
@@ -761,7 +885,7 @@ export default function UserParlaysTable({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -785,7 +909,14 @@ export default function UserParlaysTable({
           const isClosed = row.original.status !== 'active';
 
           if (!isClosed) {
-            return <span className="text-muted-foreground">Pending</span>;
+            return (
+              <div>
+                <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                  Profit/Loss
+                </div>
+                <span className="text-muted-foreground">Pending</span>
+              </div>
+            );
           }
 
           const pnlValue = Number(
@@ -804,20 +935,29 @@ export default function UserParlaysTable({
 
           return (
             <div>
-              <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-                <span>
-                  {pnlValue >= 0 ? '+' : '-'}
-                  <NumberDisplay value={Math.abs(pnlValue)} /> {symbol}
-                </span>
-                {viewerWager > 0 && (
-                  <span
-                    className={`text-xs ${pnlValue >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                  >
-                    ({roi >= 0 ? '+' : ''}
-                    {roi.toFixed(2)}%)
-                  </span>
-                )}
+              <div className="xl:hidden text-xs text-muted-foreground mb-1">
+                Profit/Loss
               </div>
+              <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                <span className="tabular-nums text-brand-white font-mono">
+                  {pnlValue < 0 ? '-' : ''}
+                </span>
+                <NumberDisplay
+                  value={Math.abs(pnlValue)}
+                  className="tabular-nums text-brand-white font-mono"
+                />{' '}
+                <span className="tabular-nums text-brand-white font-mono">
+                  {symbol}
+                </span>
+              </div>
+              {viewerWager > 0 && (
+                <div
+                  className={`text-xs tabular-nums font-mono ${pnlValue >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  ({roi >= 0 ? '+' : ''}
+                  {roi.toFixed(2)}%)
+                </div>
+              )}
             </div>
           );
         },
@@ -988,7 +1128,7 @@ export default function UserParlaysTable({
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([
-    { id: 'positionId', desc: true },
+    { id: 'created', desc: true },
   ]);
 
   const table = useReactTable({
@@ -1013,7 +1153,7 @@ export default function UserParlaysTable({
       {rows.length === 0 ? (
         <EmptyTabState message="No parlays found" />
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+        <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
           <Table className="table-auto">
             <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
               {table.getHeaderGroups().map((headerGroup) => (
@@ -1040,7 +1180,7 @@ export default function UserParlaysTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
+                  className="group xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

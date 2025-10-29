@@ -5,14 +5,13 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { formatEther } from 'viem';
-
-import { HelpCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
+import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import ParlayLegsList from '~/components/shared/ParlayLegsList';
@@ -253,33 +252,16 @@ export function TransactionTypeCell({ tx }: { tx: UiTransaction }) {
     String(typeDisplay.label || '').toLowerCase() === 'anti-parlay';
   return (
     <div className="flex items-center gap-1">
-      <Badge
-        variant={typeDisplay.variant}
-        className={`${typeDisplay.className ?? ''} whitespace-nowrap`}
-      >
-        {typeDisplay.label}
-      </Badge>
       {isAntiParlay ? (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label="Anti-Parlay details"
-                className="inline-flex items-center justify-center h-5 w-5 text-muted-foreground hover:text-foreground"
-              >
-                <HelpCircle className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                This position is that one or more of the conditions in question
-                will not be met.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : null}
+        <AntiParlayBadge />
+      ) : (
+        <Badge
+          variant={typeDisplay.variant}
+          className={`${typeDisplay.className ?? ''} whitespace-nowrap`}
+        >
+          {typeDisplay.label}
+        </Badge>
+      )}
     </div>
   );
 }

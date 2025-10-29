@@ -24,12 +24,12 @@ const StatTile = ({
   Icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) => {
   return (
-    <Card className="bg-brand-black text-brand-white/90 border border-brand-white/10">
-      <CardContent className="p-3 lg:p-5">
+    <Card className="bg-brand-black text-brand-white/90 border border-border w-full lg:w-auto">
+      <CardContent className="py-3 px-3 lg:py-4 lg:px-4">
         <div className="flex items-center gap-3">
           {Icon ? (
             <Icon
-              className="w-14 h-14 text-muted-foreground/50 shrink-0"
+              className="w-12 h-12 text-muted-foreground/50 shrink-0"
               strokeWidth={1.25}
             />
           ) : null}
@@ -37,8 +37,8 @@ const StatTile = ({
             <div className="text-sm text-muted-foreground font-medium mb-0.5">
               {label}
             </div>
-            <div className="flex flex-col items-start gap-1 md:flex-row md:items-baseline md:gap-2">
-              <div className="text-xl md:text-2xl font-heading font-normal">
+            <div className="flex flex-row items-baseline gap-2">
+              <div className="text-lg md:text-xl font-mono font-normal tabular-nums">
                 {value}
               </div>
               {sublabel ? (
@@ -69,7 +69,7 @@ const ProfileStats = ({ address, className }: ProfileStatsProps) => {
   const pnlRank = profitLoading
     ? '—'
     : profit?.rank
-      ? `Rank #${profit.rank} of ${profit.totalParticipants}`
+      ? `Rank #${profit.rank}`
       : 'Not ranked';
 
   const accValue = accuracyLoading
@@ -81,28 +81,41 @@ const ProfileStats = ({ address, className }: ProfileStatsProps) => {
   const accRank = accuracyLoading
     ? '—'
     : accuracy?.rank
-      ? `Rank #${accuracy.rank} of ${accuracy.totalForecasters}`
+      ? `Rank #${accuracy.rank}`
       : 'Not ranked';
+
+  // Hide boxes if they have no ranking
+  const showPnl = !profitLoading && profit?.rank;
+  const showAccuracy = !accuracyLoading && accuracy?.rank;
+
+  // If both are hidden, return null or show nothing
+  if (!showPnl && !showAccuracy) {
+    return null;
+  }
 
   return (
     <div
       className={cn(
-        'grid grid-cols-1 lg:grid-cols-2 gap-4 my-4 lg:my-6',
+        'grid grid-cols-1 lg:auto-cols-max lg:grid-flow-col gap-4',
         className
       )}
     >
-      <StatTile
-        label="Realized Profit/Loss"
-        value={pnlValue}
-        sublabel={pnlRank}
-        Icon={BarChart2}
-      />
-      <StatTile
-        label="Accuracy Score"
-        value={accValue}
-        sublabel={accRank}
-        Icon={Target}
-      />
+      {showPnl && (
+        <StatTile
+          label="Realized Profit/Loss"
+          value={pnlValue}
+          sublabel={pnlRank}
+          Icon={BarChart2}
+        />
+      )}
+      {showAccuracy && (
+        <StatTile
+          label="Accuracy Score"
+          value={accValue}
+          sublabel={accRank}
+          Icon={Target}
+        />
+      )}
     </div>
   );
 };

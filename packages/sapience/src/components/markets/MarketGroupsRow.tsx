@@ -323,7 +323,7 @@ const MarketGroupsRow = ({
                 href={`/markets/${chainShortName}:${marketAddress}`}
                 className="group"
               >
-                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-foreground/60">
+                <span className="font-mono text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80">
                   {displayQuestion}
                 </span>
               </Link>

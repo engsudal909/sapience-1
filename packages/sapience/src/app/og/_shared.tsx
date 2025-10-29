@@ -20,7 +20,22 @@ export function normalizeText(val: string | null, max: number): string {
 }
 
 export async function loadFontData(req: Request) {
-  const [regular, demi, bold] = await Promise.all([
+  const fetchOptionalFont = async (path: string, timeoutMs = 250) => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(new URL(path, req.url), {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) return null;
+      return await res.arrayBuffer();
+    } catch {
+      return null;
+    }
+  };
+
+  const [regular, demi, bold, plex400, plex600] = await Promise.all([
     fetch(
       new URL(
         '/AvenirNextRoundedRegular-1080183-export/AvenirNextRoundedRegular-1080183.ttf',
@@ -39,16 +54,26 @@ export async function loadFontData(req: Request) {
         req.url
       )
     ).then((res) => res.arrayBuffer()),
+    // Optional: IBM Plex Mono local assets if present (fast timeout)
+    fetchOptionalFont('/fonts/ibm-plex-mono/plex-mono-400.woff'),
+    fetchOptionalFont('/fonts/ibm-plex-mono/plex-mono-600.woff'),
   ]);
-  return { regular, demi, bold } as const;
+  return { regular, demi, bold, plex400, plex600 } as const;
 }
 
 export function fontsFromData(fonts: {
   regular: ArrayBuffer;
   demi: ArrayBuffer;
   bold: ArrayBuffer;
+  plex400?: ArrayBuffer | null;
+  plex600?: ArrayBuffer | null;
 }) {
-  return [
+  const out: Array<{
+    name: string;
+    data: ArrayBuffer;
+    weight: 400 | 600 | 700;
+    style: 'normal';
+  }> = [
     {
       name: 'AvenirNextRounded',
       data: fonts.regular,
@@ -68,6 +93,23 @@ export function fontsFromData(fonts: {
       style: 'normal' as const,
     },
   ];
+  if (fonts.plex400) {
+    out.push({
+      name: 'IBMPlexMono',
+      data: fonts.plex400,
+      weight: 400,
+      style: 'normal',
+    });
+  }
+  if (fonts.plex600) {
+    out.push({
+      name: 'IBMPlexMono',
+      data: fonts.plex600,
+      weight: 600,
+      style: 'normal',
+    });
+  }
+  return out;
 }
 
 export function commonAssets(req: Request) {
@@ -88,6 +130,14 @@ export function addThousandsSeparators(numStr: string): string {
 
 export function formatMoney(numStr: string): string {
   return addThousandsSeparators(numStr);
+}
+
+// Normalize currency symbols used on OG cards. If empty or USDe, fallback to testUSDe.
+export function normalizeSymbol(symbol?: string | null): string {
+  const s = (symbol || '').trim();
+  if (!s) return 'testUSDe';
+  if (s.toLowerCase() === 'usde') return 'testUSDe';
+  return s;
 }
 
 export function Background({
@@ -162,13 +212,13 @@ export function PredictionsLabel({
         fontSize: 24 * scale,
         lineHeight: `${30 * scale}px`,
         fontWeight: 600,
-        color: og.colors.mutedWhite64,
+        color: og.colors.foregroundLight,
+        textTransform: 'uppercase',
+        letterSpacing: 0.06 * scale + 'em',
       }}
     >
       {against
-        ? count === 1
-          ? 'Prediction Against'
-          : 'Predictions Against'
+        ? 'Predicted Against'
         : count === 1
           ? 'Prediction'
           : 'Predictions'}
@@ -191,7 +241,7 @@ export function BottomIdentity({
   scale?: number;
 }) {
   const avatarSize = 144 * scale;
-  const radius = 16 * scale;
+  const radius = 6 * scale; // tighter rounding per request
   return (
     <div
       style={{
@@ -237,7 +287,7 @@ export function BottomIdentity({
               display: 'flex',
               width: avatarSize - Math.max(4, Math.round(12 * scale)),
               height: avatarSize - Math.max(4, Math.round(12 * scale)),
-              borderRadius: Math.max(2, Math.round(radius - 6 * scale)),
+              borderRadius: Math.max(2, Math.round(radius - 2 * scale)),
               objectFit: 'contain',
               background: 'rgba(0,0,0,0.08)',
               border: `1px solid rgba(255,255,255,0.12)`,
@@ -253,6 +303,8 @@ export function BottomIdentity({
           lineHeight: `${24 * scale}px`,
           fontWeight: 600,
           color: og.colors.mutedWhite64,
+          fontFamily:
+            'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         }}
       >
         {truncateAddress(addr)}
@@ -303,19 +355,17 @@ export function StatsRow({
     display: 'flex',
     fontSize: 32 * scale,
     lineHeight: `${32 * scale}px`,
-    fontWeight: 800,
-    color: og.colors.white,
+    fontWeight: 700,
+    color: og.colors.brandWhite,
+    fontFamily:
+      'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   };
   const colStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     flex: 1,
   };
-  const normalizedSymbol = (_symbol || '').trim();
-  const symbolText =
-    !normalizedSymbol || normalizedSymbol.toLowerCase() === 'usde'
-      ? 'testUSDe'
-      : normalizedSymbol;
+  const symbolText = normalizeSymbol(_symbol);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div
@@ -340,7 +390,12 @@ export function StatsRow({
             <FooterLabel scale={scale}>Wagered</FooterLabel>
           </div>
           <div
-            style={{ display: 'flex', alignItems: 'flex-end', gap: 8 * scale }}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 8 * scale,
+              whiteSpace: 'nowrap',
+            }}
           >
             <div style={valueStyle}>{wager}</div>
             {symbolText ? (
@@ -352,6 +407,8 @@ export function StatsRow({
                   lineHeight: `${24 * scale}px`,
                   fontWeight: 600,
                   color: og.colors.white,
+                  fontFamily:
+                    'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                 }}
               >
                 {symbolText}
@@ -364,7 +421,12 @@ export function StatsRow({
             <FooterLabel scale={scale}>To Win</FooterLabel>
           </div>
           <div
-            style={{ display: 'flex', alignItems: 'flex-end', gap: 8 * scale }}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 8 * scale,
+              whiteSpace: 'nowrap',
+            }}
           >
             <div
               style={{
@@ -383,6 +445,8 @@ export function StatsRow({
                   lineHeight: `${24 * scale}px`,
                   fontWeight: 600,
                   color: forceToWinGreen ? og.colors.success : og.colors.white,
+                  fontFamily:
+                    'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                 }}
               >
                 {symbolText}
@@ -427,11 +491,11 @@ export function StatsRow({
           fontSize: 27 * scale,
           lineHeight: `${36 * scale}px`,
           fontWeight: 600,
-          color: og.colors.mutedWhite56,
+          color: og.colors.foregroundLight,
         }}
       >
         <span>Forecast the future on</span>
-        <span style={{ marginLeft: 6 * scale, color: og.colors.white }}>
+        <span style={{ marginLeft: 6 * scale, color: og.colors.accentGold }}>
           www.sapience.xyz
         </span>
       </div>
@@ -518,15 +582,17 @@ export function LiquidityStatsRow({
     display: 'flex',
     fontSize: 32 * scale,
     lineHeight: `${32 * scale}px`,
-    fontWeight: 800,
-    color: og.colors.white,
+    fontWeight: 700,
+    color: og.colors.brandWhite,
+    fontFamily:
+      'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   };
   const colStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     flex: 1,
   };
-  const symbolText = 'testUSDe';
+  const symbolText = normalizeSymbol(_symbol || '');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div
@@ -541,7 +607,12 @@ export function LiquidityStatsRow({
             <FooterLabel scale={scale}>Low Price</FooterLabel>
           </div>
           <div
-            style={{ display: 'flex', alignItems: 'flex-end', gap: 8 * scale }}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 8 * scale,
+              whiteSpace: 'nowrap',
+            }}
           >
             <div style={valueStyle}>{lowPrice}</div>
             <div
@@ -552,6 +623,8 @@ export function LiquidityStatsRow({
                 lineHeight: `${24 * scale}px`,
                 fontWeight: 600,
                 color: og.colors.white,
+                fontFamily:
+                  'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
               }}
             >
               {symbolText}
@@ -563,7 +636,12 @@ export function LiquidityStatsRow({
             <FooterLabel scale={scale}>High Price</FooterLabel>
           </div>
           <div
-            style={{ display: 'flex', alignItems: 'flex-end', gap: 8 * scale }}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 8 * scale,
+              whiteSpace: 'nowrap',
+            }}
           >
             <div style={valueStyle}>{highPrice}</div>
             <div
@@ -574,6 +652,8 @@ export function LiquidityStatsRow({
                 lineHeight: `${24 * scale}px`,
                 fontWeight: 600,
                 color: og.colors.white,
+                fontFamily:
+                  'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
               }}
             >
               {symbolText}
@@ -609,11 +689,11 @@ export function LiquidityStatsRow({
           fontSize: 27 * scale,
           lineHeight: `${36 * scale}px`,
           fontWeight: 600,
-          color: og.colors.mutedWhite56,
+          color: og.colors.foregroundLight,
         }}
       >
         <span>Forecast the future on</span>
-        <span style={{ marginLeft: 6 * scale, color: og.colors.white }}>
+        <span style={{ marginLeft: 6 * scale, color: og.colors.accentGold }}>
           www.sapience.xyz
         </span>
       </div>
@@ -689,24 +769,16 @@ export function ForecastStatsRow({
     display: 'flex',
     fontSize: 32 * scale,
     lineHeight: `${40 * scale}px`,
-    fontWeight: 800,
-    color: og.colors.white,
+    fontWeight: 700,
+    color: og.colors.brandWhite,
+    fontFamily:
+      'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   };
   const colStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     flex: 1,
   };
-  const oddsNumber = (() => {
-    if (!odds) return null;
-    const cleaned = String(odds).replace(/%/g, '').trim();
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : null;
-  })();
-  const oddsColor =
-    oddsNumber !== null && oddsNumber < 50
-      ? og.colors.danger
-      : og.colors.success;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div
@@ -745,11 +817,7 @@ export function ForecastStatsRow({
           >
             <div
               style={{
-                display: 'flex',
-                fontSize: 32 * scale,
-                lineHeight: `${40 * scale}px`,
-                fontWeight: 800,
-                color: oddsColor,
+                ...valueStyle,
               }}
             >
               {odds ? `${odds} Chance` : ''}
@@ -765,11 +833,11 @@ export function ForecastStatsRow({
           fontSize: 27 * scale,
           lineHeight: `${36 * scale}px`,
           fontWeight: 600,
-          color: og.colors.mutedWhite56,
+          color: og.colors.foregroundLight,
         }}
       >
         <span>Forecast the future on</span>
-        <span style={{ marginLeft: 6 * scale, color: og.colors.white }}>
+        <span style={{ marginLeft: 6 * scale, color: og.colors.accentGold }}>
           www.sapience.xyz
         </span>
       </div>
@@ -901,6 +969,31 @@ export function SmallLabel({
   );
 }
 
+// SectionLabel matches the small caps section headings used on OG cards, scaled.
+export function SectionLabel({
+  children,
+  scale = 1,
+}: {
+  children: React.ReactNode;
+  scale?: number;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        fontSize: 24 * scale,
+        lineHeight: `${30 * scale}px`,
+        fontWeight: 600,
+        color: og.colors.foregroundLight,
+        textTransform: 'uppercase',
+        letterSpacing: 0.06 * scale + 'em',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function FooterLabel({
   children,
   scale = 1,
@@ -915,7 +1008,9 @@ export function FooterLabel({
         fontSize: 24 * scale,
         lineHeight: `${30 * scale}px`,
         fontWeight: 600,
-        color: 'rgba(255,255,255,0.64)',
+        color: og.colors.foregroundLight,
+        textTransform: 'uppercase',
+        letterSpacing: 0.06 * scale + 'em',
       }}
     >
       {children}
@@ -942,6 +1037,122 @@ const pillTones: Record<PillTone, { bg: string; fg: string; border: string }> =
     },
   };
 
+function computePillStyle(scale: number, tone: PillTone) {
+  const t = pillTones[tone];
+  const toRgba = (css: string, alpha: number) => {
+    if (!css) return css;
+    if (css.startsWith('rgb(')) {
+      const inside = css.slice(4, -1);
+      return `rgba(${inside}, ${alpha})`;
+    }
+    if (css.startsWith('#')) {
+      // Convert hex to rgba
+      const hex = css.replace('#', '');
+      const bigint = parseInt(
+        hex.length === 3
+          ? hex
+              .split('')
+              .map((c) => c + c)
+              .join('')
+          : hex,
+        16
+      );
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    if (css.startsWith('hsl(')) {
+      // Parse hsl(H S% L%) or hsl(H S% L% / A)
+      const inside = css.slice(4, -1).split('/')[0].trim();
+      const [hStr, sStr, lStr] = inside.split(/\s+/);
+      const h = parseFloat(hStr);
+      const s = parseFloat(sStr.replace('%', '')) / 100;
+      const l = parseFloat(lStr.replace('%', '')) / 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l - c / 2;
+      let r1 = 0,
+        g1 = 0,
+        b1 = 0;
+      if (h >= 0 && h < 60) {
+        r1 = c;
+        g1 = x;
+        b1 = 0;
+      } else if (h < 120) {
+        r1 = x;
+        g1 = c;
+        b1 = 0;
+      } else if (h < 180) {
+        r1 = 0;
+        g1 = c;
+        b1 = x;
+      } else if (h < 240) {
+        r1 = 0;
+        g1 = x;
+        b1 = c;
+      } else if (h < 300) {
+        r1 = x;
+        g1 = 0;
+        b1 = c;
+      } else {
+        r1 = c;
+        g1 = 0;
+        b1 = x;
+      }
+      const r = Math.round((r1 + m) * 255);
+      const g = Math.round((g1 + m) * 255);
+      const b = Math.round((b1 + m) * 255);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return css;
+  };
+  const borderWidth = Math.max(
+    1,
+    Math.round((tone === 'success' || tone === 'danger' ? 2 : 1) * scale)
+  );
+  const paddingY = Math.max(0, Math.round(3 * scale));
+  const paddingX = Math.max(0, Math.round(10 * scale));
+  const fontSize = Math.round(20 * scale);
+  const lineHeight = Math.round(24 * scale);
+  const borderColor =
+    tone === 'success'
+      ? toRgba(og.colors.success, 0.45)
+      : tone === 'danger'
+        ? toRgba(og.colors.danger, 0.45)
+        : t.border;
+  const fgColor =
+    tone === 'success'
+      ? og.colors.success
+      : tone === 'danger'
+        ? og.colors.danger
+        : t.fg;
+  const bgColor =
+    tone === 'success'
+      ? toRgba(og.colors.success, 0.1)
+      : tone === 'danger'
+        ? toRgba(og.colors.danger, 0.1)
+        : t.bg;
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    padding: `${paddingY}px ${paddingX}px`,
+    borderRadius: Math.round(6 * scale),
+    background: bgColor,
+    color: fgColor,
+    fontWeight: 500,
+    borderStyle: 'solid',
+    borderWidth,
+    borderColor,
+    fontSize,
+    lineHeight: `${lineHeight}px`,
+    fontFamily:
+      tone === 'success' || tone === 'danger'
+        ? 'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+        : undefined,
+  } as React.CSSProperties;
+}
+
 export function Pill({
   text,
   tone = 'neutral',
@@ -951,23 +1162,7 @@ export function Pill({
   tone?: PillTone;
   scale?: number;
 }) {
-  const t = pillTones[tone];
-  return (
-    <div
-      style={{
-        display: 'flex',
-        padding: `${6 * scale}px ${18 * scale}px`,
-        borderRadius: 9999,
-        background: t.bg,
-        color: t.fg,
-        fontWeight: 700,
-        border: t.border === 'none' ? 'none' : `2px solid ${t.border}`,
-        fontSize: 24 * scale,
-      }}
-    >
-      {text}
-    </div>
-  );
+  return <div style={computePillStyle(scale, tone)}>{text}</div>;
 }
 
 export function StatCard({
@@ -1050,6 +1245,8 @@ export function WagerToWin({
             display: 'flex',
             fontSize: 24 * scale,
             opacity: 0.9,
+            fontFamily:
+              'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
           }}
         >
           Wagered {wager} {symbol} to win
@@ -1070,13 +1267,21 @@ export function WagerToWin({
               lineHeight: 1,
               fontWeight: 700,
               letterSpacing: -0.8 * scale,
+              fontFamily:
+                'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             }}
           >
             {payout}
           </div>
           {symbol ? (
             <div
-              style={{ fontSize: 26 * scale, opacity: 0.9, fontWeight: 600 }}
+              style={{
+                fontSize: 26 * scale,
+                opacity: 0.9,
+                fontWeight: 600,
+                fontFamily:
+                  'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+              }}
             >
               {symbol}
             </div>
