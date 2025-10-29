@@ -33,7 +33,7 @@ export const passiveLiquidityVault: ChainAddressMap = {
 
 export const collateralToken: ChainAddressMap = {
   42161: {
-    address: '0xfeb8c4d5efbaff6e928ea090bc660c363f883dba',
+    address: '0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA',
     legacy: [] as const,
   },
 } as const;
