@@ -84,10 +84,24 @@ export async function loadSdk(): Promise<SdkModule> {
       });
       
       try {
+        // Get the current nonce to prevent nonce conflicts
+        const { createPublicClient } = await import("viem");
+        const publicClient = createPublicClient({
+          chain: arbitrum,
+          transport: http(args.rpc)
+        });
+        
+        const nonce = await publicClient.getTransactionCount({
+          address: account.address
+        });
+        
+        console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address}`);
+        
         const hash = await client.sendTransaction({
           to: args.tx.to,
           data: args.tx.data,
           value: BigInt(args.tx.value || 0),
+          nonce,
           account,
           chain: arbitrum
         });

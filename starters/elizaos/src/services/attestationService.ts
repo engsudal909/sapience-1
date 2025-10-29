@@ -425,12 +425,23 @@ Analyze this prediction market and respond with ONLY valid JSON:
         return;
       }
 
+      // Prepare the parlay data in the format expected by parlayTradingAction
+      const parlayData = {
+        markets: analysis.predictions.map(p => p.market),
+        predictions: analysis.predictions.map(p => ({
+          probability: p.probability,
+          reasoning: `Predicted ${p.outcome ? 'YES' : 'NO'} with ${p.confidence * 100}% confidence`,
+          confidence: p.confidence,
+          market: p.market.question
+        }))
+      };
+
       const parlayMessage: Memory = {
         entityId: "00000000-0000-0000-0000-000000000000" as any,
         agentId: this.runtime.agentId,
         roomId: "00000000-0000-0000-0000-000000000000" as any,
         content: {
-          text: "Execute autonomous parlay trading",
+          text: `Execute autonomous parlay trading ${JSON.stringify(parlayData)}`,
           action: "PARLAY_TRADING",
         },
         createdAt: Date.now(),
