@@ -18,6 +18,8 @@ import "../vault/interfaces/IPassiveLiquidityVault.sol";
 /**
  * @title PredictionMarket
  * @notice Implementation of the Prediction Market contract with orderbook functionality
+ * @dev This contract implements ERC721 for prediction NFTs but take into account those NFTs are not transferable to contracts implementing IPassiveLiquidityVault.
+ * @dev Also notice that, on transfers, it will attempt to call `IERC165(destination_address).supportsInterface(type( )`
  */
 contract PredictionMarket is
     ERC721,
@@ -50,6 +52,7 @@ contract PredictionMarket is
     error InvalidMakerNonce();
     error NotOwner();
     error TransferNotAllowed();
+    error TransferInProcess();
 
     // ============ State Variables ============
     IPredictionStructs.Settings public config;
@@ -82,6 +85,8 @@ contract PredictionMarket is
     mapping(address => EnumerableSet.UintSet) private unfilledOrdersByMaker;
     
     EnumerableSet.UintSet private unfilledOrderIds;
+
+    bool private _verifyTransferInProcess = false;
 
 
     // ============ Constructor ============
@@ -134,6 +139,8 @@ contract PredictionMarket is
         if (mintPredictionRequestData.makerNonce != nonces[mintPredictionRequestData.maker]) {
             revert InvalidMakerNonce();
         }
+        // Increment the maker nonce
+        nonces[mintPredictionRequestData.maker]++;
         bytes32 messageHash = keccak256(
             abi.encode(
                 mintPredictionRequestData.encodedPredictedOutcomes,
@@ -170,8 +177,7 @@ contract PredictionMarket is
             }
         }
 
-        // 3- Increment nonce and collect collateral
-        nonces[mintPredictionRequestData.maker]++;
+        // 3- Collect collateral
         _safeTransferIn(
             config.collateralToken,
             mintPredictionRequestData.maker,
@@ -198,6 +204,8 @@ contract PredictionMarket is
     }
 
     function burn(uint256 tokenId, bytes32 refCode) external nonReentrant {
+        if (_verifyTransferInProcess) revert TransferInProcess(); // Prevent reentrancy from transfer verification
+
         uint256 predictionId = nftToPredictionId[tokenId];
 
         // 1- Get prediction from Store
@@ -252,6 +260,8 @@ contract PredictionMarket is
         uint256 tokenId,
         bytes32 refCode
     ) external nonReentrant {
+        if (_verifyTransferInProcess) revert TransferInProcess(); // Prevent reentrancy from transfer verification
+
         uint256 predictionId = nftToPredictionId[tokenId];
 
         // 1- Get prediction from store
@@ -317,13 +327,13 @@ contract PredictionMarket is
         // 2- Store order request data
         unfilledOrders[orderId] = IPredictionStructs.LimitOrderData({
             orderId: orderId,
-            encodedPredictedOutcomes: orderRequestData.encodedPredictedOutcomes,
-            resolver: orderRequestData.resolver,
             makerCollateral: orderRequestData.makerCollateral,
             takerCollateral: orderRequestData.takerCollateral,
+            orderDeadline: orderRequestData.orderDeadline,
+            encodedPredictedOutcomes: orderRequestData.encodedPredictedOutcomes,
+            resolver: orderRequestData.resolver,
             maker: maker,
-            taker: address(0),
-            orderDeadline: orderRequestData.orderDeadline
+            taker: address(0)
         });
         unfilledOrdersByMaker[maker].add(orderId);
         unfilledOrderIds.add(orderId);
@@ -499,10 +509,16 @@ contract PredictionMarket is
      * @notice This prevents prediction NFTs from being deposited into vaults
      */
     function _verifyTransfer(address , address to, uint256 ) internal virtual {
+        if (_verifyTransferInProcess) revert TransferInProcess(); // Prevent reentrancy from transfer verification
+
+        _verifyTransferInProcess = true;
+
         // Prevent transfers to PassiveLiquidityVault contracts
         if (_isPassiveLiquidityVault(to)) {
             revert TransferNotAllowed();
         }
+
+        _verifyTransferInProcess = false;
     }
 
     /**
@@ -518,11 +534,6 @@ contract PredictionMarket is
         returns (address from)
     {
         from = super._update(to, tokenId, auth);
-
-        // Add verification before the transfer
-        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
-            _verifyTransfer(auth, to, tokenId);
-        }
         
         uint256 predictionId = nftToPredictionId[tokenId];
         if (predictionId == 0) {
@@ -570,6 +581,12 @@ contract PredictionMarket is
                 userCollateralDeposits[from] -= prediction.takerCollateral;
                 userCollateralDeposits[to] += prediction.takerCollateral;
             }
+        }
+
+        // _verifyTransfer includes a reentrancy guard.
+        // This prevents malicious contracts from manipulating prediction state during supportsInterface() callback
+        if (to != address(0) && from != address(0)) { // Only verify for actual transfers (not mint or burns)
+            _verifyTransfer(auth, to, tokenId);
         }
 
         return from;
@@ -635,15 +652,15 @@ contract PredictionMarket is
         makerNftTokenId = _nftTokenIdCounter++;
         takerNftTokenId = _nftTokenIdCounter++;
         predictions[predictionId] = IPredictionStructs.PredictionData({
-            encodedPredictedOutcomes: encodedPredictedOutcomes,
             predictionId: predictionId,
-            resolver: resolver,
-            maker: maker,
-            taker: taker,
             makerNftTokenId: makerNftTokenId,
             takerNftTokenId: takerNftTokenId,
             makerCollateral: makerCollateral,
             takerCollateral: takerCollateral,
+            encodedPredictedOutcomes: encodedPredictedOutcomes,
+            resolver: resolver,
+            maker: maker,
+            taker: taker,
             settled: false,
             makerWon: false
         });

@@ -11,12 +11,12 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 interface IPassiveLiquidityVault is IERC1271, IERC165 {
     // ============ Structs ============
     struct PendingRequest {
-        address user;
-        bool isDeposit; // true for deposit, false for withdrawal
         uint256 shares;
         uint256 assets;
-        uint256 timestamp;
-        bool processed;
+        uint64  timestamp;
+        address user;
+        bool    isDeposit;
+        bool    processed;
     }
 
     // ============ Events ============
@@ -26,7 +26,8 @@ interface IPassiveLiquidityVault is IERC1271, IERC165 {
     event PendingRequestCancelled(address indexed user, bool direction, uint256 shares, uint256 assets);
 
     event FundsApproved(address indexed manager, uint256 assets, address targetProtocol);
-    event UtilizationRateUpdated(uint256 oldRate, uint256 newRate);
+    event ProjectedUtilizationRateUpdated(uint256 currentUtilizationRate, uint256 newProjectedRate);
+    event MaxUtilizationRateUpdated(uint256 oldRate, uint256 newRate);
     event EmergencyWithdrawal(address indexed user, uint256 shares, uint256 assets);
     event ManagerUpdated(address indexed oldManager, address indexed newManager);
     event ExpirationTimeUpdated(uint256 oldExpirationTime, uint256 newExpirationTime);
@@ -71,14 +72,11 @@ interface IPassiveLiquidityVault is IERC1271, IERC165 {
 
     // ============ View Functions ============
     
-    // function getPendingRequest(uint256 index) external view returns (PendingRequest memory);
     function getActiveProtocolsCount() external view returns (uint256);
     function getActiveProtocols() external view returns (address[] memory);
     function getActiveProtocol(uint256 index) external view returns (address);
     function getLockedShares(address user) external view returns (uint256);
     function getAvailableShares(address user) external view returns (uint256);
-    // function getPendingDeposit(address user) external view returns (uint256 amount);
-    // function getDepositRequest(uint256 index) external view returns (PendingRequest memory);
 
     // ============ Admin Functions ============
     

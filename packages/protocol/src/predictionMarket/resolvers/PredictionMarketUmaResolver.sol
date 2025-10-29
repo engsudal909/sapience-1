@@ -23,17 +23,12 @@ contract PredictionMarketUmaResolver is
     error MustHaveAtLeastOneMarket();
     error TooManyMarkets();
     error InvalidMarketId();
-    error MarketNotSettled();
-    error MarketAlreadyWrapped();
     error AssertionAlreadySubmitted();
     error InvalidAssertionId();
     error OnlyApprovedAssertersCanCall();
     error OnlyOptimisticOracleV3CanCall();
-    error InvalidCaller();
     error MarketAlreadySettled();
-    error MarketNotOpen();
     error MarketNotEnded();
-    error MarketNotDisputed();
     error NotEnoughBondAmount(
         address sender,
         address bondCurrency,

@@ -194,9 +194,9 @@ contract PassiveLiquidityVault is
 
     // ============ Custom totals, Withdrawal and Deposit Functions ============
     /**
-     * @dev Decimals are computed by adding the decimal offset on top of the underlying asset's decimals. This
-     * "original" value is cached during construction of the vault contract. If this read operation fails (e.g., the
-     * asset has not been created yet), a default of 18 is used to represent the underlying asset's decimals.
+     * @dev Returns the number of decimals of the underlying asset. This value is fetched and cached during
+     * construction of the vault contract. If the decimals() call fails during construction (e.g., the asset
+     * contract does not implement decimals()), a default of 18 is used.
      *
      * See {IERC20Metadata-decimals}.
      */
@@ -282,6 +282,90 @@ contract PassiveLiquidityVault is
     }
 
     /**
+     * @notice Reconcile protocol allowances against current utilization constraints
+     * @dev Caps or zeroes allowances so that total approvals do not exceed the allowed utilization headroom
+     *      Allowed approvals headroom = floor(maxUtilizationRate * (available + deployed)) - deployed
+     *      If total assets are zero, all allowances are set to zero
+     */
+    function _reconcileApprovals() internal {
+        // Get current active protocols snapshot
+        address[] memory protocols = activeProtocols.values();
+
+        // Compute currently deployed liquidity
+        uint256 deployedLiquidity = 0;
+        for (
+            uint256 protocolIndex = 0;
+            protocolIndex < protocols.length;
+            protocolIndex++
+        ) {
+            IPredictionMarket pm = IPredictionMarket(protocols[protocolIndex]);
+            uint256 userCollateralDeposits = pm.getUserCollateralDeposits(
+                address(this)
+            );
+            deployedLiquidity += userCollateralDeposits;
+        }
+
+        // Available assets exclude unconfirmed deposits
+        uint256 availableAssetsValue = _getAvailableAssets();
+        uint256 totalAssetsValue = availableAssetsValue + deployedLiquidity;
+
+        // If nothing is left, zero out all allowances and clean up
+        if (totalAssetsValue == 0) {
+            for (
+                uint256 i = 0;
+                i < protocols.length;
+                i++
+            ) {
+                address protocolToZero = protocols[i];
+                uint256 currentAllowance = _asset.allowance(address(this), protocolToZero);
+                if (currentAllowance > 0) {
+                    _asset.forceApprove(protocolToZero, 0);
+                }
+            }
+            // Cleanup inactive protocols where both deposits and allowance are zero
+            _getDeploymentAndApprovalsWithCleanup(address(0));
+            return;
+        }
+
+        // Compute maximum approvals allowed by utilization
+        // approvalsHeadroom = floor(maxUtilizationRate * totalAssets) - deployed
+        uint256 maxUtilizationAssets = (maxUtilizationRate * totalAssetsValue) / WAD;
+        uint256 approvalsHeadroom = maxUtilizationAssets > deployedLiquidity
+            ? maxUtilizationAssets - deployedLiquidity
+            : 0;
+
+        // Reduce allowances so that the aggregate across protocols does not exceed approvalsHeadroom
+        uint256 remainingHeadroom = approvalsHeadroom;
+        for (
+            uint256 protocolIndex = 0;
+            protocolIndex < protocols.length;
+            protocolIndex++
+        ) {
+            address protocol = protocols[protocolIndex];
+            uint256 currentAllowance = _asset.allowance(address(this), protocol);
+            if (currentAllowance == 0) continue;
+
+            uint256 newAllowance = currentAllowance <= remainingHeadroom
+                ? currentAllowance
+                : remainingHeadroom;
+
+            if (newAllowance != currentAllowance) {
+                _asset.forceApprove(protocol, newAllowance);
+            }
+
+            // Decrease remaining headroom by the allowance we kept for this protocol
+            if (remainingHeadroom > newAllowance) {
+                remainingHeadroom -= newAllowance;
+            } else {
+                remainingHeadroom = 0;
+            }
+        }
+
+        // Cleanup protocols with zero deposits and zero allowance
+        _getDeploymentAndApprovalsWithCleanup(address(0));
+    }
+
+    /**
      * @notice Request withdrawal of shares - creates a pending request that the manager can process
      * @param shares Number of shares to withdraw
      * @param expectedAssets Expected assets to receive (used for validation by manager)
@@ -315,12 +399,14 @@ contract PassiveLiquidityVault is
 
         lastUserInteractionTimestamp[msg.sender] = block.timestamp;
 
-        request.user = msg.sender;
-        request.isDeposit = false;
-        request.shares = shares;
-        request.assets = expectedAssets;
-        request.timestamp = block.timestamp;
-        request.processed = false;
+        pendingRequests[msg.sender] = IPassiveLiquidityVault.PendingRequest({
+            shares: shares,
+            assets: expectedAssets,
+            timestamp: uint64(block.timestamp),
+            user: msg.sender,
+            isDeposit: false,
+            processed: false
+        });
 
         emit PendingRequestCreated(msg.sender, false, shares, expectedAssets);
     }
@@ -355,12 +441,14 @@ contract PassiveLiquidityVault is
         if (balanceBefore + assets != balanceAfter)
             revert TransferFailed(balanceBefore, assets, balanceAfter);
 
-        request.user = msg.sender;
-        request.isDeposit = true;
-        request.shares = expectedShares;
-        request.assets = assets;
-        request.timestamp = block.timestamp;
-        request.processed = false;
+        pendingRequests[msg.sender] = IPassiveLiquidityVault.PendingRequest({
+            shares: expectedShares,
+            assets: assets,
+            timestamp: uint64(block.timestamp),
+            user: msg.sender,
+            isDeposit: true,
+            processed: false
+        });
 
         unconfirmedAssets += assets;
 
@@ -544,6 +632,9 @@ contract PassiveLiquidityVault is
             revert TransferFailed(balanceBefore, request.assets, balanceAfter);
         }
 
+        // After a withdrawal, reconcile approvals to keep utilization within bounds
+        _reconcileApprovals();
+
         emit PendingRequestProcessed(
             requestedBy,
             false,
@@ -631,46 +722,46 @@ contract PassiveLiquidityVault is
     /**
      * @notice Approve funds usage to an external protocol
      * @param protocol Address of the target protocol (PredictionMarket)
-     * @param amount Amount of assets to approve
+     * @param newApprovalAmount Amount of assets to approve
      */
     function approveFundsUsage(
         address protocol,
-        uint256 amount
+        uint256 newApprovalAmount
     ) external onlyManager nonReentrant {
         if (protocol == address(0)) revert InvalidProtocol(protocol);
-        if (amount == 0) revert InvalidAmount(amount);
+        if (newApprovalAmount == 0) revert InvalidAmount(newApprovalAmount);
 
         uint256 availableAssetsValue = _getAvailableAssets();
-        if (amount > availableAssetsValue)
-            revert InsufficientAvailableAssets(amount, availableAssetsValue);
+        if (newApprovalAmount > availableAssetsValue)
+            revert InsufficientAvailableAssets(newApprovalAmount, availableAssetsValue);
 
         // Get deployed liquidity and total approvals in a single loop (excluding current protocol)
         (uint256 deployedLiquidity, uint256 totalCurrentApprovals) = _getDeploymentAndApprovalsWithCleanup(protocol);
         uint256 totalAssetsValue = availableAssetsValue + deployedLiquidity;
 
         // Add the new approval amount for this protocol
-        totalCurrentApprovals += amount;
+        uint256 utilizedPlusApprovals = deployedLiquidity + totalCurrentApprovals + newApprovalAmount;
 
         // Check utilization rate limits - calculate projected utilization from total approvals
-        uint256 projectedUtilization = totalAssetsValue > 0
-            ? (totalCurrentApprovals * WAD) / totalAssetsValue
+        uint256 projectedUtilizationRate = totalAssetsValue > 0
+            ? (utilizedPlusApprovals * WAD) / totalAssetsValue
             : 0;
         
-        if (projectedUtilization > maxUtilizationRate)
-            revert ExceedsMaxUtilization(projectedUtilization, maxUtilizationRate);
+        if (projectedUtilizationRate > maxUtilizationRate)
+            revert ExceedsMaxUtilization(projectedUtilizationRate, maxUtilizationRate);
 
         // Update deployment info - use EnumerableSet for gas efficiency
         activeProtocols.add(protocol);
 
-        _asset.forceApprove(protocol, amount);
+        _asset.forceApprove(protocol, newApprovalAmount);
 
-        emit FundsApproved(msg.sender, amount, protocol);
+        emit FundsApproved(msg.sender, newApprovalAmount, protocol);
 
         // Calculate current utilization for event
-        uint256 currentUtilization = totalAssetsValue > 0
+        uint256 currentUtilizationRate = totalAssetsValue > 0
             ? ((deployedLiquidity * WAD) / totalAssetsValue)
             : 0;
-        emit UtilizationRateUpdated(currentUtilization, projectedUtilization);
+        emit ProjectedUtilizationRateUpdated(currentUtilizationRate, projectedUtilizationRate);
     }
 
     function cleanInactiveProtocols() external onlyManager {
@@ -775,7 +866,11 @@ contract PassiveLiquidityVault is
             revert InvalidRate(newMaxRate, WAD);
         uint256 oldRate = maxUtilizationRate;
         maxUtilizationRate = newMaxRate;
-        emit UtilizationRateUpdated(oldRate, newMaxRate);
+
+        // After a change in max utilization rate, reconcile approvals to keep utilization within bounds
+        _reconcileApprovals();
+
+        emit MaxUtilizationRateUpdated(oldRate, newMaxRate);
     }
 
     /**
@@ -829,6 +924,7 @@ contract PassiveLiquidityVault is
         return 
             interfaceId == type(IPassiveLiquidityVault).interfaceId ||
             interfaceId == type(IERC1271).interfaceId ||
+            interfaceId == type(IERC721Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
