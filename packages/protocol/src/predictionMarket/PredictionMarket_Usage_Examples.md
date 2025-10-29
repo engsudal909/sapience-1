@@ -6,20 +6,22 @@ This document explains how to use the PredictionMarket contract with practical e
 
 The PredictionMarket implements a comprehensive prediction system with two main approaches:
 
-### 1. Direct Mint/Burn System
-- **Makers** create predictions by calling `mint()` with their collateral and desired outcomes
-- **Takers** compete by calling `mint()` with the same prediction data and their delta amount
-- The **first taker to mint** within the time limit wins the opportunity
-- Takers only provide the delta (profit amount), not the full payout
-- After market resolution, the **winner** (maker or taker) calls `burn()` to settle and withdraw winnings
+### 1. Direct RFQ (Request-for-Quote) System
+- **Makers** and **Takers** agree off-chain on prediction terms
+- **Taker** creates an EIP-712 signature approving the specific prediction
+- **Maker** calls `mint()` with both parties' details and the taker's signature
+- Both parties must have approved the contract to spend their collateral tokens
+- The contract validates the taker's signature and transfers both parties' collateral
+- After market resolution, anyone can call `burn()` to settle and send winnings to the winner
 - Predictions can only be settled after markets are resolved
 
 ### 2. Limit Order System
 - **Makers** can place limit orders using `placeOrder()` to set up predictions with specific terms
 - **Takers** can browse and fill available orders using `fillOrder()` when they match their criteria
-- Orders have expiration deadlines and can be cancelled by makers using `cancelOrder()`
+- Orders have expiration deadlines and can be cancelled by makers using `cancelOrder()` at any time
 - Once filled, limit orders automatically create predictions that can be settled via `burn()`
 - This provides more flexibility and control over prediction timing and terms
+- No signatures required for limit orders - just token approvals
 
 
 
@@ -30,160 +32,90 @@ First, deploy the required contracts:
 ```solidity
 // Deploy the PredictionMarket
 PredictionMarket market = new PredictionMarket(
-    "Prediction Market NFT",
-    "PMKT",
-    collateralToken,
-    maxPredictionMarkets,
-    minCollateral,
-    minRequestExpirationTime,
-    maxRequestExpirationTime
+    "Prediction Market NFT",  // name
+    "PMKT",                    // symbol
+    collateralToken,           // address of collateral token (e.g., USDC)
+    minCollateral              // minimum collateral amount (e.g., 1e6 for 1 USDC)
 );
 
 // Deploy the resolver
 PredictionMarketSapienceResolver resolver = new PredictionMarketSapienceResolver(address(market));
 ```
 
-## ERC20 Permit Signature Creation
+## Token Approval and Taker Signature Creation
 
-Before creating predictions, both makers and takers need to create ERC20 permit signatures. These signatures allow the contract to transfer tokens without requiring separate approval transactions.
+Before creating predictions, both makers and takers need to prepare:
 
-### Creating the Permit Signature
+1. **ERC20 Token Approval**: Approve the PredictionMarket contract to spend their collateral tokens
+2. **Taker Prediction Signature**: The taker must create an EIP-712 signature approving the specific prediction
 
-The permit signature is created using the EIP-712 standard with the following parameters:
+### Step 1: Token Approvals
+
+Both maker and taker must approve the contract to transfer their collateral:
 
 ```solidity
-// The permit function signature for ERC20 tokens
-bytes32 public constant PERMIT_TYPEHASH = keccak256(
-    "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-);
+// Ana (maker) approves the contract to spend her USDC
+IERC20(collateralToken).approve(address(market), 1000e6); // 1,000 USDC
 
-// Example: Ana wants to permit the market to spend 1000 USDC
-function createPermitSignature(
-    address owner,           // Ana's address
-    address spender,         // PredictionMarket contract address
-    uint256 value,           // 1000e6 (1000 USDC)
-    uint256 nonce,           // Current nonce from the token contract
-    uint256 deadline,        // Block timestamp + 60 seconds
-    uint256 privateKey       // Ana's private key (off-chain)
-) external pure returns (bytes memory signature) {
-    // Create the struct hash
-    bytes32 structHash = keccak256(
-        abi.encode(
-            PERMIT_TYPEHASH,
-            owner,
-            spender,
-            value,
-            nonce,
-            deadline
-        )
-    );
-    
-    // Create the domain separator
-    bytes32 DOMAIN_SEPARATOR = keccak256(
-        abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256(bytes("USDC")),           // Token name
-            keccak256(bytes("1")),              // Version
-            1,                                  // Chain ID (mainnet)
-            address(0xA0b86a33E6441b8c4C8C0C0C0C0C0C0C0C0C0C0) // USDC contract address
-        )
-    );
-    
-    // Create the final hash
-    bytes32 hash = keccak256(
-        abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
-    );
-    
-    // Sign the hash with the private key (this would be done off-chain)
-    // For demonstration purposes, we're showing the structure
-    // In practice, this would be done using a wallet or signing library
-    
-    return signature;
-}
+// Bob (taker) approves the contract to spend his USDC
+IERC20(collateralToken).approve(address(market), 200e6); // 200 USDC
 ```
 
-### Getting the Current Nonce
+### Step 2: Creating the Taker Prediction Signature
 
-Each user has a unique nonce that increases with each permit signature:
+The taker must sign an approval for the specific prediction using EIP-712. This signature includes:
+- The encoded predicted outcomes
+- The taker and maker collateral amounts
+- The resolver address
+- The maker's address
+- The taker's deadline
+- The maker's nonce (for replay protection)
 
 ```solidity
-// Get the current nonce for a user
-uint256 currentNonce = IERC20Permit(collateralToken).nonces(ana);
-console.log("Ana's current nonce:", currentNonce);
+// Create the message hash for the taker to sign
+bytes32 messageHash = keccak256(
+    abi.encode(
+        encodedPredictedOutcomes,
+        takerCollateral,      // 200e6
+        makerCollateral,      // 1000e6
+        resolver,             // address(resolver)
+        maker,                // ana
+        takerDeadline,        // block.timestamp + 3600
+        makerNonce            // current nonce for ana
+    )
+);
 
-// The nonce should be used in the permit signature
-// Each new permit signature must use the next nonce value
+// Bob creates the EIP-712 signature (off-chain)
+// This would be done using the SignatureProcessor's getApprovalHash function
+bytes32 approvalHash = market.getApprovalHash(messageHash, bob);
+
+// Bob signs this hash off-chain with his private key
+// The signature proves Bob approves this specific prediction
+bytes memory bobSignature = signHash(approvalHash, bobPrivateKey);
 ```
 
-### Setting the Deadline
+### Maker Nonce Management
 
-The deadline should be set to a reasonable time in the future:
-
-```solidity
-// Set deadline to 60 seconds from now
-uint256 deadline = block.timestamp + 60;
-
-// Make sure the deadline is not too far in the future
-require(deadline <= block.timestamp + 3600, "Deadline too far in future");
-```
-
-### Complete Permit Flow
-
-Here's how the complete permit flow works:
+Each maker has a sequential nonce that prevents signature replay:
 
 ```solidity
-// 1. Ana gets her current nonce
-uint256 anaNonce = IERC20Permit(collateralToken).nonces(ana);
+// Get Ana's current nonce
+uint256 anaNonce = market.nonces(ana);
+console.log("Ana's current nonce:", anaNonce);
 
-// 2. Ana creates the permit signature (off-chain)
-bytes memory anaPermitSignature = createPermitSignature(
-    ana,                                    // owner
-    address(market),                        // spender (PredictionMarket)
-    1000e6,                                 // value (1000 USDC)
-    anaNonce,                               // current nonce
-    block.timestamp + 60,                   // deadline
-    anaPrivateKey                           // Ana's private key
-);
-
-// 3. Bob gets his current nonce
-uint256 bobNonce = IERC20Permit(collateralToken).nonces(bob);
-
-// 4. Bob creates the permit signature (off-chain)
-bytes memory bobPermitSignature = createPermitSignature(
-    bob,                                    // owner
-    address(market),                        // spender (PredictionMarket)
-    200e6,                                  // value (200 USDC)
-    bobNonce,                               // current nonce
-    block.timestamp + 60,                   // deadline
-    bobPrivateKey                           // Bob's private key
-);
-
-// 5. Both signatures are used in the mint() call
-market.mint(
-    encodedPredictionOutcomes,
-    address(resolver),
-    1000e6,                    // maker collateral
-    200e6,                     // taker collateral
-    ana,                       // maker
-    bob,                       // taker
-    anaPermitSignature,        // Ana's permit signature
-    bobPermitSignature,        // Bob's permit signature
-    block.timestamp + 60,      // Ana's deadline
-    block.timestamp + 60,      // Bob's deadline
-    bobPredictionSignature,    // Bob's prediction approval
-    bytes32(0)                 // ref code
-);
+// This nonce must be used in the taker signature
+// After mint() is called, Ana's nonce will increment to anaNonce + 1
 ```
 
 ### Important Notes
 
-- **Nonce Management**: Each permit signature must use a unique, sequential nonce
-- **Deadline**: Set reasonable deadlines to prevent signature replay attacks
-- **Off-chain Signing**: Permit signatures are created off-chain using the user's private key
-- **Gas Efficiency**: Permits eliminate the need for separate approval transactions
-- **Security**: Only the contract address specified in the permit can spend the tokens
+- **Token Approvals**: Must be done before calling mint()
+- **Taker Signature**: The taker must sign off-chain approving the exact prediction terms
+- **Nonce Protection**: Each maker nonce can only be used once
+- **Predetermined Taker**: The taker must be known and willing before mint() is called
+- **No Competition**: Unlike some prediction markets, there's no competition between takers
 
-## Example Scenario: Ana's Prediction
+## Example Scenario: Ana's Prediction with Bob
 
 ### Initial Setup
 
@@ -191,27 +123,26 @@ market.mint(
 - Market 1: "Will Bitcoin reach $200k by end of year?" (YES)
 - Market 2: "Will Ethereum reach $20k by end of year?" (YES)
 
-**Bob** and **Carl** are takers who want to provide liquidity and compete for Ana's prediction.
+**Ana** and **Bob** agree off-chain that Bob will be the taker for this prediction.
 
-### Step 1: Takers Prepare for Competition
+### Step 1: Both Parties Approve Token Spending
 
-Takers need to have sufficient balance and prepare their signatures:
+Both Ana and Bob must approve the contract to spend their collateral:
 
 ```solidity
-// Bob and Carl need to have sufficient USDC balance
-// They'll also need to create ERC20 permit signatures and prediction approval signatures
-// These signatures will be used when they call mint()
+// Ana approves the contract to spend her USDC (maker collateral)
+IERC20(collateralToken).approve(address(market), 1000e6); // 1,000 USDC
 
-// Note: No pre-approvals needed! Takers provide signatures directly when minting
+// Bob approves the contract to spend his USDC (taker collateral)
+IERC20(collateralToken).approve(address(market), 200e6); // 200 USDC
 ```
 
-### Step 2: Ana Creates the Prediction
+### Step 2: Encode the Prediction Outcomes
 
-Ana creates her prediction by calling `mint()` with her collateral:
+The prediction outcomes must be encoded by the resolver:
 
 ```solidity
-// Ana prepares her prediction data
-// The resolver will encode the prediction outcomes into bytes
+// The resolver encodes the prediction outcomes into bytes
 bytes memory encodedPredictionOutcomes = resolver.encodePredictionOutcomes(
     marketGroup1, // Bitcoin market group address
     1,            // Bitcoin market ID
@@ -220,21 +151,55 @@ bytes memory encodedPredictionOutcomes = resolver.encodePredictionOutcomes(
     2,            // Ethereum market ID
     true          // YES for Ethereum
 );
+```
 
+### Step 3: Bob Creates His Signature
+
+Bob must sign an EIP-712 approval for this specific prediction:
+
+```solidity
+// Get Ana's current nonce
+uint256 anaNonce = market.nonces(ana);
+
+// Create the message hash
+bytes32 messageHash = keccak256(
+    abi.encode(
+        encodedPredictedOutcomes,
+        200e6,            // taker collateral
+        1000e6,           // maker collateral
+        address(resolver),
+        ana,              // maker
+        block.timestamp + 3600, // taker deadline (1 hour from now)
+        anaNonce
+    )
+);
+
+// Bob gets the approval hash to sign
+bytes32 approvalHash = market.getApprovalHash(messageHash, bob);
+
+// Bob signs this hash off-chain (using his wallet/private key)
+bytes memory bobSignature = signHash(approvalHash, bobPrivateKey);
+```
+
+### Step 4: Ana Calls mint() to Create the Prediction
+
+Ana calls the mint function with all the prediction data and Bob's signature:
+
+```solidity
 // Ana creates the prediction by calling mint()
 (uint256 makerNftTokenId, uint256 takerNftTokenId) = market.mint(
-    encodedPredictionOutcomes,
-    address(resolver),
-    1000e6,                    // 1,000 USDC collateral
-    200e6,                     // 200 USDC delta from taker
-    ana,                       // Maker address
-    address(0),                // Taker address (will be set when taker fills)
-    makerSignature,            // ERC20 permit signature for Ana
-    takerSignature,            // ERC20 permit signature for taker (placeholder)
-    block.timestamp + 60,      // Maker signature deadline
-    block.timestamp + 60,      // Taker signature deadline
-    takerPredictionSignature,  // Taker's approval signature
-    bytes32(0)                 // Ref code
+    IPredictionStructs.MintPredictionRequestData({
+        encodedPredictedOutcomes: encodedPredictionOutcomes,
+        resolver: address(resolver),
+        makerCollateral: 1000e6,           // 1,000 USDC
+        takerCollateral: 200e6,            // 200 USDC
+        maker: ana,
+        taker: bob,
+        makerNonce: anaNonce,
+        takerSignature: bobSignature,
+        takerDeadline: block.timestamp + 3600,
+        refCode: bytes32(0)
+    })
 );
 
 console.log("Prediction created! Maker NFT ID:", makerNftTokenId);
@@ -244,85 +209,40 @@ console.log("Taker NFT ID:", takerNftTokenId);
 ```
 
 **What happens during mint:**
-- The resolver validates that all markets are valid Yes/No markets and not settled
-- Ana's 1,000 USDC collateral is transferred to the contract using ERC20 permit
-- Two NFTs are minted: one for the maker (Ana) and one for the taker
-- The prediction is stored with the maker's data
-- The taker NFT is held by the contract until a taker claims it
+- The contract validates that the taker (Bob) signed approval for this exact prediction
+- The contract checks that the maker nonce is correct and increments it
+- Ana's 1,000 USDC collateral is transferred to the contract
+- Bob's 200 USDC collateral is transferred to the contract
+- Two NFTs are minted: one for Ana (maker) and one for Bob (taker)
+- The prediction is stored and is now active
 
-### Step 3: Takers Compete by Claiming the Taker NFT
+### Step 5: Check Prediction Status
 
-Bob and Carl now compete by calling `mint()` with the same prediction data to claim the taker position:
-
-```solidity
-// Bob tries to claim the taker position
-market.mint(
-    encodedPredictionOutcomes,
-    address(resolver),
-    1000e6,                    // Maker collateral
-    200e6,                     // Taker collateral (delta)
-    ana,                       // Maker address
-    bob,                       // Taker address
-    makerSignature,            // Maker's ERC20 permit signature
-    bobTakerSignature,         // Bob's ERC20 permit signature
-    block.timestamp + 60,      // Maker signature deadline
-    block.timestamp + 60,      // Taker signature deadline
-    bobPredictionSignature,    // Bob's prediction approval signature
-    bytes32(0)                 // Ref code
-);
-
-// If Bob's transaction goes through first, he wins the taker position!
-// If Carl's transaction goes through first, Carl wins!
-
-// Carl tries to claim the taker position
-market.mint(
-    encodedPredictionOutcomes,
-    address(resolver),
-    1000e6,                    // Maker collateral
-    200e6,                     // Taker collateral (delta)
-    ana,                       // Maker address
-    carl,                      // Taker address
-    makerSignature,            // Maker's ERC20 permit signature
-    carlTakerSignature,        // Carl's ERC20 permit signature
-    block.timestamp + 60,      // Maker signature deadline
-    block.timestamp + 60,      // Taker signature deadline
-    carlPredictionSignature,   // Carl's prediction approval signature
-    bytes32(0)                 // Ref code
- );
-
-// Only one of these transactions will succeed - the first one to be mined
-```
-
-**What happens when a taker wins:**
-- The taker's 200 USDC delta is transferred to the contract using ERC20 permit
-- The taker NFT is transferred from the contract to the winning taker
-- The prediction is now fully funded and active
-
-### Step 4: Check Prediction Status
-
-After a taker successfully claims the position:
+After the prediction is created, you can query its details:
 
 ```solidity
-// Get prediction data
-(IPredictionStructs.PredictionData memory predictionData, IPredictionStructs.PredictedOutcome[] memory predictedOutcomes) = market.getPrediction(1);
+// Get prediction data using either NFT token ID
+IPredictionStructs.PredictionData memory predictionData = market.getPrediction(makerNftTokenId);
 
+console.log("Maker:", predictionData.maker);
 console.log("Taker:", predictionData.taker);
 console.log("Maker NFT ID:", predictionData.makerNftTokenId);
 console.log("Taker NFT ID:", predictionData.takerNftTokenId);
 console.log("Maker Collateral:", predictionData.makerCollateral);
 console.log("Taker Collateral:", predictionData.takerCollateral);
 console.log("Total Payout:", predictionData.makerCollateral + predictionData.takerCollateral);
-console.log("Filled:", predictionData.filled);
-// Output: Taker: bob (or carl, depending on who won)
+console.log("Settled:", predictionData.settled);
+// Output: Maker: ana
+// Output: Taker: bob
 // Output: Maker NFT ID: 1
 // Output: Taker NFT ID: 2
 // Output: Maker Collateral: 1000000000
 // Output: Taker Collateral: 200000000
 // Output: Total Payout: 1200000000
-// Output: Filled: true
+// Output: Settled: false
 ```
 
-### Step 5: Market Resolution and Settlement
+### Step 6: Market Resolution and Settlement
 
 After the markets resolve, the prediction can be settled by calling `burn()`:
 
@@ -330,11 +250,11 @@ After the markets resolve, the prediction can be settled by calling `burn()`:
 // Wait for markets to resolve...
 // The resolver checks if all markets are settled
 
-// Now someone can call burn to settle the prediction (could be anyone)
-market.burn(1); // Using maker NFT token ID
+// Anyone can call burn to settle the prediction
+market.burn(makerNftTokenId, bytes32(0)); // Using maker NFT token ID and ref code
 
 // Check if prediction is settled
-(IPredictionStructs.PredictionData memory settledPrediction, ) = market.getPrediction(1);
+IPredictionStructs.PredictionData memory settledPrediction = market.getPrediction(makerNftTokenId);
 console.log("Prediction settled:", settledPrediction.settled);
 console.log("Maker won:", settledPrediction.makerWon);
 // Output: Prediction settled: true
@@ -344,17 +264,17 @@ console.log("Maker won:", settledPrediction.makerWon);
 **What happens during burn:**
 - The resolver determines the outcome of all markets
 - If Ana's predictions were correct, she wins (makerWon = true)
-- If Ana's predictions were wrong, the taker wins (makerWon = false)
+- If Ana's predictions were wrong, Bob (the taker) wins (makerWon = false)
 - The winning party receives the full payout (1,200 USDC)
 - Both NFTs are burned
 
-### Step 6: Winner Receives Winnings
+### Step 7: Winner Receives Winnings
 
 Since Ana won (all predictions were correct), she receives the full payout:
 
 ```solidity
 // Ana's winnings are automatically transferred when burn() is called
-// The NFT is burned and the payout is sent to her address
+// The NFTs are burned and the payout is sent to her address
 
 console.log("Ana's USDC balance after settlement:", IERC20(collateralToken).balanceOf(ana));
 // Output: Ana's USDC balance after settlement: 1200000000 (1,200 USDC)
@@ -365,11 +285,11 @@ console.log("Ana's USDC balance after settlement:", IERC20(collateralToken).bala
 If Ana's predictions were wrong, Bob (the taker) would win:
 
 ```solidity
-// In burn function, if makerWon = false:
-// The taker wins and gets the full payout
+// Anyone can call burn (doesn't have to be the winner)
+market.burn(takerNftTokenId, bytes32(0));
 
 // Bob's winnings are automatically transferred when burn() is called
-// The NFT is burned and the payout is sent to his address
+// The NFTs are burned and the payout is sent to his address
 
 console.log("Bob's USDC balance after settlement:", IERC20(collateralToken).balanceOf(bob));
 // Output: Bob's USDC balance after settlement: 1200000000 (1,200 USDC)
@@ -377,11 +297,12 @@ console.log("Bob's USDC balance after settlement:", IERC20(collateralToken).bala
 
 ## Consolidation for Self-Trading
 
-If Ana wants to trade against herself (useful for testing or specific strategies):
+If Ana wants to trade against herself (useful for testing or closing positions):
 
 ```solidity
-// Ana can consolidate her own prediction
-market.consolidatePrediction(1);
+// This only works if Ana owns BOTH the maker and taker NFTs
+// (e.g., she bought Bob's position or created it with herself as taker)
+market.consolidatePrediction(makerNftTokenId, bytes32(0));
 
 // This immediately settles the prediction with Ana as the winner
 // Both NFTs are burned and Ana receives the full payout
@@ -395,7 +316,7 @@ The PredictionMarket contract now supports limit orders, providing makers with m
 
 1. **Maker places an order** using `placeOrder()` with specific terms
 2. **Takers browse available orders** and fill them using `fillOrder()`
-3. **Orders expire** after the specified deadline and can be cancelled
+3. **Orders expire** after the specified deadline and can be cancelled by makers at any time
 4. **When filled**, orders automatically create predictions that work the same as direct mint predictions
 
 ### Step 1: Ana Places a Limit Order
@@ -512,11 +433,8 @@ console.log("Taker Collateral:", prediction.takerCollateral);
 If Ana wants to cancel her order before it's filled:
 
 ```solidity
-// Ana can only cancel orders after they expire
-// First, wait for the deadline to pass...
-// (In practice, this would happen after the orderDeadline timestamp)
-
-// Then Ana can cancel the order
+// Ana can cancel her order at any time (before or after expiration)
+// No need to wait for the deadline to pass
 market.cancelOrder(orderId);
 
 // Check if the order was cancelled
@@ -611,79 +529,82 @@ event OrderCancelled(
 ## Key Features Summary
 
 ### For Makers (like Ana):
-- ✅ **Direct Mint**: Create predictions by calling `mint()` with collateral
+- ✅ **Direct RFQ**: Create predictions by calling `mint()` with taker's signature
 - ✅ **Limit Orders**: Place orders using `placeOrder()` for flexible timing
-- ✅ Set the prediction outcomes and amount
-- ✅ Get matched with a taker automatically (direct) or when takers fill orders
-- ✅ Receive winnings if predictions correct
-- ✅ Cancel unfilled orders after expiration
-- ✅ No need to manage complex order books
+- ✅ Set the prediction outcomes and collateral amounts
+- ✅ Agree off-chain with a specific taker (RFQ) or let anyone fill (limit orders)
+- ✅ Receive winnings if predictions are correct
+- ✅ Cancel unfilled limit orders at any time
+- ✅ Transfer prediction NFTs to other parties
 
-### For Takers (like Bob and Carl):
-- ✅ **Direct Competition**: Compete by calling `mint()` with the same prediction data
+### For Takers (like Bob):
+- ✅ **Direct RFQ**: Sign approval for specific predictions off-chain
 - ✅ **Order Filling**: Browse and fill limit orders using `fillOrder()`
-- ✅ First to mint wins the taker position (direct) or first to fill order
-- ✅ Provide delta amount directly when minting or filling orders
-- ✅ No pre-deposits or complex order management needed
-- ✅ Receive winnings if maker loses
+- ✅ No signatures needed for limit orders, just token approval
+- ✅ Provide collateral when maker calls mint() (RFQ) or when filling orders
+- ✅ Receive winnings if maker's predictions are wrong
+- ✅ Transfer prediction NFTs to other parties
 
 ### Two Trading Approaches:
-- ✅ **Direct Mint/Burn**: Immediate prediction creation and competition
-- ✅ **Limit Orders**: Place orders with specific terms and deadlines
+- ✅ **Direct RFQ (Request-for-Quote)**: Off-chain agreement, on-chain execution with signature
+- ✅ **Limit Orders**: On-chain orderbook with flexible timing
 - ✅ **Burn**: Settle prediction and distribute winnings (both approaches)
-- ✅ **Consolidate**: Self-trade option for makers
+- ✅ **Consolidate**: Self-trade option when owning both NFTs
 
 ### Limit Order System:
 - ✅ **Place Orders**: Set specific terms with expiration deadlines
 - ✅ **Fill Orders**: Browse available orders and fill when ready
-- ✅ **Cancel Orders**: Cancel unfilled orders after expiration
+- ✅ **Cancel Orders**: Cancel unfilled orders at any time
 - ✅ **Query Orders**: Get order details, counts, and maker-specific orders
 - ✅ **Automatic Prediction Creation**: Filled orders create standard predictions
 
-### Signature System:
-- ✅ **ERC20 Permit**: No need for token approvals (direct mint only)
-- ✅ **Taker Prediction Signature**: Ensures taker approves the specific prediction (direct mint only)
+### Signature System (RFQ Only):
+- ✅ **ERC20 Approvals**: Standard approve/transferFrom pattern
+- ✅ **Taker EIP-712 Signature**: Ensures taker approves the specific prediction
+- ✅ **Nonce Protection**: Each maker has sequential nonce to prevent replay
 - ✅ **Automatic Validation**: Resolver validates markets and outcomes
 
 ### Security Features:
 - ✅ Reentrancy protection
-- ✅ Proper balance tracking
+- ✅ Proper balance tracking with fee-on-transfer protection
 - ✅ NFT-based ownership verification
 - ✅ Market validation through resolver
-- ✅ Safe token transfers using permits
-- ✅ Yes/No market validation only
-- ✅ Order expiration and cancellation protection
+- ✅ Safe token transfers with balance checks
+- ✅ Signature validation for RFQ predictions
+- ✅ Order expiration and flexible cancellation
+- ✅ Prevents transfers to PassiveLiquidityVault contracts
 
-## Choosing Between Direct Mint and Limit Orders
+## Choosing Between Direct RFQ and Limit Orders
 
 Both approaches create the same final predictions, but they serve different use cases:
 
-### Use Direct Mint When:
+### Use Direct RFQ When:
 - ✅ **Immediate execution** is desired
-- ✅ **Competition-based** matching is preferred
+- ✅ **Specific counterparty** is already identified
 - ✅ You want to **react quickly** to market conditions
-- ✅ **Gas efficiency** is important (single transaction)
-- ✅ You have **ERC20 permit signatures** ready
-- ✅ You want **real-time** prediction creation
+- ✅ **Off-chain negotiation** has already occurred
+- ✅ You have **taker's signature** ready
+- ✅ You want **privacy** (no public orderbook)
 
 ### Use Limit Orders When:
 - ✅ **Flexible timing** is needed
-- ✅ You want to **set specific terms** and wait for takers
-- ✅ **Order management** is preferred over competition
+- ✅ You want to **set specific terms** and wait for any taker
+- ✅ **Public orderbook** visibility is desired
 - ✅ You want to **cancel orders** if conditions change
 - ✅ **Browsing and selection** of orders is desired
-- ✅ You need **time to prepare** before filling orders
+- ✅ You don't have a specific counterparty yet
 
 ### Comparison Summary:
 
-| Feature | Direct Mint | Limit Orders |
+| Feature | Direct RFQ | Limit Orders |
 |---------|-------------|--------------|
 | **Execution** | Immediate | On-demand |
-| **Competition** | First-come-first-served | Browse and select |
+| **Counterparty** | Predetermined | Any taker |
 | **Timing** | Real-time | Flexible |
-| **Cancellation** | Not applicable | After expiration |
-| **Gas Cost** | Lower (single tx) | Higher (multiple txs) |
-| **Signatures** | ERC20 permit required | Standard transfers |
+| **Cancellation** | Not applicable | At any time |
+| **Gas Cost** | Lower (single tx) | Higher (two txs) |
+| **Signatures** | Taker EIP-712 required | None required |
+| **Privacy** | Private negotiation | Public orderbook |
 | **Order Management** | None needed | Full order lifecycle |
 
 ## Resolver Integration
@@ -700,8 +621,7 @@ PredictionMarketSapienceResolver resolver = new PredictionMarketSapienceResolver
 // 3. Market compatibility checks
 // 4. Prediction outcome encoding (converts market data to bytes)
 
-// During mint():
-// - Encodes prediction outcomes into bytes for efficient storage
+// During mint() or placeOrder():
 // - Validates all markets are valid Yes/No markets
 // - Ensures markets are not already settled
 // - Checks market compatibility
@@ -713,11 +633,14 @@ PredictionMarketSapienceResolver resolver = new PredictionMarketSapienceResolver
 // - Calculates whether the maker won or lost
 ```
 
-This comprehensive system provides both immediate execution (direct mint/burn) and flexible order management (limit orders) while maintaining the competitive nature of prediction markets. The dual approach accommodates different trading preferences:
+## Summary
 
-- **Direct mint/burn** offers streamlined, immediate prediction creation with competition-based matching
-- **Limit orders** provide flexible timing and order management capabilities
+This comprehensive system provides both immediate execution (direct RFQ) and flexible order management (limit orders) for prediction markets. The dual approach accommodates different trading preferences:
+
+- **Direct RFQ** offers streamlined, immediate prediction creation with off-chain agreement and on-chain execution
+- **Limit Orders** provide flexible timing, public orderbook, and order management capabilities
 - Both approaches use the same **resolver validation** and **settlement mechanisms**
-- The **NFT-based system** ensures clear ownership and easy tracking of predictions
+- The **NFT-based system** ensures clear ownership, transferability, and easy tracking of predictions
+- The **EIP-712 signature system** (RFQ only) provides security without requiring on-chain orderbook for private trades
 
 The resolver ensures proper market validation and outcome determination for both trading approaches, making the system robust and user-friendly regardless of your preferred trading style. 
