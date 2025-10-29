@@ -7,10 +7,24 @@ import {
   elizaLogger,
 } from "@elizaos/core";
 import { loadSdk } from "../utils/sdk.js";
-import { privateKeyToAddress } from "viem/accounts";
-import { encodeAbiParameters } from "viem";
-
-const SAPIENCE_WS_URL = process.env.SAPIENCE_WS_URL || "wss://api.sapience.xyz/auction";
+import { 
+  getPrivateKey, 
+  getWalletAddress, 
+  getRpcUrl, 
+  getTradingConfig, 
+  getApiEndpoints, 
+  getContractAddresses 
+} from "../utils/blockchain.js";
+import { 
+  getCurrentMakerNonce, 
+  ensureTokenApproval, 
+  buildMintCalldata 
+} from "../utils/contracts.js";
+import { 
+  encodeParlayOutcomes, 
+  selectBestBid, 
+  formatWagerAmount 
+} from "../utils/parlay.js";
 
 export const parlayTradingAction: Action = {
   name: "PARLAY_TRADING",
@@ -71,18 +85,10 @@ export const parlayTradingAction: Action = {
       }
 
       // Get wallet details
-      const privateKey = (process.env.ETHEREUM_PRIVATE_KEY ||
-        process.env.EVM_PRIVATE_KEY ||
-        process.env.PRIVATE_KEY ||
-        process.env.WALLET_PRIVATE_KEY) as `0x${string}` | undefined;
-      
-      if (!privateKey) {
-        throw new Error("Missing private key for trading");
-      }
-
-      const walletAddress = privateKeyToAddress(privateKey);
-      const rpcUrl = process.env.EVM_PROVIDER_URL || "https://arb1.arbitrum.io/rpc";
-      const wagerAmount = process.env.PARLAY_WAGER_AMOUNT || "1000000000000000000";
+      const privateKey = getPrivateKey();
+      const walletAddress = getWalletAddress();
+      const rpcUrl = getRpcUrl();
+      const { wagerAmount } = getTradingConfig();
 
       elizaLogger.info(`[ParlayTrading] Starting parlay auction with ${markets.length} legs`);
 
@@ -100,7 +106,7 @@ export const parlayTradingAction: Action = {
           `[ParlayTrading] Parlay trade executed successfully: ${auctionResult.txHash}`,
         );
         await callback?.({
-          text: `Parlay executed: ${markets.length} legs, wager ${parseFloat(wagerAmount) / 1e18} USDe (TX: ${auctionResult.txHash})`,
+          text: `Parlay executed: ${markets.length} legs, wager ${formatWagerAmount(wagerAmount)} (TX: ${auctionResult.txHash})`,
           content: {
             success: true,
             legs: markets.length,
@@ -137,7 +143,8 @@ async function startParlayAuction({
   return new Promise((resolve) => {
     try {
       // Connect to Sapience WebSocket as a maker
-      const socket = new WebSocket(SAPIENCE_WS_URL);
+      const { sapienceWs } = getApiEndpoints();
+      const socket = new WebSocket(sapienceWs);
 
       let timeoutId: NodeJS.Timeout;
       let resolved = false;
@@ -159,15 +166,14 @@ async function startParlayAuction({
         resolve(result);
       };
 
-      const timeoutMs = parseInt(process.env.PARLAY_AUCTION_TIMEOUT_MS || "300000");
+      const { auctionTimeoutMs, keepAliveMs } = getTradingConfig();
       timeoutId = setTimeout(() => {
-        elizaLogger.info(`[ParlayTrading] Auction timeout after ${timeoutMs/1000}s for auction ${auctionId}. No bids received.`);
-        console.log(`⏰ Parlay auction timeout: No takers found for our ${markets.length}-leg parlay after ${timeoutMs/1000}s.`);
+        elizaLogger.info(`[ParlayTrading] Auction timeout after ${auctionTimeoutMs/1000}s for auction ${auctionId}. No bids received.`);
+        console.log(`⏰ Parlay auction timeout: No takers found for our ${markets.length}-leg parlay after ${auctionTimeoutMs/1000}s.`);
         resolveOnce({ success: false, error: "No bids received within timeout" });
-      }, timeoutMs);
+      }, auctionTimeoutMs);
 
       const startKeepAlive = () => {
-        const keepAliveMs = parseInt(process.env.PARLAY_KEEPALIVE_INTERVAL_MS || "20000");
         keepAliveInterval = setInterval(() => {
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: "ping" }));
@@ -182,7 +188,7 @@ async function startParlayAuction({
         const contractNonce = await getCurrentMakerNonce(walletAddress as `0x${string}`, rpcUrl);
         elizaLogger.info(`[ParlayTrading] Using contract maker nonce: ${contractNonce}`);
 
-        const UMA_RESOLVER_ADDRESS = process.env.UMA_RESOLVER_ADDRESS || "0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9";
+        const { UMA_RESOLVER } = getContractAddresses();
         const predictedOutcomes = await encodeParlayOutcomes(markets, predictions);
 
         const auctionMessage = {
@@ -190,7 +196,7 @@ async function startParlayAuction({
           payload: {
             maker: walletAddress,
             wager: wagerAmount,
-            resolver: UMA_RESOLVER_ADDRESS,
+            resolver: UMA_RESOLVER,
             predictedOutcomes,
             makerNonce: contractNonce,
           },
@@ -223,7 +229,7 @@ async function startParlayAuction({
               elizaLogger.info(`[ParlayTrading] Subscribed to auction bids for ${auctionId}`);
               console.log(`🎯 Parlay auction live! Waiting for takers to bid on our ${markets.length}-leg parlay (Auction ID: ${auctionId})`);
               
-              const statusIntervalMs = parseInt(process.env.PARLAY_STATUS_INTERVAL_MS || "30000");
+              const { statusIntervalMs } = getTradingConfig();
               const statusInterval = setInterval(() => {
                 elizaLogger.info(`[ParlayTrading] Still waiting for bids on auction ${auctionId}...`);
               }, statusIntervalMs);
@@ -246,10 +252,7 @@ async function startParlayAuction({
               const bestBid = selectBestBid(ourBids);
               elizaLogger.info(`[ParlayTrading] Selected best bid: ${JSON.stringify(bestBid)}`);
 
-              const privateKey = process.env.ETHEREUM_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.WALLET_PRIVATE_KEY;
-              if (!privateKey) {
-                throw new Error("Missing private key for trading");
-              }
+              const privateKey = getPrivateKey();
               
               const txHash = await acceptBid({
                 bid: bestBid,
@@ -293,22 +296,6 @@ async function startParlayAuction({
   });
 }
 
-function selectBestBid(bids: any[]): any {
-  const now = Date.now() / 1000;
-  const validBids = bids.filter((bid) => bid.takerDeadline > now);
-  
-  if (validBids.length === 0) {
-    throw new Error("No valid bids available");
-  }
-
-  const sortedBids = validBids.sort((a, b) => {
-    const wagerA = parseFloat(a.takerWager || '0');
-    const wagerB = parseFloat(b.takerWager || '0');
-    return wagerB - wagerA;
-  });
-
-  return sortedBids[0];
-}
 
 async function acceptBid({
   bid,
@@ -322,14 +309,16 @@ async function acceptBid({
   try {
     const { submitTransaction } = await loadSdk();
 
+    const { getWalletAddress } = await import("../utils/blockchain.js");
+    const makerAddress = getWalletAddress();
+    
     const mintCalldata = await buildMintCalldata({
       bid,
-      maker: privateKeyToAddress(privateKey as `0x${string}`),
+      maker: makerAddress,
     });
 
-    const PREDICTION_MARKET_ADDRESS = (process.env.PREDICTION_MARKET_ADDRESS || "0xb04841cad1147675505816e2ec5c915430857b40") as `0x${string}`;
+    const { PREDICTION_MARKET } = getContractAddresses();
     
-    const makerAddress = privateKeyToAddress(privateKey as `0x${string}`);
     const currentMakerNonce = await getCurrentMakerNonce(makerAddress, rpcUrl);
     elizaLogger.info(`[ParlayTrading] Contract maker nonce: ${currentMakerNonce}, Bid maker nonce: ${bid.makerNonce}`);
     
@@ -348,7 +337,7 @@ async function acceptBid({
       rpc: rpcUrl,
       privateKey: privateKey as `0x${string}`,
       tx: {
-        to: PREDICTION_MARKET_ADDRESS,
+        to: PREDICTION_MARKET,
         data: mintCalldata,
         value: "0",
       },
@@ -362,188 +351,8 @@ async function acceptBid({
   }
 }
 
-async function buildMintCalldata({
-  bid,
-  maker,
-}: {
-  bid: any;
-  maker: string;
-}): Promise<`0x${string}`> {
-  const { encodeFunctionData } = await import("viem");
-  
-  const mintRequest = {
-    encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
-    resolver: bid.resolver || "0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9",
-    makerCollateral: BigInt(bid.makerCollateral || bid.wager || '0'),
-    takerCollateral: BigInt(bid.takerWager || '0'),
-    maker: bid.maker || maker,
-    taker: bid.taker,
-    makerNonce: BigInt(bid.makerNonce || 0),
-    takerSignature: bid.takerSignature || "0x",
-    takerDeadline: BigInt(bid.takerDeadline || 0),
-    refCode: "0x0000000000000000000000000000000000000000000000000000000000000000"
-  };
-  
-  return encodeFunctionData({
-    abi: [{
-      name: "mint",
-      type: "function", 
-      inputs: [
-        { name: "mintPredictionRequestData", type: "tuple", components: [
-          { name: "encodedPredictedOutcomes", type: "bytes" },
-          { name: "resolver", type: "address" },
-          { name: "makerCollateral", type: "uint256" },
-          { name: "takerCollateral", type: "uint256" },
-          { name: "maker", type: "address" },
-          { name: "taker", type: "address" },
-          { name: "makerNonce", type: "uint256" },
-          { name: "takerSignature", type: "bytes" },
-          { name: "takerDeadline", type: "uint256" },
-          { name: "refCode", type: "bytes32" },
-        ]},
-      ],
-      outputs: [
-        { name: "makerNftTokenId", type: "uint256" },
-        { name: "takerNftTokenId", type: "uint256" }
-      ],
-    }],
-    functionName: "mint",
-    args: [mintRequest],
-  });
-}
 
-async function getCurrentMakerNonce(walletAddress: string, rpcUrl: string): Promise<number> {
-  try {
-    const { createPublicClient, http } = await import("viem");
-    const { arbitrum } = await import("viem/chains");
 
-    const publicClient = createPublicClient({
-      chain: arbitrum,
-      transport: http(rpcUrl)
-    });
 
-    const PREDICTION_MARKET_ADDRESS = (process.env.PREDICTION_MARKET_ADDRESS || "0xb04841cad1147675505816e2ec5c915430857b40") as `0x${string}`;
-    
-    const nonce = await publicClient.readContract({
-      address: PREDICTION_MARKET_ADDRESS,
-      abi: [{
-        name: "nonces",
-        type: "function",
-        inputs: [{ name: "", type: "address" }],
-        outputs: [{ name: "", type: "uint256" }],
-        stateMutability: "view"
-      }],
-      functionName: 'nonces',
-      args: [walletAddress as `0x${string}`],
-    }) as bigint;
-
-    return Number(nonce);
-  } catch (error) {
-    elizaLogger.error("[ParlayTrading] Failed to get maker nonce:", error);
-    return 0;
-  }
-}
-
-async function ensureTokenApproval({
-  privateKey,
-  rpcUrl,
-  amount,
-}: {
-  privateKey: `0x${string}`;
-  rpcUrl: string;
-  amount: string;
-}): Promise<void> {
-  try {
-    const { createWalletClient, createPublicClient, http, erc20Abi } = await import("viem");
-    const { privateKeyToAccount } = await import("viem/accounts");
-    const { arbitrum } = await import("viem/chains");
-
-    const USDE_TOKEN_ADDRESS = (process.env.USDE_TOKEN_ADDRESS || "0xfeb8c4d5efbaff6e928ea090bc660c363f883dba") as `0x${string}`;
-    const PREDICTION_MARKET_ADDRESS = (process.env.PREDICTION_MARKET_ADDRESS || "0xb04841cad1147675505816e2ec5c915430857b40") as `0x${string}`;
-
-    const account = privateKeyToAccount(privateKey);
-    const publicClient = createPublicClient({
-      chain: arbitrum,
-      transport: http(rpcUrl)
-    });
-
-    const allowance = await publicClient.readContract({
-      address: USDE_TOKEN_ADDRESS,
-      abi: erc20Abi,
-      functionName: 'allowance',
-      args: [account.address, PREDICTION_MARKET_ADDRESS],
-    }) as bigint;
-
-    const requiredAmount = BigInt(amount);
-    elizaLogger.info(`[ParlayTrading] Current allowance: ${allowance}, required: ${requiredAmount}`);
-
-    if (allowance >= requiredAmount) {
-      elizaLogger.info("[ParlayTrading] Sufficient allowance already exists");
-      return;
-    }
-
-    elizaLogger.info("[ParlayTrading] Approving USDe tokens for PredictionMarket contract...");
-    
-    const walletClient = createWalletClient({
-      account,
-      chain: arbitrum,
-      transport: http(rpcUrl)
-    });
-
-    const approvalAmount = BigInt(process.env.USDE_APPROVAL_AMOUNT || "1000000000000000000000000");
-
-    const hash = await walletClient.writeContract({
-      address: USDE_TOKEN_ADDRESS,
-      abi: erc20Abi,
-      functionName: 'approve',
-      args: [PREDICTION_MARKET_ADDRESS, approvalAmount],
-    });
-
-    elizaLogger.info(`[ParlayTrading] Approval transaction submitted: ${hash}`);
-    await publicClient.waitForTransactionReceipt({ hash });
-    elizaLogger.info("[ParlayTrading] Approval confirmed");
-  } catch (error) {
-    elizaLogger.error("[ParlayTrading] Failed to ensure token approval:", error);
-    throw error;
-  }
-}
-
-async function encodeParlayOutcomes(markets: any[], predictions: any[]): Promise<string[]> {
-  try {
-    const outcomes = markets.map((market, index) => {
-      const prediction = predictions[index];
-      return {
-        marketId: market.id,
-        prediction: prediction.probability > 50,
-      };
-    });
-
-    const normalized = outcomes.map((o) => ({
-      marketId: (o.marketId.startsWith('0x')
-        ? o.marketId
-        : `0x${o.marketId}`) as `0x${string}`,
-      prediction: !!o.prediction,
-    }));
-
-    const encoded = encodeAbiParameters(
-      [
-        {
-          type: 'tuple[]',
-          components: [
-            { name: 'marketId', type: 'bytes32' },
-            { name: 'prediction', type: 'bool' },
-          ],
-        },
-      ],
-      [normalized]
-    );
-
-    elizaLogger.info(`[ParlayTrading] Encoded ${outcomes.length} predicted outcomes`);
-    return [encoded];
-  } catch (error) {
-    elizaLogger.error("[ParlayTrading] Failed to encode predicted outcomes:", error);
-    return predictions.map(p => `0x${p.probability > 50 ? '01' : '00'}`);
-  }
-}
 
 export default parlayTradingAction;

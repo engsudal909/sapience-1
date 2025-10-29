@@ -2,7 +2,7 @@ import { elizaLogger, IAgentRuntime, ModelType, Memory, HandlerCallback } from "
 // @ts-ignore - Sapience plugin types not available at build time
 import type { SapienceService } from "./sapienceService.js";
 import { loadSdk } from "../utils/sdk.js";
-import { privateKeyToAddress } from "viem/accounts";
+import { getWalletAddress } from "../utils/blockchain.js";
 import ParlayMarketService from "./parlayMarketService.js";
 
 interface AttestationConfig {
@@ -260,9 +260,7 @@ Analyze this prediction market and respond with ONLY valid JSON:
 
   private async getWalletAddress(): Promise<string | null> {
     try {
-      const privateKey = process.env.ETHEREUM_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.WALLET_PRIVATE_KEY;
-      if (!privateKey) return null;
-      return privateKeyToAddress(privateKey as `0x${string}`).toLowerCase();
+      return getWalletAddress();
     } catch (error) {
       elizaLogger.error("[AttestationService] Failed to get wallet address:", error);
       return null;
