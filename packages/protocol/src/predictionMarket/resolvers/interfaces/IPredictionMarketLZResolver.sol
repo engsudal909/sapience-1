@@ -20,10 +20,6 @@ interface IPredictionMarketLZResolver is IPredictionMarketResolver {
         bool assertedTruthfully,
         uint256 resolutionTime
     );
-    event MarketDisputed(
-        bytes32 indexed marketId,
-        uint256 disputeTime
-    );
 
     // Functions
     function marketResolvedCallback(
@@ -31,6 +27,4 @@ interface IPredictionMarketLZResolver is IPredictionMarketResolver {
         bool resolvedToYes,
         bool assertedTruthfully
     ) external;
-
-    function marketDisputedCallback(bytes32 marketId) external;
 }

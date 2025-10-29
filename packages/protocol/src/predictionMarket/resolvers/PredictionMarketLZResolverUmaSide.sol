@@ -47,8 +47,7 @@ contract PredictionMarketLZResolverUmaSide is
     mapping(bytes32 => bool) private marketResolvedToYes; // marketId => resolvedToYes
     mapping(bytes32 => address) private marketAsserter; // marketId => asserter
 
-    // Bond management
-    mapping(address => uint256) private bondBalances; // currency => balance
+    // No internal bond accounting; this contract expects bond tokens to be pre-funded via ERC20 transfers
 
     // ============ Constructor ============
     constructor(
@@ -83,21 +82,8 @@ contract PredictionMarketLZResolverUmaSide is
         return optimisticOracleV3Address;
     }
 
-    // ============ Bond Management Functions ============
-    function depositBond(address bondCurrency, uint256 amount) external nonReentrant {
-        IERC20(bondCurrency).safeTransferFrom(msg.sender, address(this), amount);
-        bondBalances[bondCurrency] += amount;
-    }
-
-    function withdrawBond(address bondCurrency, uint256 amount) external nonReentrant {
-        require(bondBalances[bondCurrency] >= amount, "Insufficient bond balance");
-        bondBalances[bondCurrency] -= amount;
-        IERC20(bondCurrency).safeTransfer(msg.sender, amount);
-    }
-
-    function getBondBalance(address bondCurrency) external view returns (uint256) {
-        return bondBalances[bondCurrency];
-    }
+    // ============ Funding Note ============
+    // Bond tokens should be transferred to this contract directly via ERC20 transfers.
 
     // ============ UMA Market Validation Functions ============
     function submitAssertion(
@@ -118,19 +104,16 @@ contract PredictionMarketLZResolverUmaSide is
         OptimisticOracleV3Interface optimisticOracleV3 = OptimisticOracleV3Interface(optimisticOracleV3Address);
         IERC20 bondCurrency = IERC20(config.bondCurrency);
 
-        // Check if we have enough bond tokens
-        if (bondBalances[config.bondCurrency] < config.bondAmount) {
+        // Check if the contract holds enough bond tokens
+        if (bondCurrency.balanceOf(address(this)) < config.bondAmount) {
             revert NotEnoughBondAmount(
                 msg.sender,
                 config.bondCurrency,
                 config.bondAmount,
-                bondBalances[config.bondCurrency],
-                bondBalances[config.bondCurrency]
+                bondCurrency.balanceOf(address(this)),
+                bondCurrency.balanceOf(address(this))
             );
         }
-
-        // Deduct bond from our balance
-        bondBalances[config.bondCurrency] -= config.bondAmount;
 
         // Approve the bond currency to the Optimistic Oracle V3
         bondCurrency.forceApprove(address(optimisticOracleV3), config.bondAmount);

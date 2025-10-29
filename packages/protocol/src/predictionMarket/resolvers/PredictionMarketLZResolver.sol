@@ -173,9 +173,6 @@ contract PredictionMarketLZResolver is
             (bytes32 marketId, bool resolvedToYes, bool assertedTruthfully) = 
                 data.decodeFromUMAMarketResolved();
             marketResolvedCallback(marketId, resolvedToYes, assertedTruthfully);
-        } else if (commandType == Encoder.CMD_FROM_UMA_MARKET_DISPUTED) {
-            bytes32 marketId = data.decodeFromUMAMarketDisputed();
-            marketDisputedCallback(marketId);
         } else {
             revert InvalidCommandType(commandType);
         }
@@ -211,13 +208,7 @@ contract PredictionMarketLZResolver is
         );
     }
 
-    function marketDisputedCallback(bytes32 marketId) public {
-        if (msg.sender != address(this)) {
-            revert OnlyRemoteResolverCanCall();
-        }
-
-        emit MarketDisputed(marketId, block.timestamp);
-    }
+    // No disputed callback required on PM side per current interface
 
     // ============ View Functions ============
     function getMarket(bytes32 marketId) external view returns (WrappedMarket memory) {

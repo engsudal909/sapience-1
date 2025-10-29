@@ -60,8 +60,5 @@ interface IPredictionMarketLZResolverUmaSide is ILayerZeroBridge {
     function setOptimisticOracleV3(address _optimisticOracleV3) external;
     function getOptimisticOracleV3() external view returns (address);
 
-    // Bond Management
-    function depositBond(address bondCurrency, uint256 amount) external;
-    function withdrawBond(address bondCurrency, uint256 amount) external;
-    function getBondBalance(address bondCurrency) external view returns (uint256);
+    // No bond management functions; contract must be pre-funded via ERC20 transfers
 }
