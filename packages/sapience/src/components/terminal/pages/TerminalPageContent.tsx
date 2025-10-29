@@ -25,6 +25,8 @@ import {
   CommandList,
 } from '@sapience/sdk/ui/components/ui/command';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import MarketBadge from '~/components/markets/MarketBadge';
+import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 
 const TerminalPageContent: React.FC = () => {
@@ -135,7 +137,12 @@ const TerminalPageContent: React.FC = () => {
 
   // Query conditions to enrich shortName/question for decoded predicted outcomes
   const { data: conditions = [] } = useQuery<
-    { id: string; shortName?: string | null; question?: string | null }[],
+    {
+      id: string;
+      shortName?: string | null;
+      question?: string | null;
+      category?: { slug?: string | null } | null;
+    }[],
     Error
   >({
     queryKey: ['terminalConditionsByIds', conditionIds.sort().join(',')],
@@ -150,6 +157,9 @@ const TerminalPageContent: React.FC = () => {
             id
             shortName
             question
+            category {
+              slug
+            }
           }
         }
       `;
@@ -351,6 +361,7 @@ const TerminalPageContent: React.FC = () => {
         return {
           id: o.marketId,
           title: cond?.shortName ?? cond?.question ?? o.marketId,
+          categorySlug: cond?.category?.slug ?? null,
           choice: o.prediction ? ('Yes' as const) : ('No' as const),
         };
       });
@@ -358,12 +369,22 @@ const TerminalPageContent: React.FC = () => {
         return <span className="text-muted-foreground">—</span>;
       return (
         <div className="overflow-x-auto">
-          <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap pr-4 text-xs">
+          <div className="flex items-center gap-3 md:gap-4 whitespace-nowrap pr-4 text-xs">
             {legs.map((leg, i) => (
               <div
                 key={i}
-                className="inline-flex items-center gap-1.5 shrink-0"
+                className="inline-flex items-center gap-2.5 shrink-0"
               >
+                <MarketBadge
+                  label={String(leg.title)}
+                  size={18}
+                  categorySlug={leg.categorySlug || undefined}
+                  color={
+                    leg.categorySlug
+                      ? getDeterministicCategoryColor(leg.categorySlug)
+                      : undefined
+                  }
+                />
                 <ConditionTitleLink
                   conditionId={leg.id}
                   title={String(leg.title)}
