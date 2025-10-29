@@ -434,9 +434,7 @@ const ModifyTradeFormInternal: React.FC<ModifyTradeFormProps> = ({
     TOKEN_DECIMALS
   );
 
-  const LOADING_SPINNER = (
-    <LottieLoader className="invert" width={20} height={20} />
-  );
+  const LOADING_SPINNER = <LottieLoader width={20} height={20} />;
 
   const currentPositionCollateral = formatUnits(
     positionData?.depositedCollateralAmount ?? BigInt(0),

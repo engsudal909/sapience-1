@@ -20,7 +20,7 @@ export const themeTokens = {
   },
   dark: {
     background: '222 16% 9%',
-    foreground: '0 0% 90%',
+    foreground: '37 41% 83%',
     success: '142 72% 45%',
     warning: '38 92% 55%',
     info: '217 91% 70%',

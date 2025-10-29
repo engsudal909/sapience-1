@@ -429,7 +429,7 @@ const Comments = ({
                         </div>
                         {/* Comment content */}
                         {(comment.content || '').trim().length > 0 && (
-                          <div className="border border-muted-foreground/30 rounded shadow-md bg-card overflow-hidden p-4">
+                          <div className="border border-foreground/30 rounded shadow-md bg-background overflow-hidden p-4">
                             <div className="text-xl leading-[1.5] text-foreground/90 tracking-[-0.005em]">
                               {comment.content}
                             </div>
@@ -481,15 +481,15 @@ const Comments = ({
                             )}
                           </span>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                            <div className="relative translate-y-[2px]">
+                            <div className="relative translate-y-[1px]">
                               <EnsAvatar
                                 address={comment.address}
-                                className="w-4 h-4 rounded-sm ring-1 ring-border/50"
-                                width={16}
-                                height={16}
+                                className="w-3.5 h-3.5 rounded-sm ring-1 ring-border/50"
+                                width={14}
+                                height={14}
                               />
                             </div>
-                            <div className="text-sm text-muted-foreground/80 font-medium">
+                            <div className="text-[12px] text-muted-foreground/80 font-medium">
                               <AddressDisplay
                                 address={comment.address}
                                 disableProfileLink={false}
