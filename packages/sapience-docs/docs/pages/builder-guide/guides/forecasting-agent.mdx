@@ -52,7 +52,7 @@ The agent runs with these features enabled by default:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `ATTESTATION_INTERVAL_MS` | `300000` | Cycle interval in milliseconds (5 minutes) |
+| `ATTESTATION_INTERVAL_MS` | `3600000` | Cycle interval in milliseconds (1 hour) |
 | `MIN_ATTESTATION_CONFIDENCE` | `0.6` | Minimum confidence threshold (0-1) for attestations |
 | `ATTESTATION_BATCH_SIZE` | `5` | Number of markets to process per cycle |
 | `PROBABILITY_CHANGE_THRESHOLD` | `10` | Percentage change required for re-attestation |
@@ -215,7 +215,7 @@ Your forecasting agent can automatically place multi-leg parlays based on its pr
 
 - **3+ High-Confidence Markets** → Creates parlay auction
 - **Prediction >50%** → YES position
-- **Prediction <50%** → NO position
+- **Prediction \<50%** → NO position
 
 #### Setup Parlay Trading
 
