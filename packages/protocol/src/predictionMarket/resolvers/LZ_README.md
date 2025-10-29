@@ -38,7 +38,6 @@ The system consists of two contracts with clear separation of concerns:
 - No bond management or assertion submission
 
 **Key Functions**:
-- `marketResolvedCallback()` - Handle market resolution from UMA
 - `validatePredictionMarkets()` - Validate prediction market data
 - `getPredictionResolution()` - Get resolution status
 
