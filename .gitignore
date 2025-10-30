@@ -28,4 +28,4 @@ dump.sql
 storybook-static
 
 # docker-compose volume data files
-./data
+/data/
