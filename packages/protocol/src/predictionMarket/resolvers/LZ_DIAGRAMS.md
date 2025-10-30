@@ -113,7 +113,6 @@ graph TD
 ```mermaid
 graph TD
     User[User] -->|Deposit Eth| UMR[UMA Resolver]
-    UMR -->|Store Bond| Bonds[Bond Management]
     UMR -->|Use Eth| LZ[LZ Cross Chain]
     User -->|Withdraw Eth| UMR
     UMR -->|Return Eth| User
