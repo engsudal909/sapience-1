@@ -18,10 +18,12 @@ graph TB
         UMR[PredictionMarketLZResolverUmaSide]
         LZ2[LayerZero Endpoint]
         Bonds[Bond Management]
+        ETH[LZ Eth fee Management]
     end
     
     User[User/Asserter] -->|submitAssertion| UMR
     UMR -->|manage bonds| Bonds
+    UMR -->|manage lz fee| ETH
     UMR -->|assertTruth| UMA
     UMA -->|callback| UMR
     UMR -->|LayerZero Message| LZ2
@@ -37,6 +39,7 @@ sequenceDiagram
     participant User
     participant UMR as UMA Resolver
     participant Bonds as Bond Management
+    participant Eth as Eth Management
     participant UMA as UMA Optimistic Oracle V3
     participant LZ2 as LayerZero (UMA Side)
     participant LZ1 as LayerZero (PM Side)
@@ -54,7 +57,7 @@ sequenceDiagram
     else assertedTruthfully == false
         UMR->>UMR: Emit MarketResolvedFromUMA (no LZ message)
     end
-    LZ2-->>LZ1: Cross-chain message
+    LZ2-->>LZ1: Cross-chain message (eth fee)
     LZ1->>PMR: _lzReceive()
     
     PMR->>PMR: marketResolvedCallback()
@@ -102,6 +105,18 @@ graph TD
     UMR -->|Store Bond| Bonds
     User -->|Withdraw Bond| UMR
     UMR -->|Return Bond| User
+```
+
+## ETH Management
+
+### ETH Flow
+```mermaid
+graph TD
+    User[User] -->|Deposit Eth| UMR[UMA Resolver]
+    UMR -->|Store Bond| Bonds[Bond Management]
+    UMR -->|Use Eth| LZ[LZ Cross Chain]
+    User -->|Withdraw Eth| UMR
+    UMR -->|Return Eth| User
 ```
 
 ## Deployment Architecture
