@@ -9,8 +9,7 @@ import { createChatWebSocketServer } from './websocket/chat';
 import type { IncomingMessage } from 'http';
 import type { Socket } from 'net';
 import dotenv from 'dotenv';
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fromRoot } from './utils/fromRoot';
 import { initSentry } from './instrument';
 import { initializeApolloServer } from './graphql/startApolloServer';
 import Sentry from './instrument';
@@ -21,9 +20,7 @@ import prisma from './db';
 const PORT = 3001;
 
 // Load environment variables
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: fromRoot('.env') });
 
 initSentry();
 

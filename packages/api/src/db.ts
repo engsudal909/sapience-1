@@ -1,12 +1,8 @@
 import { PrismaClient } from '../generated/prisma';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import path, { dirname } from 'path';
+import { fromRoot } from './utils/fromRoot';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: fromRoot('.env') });
 
 const renderServiceName = process.env.RENDER_SERVICE_NAME;
 const shouldLogInLive =
