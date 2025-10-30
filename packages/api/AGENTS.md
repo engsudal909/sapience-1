@@ -33,6 +33,7 @@ Reindex/backfill helpers (`start:reindex-*`, `start:backfill-accuracy`) are CLIs
   - GraphQL types: `generate-types` (watch mode started in `dev:api`).
 - Sentry sourcemaps: production build (`build`) invokes `sentry:sourcemaps`; ensure credentials are configured before running.
 - Auction helpers (`src/auction`) connect to Discord/WS; keep secrets in environment variables when running automation.
+- Centralize environment variables in `src/config.ts` via the envalid-powered `config.*` exports. Never read from `process.env` directly in the codebase; add new vars to `config.ts` and consume them as `config.MY_ENV_VAR`.
 
 ## Folder Layout Highlights
 - `src/server.ts` – Express/Apollo entrypoint.
