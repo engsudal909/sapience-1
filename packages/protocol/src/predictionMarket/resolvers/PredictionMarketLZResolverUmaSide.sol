@@ -154,9 +154,9 @@ contract PredictionMarketLZResolverUmaSide is
         // Submit the assertion to UMA
         bytes32 umaAssertionId = optimisticOracleV3.assertTruth(
             finalClaim,
-            msg.sender,
-            address(this),
-            address(0),
+            address(this), // bond recipient
+            address(this), // callback recipient
+            address(0), // escalation manager
             config.assertionLiveness,
             bondCurrency,
             config.bondAmount,
