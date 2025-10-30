@@ -1,6 +1,7 @@
 import express, { Request } from 'express';
 import cors from 'cors';
 import { router } from './routes';
+import { config } from './config';
 
 const corsOptions: cors.CorsOptions = {
   origin: (
@@ -9,10 +10,7 @@ const corsOptions: cors.CorsOptions = {
     request?: Request
   ) => {
     // Allow all requests unless in production or staging
-    if (
-      process.env.NODE_ENV !== 'production' &&
-      process.env.NODE_ENV !== 'staging'
-    ) {
+    if (config.NODE_ENV !== 'production' && config.NODE_ENV !== 'staging') {
       callback(null, true);
       return;
     }

@@ -1,15 +1,12 @@
 import { PrismaClient } from '../generated/prisma';
-import dotenv from 'dotenv';
-import { fromRoot } from './utils/fromRoot';
-
-dotenv.config({ path: fromRoot('.env') });
+import { config } from './config';
 
 const renderServiceName = process.env.RENDER_SERVICE_NAME;
 const shouldLogInLive =
   renderServiceName === 'candle-cache-builder' ? false : true;
 
 const isLive =
-  process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging';
+  config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
 
 // Create Prisma client with appropriate logging
 const prisma = new PrismaClient({

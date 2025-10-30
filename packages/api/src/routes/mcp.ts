@@ -5,6 +5,7 @@ import { registerAllMcpTools } from '../mcp/index.js'; // Import the new aggrega
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { InMemoryEventStore } from '@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js';
 import express from 'express';
+import { config } from '../config';
 
 // Create the McpServer instance
 const server = new McpServer(
@@ -35,9 +36,10 @@ registerAllMcpTools(server);
 const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
 // Logging controls
-const isProdLike =
-  process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging';
-const DEBUG_MCP_LOGS = process.env.DEBUG_MCP_LOGS === '1' && !isProdLike;
+const isLive =
+  config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
+
+const DEBUG_MCP_LOGS = process.env.DEBUG_MCP_LOGS === '1' && !isLive;
 
 export const handleMcpAppRequests = (app: express.Application, url: string) => {
   // Handle POST requests for client-to-server communication

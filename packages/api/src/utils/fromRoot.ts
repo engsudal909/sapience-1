@@ -13,6 +13,11 @@ if (!fs.existsSync(path.resolve(__root, 'package.json'))) {
   );
 }
 
+/**
+ * Resolve a filesystem path relative to the API package root (`packages/api`).
+ * @param pathname Relative path segment(s) to join with the root.
+ * @returns Absolute path rooted at `packages/api`.
+ */
 export function fromRoot(pathname: string) {
   return path.resolve(__root, pathname);
 }

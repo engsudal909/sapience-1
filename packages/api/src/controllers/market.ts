@@ -40,6 +40,7 @@ import { Transaction } from '../../generated/prisma';
 import { fetchRenderServices, createRenderJob } from '../utils/utils';
 import { reindexAccuracy } from '../workers/jobs/reindexAccuracy';
 import { updateTwErrorForMarket } from '../workers/jobs/updateTwErrorForMarket';
+import { config } from '../config';
 
 const settledPositions: any[] = [];
 // Called when the process starts, upserts markets in the database to match those in the constants.ts file
@@ -1055,20 +1056,19 @@ export const upsertEntitiesFromEvent = async (
         // Prefer background job to avoid blocking the event loop
         const addr = event.market_group.address;
         const mId = String(event.logData.args.marketId);
-        const isProduction =
-          process.env.NODE_ENV === 'production' ||
-          process.env.NODE_ENV === 'staging';
+        const isLive =
+          config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
 
         (async () => {
           try {
-            if (isProduction) {
+            if (isLive) {
               const renderServices = await fetchRenderServices();
               const worker = renderServices.find(
                 (item: any) =>
                   item?.service?.type === 'background_worker' &&
                   item?.service?.name?.startsWith('background-worker') &&
                   item?.service?.branch ===
-                    (process.env.NODE_ENV === 'staging' ? 'staging' : 'main')
+                    (config.NODE_ENV === 'staging' ? 'staging' : 'main')
               );
 
               if (!worker?.service?.id) {
