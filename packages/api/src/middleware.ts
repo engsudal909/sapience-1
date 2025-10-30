@@ -54,11 +54,8 @@ export async function adminAuth(
   res: Response,
   next: NextFunction
 ) {
-  const isLive =
-    config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
-
   // In local development, skip admin auth checks
-  if (!isLive) {
+  if (!config.isProd) {
     return next();
   }
 

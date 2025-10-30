@@ -36,10 +36,7 @@ registerAllMcpTools(server);
 const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
 // Logging controls
-const isLive =
-  config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
-
-const DEBUG_MCP_LOGS = process.env.DEBUG_MCP_LOGS === '1' && !isLive;
+const DEBUG_MCP_LOGS = process.env.DEBUG_MCP_LOGS === '1' && !config.isProd;
 
 export const handleMcpAppRequests = (app: express.Application, url: string) => {
   // Handle POST requests for client-to-server communication

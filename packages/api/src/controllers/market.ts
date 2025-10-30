@@ -1056,19 +1056,16 @@ export const upsertEntitiesFromEvent = async (
         // Prefer background job to avoid blocking the event loop
         const addr = event.market_group.address;
         const mId = String(event.logData.args.marketId);
-        const isLive =
-          config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
 
         (async () => {
           try {
-            if (isLive) {
+            if (config.isProd) {
               const renderServices = await fetchRenderServices();
               const worker = renderServices.find(
                 (item: any) =>
                   item?.service?.type === 'background_worker' &&
                   item?.service?.name?.startsWith('background-worker') &&
-                  item?.service?.branch ===
-                    (config.NODE_ENV === 'staging' ? 'staging' : 'main')
+                  item?.service?.branch === 'main'
               );
 
               if (!worker?.service?.id) {

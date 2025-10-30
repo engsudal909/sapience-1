@@ -2,16 +2,13 @@ import { PrismaClient } from '../generated/prisma';
 import { config } from './config';
 
 const renderServiceName = process.env.RENDER_SERVICE_NAME;
-const shouldLogInLive =
+const shouldLogInProduction =
   renderServiceName === 'candle-cache-builder' ? false : true;
-
-const isLive =
-  config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
 
 // Create Prisma client with appropriate logging
 const prisma = new PrismaClient({
   log:
-    isLive && shouldLogInLive
+    config.isProd && shouldLogInProduction
       ? ['query', 'info', 'warn', 'error']
       : ['warn', 'error'],
 });

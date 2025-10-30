@@ -63,7 +63,7 @@ const startServer = async () => {
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
       try {
         const url = request.url || '/';
-        // Origin validation for staging/prod if configured
+        // Origin validation for prod if configured
         if (
           url.startsWith('/chat') &&
           config.NODE_ENV !== 'development' &&

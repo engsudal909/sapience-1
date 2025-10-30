@@ -6,9 +6,6 @@ import { config } from '../config';
 
 import type { Request, Response } from 'express';
 
-const isLive =
-  config.NODE_ENV === 'production' || config.NODE_ENV === 'staging';
-
 const router = Router();
 router.post(
   '/accuracy',
@@ -18,7 +15,7 @@ router.post(
     const startCommand =
       `pnpm run start:reindex-accuracy ${address || ''} ${marketId || ''}`.trim();
 
-    if (isLive) {
+    if (config.isProd) {
       const renderServices = await fetchRenderServices();
       const worker = renderServices.find(
         (item: {
@@ -31,8 +28,7 @@ router.post(
         }) =>
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch ===
-            (config.NODE_ENV === 'staging' ? 'staging' : 'main')
+          item?.service?.branch === 'main'
       );
 
       if (!worker?.service?.id) {
@@ -107,8 +103,8 @@ router.post(
   handleAsyncErrors(async (req, res) => {
     const { startTimestamp, endTimestamp, slug } = req.body;
 
-    // For production/staging environments
-    if (isLive) {
+    // For production environments
+    if (config.isProd) {
       // Get background worker service ID
       const renderServices = await fetchRenderServices();
       const worker = renderServices.find(
@@ -122,8 +118,7 @@ router.post(
         }) =>
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch ===
-            (config.NODE_ENV === 'staging' ? 'staging' : 'main')
+          item?.service?.branch === 'main'
       );
 
       if (!worker?.service?.id) {
@@ -172,7 +167,7 @@ const handleReindexRequest = async (
     ? `pnpm run start:reindex-missing ${chainId} ${address} ${marketId}`
     : `pnpm run start:reindex-market ${chainId} ${address} ${marketId}`;
 
-  if (isLive) {
+  if (config.isProd) {
     let id: string = '';
     const renderServices = await fetchRenderServices();
     for (const item of renderServices) {
@@ -180,9 +175,7 @@ const handleReindexRequest = async (
         item?.service?.type === 'background_worker' &&
         item?.service?.name?.startsWith('background-worker') &&
         item?.service?.id &&
-        (config.NODE_ENV === 'staging'
-          ? item?.service?.branch === 'staging'
-          : item?.service?.branch === 'main')
+        item?.service?.branch === 'main'
       ) {
         id = item?.service.id;
         break;
@@ -238,7 +231,7 @@ router.post(
 
     const startCommand = `pnpm run start:reindex-prediction-market ${chainId} ${startTimestamp || 'undefined'} ${endTimestamp || 'undefined'} ${clearExisting || false}`;
 
-    if (isLive) {
+    if (config.isProd) {
       const renderServices = await fetchRenderServices();
       const worker = renderServices.find(
         (item: {
@@ -251,8 +244,7 @@ router.post(
         }) =>
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch ===
-            (config.NODE_ENV === 'staging' ? 'staging' : 'main')
+          item?.service?.branch === 'main'
       );
 
       if (!worker?.service?.id) {
@@ -305,7 +297,7 @@ router.post(
 
     const startCommand = `pnpm run start:reindex-market-group-factory ${chainId} ${factoryAddress}`;
 
-    if (isLive) {
+    if (config.isProd) {
       let id: string = '';
       const renderServices = await fetchRenderServices();
       for (const item of renderServices) {
@@ -313,9 +305,7 @@ router.post(
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
           item?.service?.id &&
-          (config.NODE_ENV === 'staging'
-            ? item?.service?.branch === 'staging'
-            : item?.service?.branch === 'main')
+          item?.service?.branch === 'main'
         ) {
           id = item?.service.id;
           break;

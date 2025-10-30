@@ -10,7 +10,7 @@ dotEnvConfig({ path: fromRoot('.env') });
  */
 export const config = cleanEnv(process.env, {
   NODE_ENV: str({
-    choices: ['development', 'production', 'staging', 'test'],
+    choices: ['development', 'production', 'test'],
     default: 'development',
   }),
 });
