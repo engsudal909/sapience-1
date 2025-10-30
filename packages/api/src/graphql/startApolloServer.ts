@@ -252,7 +252,7 @@ export const initializeApolloServer = async () => {
         objectCost: 0, // Cost per object (we count fields instead)
         listFactor: 10, // Multiply cost by 10 for lists
         onCost: (cost: number) => {
-          if (config.NODE_ENV === 'development') {
+          if (config.isDev) {
             console.log(`Query complexity: ${cost}`);
           }
         },

@@ -24,10 +24,7 @@ initSentry();
 const startServer = async () => {
   await initializeDataSource();
 
-  if (
-    config.NODE_ENV === 'development' &&
-    process.env.DATABASE_URL?.includes('render')
-  ) {
+  if (config.isDev && process.env.DATABASE_URL?.includes('render')) {
     console.log(
       'Skipping fixtures initialization since we are in development mode and using production database'
     );
@@ -66,7 +63,7 @@ const startServer = async () => {
         // Origin validation for prod if configured
         if (
           url.startsWith('/chat') &&
-          config.NODE_ENV !== 'development' &&
+          !config.isDev &&
           process.env.CHAT_ALLOWED_ORIGINS
         ) {
           const origin = request.headers['origin'] as string | undefined;
@@ -115,7 +112,7 @@ const startServer = async () => {
   });
 
   // Only set up Sentry error handling in production
-  if (config.NODE_ENV === 'production') {
+  if (config.isProd) {
     Sentry.setupExpressErrorHandler(app);
   }
 
