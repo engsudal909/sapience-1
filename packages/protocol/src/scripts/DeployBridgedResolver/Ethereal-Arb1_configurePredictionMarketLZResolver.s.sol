@@ -26,10 +26,6 @@ contract ConfigurePredictionMarketLZResolver is Script {
             })
         );
 
-        // Optional: tune receive cost and gas reserve thresholds
-        // You can pass overrides via env if desired; else leave commented/defaults
-        // resolver.setLzReceiveCost(uint128(vm.envUint("PM_LZ_RECEIVE_COST")));
-        // resolver.setGasThresholds(vm.envUint("PM_GAS_WARN"), vm.envUint("PM_GAS_CRIT"));
         vm.stopBroadcast();
     }
 }

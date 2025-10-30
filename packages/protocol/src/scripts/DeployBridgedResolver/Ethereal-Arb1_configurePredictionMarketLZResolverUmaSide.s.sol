@@ -34,20 +34,6 @@ contract ConfigurePredictionMarketLZResolverUmaSide is Script {
             })
         );
 
-        // UMA + local config (only if provided)
-        if (optimisticOracleV3 != address(0)) {
-            resolver.setOptimisticOracleV3(optimisticOracleV3);
-        }
-        if (bondCurrency != address(0) || bondAmount != 0 || assertionLiveness != 0) {
-            resolver.setConfig(
-                PredictionMarketLZResolverUmaSide.Settings({
-                    bondCurrency: bondCurrency,
-                    bondAmount: bondAmount,
-                    assertionLiveness: assertionLiveness
-                })
-            );
-        }
-
         // Optional tuning via env
         // resolver.setLzReceiveCost(uint128(vm.envUint("UMA_LZ_RECEIVE_COST")));
         // resolver.setGasThresholds(vm.envUint("UMA_GAS_WARN"), vm.envUint("UMA_GAS_CRIT"));

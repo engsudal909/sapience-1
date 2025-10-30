@@ -24,7 +24,14 @@ fi
 
 missing()
 {
-  [[ -z "${PRIVATE_KEY:-}" || -z "${ETHEREAL_RPC:-}" || -z "${ARB_RPC:-}" || -z "${UMA_SIDE_EID:-}" || -z "${PM_SIDE_EID:-}" ]]
+  [[ -z "${PRIVATE_KEY:-}" \
+  || -z "${ETHEREAL_RPC:-}" \
+  || -z "${ARB_RPC:-}" \
+  || -z "${UMA_SIDE_EID:-}" \
+  || -z "${PM_SIDE_EID:-}" \
+  || -z "${ETHEREAL_LZ_ENDPOINT:-}" \
+  || -z "${ARB_LZ_ENDPOINT:-}" \
+  || -z "${OWNER:-}" ]]
 }
 
 if missing; then
@@ -36,6 +43,10 @@ export ETHEREAL_RPC=https://etherealchain.rpc.url
 export ARB_RPC=https://arb1.arbitrum.io/rpc
 export UMA_SIDE_EID=30110           # Arbitrum One eid
 export PM_SIDE_EID=<ethereal_eid>   # Ethereal eid
+# Deploy-time addresses
+export ETHEREAL_LZ_ENDPOINT=0x...
+export ARB_LZ_ENDPOINT=0x...
+export OWNER=0x...
 # Optional UMA params:
 # export UMA_OOV3=0x...
 # export UMA_BOND_TOKEN=0x...
@@ -65,8 +76,6 @@ need() {
 }
 
 need jq
-
-exit 0
 
 echo "[1/4] Deploy PM LZ Resolver on Ethereal"
 forge script \
