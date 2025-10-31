@@ -1,4 +1,4 @@
-import { cleanEnv, str } from 'envalid';
+import { cleanEnv, str, num } from 'envalid';
 import { config as dotEnvConfig } from 'dotenv';
 import { fromRoot } from './utils/fromRoot';
 
@@ -12,5 +12,8 @@ export const config = cleanEnv(process.env, {
   NODE_ENV: str({
     choices: ['development', 'production', 'test'],
     default: 'development',
+  }),
+  PORT: num({
+    default: 3001,
   }),
 });

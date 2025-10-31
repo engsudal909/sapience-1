@@ -17,8 +17,6 @@ import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
 import { config } from './config';
 
-const PORT = 3001;
-
 initSentry();
 
 const startServer = async () => {
@@ -104,8 +102,8 @@ const startServer = async () => {
     }
   );
 
-  httpServer.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  httpServer.listen(config.PORT, () => {
+    console.log(`Server is running on port ${config.PORT}`);
     console.log(`GraphQL endpoint available at /graphql`);
     if (auctionWsEnabled) console.log(`Auction WebSocket endpoint at /auction`);
     console.log(`Chat WebSocket endpoint at /chat`);
