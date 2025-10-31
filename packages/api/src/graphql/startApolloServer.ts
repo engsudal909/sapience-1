@@ -1,3 +1,4 @@
+import { Sentry } from '../sentry';
 import 'reflect-metadata';
 import { buildSchema } from 'type-graphql';
 import { relationResolvers } from '@generated/type-graphql';
@@ -9,7 +10,6 @@ import responseCachePlugin from '@apollo/server-plugin-response-cache';
 import depthLimit from 'graphql-depth-limit';
 import { createComplexityLimitRule } from 'graphql-validation-complexity';
 import { config } from '../config';
-import Sentry from '../instrument';
 
 // Import only the query (read-only) resolvers from generated TypeGraphQL
 import {

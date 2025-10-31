@@ -1,25 +1,24 @@
+import { Sentry } from './sentry';
+
 import 'reflect-metadata';
-import { initializeDataSource } from './db';
+import { createServer } from 'node:http';
 import { expressMiddleware } from '@apollo/server/express4';
+import { NextFunction, Request, Response } from 'express';
+import { initializeDataSource } from './db';
 import { createLoaders } from './graphql/loaders';
 import { app } from './app';
-import { createServer } from 'http';
 import { createAuctionWebSocketServer } from './auction/ws';
 import { createChatWebSocketServer } from './websocket/chat';
-import type { IncomingMessage } from 'http';
-import type { Socket } from 'net';
-import { initSentry } from './instrument';
 import { initializeApolloServer } from './graphql/startApolloServer';
-import Sentry from './instrument';
-import { NextFunction, Request, Response } from 'express';
 import { initializeFixtures } from './fixtures';
 import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
 import { config } from './config';
+import { validateOrigin } from './utils/url';
+import { closeSocket, setupConnectionMetrics } from './utils/socket';
 
-const PORT = 3001;
-
-initSentry();
+import type { IncomingMessage } from 'node:http';
+import type { Socket } from 'node:net';
 
 const startServer = async () => {
   await initializeDataSource();
@@ -55,63 +54,59 @@ const startServer = async () => {
   const auctionWss = auctionWsEnabled ? createAuctionWebSocketServer() : null;
   const chatWss = createChatWebSocketServer();
 
+  setupConnectionMetrics('chat', chatWss);
+  if (auctionWss) {
+    setupConnectionMetrics('auction', auctionWss);
+  }
+
   httpServer.on(
     'upgrade',
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
-      try {
-        const url = request.url || '/';
-        // Origin validation for prod if configured
+      if (!request.url) return closeSocket(socket, 403);
+
+      const uri = new URL(request.url);
+
+      if (uri.pathname === '/chat') {
+        const allowedOrigins = config.CHAT_ALLOWED_ORIGINS;
+
+        // Origin validation if configured
         if (
-          url.startsWith('/chat') &&
-          !config.isDev &&
-          process.env.CHAT_ALLOWED_ORIGINS
+          allowedOrigins.length &&
+          !validateOrigin(request, config.CHAT_ALLOWED_ORIGINS)
         ) {
-          const origin = request.headers['origin'] as string | undefined;
-          const allowed = new Set(
-            process.env.CHAT_ALLOWED_ORIGINS.split(',').map((s) => s.trim())
-          );
-          if (!origin || !Array.from(allowed).some((o) => origin === o)) {
-            try {
-              socket.destroy();
-            } catch {
-              /* ignore */
-            }
-            return;
-          }
+          return closeSocket(socket, 401);
         }
-        if (auctionWsEnabled && url.startsWith('/auction') && auctionWss) {
+
+        chatWss.handleUpgrade(request, socket, head, (ws) => {
+          chatWss.emit('connection', ws, request);
+        });
+
+        return;
+      }
+
+      if (uri.pathname === '/auction') {
+        if (auctionWsEnabled && auctionWss) {
           auctionWss.handleUpgrade(request, socket, head, (ws) => {
             auctionWss.emit('connection', ws, request);
           });
-          return;
+        } else {
+          closeSocket(socket, 410);
         }
-        if (url.startsWith('/chat')) {
-          chatWss.handleUpgrade(request, socket, head, (ws) => {
-            chatWss.emit('connection', ws, request);
-          });
-          return;
-        }
-        // Deprecated: /vault-quotes is no longer used; multiplexed on /auction
-      } catch {
-        /* ignore */
+
+        return;
       }
-      // If not handled, destroy the socket
-      try {
-        socket.destroy();
-      } catch {
-        /* ignore */
-      }
+
+      return closeSocket(socket, 404);
     }
   );
 
-  httpServer.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  httpServer.listen(config.PORT, () => {
+    console.log(`Server is running on port ${config.PORT}`);
     console.log(`GraphQL endpoint available at /graphql`);
     if (auctionWsEnabled) console.log(`Auction WebSocket endpoint at /auction`);
     console.log(`Chat WebSocket endpoint at /chat`);
   });
 
-  // Only set up Sentry error handling in production
   if (config.isProd) {
     Sentry.setupExpressErrorHandler(app);
   }

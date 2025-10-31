@@ -1,3 +1,4 @@
+import { router as health } from './health';
 import { router as marketRoutes } from './markets';
 import { router as reindexRoutes } from './reindex';
 import { router as refreshCacheRoutes } from './refreshCache';
@@ -15,6 +16,7 @@ const adminRouter = Router();
 // Apply admin authentication to all admin routes
 adminRouter.use(adminAuth);
 
+router.use('/health', health);
 router.use('/quoter', quoterRoutes);
 router.use('/referrals', referralsRoutes);
 
