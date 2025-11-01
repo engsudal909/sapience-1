@@ -59,7 +59,7 @@ const BestBid: React.FC<BestBidProps> = ({
 }) => {
   return (
     <div>
-      <div className="text-xs mt-1 mb-1">
+      <div className="text-xs mt-0 mb-1">
         <div className="flex items-baseline justify-between">
           <span className="font-medium">Best Bid</span>
           <div className="inline-flex items-baseline gap-1">
@@ -206,23 +206,6 @@ const BestBid: React.FC<BestBidProps> = ({
                             </div>
                             <div className="flex items-center justify-between gap-3 mt-0.5">
                               <div className="flex items-center gap-2 min-w-0 text-muted-foreground">
-                                <div className="inline-flex items-center gap-1 min-w-0">
-                                  <EnsAvatar
-                                    address={uiTx?.position?.owner || ''}
-                                    className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
-                                    width={16}
-                                    height={16}
-                                  />
-                                  <div className="min-w-0">
-                                    <AddressDisplay
-                                      address={uiTx?.position?.owner || ''}
-                                      compact
-                                    />
-                                  </div>
-                                </div>
-                                <span className="text-muted-foreground mx-0.5">
-                                  versus
-                                </span>
                                 <div className="inline-flex items-center gap-1 min-w-0">
                                   <EnsAvatar
                                     address={b?.taker || ''}

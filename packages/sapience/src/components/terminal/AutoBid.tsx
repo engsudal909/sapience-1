@@ -123,10 +123,10 @@ const AutoBid: React.FC = () => {
 
   return (
     <div className="border border-border/60 rounded-lg bg-brand-black text-brand-white h-full flex flex-col min-h-0 overflow-hidden">
-      <div className="px-4 py-3 border-b border-border/60 bg-muted/10 min-h-[56px]">
-        <div className="flex items-center justify-between">
+      <div className="px-4 border-b border-border/60 bg-muted/10 h-[56px] flex items-center">
+        <div className="flex items-center justify-between w-full">
           <div className="eyebrow text-foreground">Auto-Bid</div>
-          <span className="font-mono text-[10px] leading-none text-accent-gold tracking-[0.18em]">
+          <span className="font-mono text-[10px] leading-none text-accent-gold tracking-[0.18em] inline-flex items-center">
             EXPERIMENTAL
           </span>
         </div>

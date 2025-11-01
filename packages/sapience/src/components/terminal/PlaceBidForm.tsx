@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
 import ToWinLine from '~/components/terminal/ToWinLine';
-import { ChevronsDown } from 'lucide-react';
+// removed ChevronsDown icon per design update
 import {
   Popover,
   PopoverTrigger,
@@ -276,7 +276,7 @@ const PlaceBidForm: React.FC<Props> = ({
           }}
           className={
             (canSubmitCompact
-              ? 'bg-accent-gold text-black hover:bg-accent-gold/90 '
+              ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-wide '
               : 'bg-muted text-muted-foreground cursor-not-allowed ') +
             'w-full rounded-md px-3 py-1.5 inline-flex items-center justify-center text-center text-xs whitespace-nowrap'
           }
@@ -284,7 +284,7 @@ const PlaceBidForm: React.FC<Props> = ({
           <span className="font-semibold">
             Bid {amountDisplay} {collateralAssetTicker}
           </span>
-          <ChevronsDown className="ml-1 h-3 w-3" />
+          {/* icon removed */}
         </button>
       </div>
     );
@@ -497,7 +497,7 @@ const PlaceBidForm: React.FC<Props> = ({
         }}
         className={
           (canSubmit
-            ? 'bg-primary text-primary-foreground hover:bg-primary/90 '
+            ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-wide '
             : 'bg-muted text-muted-foreground cursor-not-allowed ') +
           'self-stretch w-28 shrink-0 rounded-md px-3 inline-flex items-center justify-center text-center text-sm whitespace-nowrap'
         }
@@ -510,7 +510,7 @@ const PlaceBidForm: React.FC<Props> = ({
               : '—')()}{' '}
           {collateralAssetTicker}
         </span>
-        <ChevronsDown className="ml-1 h-3.5 w-3.5" />
+        {/* icon removed */}
       </button>
     </div>
   );
