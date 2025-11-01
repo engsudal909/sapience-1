@@ -74,14 +74,14 @@ contract PredictionMarketSapienceResolver is IPredictionMarketResolver {
         return (isValid, error);
     }
 
-    function resolvePrediction(
+    function getPredictionResolution(
         bytes calldata encodedPredictedOutcomes
-    ) external view returns (bool isValid, Error error, bool makerWon) {
+    ) external view returns (bool isResolved, Error error, bool parlaySuccess) {
         PredictedOutcome[] memory predictedOutcomes = decodePredictionOutcomes(
             encodedPredictedOutcomes
         );
-        makerWon = true;
-        isValid = true;
+        parlaySuccess = true;
+        isResolved = true;
         error = Error.NO_ERROR;
 
         for (uint256 i = 0; i < predictedOutcomes.length; i++) {
@@ -90,18 +90,18 @@ contract PredictionMarketSapienceResolver is IPredictionMarketResolver {
                 market
             );
             if (!marketSettled) {
-                isValid = false;
+                isResolved = false;
                 error = Error.MARKET_NOT_SETTLED;
                 break;
             }
 
             if (predictedOutcomes[i].prediction != marketOutcome) {
-                makerWon = false;
+                parlaySuccess = false;
                 break;
             }
         }
 
-        return (isValid, error, makerWon);
+        return (isResolved, error, parlaySuccess);
     }
 
     // ============ Sapience Encoding and Decoding Functions ============

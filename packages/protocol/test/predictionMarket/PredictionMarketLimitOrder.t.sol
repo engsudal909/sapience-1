@@ -371,16 +371,34 @@ contract PredictionMarketLimitOrderTest is Test {
         predictionMarket.cancelOrder(999);
     }
     
-    function test_cancelOrder_orderNotExpired() public {
+    function test_cancelOrder_beforeExpiration() public {
         // Place an order
         IPredictionStructs.OrderRequestData memory orderRequest = _createValidOrderRequest();
         vm.prank(maker);
         uint256 orderId = predictionMarket.placeOrder(orderRequest);
         
-        // Try to cancel before deadline
+        // Cancel before deadline - should succeed
+        uint256 makerBalanceBefore = collateralToken.balanceOf(maker);
+        uint256 contractBalanceBefore = collateralToken.balanceOf(address(predictionMarket));
+        
+        vm.expectEmit(true, true, false, true);
+        emit OrderCancelled(
+            orderId,
+            maker,
+            ENCODED_OUTCOMES,
+            MAKER_COLLATERAL,
+            TAKER_COLLATERAL
+        );
+        
         vm.prank(maker);
-        vm.expectRevert(PredictionMarket.OrderNotExpired.selector);
         predictionMarket.cancelOrder(orderId);
+        
+        // Verify collateral refund
+        assertEq(collateralToken.balanceOf(maker), makerBalanceBefore + MAKER_COLLATERAL);
+        assertEq(collateralToken.balanceOf(address(predictionMarket)), contractBalanceBefore - MAKER_COLLATERAL);
+        
+        // Verify order is removed from tracking
+        assertEq(predictionMarket.getUnfilledOrdersCount(), 0);
     }
     
     function test_cancelOrder_alreadyFilled() public {

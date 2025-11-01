@@ -186,7 +186,7 @@ contract PredictionMarketSapienceResolverTest is Test {
 
     // ============ Resolution Tests ============
     
-    function test_resolvePrediction_success() public {
+    function test_getPredictionResolution_success() public {
         // Create prediction outcomes for settled market
         PredictionMarketSapienceResolver.PredictedOutcome[] memory outcomes = new PredictionMarketSapienceResolver.PredictedOutcome[](1);
         outcomes[0] = PredictionMarketSapienceResolver.PredictedOutcome({
@@ -199,14 +199,14 @@ contract PredictionMarketSapienceResolverTest is Test {
         
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
-        (bool isValid, IPredictionMarketResolver.Error error, bool makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertTrue(isValid);
+        assertTrue(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.NO_ERROR));
-        assertTrue(makerWon);
+        assertTrue(parlaySuccess);
     }
     
-    function test_resolvePrediction_makerLoses() public {
+    function test_getPredictionResolution_makerLoses() public {
         // Create prediction outcomes for settled market with wrong prediction
         PredictionMarketSapienceResolver.PredictedOutcome[] memory outcomes = new PredictionMarketSapienceResolver.PredictedOutcome[](1);
         outcomes[0] = PredictionMarketSapienceResolver.PredictedOutcome({
@@ -219,14 +219,14 @@ contract PredictionMarketSapienceResolverTest is Test {
         
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
-        (bool isValid, IPredictionMarketResolver.Error error, bool makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertTrue(isValid);
+        assertTrue(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.NO_ERROR));
-        assertFalse(makerWon);
+        assertFalse(parlaySuccess);
     }
     
-    function test_resolvePrediction_marketNotSettled() public {
+    function test_getPredictionResolution_marketNotSettled() public {
         // Create prediction outcomes for unsettled market
         PredictionMarketSapienceResolver.PredictedOutcome[] memory outcomes = new PredictionMarketSapienceResolver.PredictedOutcome[](1);
         outcomes[0] = PredictionMarketSapienceResolver.PredictedOutcome({
@@ -239,14 +239,14 @@ contract PredictionMarketSapienceResolverTest is Test {
         
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
-        (bool isValid, IPredictionMarketResolver.Error error, bool makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertFalse(isValid);
+        assertFalse(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.MARKET_NOT_SETTLED));
-        assertTrue(makerWon); // Default value
+        assertTrue(parlaySuccess); // Default value
     }
     
-    function test_resolvePrediction_noMarket() public {
+    function test_getPredictionResolution_noMarket() public {
         // Create prediction outcomes with invalid market
         PredictionMarketSapienceResolver.PredictedOutcome[] memory outcomes = new PredictionMarketSapienceResolver.PredictedOutcome[](1);
         outcomes[0] = PredictionMarketSapienceResolver.PredictedOutcome({
@@ -260,7 +260,7 @@ contract PredictionMarketSapienceResolverTest is Test {
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
         vm.expectRevert(PredictionMarketSapienceResolver.InvalidMarketGroupAddress.selector);
-        resolver.resolvePrediction(encodedOutcomes);
+        resolver.getPredictionResolution(encodedOutcomes);
     }
 
     // ============ Multiple Markets Tests ============
@@ -316,11 +316,11 @@ contract PredictionMarketSapienceResolverTest is Test {
         
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
-        (bool isValid, IPredictionMarketResolver.Error error, bool makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertTrue(isValid);
+        assertTrue(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.NO_ERROR));
-        assertTrue(makerWon);
+        assertTrue(parlaySuccess);
         
         // Test resolution with one wrong prediction
         outcomes[0].prediction = false; // Wrong prediction for market 1
@@ -328,11 +328,11 @@ contract PredictionMarketSapienceResolverTest is Test {
         // Re-encode the outcomes with the updated prediction
         encodedOutcomes = abi.encode(outcomes);
         
-        (isValid, error, makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (isResolved, error, parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertTrue(isValid);
+        assertTrue(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.NO_ERROR));
-        assertFalse(makerWon); // One wrong prediction
+        assertFalse(parlaySuccess); // One wrong prediction
     }
 
     // ============ Encoding/Decoding Tests ============
@@ -423,11 +423,11 @@ contract PredictionMarketSapienceResolverTest is Test {
         
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
-        (bool isValid, IPredictionMarketResolver.Error error, bool makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertTrue(isValid);
+        assertTrue(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.NO_ERROR));
-        assertTrue(makerWon);
+        assertTrue(parlaySuccess);
     }
     
     function test_getMarketOutcome_settledAsNo() public {
@@ -445,11 +445,11 @@ contract PredictionMarketSapienceResolverTest is Test {
         
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
-        (bool isValid, IPredictionMarketResolver.Error error, bool makerWon) = resolver.resolvePrediction(encodedOutcomes);
+        (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = resolver.getPredictionResolution(encodedOutcomes);
         
-        assertTrue(isValid);
+        assertTrue(isResolved);
         assertEq(uint256(error), uint256(IPredictionMarketResolver.Error.NO_ERROR));
-        assertTrue(makerWon);
+        assertTrue(parlaySuccess);
     }
     
     function test_getMarketOutcome_numericMarket() public {
@@ -471,7 +471,7 @@ contract PredictionMarketSapienceResolverTest is Test {
         bytes memory encodedOutcomes = abi.encode(outcomes);
         
         vm.expectRevert(PredictionMarketSapienceResolver.MarketIsNotYesNoMarket.selector);
-        resolver.resolvePrediction(encodedOutcomes);
+        resolver.getPredictionResolution(encodedOutcomes);
     }
 
     // ============ Edge Cases and Error Conditions ============

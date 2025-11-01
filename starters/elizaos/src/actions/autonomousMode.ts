@@ -74,7 +74,6 @@ I'll analyze markets and create attestations automatically.`,
 
       if (text.includes("status") || text.includes("dashboard")) {
         const status = attestationService.getStatus();
-        const history = attestationService.getHistory(5);
 
         const response = `📊 **Autonomous Mode Dashboard**
 
@@ -83,18 +82,11 @@ I'll analyze markets and create attestations automatically.`,
 **Configuration:**
 • Interval: ${status.interval / 1000} seconds
 • Min Confidence: ${(status.minConfidence * 100).toFixed(0)}%
-• Batch Size: ${status.batchSize} markets
-
-**Statistics:**
-• Total Attestations: ${status.attestationCount}
-• Last Cycle: ${status.lastCycle ? new Date(status.lastCycle).toLocaleString() : "Never"}
-
-**Recent Attestations:**
-${history.map((h) => `• Market #${h.marketId} - ${h.timestamp}`).join("\n") || "No attestations yet"}`;
+• Batch Size: ${status.batchSize} markets`;
 
         await callback?.({
           text: response,
-          content: { status, history },
+          content: { status },
         });
         return;
       }

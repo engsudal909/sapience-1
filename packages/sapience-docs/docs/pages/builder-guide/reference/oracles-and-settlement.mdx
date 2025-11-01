@@ -88,13 +88,13 @@ interface IPredictionMarketResolver {
     /**
      * @notice Resolve a prediction and determine the winner
      * @param encodedPredictedOutcomes Encoded outcomes to resolve
-     * @return isValid Whether resolution is possible
+     * @return isResolved Whether resolution is possible
      * @return error Error code if resolution cannot proceed
-     * @return makerWon True if maker wins, false if taker wins
+     * @return parlaySuccess True if maker wins, false if taker wins
      */
-    function resolvePrediction(
+    function getPredictionResolution(
         bytes calldata encodedPredictedOutcomes
-    ) external view returns (bool isValid, Error error, bool makerWon);
+    ) external view returns (bool isResolved, Error error, bool parlaySuccess);
 }
 ```
 
