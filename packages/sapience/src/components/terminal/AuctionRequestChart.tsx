@@ -2,16 +2,70 @@
 
 import type React from 'react';
 import AuctionBidsChart from '~/components/terminal/AuctionBidsChart';
+import { formatEther } from 'viem';
+import EnsAvatar from '~/components/shared/EnsAvatar';
+import { AddressDisplay } from '~/components/shared/AddressDisplay';
 
 type Props = {
   bids: any[] | undefined;
   refreshMs?: number;
+  makerWager: string | null;
+  collateralAssetTicker: string;
+  maxEndTimeSec?: number;
+  maker?: string | null;
 };
 
-const AuctionRequestChart: React.FC<Props> = ({ bids, refreshMs = 250 }) => {
+const AuctionRequestChart: React.FC<Props> = ({
+  bids,
+  refreshMs = 250,
+  makerWager,
+  collateralAssetTicker,
+  maxEndTimeSec: _maxEndTimeSec,
+  maker,
+}) => {
+  const makerAmountDisplay = (() => {
+    try {
+      return Number(formatEther(BigInt(String(makerWager ?? '0'))));
+    } catch {
+      return 0;
+    }
+  })();
+
   return (
-    <div className="md:col-span-1">
-      <div className="h-[160px]">
+    <div className="md:col-span-2 h-full min-h-0 flex flex-col">
+      <div className="text-xs mt-0 mb-1">
+        <div className="flex items-baseline justify-between">
+          <span className="font-medium">Live Auction</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-xs mb-2">
+        <div className="inline-flex items-center gap-1 min-w-0">
+          <span className="font-mono text-brand-white">
+            {Number.isFinite(makerAmountDisplay)
+              ? makerAmountDisplay.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              : '0.00'}{' '}
+            {collateralAssetTicker}
+          </span>
+          <span className="text-muted-foreground">wager request</span>
+          <span className="text-muted-foreground">from</span>
+          <div className="inline-flex items-center gap-1 min-w-0">
+            <EnsAvatar
+              address={maker || ''}
+              className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
+              width={16}
+              height={16}
+            />
+            <div className="min-w-0">
+              <AddressDisplay address={maker || ''} compact />
+            </div>
+          </div>
+        </div>
+        <div />
+      </div>
+      <div className="flex-1 min-h-0">
         <AuctionBidsChart bids={bids} continuous refreshMs={refreshMs} />
       </div>
     </div>

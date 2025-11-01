@@ -26,7 +26,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/command';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import MarketBadge from '~/components/markets/MarketBadge';
-import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
+import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 
 const TerminalPageContent: React.FC = () => {
@@ -369,33 +369,30 @@ const TerminalPageContent: React.FC = () => {
         return <span className="text-muted-foreground">—</span>;
       return (
         <div className="overflow-x-auto">
-          <div className="flex items-center gap-3 md:gap-4 whitespace-nowrap pr-4 text-xs">
+          <div className="flex items-center gap-3 md:gap-4 whitespace-nowrap pr-4 text-sm">
             {legs.map((leg, i) => (
-              <div
-                key={i}
-                className="inline-flex items-center gap-2.5 shrink-0"
-              >
+              <div key={i} className="inline-flex items-center gap-3 shrink-0">
                 <MarketBadge
                   label={String(leg.title)}
-                  size={18}
+                  size={28}
                   categorySlug={leg.categorySlug || undefined}
                   color={
                     leg.categorySlug
-                      ? getDeterministicCategoryColor(leg.categorySlug)
+                      ? getCategoryStyle(leg.categorySlug)?.color
                       : undefined
                   }
                 />
                 <ConditionTitleLink
                   conditionId={leg.id}
                   title={String(leg.title)}
-                  className="text-xs"
+                  className="text-sm"
                   clampLines={1}
                 />
                 <span
                   className={
                     leg.choice === 'Yes'
-                      ? 'px-1 py-0.5 text-[10px] leading-3 font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
-                      : 'px-1 py-0.5 text-[10px] leading-3 font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
+                      ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
+                      : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
                   }
                 >
                   {leg.choice}
@@ -505,7 +502,7 @@ const TerminalPageContent: React.FC = () => {
   return (
     <div className="px-4 md:px-6 pb-4 md:pb-6 h-full min-h-0">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-0">
-        <div className="border border-border rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0">
+        <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0">
           <div className="flex-none">
             <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
               <div className="flex items-center gap-4">
@@ -611,7 +608,7 @@ const TerminalPageContent: React.FC = () => {
                       href="/markets"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline"
+                      className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80"
                     >
                       Add predictions
                     </a>{' '}

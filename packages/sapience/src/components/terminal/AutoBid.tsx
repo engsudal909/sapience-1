@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
-import { formatUnits } from 'viem';
+import { formatUnits, isAddress } from 'viem';
 import { Pencil } from 'lucide-react';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
@@ -47,8 +47,12 @@ const AutoBid: React.FC = () => {
     query: { enabled: Boolean(address && COLLATERAL_ADDRESS) },
   });
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [approveAmount, setApproveAmount] = useState<string>('');
+  const [spenderAddressInput, setSpenderAddressInput] = useState<string>(
+    (SPENDER_ADDRESS as string | undefined) ?? ''
+  );
 
   const tokenDecimals = useMemo(() => {
     try {
@@ -79,11 +83,15 @@ const AutoBid: React.FC = () => {
     refetchAllowance,
   } = useTokenApproval({
     tokenAddress: COLLATERAL_ADDRESS,
-    spenderAddress: SPENDER_ADDRESS,
+    spenderAddress: (spenderAddressInput || SPENDER_ADDRESS) as
+      | `0x${string}`
+      | undefined,
     amount: approveAmount,
     chainId: DEFAULT_CHAIN_ID,
     decimals: tokenDecimals,
-    enabled: Boolean(COLLATERAL_ADDRESS && SPENDER_ADDRESS),
+    enabled: Boolean(
+      COLLATERAL_ADDRESS && (spenderAddressInput || SPENDER_ADDRESS)
+    ),
   });
 
   const allowanceDisplay = useMemo(() => {
@@ -102,52 +110,159 @@ const AutoBid: React.FC = () => {
   const buyUrl = COLLATERAL_ADDRESS
     ? `https://swap.defillama.com/?chain=${chainShortName}&to=${COLLATERAL_ADDRESS}`
     : undefined;
+  const bridgeUrl = COLLATERAL_ADDRESS
+    ? `https://jumper.exchange/?toChain=${chainShortName}&toToken=${COLLATERAL_ADDRESS}`
+    : undefined;
+  const isSpenderValid = useMemo(
+    () =>
+      spenderAddressInput
+        ? isAddress(spenderAddressInput as `0x${string}`)
+        : !!SPENDER_ADDRESS,
+    [spenderAddressInput]
+  );
 
   return (
-    <div className="border border-border rounded-lg bg-brand-black text-brand-white h-full flex flex-col min-h-0">
-      <div className="px-4 py-3 border-b border-border/60 bg-muted/10">
+    <div className="border border-border/60 rounded-lg bg-brand-black text-brand-white h-full flex flex-col min-h-0 overflow-hidden">
+      <div className="px-4 py-3 border-b border-border/60 bg-muted/10 min-h-[56px]">
         <div className="flex items-center justify-between">
           <div className="eyebrow text-foreground">Auto-Bid</div>
-          <span className="font-mono text-[10px] leading-none text-accent-gold tracking-widest">
+          <span className="font-mono text-[10px] leading-none text-accent-gold tracking-[0.18em]">
             EXPERIMENTAL
           </span>
         </div>
       </div>
-      <div className="p-4 flex-1 min-h-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-xs text-muted-foreground">
-            <span className="mr-3">
-              <span className="text-foreground/80">Approved:</span>{' '}
-              {allowanceDisplay} USDe
-            </span>
-            <span>
-              <span className="text-foreground/80">Balance:</span>{' '}
-              {balanceDisplay} USDe
-            </span>
+      <div className="p-4 flex-1 min-h-0 flex flex-col">
+        <div className="mb-3">
+          <div className="grid grid-cols-2 gap-2">
+            {/* Left: Approved Spend */}
+            <div className="px-1">
+              <div className="text-xs font-medium">Approved Spend</div>
+              <div className="font-mono text-[13px] text-brand-white inline-flex items-center gap-1">
+                {allowanceDisplay} testUSDe
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center"
+                  aria-label="Edit approved spend"
+                  onClick={() => setIsApproveDialogOpen(true)}
+                >
+                  <Pencil className="h-3 w-3 text-accent-gold" />
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Account Balance */}
+            <div className="px-1">
+              <div className="text-xs font-medium">Account Balance</div>
+              <div className="font-mono text-[13px] text-brand-white inline-flex items-center gap-1">
+                {balanceDisplay} testUSDe
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center"
+                  aria-label="Add/bridge USDe"
+                  onClick={() => setIsBalanceDialogOpen(true)}
+                >
+                  <Pencil className="h-3 w-3 text-accent-gold" />
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            className="inline-flex items-center justify-center"
-            aria-label="Manage USDe allowance and balance"
-            onClick={() => setIsDialogOpen(true)}
-          >
-            <Pencil className="h-3 w-3 text-accent-gold" />
-          </button>
         </div>
 
-        <div className="border border-border/60 rounded-md p-6 text-center text-sm text-muted-foreground">
-          <div>Coming soon</div>
+        <div className="relative border border-border/60 rounded-md flex-1 min-h-0 overflow-hidden">
+          {/* Mock UI content */}
+          <div className="pointer-events-none p-4 md:p-6 h-full">
+            <div className="space-y-4 h-full flex flex-col">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-6 rounded bg-muted/20" />
+                <div className="h-6 rounded bg-muted/20" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="h-9 rounded-md bg-muted/20" />
+                <div className="h-9 rounded-md bg-muted/20" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="h-9 rounded-md bg-muted/20" />
+                <div className="h-9 rounded-md bg-muted/20" />
+                <div className="h-9 rounded-md bg-muted/20" />
+              </div>
+              <div className="h-24 rounded-md bg-muted/20" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-9 rounded-md bg-muted/20" />
+                <div className="h-9 rounded-md bg-muted/20" />
+              </div>
+              <div className="flex-1 rounded-md bg-muted/20" />
+            </div>
+          </div>
+
+          {/* Overlay CTA */}
+          <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm bg-background/20 rounded-md overflow-hidden">
+            <div className="text-center px-4">
+              <p className="text-xs text-muted-foreground">
+                Request early access in{' '}
+                <a
+                  href="https://discord.gg/sapience"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand-white underline decoration-dotted underline-offset-4"
+                >
+                  Discord
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="px-4 py-2 border-t border-border/60 text-[11px] text-muted-foreground text-center">
-        Limit orders coming soon
-      </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Balance dialog: bridge/onramp */}
+      <Dialog open={isBalanceDialogOpen} onOpenChange={setIsBalanceDialogOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Manage USDe</DialogTitle>
+            <DialogTitle>Add USDe</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>Wallet balance</span>
+                <span className="text-foreground">{balanceDisplay} USDe</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {buyUrl ? (
+                <a
+                  href={buyUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm"
+                >
+                  Buy USDe
+                </a>
+              ) : null}
+              {bridgeUrl ? (
+                <a
+                  href={bridgeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm"
+                >
+                  Bridge USDe
+                </a>
+              ) : null}
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Buying opens an external DEX aggregator. Bridging opens a
+              cross-chain bridge.
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approved spend dialog: edit allowance and spender */}
+      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Edit approved spend</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
@@ -155,10 +270,24 @@ const AutoBid: React.FC = () => {
                 <span>Current approved</span>
                 <span className="text-foreground">{allowanceDisplay} USDe</span>
               </div>
-              <div className="flex items-center justify-between mt-1">
-                <span>Wallet balance</span>
-                <span className="text-foreground">{balanceDisplay} USDe</span>
-              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Spender address
+              </label>
+              <Input
+                type="text"
+                placeholder={SPENDER_ADDRESS ?? '0x...'}
+                value={spenderAddressInput}
+                onChange={(e) => setSpenderAddressInput(e.target.value.trim())}
+                className="h-9 font-mono text-[12px]"
+              />
+              {!isSpenderValid ? (
+                <div className="text-[11px] text-red-400 mt-1">
+                  Enter a valid address
+                </div>
+              ) : null}
             </div>
 
             <div>
@@ -188,23 +317,13 @@ const AutoBid: React.FC = () => {
                 }}
                 disabled={
                   !approveAmount ||
+                  !isSpenderValid ||
                   isApproving ||
-                  !COLLATERAL_ADDRESS ||
-                  !SPENDER_ADDRESS
+                  !COLLATERAL_ADDRESS
                 }
               >
                 {isApproving ? 'Approving…' : 'Approve'}
               </Button>
-              {buyUrl ? (
-                <a
-                  href={buyUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm"
-                >
-                  Buy USDe
-                </a>
-              ) : null}
             </div>
 
             {isLoadingAllowance ? (

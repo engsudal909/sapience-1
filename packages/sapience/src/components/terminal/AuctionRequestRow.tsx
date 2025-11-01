@@ -3,12 +3,14 @@
 import type React from 'react';
 import { useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   parseUnits,
   encodeAbiParameters,
   parseAbiParameters,
   keccak256,
   getAddress,
+  decodeAbiParameters,
 } from 'viem';
 import { Pin } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
@@ -22,6 +24,7 @@ import { toAuctionWsUrl } from '~/lib/ws';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 type Props = {
   uiTx: UiTransaction;
@@ -60,6 +63,79 @@ const AuctionRequestRow: React.FC<Props> = ({
     | `0x${string}`
     | undefined;
   const { toast } = useToast();
+
+  // Decode predicted outcomes to extract condition IDs
+  const conditionIds = useMemo(() => {
+    try {
+      const arr = Array.isArray(predictedOutcomes)
+        ? (predictedOutcomes as `0x${string}`[])
+        : [];
+      if (arr.length === 0) return [] as string[];
+      const decodedUnknown = decodeAbiParameters(
+        [
+          {
+            type: 'tuple[]',
+            components: [
+              { name: 'marketId', type: 'bytes32' },
+              { name: 'prediction', type: 'bool' },
+            ],
+          },
+        ] as const,
+        arr[0]
+      ) as unknown;
+      const decodedArr = Array.isArray(decodedUnknown)
+        ? (decodedUnknown as any)[0]
+        : [];
+      const ids = [] as string[];
+      for (const o of decodedArr || []) {
+        const id = o?.marketId as string | undefined;
+        if (id && typeof id === 'string') ids.push(id);
+      }
+      return ids;
+    } catch {
+      return [] as string[];
+    }
+  }, [predictedOutcomes]);
+
+  // Fetch conditions by IDs to get endTime values
+  const { data: conditionEnds = [] } = useQuery<
+    { id: string; endTime: number }[],
+    Error
+  >({
+    queryKey: ['auctionConditionsEndTimes', conditionIds.sort().join(',')],
+    enabled: conditionIds.length > 0,
+    staleTime: 60_000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const CONDITIONS_BY_IDS = /* GraphQL */ `
+        query ConditionsByIds($ids: [String!]!) {
+          conditions(where: { id: { in: $ids } }, take: 1000) {
+            id
+            endTime
+          }
+        }
+      `;
+      const resp = await graphqlRequest<{
+        conditions: Array<{ id: string; endTime: number }>;
+      }>(CONDITIONS_BY_IDS, { ids: conditionIds });
+      return resp?.conditions || [];
+    },
+  });
+
+  const maxEndTimeSec = useMemo(() => {
+    try {
+      if (!Array.isArray(conditionEnds) || conditionEnds.length === 0)
+        return null;
+      const ends = conditionEnds
+        .map((c) => Number(c?.endTime || 0))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (ends.length === 0) return null;
+      return Math.max(...ends);
+    } catch {
+      return null;
+    }
+  }, [conditionEnds]);
 
   const submitBid = useCallback(
     async (data: {
@@ -290,7 +366,7 @@ const AuctionRequestRow: React.FC<Props> = ({
   );
 
   return (
-    <div className="p-4 relative group">
+    <div className="p-4 relative group h-full min-h-0">
       <button
         type="button"
         onClick={() => onTogglePin?.(auctionId || null)}
@@ -305,24 +381,34 @@ const AuctionRequestRow: React.FC<Props> = ({
       </button>
       <div className="grid grid-cols-1 gap-2">
         <div>
-          <div className="mb-2">{predictionsContent}</div>
+          <div className="text-xs mb-1">
+            <span className="font-medium">Predict Against</span>
+          </div>
+          <div className="mb-1">{predictionsContent}</div>
         </div>
       </div>
 
       <motion.div
-        className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-stretch min-h-0"
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
       >
+        <AuctionRequestChart
+          bids={bids}
+          makerWager={makerWager}
+          collateralAssetTicker={collateralAssetTicker}
+          maxEndTimeSec={maxEndTimeSec ?? undefined}
+          maker={maker}
+        />
         <AuctionRequestInfo
           uiTx={uiTx}
           bids={bids}
           makerWager={makerWager}
           collateralAssetTicker={collateralAssetTicker}
+          maxEndTimeSec={maxEndTimeSec ?? undefined}
           onSubmit={submitBid}
         />
-        <AuctionRequestChart bids={bids} />
       </motion.div>
     </div>
   );
