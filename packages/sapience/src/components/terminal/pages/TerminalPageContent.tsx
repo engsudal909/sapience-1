@@ -33,15 +33,14 @@ const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);
-  const [minWager, setMinWager] = useState<string>('1');
-  const [minBids, setMinBids] = useState<string>('1');
+  const [minWager, setMinWager] = useState<string>('10');
+  const [minBids, setMinBids] = useState<string>('0');
   const [selectedCategorySlugs, setSelectedCategorySlugs] = useState<string[]>(
     []
   );
   const [selectedConditionIds, setSelectedConditionIds] = useState<string[]>(
     []
   );
-  const [selectedAddresses, setSelectedAddresses] = useState<string[]>([]);
 
   const togglePin = useCallback((auctionId: string | null) => {
     if (!auctionId) return;
@@ -248,84 +247,96 @@ const TerminalPageContent: React.FC = () => {
     );
   };
 
-  // Freeform multi-select for addresses (placeholder; accepts any text input)
-  const AddressesMultiSelect: React.FC<{
-    placeholder?: string;
-    selected: string[];
-    onChange: (values: string[]) => void;
-  }> = ({ placeholder = 'All addresses', selected, onChange }) => {
-    const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState('');
+  // Horizontal predictions scroller with right gradient (mirrors UserParlaysTable)
+  const PredictionsScroller: React.FC<{
+    legs: Array<{
+      id: `0x${string}`;
+      title: string;
+      categorySlug: string | null;
+      choice: 'Yes' | 'No';
+    }>;
+  }> = ({ legs }) => {
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const [showRightGradient, setShowRightGradient] = useState(false);
 
-    const addAddress = useCallback(() => {
-      const v = inputValue.trim();
-      if (!v) return;
-      if (!selected.includes(v)) onChange([...selected, v]);
-      setInputValue('');
-    }, [inputValue, onChange, selected]);
+    const updateGradientVisibility = useCallback(() => {
+      const el = containerRef.current;
+      if (!el) {
+        setShowRightGradient(false);
+        return;
+      }
+      const canScroll = el.scrollWidth > el.clientWidth + 1;
+      if (!canScroll) {
+        setShowRightGradient(false);
+        return;
+      }
+      const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+      setShowRightGradient(!atEnd);
+    }, []);
 
-    const removeAddress = useCallback(
-      (addr: string) => {
-        onChange(selected.filter((a) => a !== addr));
-      },
-      [onChange, selected]
-    );
-
-    const summary =
-      selected.length === 0 ? placeholder : `${selected.length} selected`;
+    useEffect(() => {
+      updateGradientVisibility();
+      const el = containerRef.current;
+      if (!el) return;
+      const onScroll = () => updateGradientVisibility();
+      el.addEventListener('scroll', onScroll, { passive: true });
+      const onResize = () => updateGradientVisibility();
+      window.addEventListener('resize', onResize);
+      const ro = new ResizeObserver(() => updateGradientVisibility());
+      ro.observe(el);
+      return () => {
+        el.removeEventListener('scroll', onScroll);
+        window.removeEventListener('resize', onResize);
+        ro.disconnect();
+      };
+    }, [updateGradientVisibility]);
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="h-8 w-full rounded-md border border-border bg-background px-3 text-left text-sm inline-flex items-center justify-between"
-          >
-            <span
-              className={selected.length === 0 ? 'text-muted-foreground' : ''}
-            >
-              {summary}
-            </span>
-            <ChevronsUpDown className="h-4 w-4 opacity-50" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[320px] p-0" align="start">
-          <div className="p-2 border-b border-border/60">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Type address and press Enter"
-              className="h-8"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addAddress();
-                }
-              }}
-            />
+      <div className="relative w-full max-w-full">
+        <div
+          ref={containerRef}
+          className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="flex items-center gap-3 md:gap-4 pr-16 flex-nowrap">
+            {legs.map((leg, i) => (
+              <div key={i} className="inline-flex items-center gap-3 shrink-0">
+                <MarketBadge
+                  label={String(leg.title)}
+                  size={28}
+                  categorySlug={leg.categorySlug || undefined}
+                  color={
+                    leg.categorySlug
+                      ? getCategoryStyle(leg.categorySlug)?.color
+                      : undefined
+                  }
+                />
+                <ConditionTitleLink
+                  conditionId={leg.id}
+                  title={String(leg.title)}
+                  className="text-sm"
+                  clampLines={1}
+                />
+                <span
+                  className={
+                    leg.choice === 'Yes'
+                      ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
+                      : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
+                  }
+                >
+                  {leg.choice}
+                </span>
+              </div>
+            ))}
           </div>
-          <Command>
-            <CommandList>
-              <CommandGroup heading="Selected">
-                {selected.length === 0 ? (
-                  <CommandItem disabled>No addresses added</CommandItem>
-                ) : (
-                  selected.map((addr) => (
-                    <CommandItem
-                      key={addr}
-                      onSelect={() => removeAddress(addr)}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="font-mono text-xs">{addr}</span>
-                      <Check className="h-4 w-4 opacity-100" />
-                    </CommandItem>
-                  ))
-                )}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+        </div>
+        {showRightGradient && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-black to-transparent"
+          />
+        )}
+      </div>
     );
   };
 
@@ -362,46 +373,12 @@ const TerminalPageContent: React.FC = () => {
           id: o.marketId,
           title: cond?.shortName ?? cond?.question ?? o.marketId,
           categorySlug: cond?.category?.slug ?? null,
-          choice: o.prediction ? ('Yes' as const) : ('No' as const),
+          choice: o.prediction ? ('No' as const) : ('Yes' as const),
         };
       });
       if (legs.length === 0)
         return <span className="text-muted-foreground">—</span>;
-      return (
-        <div className="overflow-x-auto">
-          <div className="flex items-center gap-3 md:gap-4 whitespace-nowrap pr-4 text-sm">
-            {legs.map((leg, i) => (
-              <div key={i} className="inline-flex items-center gap-3 shrink-0">
-                <MarketBadge
-                  label={String(leg.title)}
-                  size={28}
-                  categorySlug={leg.categorySlug || undefined}
-                  color={
-                    leg.categorySlug
-                      ? getCategoryStyle(leg.categorySlug)?.color
-                      : undefined
-                  }
-                />
-                <ConditionTitleLink
-                  conditionId={leg.id}
-                  title={String(leg.title)}
-                  className="text-sm"
-                  clampLines={1}
-                />
-                <span
-                  className={
-                    leg.choice === 'Yes'
-                      ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
-                      : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
-                  }
-                >
-                  {leg.choice}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+      return <PredictionsScroller legs={legs} />;
     } catch {
       return <span className="text-muted-foreground">—</span>;
     }
@@ -500,29 +477,46 @@ const TerminalPageContent: React.FC = () => {
   }
 
   return (
-    <div className="px-4 md:px-6 pb-4 md:pb-6 h-full min-h-0">
+    <div className="px-4 md:px-6 pt-4 md:pt-0 pb-4 md:pb-6 h-full min-h-0">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-0">
         <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0">
           <div className="flex-none">
             <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
               <div className="flex items-center gap-4">
-                <div className="eyebrow text-foreground">Filters</div>
-                <div className="grid gap-3 md:grid-cols-5 flex-1">
-                  {/* Minimum Wager */}
+                <div className="eyebrow text-foreground hidden md:block">
+                  Filters
+                </div>
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-4 flex-1">
+                  {/* Categories */}
                   <div className="flex flex-col md:col-span-1">
-                    <div className="flex">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        className="h-8 rounded-r-none border-r-0"
-                        value={minWager}
-                        onChange={(e) => setMinWager(e.target.value)}
-                      />
-                      <span className="inline-flex items-center h-8 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-xs text-muted-foreground whitespace-nowrap">
-                        Min. Wager
-                      </span>
+                    <MultiSelect
+                      placeholder="All Focus Areas"
+                      items={(categories || []).map((c) => ({
+                        value: c.slug,
+                        label: c.name || c.slug,
+                      }))}
+                      selected={selectedCategorySlugs}
+                      onChange={setSelectedCategorySlugs}
+                    />
+                  </div>
+
+                  {/* Conditions with mode */}
+                  <div className="flex flex-col md:col-span-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <MultiSelect
+                          placeholder="All predictions"
+                          items={(conditions || []).map((c) => ({
+                            value: c.id,
+                            label:
+                              (c.shortName as string) ||
+                              (c.question as string) ||
+                              c.id,
+                          }))}
+                          selected={selectedConditionIds}
+                          onChange={setSelectedConditionIds}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -539,59 +533,37 @@ const TerminalPageContent: React.FC = () => {
                         onChange={(e) => setMinBids(e.target.value)}
                       />
                       <span className="inline-flex items-center h-8 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {minBidsNum === 1 ? 'Min. Bid' : 'Min. Bids'}
+                        {minBidsNum === 1 ? 'Minimum Bid' : 'Minimum Bids'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Categories */}
+                  {/* Minimum Wager */}
                   <div className="flex flex-col md:col-span-1">
-                    <MultiSelect
-                      placeholder="All categories"
-                      items={(categories || []).map((c) => ({
-                        value: c.slug,
-                        label: c.name || c.slug,
-                      }))}
-                      selected={selectedCategorySlugs}
-                      onChange={setSelectedCategorySlugs}
-                    />
-                  </div>
-
-                  {/* Conditions with mode */}
-                  <div className="flex flex-col md:col-span-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <MultiSelect
-                          placeholder="All conditions"
-                          items={(conditions || []).map((c) => ({
-                            value: c.id,
-                            label:
-                              (c.shortName as string) ||
-                              (c.question as string) ||
-                              c.id,
-                          }))}
-                          selected={selectedConditionIds}
-                          onChange={setSelectedConditionIds}
-                        />
-                      </div>
+                    <div className="flex">
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step="0.01"
+                        className="h-8 rounded-r-none border-r-0"
+                        value={minWager}
+                        onChange={(e) => setMinWager(e.target.value)}
+                      />
+                      <span className="inline-flex items-center h-8 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-xs text-muted-foreground whitespace-nowrap">
+                        Minimum Wager
+                      </span>
                     </div>
                   </div>
 
-                  {/* Addresses (placeholder multi-select) */}
-                  <div className="flex flex-col md:col-span-1">
-                    <AddressesMultiSelect
-                      placeholder="All addresses"
-                      selected={selectedAddresses}
-                      onChange={setSelectedAddresses}
-                    />
-                  </div>
+                  {/* Addresses filter removed */}
                 </div>
               </div>
             </div>
           </div>
           <div
             ref={scrollAreaRef}
-            className="flex-1 min-h-0 overflow-y-auto flex flex-col"
+            className="flex-1 min-h-0 overflow-y-auto flex flex-col [overflow-anchor:none]"
             style={
               initialMaxHeight ? { maxHeight: initialMaxHeight } : undefined
             }
@@ -617,8 +589,8 @@ const TerminalPageContent: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                <AnimatePresence initial={false} mode="popLayout">
+              <div className="divide-y divide-border/60 border-b border-border/60">
+                <AnimatePresence initial={false} mode="sync">
                   {(() => {
                     const rows = Array.from(latestStartedByAuction.entries())
                       .map(([id, m]) => {
@@ -652,15 +624,10 @@ const TerminalPageContent: React.FC = () => {
                         <motion.div
                           key={rowKey}
                           layout
-                          initial={{ opacity: 0, y: -8 }}
+                          initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 8 }}
-                          transition={{
-                            type: 'spring',
-                            stiffness: 500,
-                            damping: 40,
-                            mass: 0.8,
-                          }}
+                          exit={{ opacity: 0, y: 6 }}
+                          transition={{ duration: 0.14, ease: 'easeOut' }}
                         >
                           <AuctionRequestRow
                             uiTx={toUiTx(m)}

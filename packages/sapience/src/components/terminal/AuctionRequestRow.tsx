@@ -1,8 +1,8 @@
 'use client';
 
 import type React from 'react';
-import { useMemo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
   parseUnits,
@@ -12,7 +12,7 @@ import {
   getAddress,
   decodeAbiParameters,
 } from 'viem';
-import { Pin } from 'lucide-react';
+import { Pin, ChevronDown } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
 import { useAuctionBids } from '~/lib/auction/useAuctionBids';
 import AuctionRequestInfo from '~/components/terminal/AuctionRequestInfo';
@@ -63,6 +63,31 @@ const AuctionRequestRow: React.FC<Props> = ({
     | `0x${string}`
     | undefined;
   const { toast } = useToast();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [highlightNewBid, setHighlightNewBid] = useState(false);
+  const numBids = useMemo(
+    () => (Array.isArray(bids) ? bids.length : 0),
+    [bids]
+  );
+  const bidsLabel = useMemo(
+    () => (numBids === 1 ? '1 BID' : `${numBids} BIDS`),
+    [numBids]
+  );
+
+  // Pulse highlight when a new bid is received
+  const prevBidsRef = useRef<number>(0);
+  useEffect(() => {
+    const count = Array.isArray(bids) ? bids.length : 0;
+    if (count > prevBidsRef.current) {
+      setHighlightNewBid(true);
+      // Update ref immediately so we only pulse once per new bid
+      prevBidsRef.current = count;
+      const t = window.setTimeout(() => setHighlightNewBid(false), 900);
+      return () => window.clearTimeout(t);
+    }
+    prevBidsRef.current = count;
+    return;
+  }, [bids]);
 
   // Decode predicted outcomes to extract condition IDs
   const conditionIds = useMemo(() => {
@@ -366,50 +391,81 @@ const AuctionRequestRow: React.FC<Props> = ({
   );
 
   return (
-    <div className="p-4 relative group h-full min-h-0">
-      <button
-        type="button"
-        onClick={() => onTogglePin?.(auctionId || null)}
-        className={
-          isPinned
-            ? 'absolute top-2 right-2 inline-flex items-center justify-center h-6 w-6 rounded-md bg-primary text-primary-foreground text-[10px] opacity-100'
-            : 'absolute top-2 right-2 inline-flex items-center justify-center h-6 w-6 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-[10px] opacity-0 group-hover:opacity-100 transition-opacity'
-        }
-        aria-label={isPinned ? 'Unpin auction' : 'Pin auction'}
-      >
-        <Pin className="h-3 w-3" />
-      </button>
-      <div className="grid grid-cols-1 gap-2">
-        <div>
-          <div className="text-xs mb-1">
-            <span className="font-medium">Predict Against</span>
-          </div>
-          <div className="mb-1">{predictionsContent}</div>
+    <div className={'px-4 py-3 relative group h-full min-h-0'}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          {/* label removed */}
+          <div className={'mb-0'}>{predictionsContent}</div>
+        </div>
+        <div className="inline-flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onTogglePin?.(auctionId || null)}
+            className={
+              isPinned
+                ? 'inline-flex items-center justify-center h-6 w-6 rounded-md bg-primary text-primary-foreground text-[10px] flex-shrink-0'
+                : 'inline-flex items-center justify-center h-6 w-6 rounded-md border border-input bg-background hover:bg-accent text-brand-white hover:text-brand-white text-[10px] flex-shrink-0'
+            }
+            aria-label={isPinned ? 'Unpin auction' : 'Pin auction'}
+          >
+            <Pin className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsExpanded((v) => !v)}
+            className={
+              highlightNewBid
+                ? 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 transition-colors duration-300 ease-out bg-[hsl(var(--accent-gold)/0.06)] text-accent-gold animate-[gold-border-pulse_900ms_ease-out_1]'
+                : 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 text-brand-white transition-colors duration-300 ease-out'
+            }
+            aria-label={
+              isExpanded ? `Collapse: ${bidsLabel}` : `Expand: ${bidsLabel}`
+            }
+          >
+            <span className="font-mono">{bidsLabel}</span>
+            <ChevronDown
+              className={
+                (isExpanded
+                  ? 'ml-1 h-3.5 w-3.5 rotate-180'
+                  : 'ml-1 h-3.5 w-3.5 rotate-0') +
+                ' transition-transform duration-300 ease-out'
+              }
+            />
+          </button>
         </div>
       </div>
 
-      <motion.div
-        className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-stretch min-h-0"
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
-      >
-        <AuctionRequestChart
-          bids={bids}
-          makerWager={makerWager}
-          collateralAssetTicker={collateralAssetTicker}
-          maxEndTimeSec={maxEndTimeSec ?? undefined}
-          maker={maker}
-        />
-        <AuctionRequestInfo
-          uiTx={uiTx}
-          bids={bids}
-          makerWager={makerWager}
-          collateralAssetTicker={collateralAssetTicker}
-          maxEndTimeSec={maxEndTimeSec ?? undefined}
-          onSubmit={submitBid}
-        />
-      </motion.div>
+      <AnimatePresence initial={false}>
+        {isExpanded ? (
+          <motion.div
+            key="expanded"
+            className="pt-3 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-stretch min-h-0"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            layout
+            style={{ overflow: 'hidden' }}
+          >
+            <AuctionRequestChart
+              bids={bids}
+              makerWager={makerWager}
+              collateralAssetTicker={collateralAssetTicker}
+              maxEndTimeSec={maxEndTimeSec ?? undefined}
+              maker={maker}
+              hasMultipleConditions={conditionIds.length > 1}
+            />
+            <AuctionRequestInfo
+              uiTx={uiTx}
+              bids={bids}
+              makerWager={makerWager}
+              collateralAssetTicker={collateralAssetTicker}
+              maxEndTimeSec={maxEndTimeSec ?? undefined}
+              onSubmit={submitBid}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 };

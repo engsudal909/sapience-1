@@ -244,18 +244,25 @@ const PlaceBidForm: React.FC<Props> = ({
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56 p-3">
                 <div className="space-y-2">
-                  <Label className="text-xs">Expiration (seconds)</Label>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step={1}
-                    value={seconds}
-                    onChange={(e) =>
-                      setSeconds(e.target.value.replace(/[^0-9]/g, ''))
-                    }
-                    className="h-8 text-xs"
-                  />
+                  <div className="text-xs mt-0 mb-1">
+                    <span className="font-medium">Expires in</span>
+                  </div>
+                  <div className="flex">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      step={1}
+                      value={seconds}
+                      onChange={(e) =>
+                        setSeconds(e.target.value.replace(/[^0-9]/g, ''))
+                      }
+                      className="h-8 text-xs rounded-r-none border-r-0"
+                    />
+                    <span className="inline-flex items-center h-8 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-xs text-muted-foreground whitespace-nowrap">
+                      seconds
+                    </span>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -276,13 +283,23 @@ const PlaceBidForm: React.FC<Props> = ({
           }}
           className={
             (canSubmitCompact
-              ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-wide '
+              ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-normal '
               : 'bg-muted text-muted-foreground cursor-not-allowed ') +
             'w-full rounded-md px-3 py-1.5 inline-flex items-center justify-center text-center text-xs whitespace-nowrap'
           }
         >
-          <span className="font-semibold">
-            Bid {amountDisplay} {collateralAssetTicker}
+          <span className="font-normal">
+            Bid{' '}
+            <span className="font-semibold">
+              {amountDisplay} {collateralAssetTicker}
+            </span>{' '}
+            <span>to win</span>{' '}
+            <span className="font-semibold">
+              {Number.isFinite(totalDisplay)
+                ? formatAmount(totalDisplay, decimals)
+                : '—'}{' '}
+              {collateralAssetTicker}
+            </span>
           </span>
           {/* icon removed */}
         </button>
@@ -497,18 +514,39 @@ const PlaceBidForm: React.FC<Props> = ({
         }}
         className={
           (canSubmit
-            ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-wide '
+            ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-normal '
             : 'bg-muted text-muted-foreground cursor-not-allowed ') +
           'self-stretch w-28 shrink-0 rounded-md px-3 inline-flex items-center justify-center text-center text-sm whitespace-nowrap'
         }
       >
-        <span className="font-semibold">
+        <span className="font-normal">
           Bid{' '}
-          {(() =>
-            Number.isFinite(parsedAmount)
-              ? formatAmount(parsedAmount, decimals)
-              : '—')()}{' '}
-          {collateralAssetTicker}
+          <span className="font-semibold">
+            {(() =>
+              Number.isFinite(parsedAmount)
+                ? formatAmount(parsedAmount, decimals)
+                : '—')()}{' '}
+            {collateralAssetTicker}
+          </span>{' '}
+          <span>to win</span>{' '}
+          <span className="font-semibold">
+            {(() => {
+              const makerDisplay = Number.isFinite(makerAmountDisplay as number)
+                ? Number(makerAmountDisplay)
+                : 0;
+              const takerDisplay = Number.isFinite(parsedAmount)
+                ? parsedAmount
+                : 0;
+              const totalDisplay =
+                Number.isFinite(takerDisplay) && Number.isFinite(makerDisplay)
+                  ? makerDisplay + takerDisplay
+                  : NaN;
+              return Number.isFinite(totalDisplay)
+                ? formatAmount(totalDisplay, decimals)
+                : '—';
+            })()}{' '}
+            {collateralAssetTicker}
+          </span>
         </span>
         {/* icon removed */}
       </button>

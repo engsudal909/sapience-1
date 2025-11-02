@@ -5,14 +5,17 @@ import AuctionBidsChart from '~/components/terminal/AuctionBidsChart';
 import { formatEther } from 'viem';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import { Info } from 'lucide-react';
+import type { AuctionBid } from '~/lib/auction/useAuctionBids';
 
 type Props = {
-  bids: any[] | undefined;
+  bids: AuctionBid[];
   refreshMs?: number;
   makerWager: string | null;
   collateralAssetTicker: string;
   maxEndTimeSec?: number;
   maker?: string | null;
+  hasMultipleConditions?: boolean;
 };
 
 const AuctionRequestChart: React.FC<Props> = ({
@@ -22,6 +25,7 @@ const AuctionRequestChart: React.FC<Props> = ({
   collateralAssetTicker,
   maxEndTimeSec: _maxEndTimeSec,
   maker,
+  hasMultipleConditions,
 }) => {
   const makerAmountDisplay = (() => {
     try {
@@ -36,6 +40,14 @@ const AuctionRequestChart: React.FC<Props> = ({
       <div className="text-xs mt-0 mb-1">
         <div className="flex items-baseline justify-between">
           <span className="font-medium">Live Auction</span>
+          {hasMultipleConditions ? (
+            <div className="text-muted-foreground inline-flex items-center gap-1">
+              <Info className="h-3 w-3 opacity-70" strokeWidth={2.5} />
+              <span className="font-medium">
+                Only one correct prediction needed to win
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="flex items-center justify-between text-xs mb-2">

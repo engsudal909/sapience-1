@@ -11,7 +11,7 @@ import {
   buildAuctionStartPayload,
   type PredictedOutcomeInputStub,
 } from '~/lib/auction/buildAuctionPayload';
-// Use zero as the default wager for prediction requests
+// Use one as the default wager for prediction requests
 
 export interface MarketPredictionRequestProps {
   conditionId?: string;
@@ -159,7 +159,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     if (!isRequesting) return;
     if (effectiveOutcomes.length === 0 || !selectedMakerAddress) return;
     try {
-      const wagerWei = parseUnits('0', 18).toString();
+      const wagerWei = parseUnits('1', 18).toString();
       setLastMakerWagerWei(wagerWei);
       const payload = buildAuctionStartPayload(effectiveOutcomes);
       const send = () => {
@@ -197,7 +197,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       if (effectiveOutcomes.length === 0 || !selectedMakerAddress) {
         setQueuedRequest(true);
       } else {
-        const wagerWei = parseUnits('0', 18).toString();
+        const wagerWei = parseUnits('1', 18).toString();
         setLastMakerWagerWei(wagerWei);
         const payload = buildAuctionStartPayload(effectiveOutcomes);
         const send = () => {

@@ -76,7 +76,7 @@ const BestBid: React.FC<BestBidProps> = ({
                 </PopoverTrigger>
                 <PopoverContent
                   align="end"
-                  className="w-[min(520px,90vw)] md:w-[min(640px,90vw)] lg:w-[min(720px,90vw)] p-3"
+                  className="w-[min(520px,90vw)] rounded-md bg-background border border-border px-3 py-2.5"
                 >
                   <LastTrade
                     uiTx={uiTx}
@@ -186,13 +186,13 @@ const BestBid: React.FC<BestBidProps> = ({
                           <div>
                             <div className="flex items-baseline justify-between">
                               <span className="align-baseline">
-                                <span className="font-mono text-brand-white">
+                                <span className="font-mono font-semibold text-brand-white">
                                   {takerStr} {collateralAssetTicker}
                                 </span>{' '}
                                 <span className="text-muted-foreground">
                                   to win
                                 </span>{' '}
-                                <span className="font-mono text-brand-white">
+                                <span className="font-mono font-semibold text-brand-white">
                                   {toWinDisplay} {collateralAssetTicker}
                                 </span>
                               </span>
@@ -281,16 +281,13 @@ const LastTrade: React.FC<LastTradeProps> = ({
     <div className="text-xs">
       {lastTrade ? (
         <div className="space-y-1">
-          <div className="flex items-baseline">
-            <span className="font-medium">Last Trade</span>
-          </div>
           <div className="flex items-baseline justify-between">
             <span className="align-baseline">
-              <span className="font-mono text-brand-white">
+              <span className="font-mono font-semibold text-brand-white">
                 {lastTrade.takerStr} {collateralAssetTicker}
               </span>{' '}
               <span className="text-muted-foreground">to win</span>{' '}
-              <span className="font-mono text-brand-white">
+              <span className="font-mono font-semibold text-brand-white">
                 {lastTrade.toWinStr} {collateralAssetTicker}
               </span>
             </span>
@@ -339,9 +336,7 @@ const LastTrade: React.FC<LastTradeProps> = ({
           </div>
         </div>
       ) : (
-        <span>
-          <span className="font-medium">Last Trade</span> —
-        </span>
+        <span className="text-muted-foreground">—</span>
       )}
     </div>
   );
@@ -497,7 +492,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
 
   return (
     <div className="md:col-span-2">
-      <div className="text-xs mt-1 mb-1">
+      <div className="text-xs mt-0 mb-1">
         <div className="flex items-baseline justify-between">
           <span className="font-medium">Submit Bid</span>
           <div className="inline-flex items-baseline gap-1">
@@ -513,7 +508,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
                 <TooltipContent side="bottom">
                   <span>
                     Time remaining until the latest end time across all
-                    conditions.
+                    predictions.
                   </span>
                 </TooltipContent>
               </Tooltip>

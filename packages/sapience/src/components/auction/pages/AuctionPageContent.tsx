@@ -270,7 +270,7 @@ const AuctionPageContent: React.FC = () => {
             shortName: cond?.shortName ?? undefined,
             question: cond?.question ?? undefined,
             conditionId: o.marketId,
-            choice: o.prediction ? ('Yes' as const) : ('No' as const),
+            choice: o.prediction ? ('No' as const) : ('Yes' as const),
           };
         }
       );
