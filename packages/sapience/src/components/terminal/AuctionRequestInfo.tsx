@@ -237,10 +237,12 @@ const BestBid: React.FC<BestBidProps> = ({
             ) : (
               <tr>
                 <td
-                  className="px-0 py-2 text-xs text-muted-foreground"
+                  className="px-0 py-0 text-xs text-muted-foreground"
                   colSpan={2}
                 >
-                  No bids yet
+                  <div className="h-[45px] flex items-center justify-center">
+                    No active bids
+                  </div>
                 </td>
               </tr>
             )}

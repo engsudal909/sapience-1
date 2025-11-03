@@ -68,7 +68,7 @@ const NavLinks = ({
   const linkClass = isMobileProp
     ? 'sc-heading justify-start rounded-full'
     : 'sc-heading justify-start rounded-full';
-  const activeClass = 'bg-secondary';
+  const activeClass = 'text-accent-gold';
 
   // No feature flag: Chat button is always available in the sidebar for authenticated users
 
@@ -486,7 +486,7 @@ const Header = () => {
         <SidebarFooter>
           <div className="flex flex-col gap-2 text-xs w-full ml-4 rounded-lg">
             <div className="flex flex-col items-start gap-2 mb-3">
-              <span>Powered by</span>
+              <span className="text-[hsl(var(--brand-white))]">Powered by</span>
               <a
                 href="https://ethena.fi"
                 target="_blank"
