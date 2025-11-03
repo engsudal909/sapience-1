@@ -9,14 +9,9 @@ import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
+// removed dialog imports
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
-import { formatFiveSigFigs, getChainShortName } from '~/lib/utils/util';
+import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
 
 const AutoBid: React.FC = () => {
@@ -46,7 +41,7 @@ const AutoBid: React.FC = () => {
     query: { enabled: Boolean(address && COLLATERAL_ADDRESS) },
   });
 
-  const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
+  // removed balance dialog state
   const { openApproval } = useApprovalDialog();
   const [spenderAddressInput] = useState<string>(
     (SPENDER_ADDRESS as string | undefined) ?? ''
@@ -99,13 +94,7 @@ const AutoBid: React.FC = () => {
 
   // Approval dialog is controlled via context; no event listeners needed
 
-  const chainShortName = getChainShortName(DEFAULT_CHAIN_ID);
-  const buyUrl = COLLATERAL_ADDRESS
-    ? `https://swap.defillama.com/?chain=${chainShortName}&to=${COLLATERAL_ADDRESS}`
-    : undefined;
-  const bridgeUrl = COLLATERAL_ADDRESS
-    ? `https://jumper.exchange/?toChain=${chainShortName}&toToken=${COLLATERAL_ADDRESS}`
-    : undefined;
+  // removed balance dialog URLs
 
   return (
     <div className="border border-border/60 rounded-lg bg-brand-black text-brand-white h-full flex flex-col min-h-0 overflow-hidden">
@@ -141,14 +130,6 @@ const AutoBid: React.FC = () => {
               <div className="text-xs font-medium">Account Balance</div>
               <div className="font-mono text-[13px] text-brand-white inline-flex items-center gap-1">
                 {balanceDisplay} testUSDe
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center"
-                  aria-label="Add/bridge USDe"
-                  onClick={() => setIsBalanceDialogOpen(true)}
-                >
-                  <Pencil className="h-3 w-3 text-accent-gold" />
-                </button>
               </div>
             </div>
           </div>
@@ -199,50 +180,7 @@ const AutoBid: React.FC = () => {
         </div>
       </div>
 
-      {/* Balance dialog: bridge/onramp */}
-      <Dialog open={isBalanceDialogOpen} onOpenChange={setIsBalanceDialogOpen}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Add USDe</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <div className="flex items-center justify-between">
-                <span>Wallet balance</span>
-                <span className="text-foreground">{balanceDisplay} USDe</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {buyUrl ? (
-                <a
-                  href={buyUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm"
-                >
-                  Buy USDe
-                </a>
-              ) : null}
-              {bridgeUrl ? (
-                <a
-                  href={bridgeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm"
-                >
-                  Bridge USDe
-                </a>
-              ) : null}
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              Buying opens an external DEX aggregator. Bridging opens a
-              cross-chain bridge.
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* removed balance dialog */}
 
       {/* Approved spend dialog is provided at page level */}
     </div>

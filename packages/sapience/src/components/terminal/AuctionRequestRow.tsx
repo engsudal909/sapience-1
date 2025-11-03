@@ -157,18 +157,37 @@ const AuctionRequestRow: React.FC<Props> = ({
 
   // Pulse highlight when a new bid is received
   const prevBidsRef = useRef<number>(0);
+  const initializedRef = useRef<boolean>(false);
+  const pulseTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
-    const count = Array.isArray(bids) ? bids.length : 0;
+    const count = numBids;
+    // Skip initial mount to avoid false-positive pulse when the row is first rendered
+    if (!initializedRef.current) {
+      prevBidsRef.current = count;
+      initializedRef.current = true;
+      setHighlightNewBid(false);
+      return;
+    }
     if (count > prevBidsRef.current) {
       setHighlightNewBid(true);
       // Update ref immediately so we only pulse once per new bid
       prevBidsRef.current = count;
-      const t = window.setTimeout(() => setHighlightNewBid(false), 900);
-      return () => window.clearTimeout(t);
+      if (pulseTimeoutRef.current != null)
+        window.clearTimeout(pulseTimeoutRef.current);
+      pulseTimeoutRef.current = window.setTimeout(() => {
+        setHighlightNewBid(false);
+        pulseTimeoutRef.current = null;
+      }, 900);
+    } else {
+      prevBidsRef.current = count;
     }
-    prevBidsRef.current = count;
-    return;
-  }, [bids]);
+  }, [numBids]);
+  useEffect(() => {
+    return () => {
+      if (pulseTimeoutRef.current != null)
+        window.clearTimeout(pulseTimeoutRef.current);
+    };
+  }, []);
 
   // Decode predicted outcomes to extract condition IDs
   const conditionIds = useMemo(() => {
@@ -246,11 +265,6 @@ const AuctionRequestRow: React.FC<Props> = ({
         }
         if (!taker) {
           openApproval(String(data.amount || ''));
-          toast({
-            title: 'Connect wallet',
-            description:
-              'We could not detect your address yet. Please connect and try again.',
-          });
           return;
         }
         // Amount in display units -> wei (token decimals) and allowance check FIRST
@@ -507,7 +521,7 @@ const AuctionRequestRow: React.FC<Props> = ({
             }
             className={
               highlightNewBid
-                ? 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 transition-colors duration-300 ease-out bg-[hsl(var(--accent-gold)/0.06)] text-accent-gold animate-[gold-border-pulse_900ms_ease-out_1]'
+                ? 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-[hsl(var(--accent-gold)/0.7)] bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 transition-colors duration-300 ease-out bg-[hsl(var(--accent-gold)/0.06)] text-accent-gold'
                 : 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 text-brand-white transition-colors duration-300 ease-out'
             }
             aria-label={
