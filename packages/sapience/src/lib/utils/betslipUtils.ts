@@ -5,7 +5,7 @@ export const YES_SQRT_PRICE_X96 = '79228162514264337593543950336'; // 2^96
 export const NO_SQRT_PRICE_X96 = '0';
 
 // Default wager amount for new positions
-export const DEFAULT_WAGER_AMOUNT = '0';
+export const DEFAULT_WAGER_AMOUNT = '1';
 
 /**
  * Gets the default prediction value for a given market classification
