@@ -1316,7 +1316,7 @@ export default function UserParlaysTable({
           {!hasMore && data.length > 0 && (
             <div className="flex items-center justify-center px-4 py-4 border-b border-border bg-brand-black">
               <span className="text-sm text-muted-foreground">
-                ✓ All {data.length} parlays loaded
+                All {data.length} parlays loaded
               </span>
             </div>
           )}
