@@ -421,16 +421,24 @@ const AuctionRequestRow: React.FC<Props> = ({
           return;
         }
         const client = getSharedAuctionWsClient(wsUrl);
-        await client.sendWithAck('bid.submit', payload, { timeoutMs: 5000 });
+        let acked = false;
+        try {
+          await client.sendWithAck('bid.submit', payload, { timeoutMs: 12000 });
+          acked = true;
+        } catch (e: any) {
+          if (String(e?.message) !== 'ack_timeout') throw e;
+        }
         try {
           window.dispatchEvent(new Event('auction.bid.submitted'));
         } catch {
           void 0;
         }
-        toast({
-          title: 'Bid submitted',
-          description: 'Your bid was submitted successfully.',
-        });
+        if (acked) {
+          toast({
+            title: 'Bid submitted',
+            description: 'Your bid was submitted successfully.',
+          });
+        }
       } catch {
         toast({
           title: 'Bid failed',

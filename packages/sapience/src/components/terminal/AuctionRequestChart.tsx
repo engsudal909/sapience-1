@@ -111,7 +111,7 @@ const AuctionRequestChart: React.FC<Props> = ({
         </div>
         <div />
       </div>
-      <div className="flex-1 min-h-0">
+      <div className="h-[110px] md:h-auto md:flex-1 md:min-h-0">
         <AuctionBidsChart
           bids={displayBids}
           continuous
