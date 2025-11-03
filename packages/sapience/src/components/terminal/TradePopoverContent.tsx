@@ -50,7 +50,7 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
             </span>
           </span>
           {typeof percent === 'number' ? (
-            <span className="font-mono text-brand-white">
+            <span className="font-mono text-brand-white ml-2">
               {percent}% Chance
             </span>
           ) : (

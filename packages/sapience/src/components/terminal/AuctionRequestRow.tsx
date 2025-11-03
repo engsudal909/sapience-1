@@ -401,18 +401,6 @@ const AuctionRequestRow: React.FC<Props> = ({
         <div className="inline-flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onTogglePin?.(auctionId || null)}
-            className={
-              isPinned
-                ? 'inline-flex items-center justify-center h-6 w-6 rounded-md bg-primary text-primary-foreground text-[10px] flex-shrink-0'
-                : 'inline-flex items-center justify-center h-6 w-6 rounded-md border border-input bg-background hover:bg-accent text-brand-white hover:text-brand-white text-[10px] flex-shrink-0'
-            }
-            aria-label={isPinned ? 'Unpin auction' : 'Pin auction'}
-          >
-            <Pin className="h-3 w-3" />
-          </button>
-          <button
-            type="button"
             onClick={() =>
               setIsExpanded((v) => {
                 const next = !v;
@@ -448,6 +436,18 @@ const AuctionRequestRow: React.FC<Props> = ({
               }
             />
           </button>
+          <button
+            type="button"
+            onClick={() => onTogglePin?.(auctionId || null)}
+            className={
+              isPinned
+                ? 'inline-flex items-center justify-center h-6 w-6 rounded-md bg-primary text-primary-foreground text-[10px] flex-shrink-0'
+                : 'inline-flex items-center justify-center h-6 w-6 rounded-md border border-input bg-background hover:bg-accent text-brand-white hover:text-brand-white text-[10px] flex-shrink-0'
+            }
+            aria-label={isPinned ? 'Unpin auction' : 'Pin auction'}
+          >
+            <Pin className="h-3 w-3" />
+          </button>
         </div>
       </div>
 
@@ -476,6 +476,7 @@ const AuctionRequestRow: React.FC<Props> = ({
               maxEndTimeSec={maxEndTimeSec ?? undefined}
               maker={maker}
               hasMultipleConditions={conditionIds.length > 1}
+              tokenDecimals={tokenDecimals}
             />
             <AuctionRequestInfo
               uiTx={uiTx}

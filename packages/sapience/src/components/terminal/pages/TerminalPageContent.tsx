@@ -24,6 +24,7 @@ import { useReadContracts } from 'wagmi';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarketAbi } from '@sapience/sdk';
+import bidsHub from '~/lib/auction/useAuctionBidsHub';
 
 const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
@@ -184,7 +185,6 @@ const TerminalPageContent: React.FC = () => {
 
   // Query conditions to enrich shortName/question for decoded predicted outcomes
   const {
-    map: conditionMap,
     list: conditions,
     isLoading: areConditionsLoading,
     error: conditionsError,
@@ -447,75 +447,87 @@ const TerminalPageContent: React.FC = () => {
     return Number.isFinite(n) && n >= 0 ? n : 0;
   }, [minBids]);
 
+  // Track live bids via shared hub to keep counts in sync with row components
+  const [bidsTick, setBidsTick] = useState(0);
+  useEffect(() => {
+    const off = bidsHub.addListener(() =>
+      setBidsTick((t) => (t + 1) % 1_000_000)
+    );
+    return () => {
+      off();
+    };
+  }, []);
   const bidsCountByAuction = useMemo(() => {
     const map = new Map<string, number>();
-    // auctionAndBidMessages is sorted by time desc; first seen per id is latest
-    for (const m of auctionAndBidMessages) {
-      const id = getAuctionId(m as any);
-      if (!id) continue;
-      if (m.type === 'auction.bids') {
-        const count = Array.isArray((m as any)?.data?.bids)
-          ? ((m as any).data.bids as unknown as any[]).length
-          : 0;
-        if (!map.has(id)) map.set(id, count);
-      }
+    for (const [id, arr] of bidsHub.bidsByAuctionId.entries()) {
+      map.set(id, Array.isArray(arr) ? arr.length : 0);
     }
     return map;
-  }, [auctionAndBidMessages, getAuctionId]);
+  }, [bidsTick]);
 
   // Build pinned/unpinned rows for rendering
   const { pinnedRows, unpinnedRows } = useMemo(() => {
-    const allRows = Array.from(latestStartedByAuction.entries())
-      .map(([id, m]) => {
+    const baseRows = Array.from(latestStartedByAuction.entries()).map(
+      ([id, m]) => {
         const lastActivity =
           lastActivityByAuction.get(id) || Number(m?.time || 0);
         const pinned = pinnedAuctions.includes(id);
         return { id, m, lastActivity, pinned } as const;
-      })
-      .filter((row) => {
-        // Apply category/condition filters (Option A: AND across groups, OR within each group)
-        const legs = getDecodedPredictedOutcomes(row.m);
-        const legConditionIds = legs.map((l) => String(l.marketId));
-        const legCategorySlugs = legs.map((l) => {
-          const cond = renderConditionMap.get(String(l.marketId));
-          return cond?.category?.slug ?? null;
-        });
+      }
+    );
 
-        const matchesCategory =
-          selectedCategorySlugs.length === 0 ||
-          legCategorySlugs.some(
-            (slug) => slug != null && selectedCategorySlugs.includes(slug)
-          );
-        if (!matchesCategory) return false;
+    // Prune inactive unpinned (> 30m); pinned always visible
+    const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+    const pruned = baseRows.filter(
+      (row) => row.pinned || row.lastActivity >= thirtyMinAgo
+    );
 
-        const matchesCondition =
-          selectedConditionIds.length === 0 ||
-          legConditionIds.some(
-            (id) => !!id && selectedConditionIds.includes(id)
-          );
-        if (!matchesCondition) return false;
+    // Helper: apply content filters only to UNPINNED rows
+    const passFilters = (row: (typeof pruned)[number]) => {
+      // Pinned rows bypass filters entirely
+      if (row.pinned) return true;
 
-        try {
-          const makerWagerWei = BigInt(String(row.m?.data?.wager ?? '0'));
-          const bidsCount = bidsCountByAuction.get(row.id) ?? 0;
-          if (bidsCount < minBidsNum) return false;
-          return makerWagerWei >= minWagerWei;
-        } catch {
-          return true;
-        }
-      })
-      .filter((row) => {
-        // prune non-pinned auctions inactive > 30m
-        const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
-        return row.pinned || row.lastActivity >= thirtyMinAgo;
+      const legs = getDecodedPredictedOutcomes(row.m);
+      const legConditionIds = legs.map((l) => String(l.marketId));
+      const legCategorySlugs = legs.map((l) => {
+        const cond = renderConditionMap.get(String(l.marketId));
+        return cond?.category?.slug ?? null;
       });
-    allRows.sort((a, b) => {
+
+      const matchesCategory =
+        selectedCategorySlugs.length === 0 ||
+        legCategorySlugs.some(
+          (slug) => slug != null && selectedCategorySlugs.includes(slug)
+        );
+      if (!matchesCategory) return false;
+
+      const matchesCondition =
+        selectedConditionIds.length === 0 ||
+        legConditionIds.some((id) => !!id && selectedConditionIds.includes(id));
+      if (!matchesCondition) return false;
+
+      try {
+        const makerWagerWei = BigInt(String(row.m?.data?.wager ?? '0'));
+        const bidsCount = bidsCountByAuction.get(row.id) ?? 0;
+        if (bidsCount < minBidsNum) return false;
+        return makerWagerWei >= minWagerWei;
+      } catch {
+        // On parse failure, do not include the row
+        return false;
+      }
+    };
+
+    const filtered = pruned.filter(passFilters);
+
+    // Sort: pinned first, then by last activity desc
+    filtered.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
       return b.lastActivity - a.lastActivity;
     });
-    const pinned = allRows.filter((r) => r.pinned);
-    const unpinned = allRows.filter((r) => !r.pinned);
+
+    const pinned = filtered.filter((r) => r.pinned);
+    const unpinned = filtered.filter((r) => !r.pinned);
     return { pinnedRows: pinned, unpinnedRows: unpinned };
   }, [
     latestStartedByAuction,
@@ -526,7 +538,7 @@ const TerminalPageContent: React.FC = () => {
     bidsCountByAuction,
     selectedCategorySlugs,
     selectedConditionIds,
-    conditionMap,
+    renderConditionMap,
     getDecodedPredictedOutcomes,
   ]);
 
@@ -538,9 +550,34 @@ const TerminalPageContent: React.FC = () => {
     count: hasLoadedConditionsOnce ? unpinnedRows.length : 0,
     getScrollElement: () => scrollAreaRef.current,
     estimateSize: () => 84,
-    overscan: 8,
+    overscan: 14,
     getItemKey: (index) => unpinnedRows[index]?.id ?? index,
   });
+
+  // Reset scroll and re-measure when filters change to avoid stale items
+  useEffect(() => {
+    try {
+      scrollAreaRef.current?.scrollTo({ top: 0 });
+    } catch {
+      /* noop */
+    }
+    try {
+      virtualizer.scrollToIndex(0, { align: 'start' });
+    } catch {
+      /* noop */
+    }
+    try {
+      virtualizer.measure();
+    } catch {
+      /* noop */
+    }
+  }, [
+    minWagerWei,
+    minBidsNum,
+    selectedCategorySlugs,
+    selectedConditionIds,
+    virtualizer,
+  ]);
 
   // Observe intrinsic row size changes and re-measure the virtualizer to prevent snap-backs
   const rowElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -562,9 +599,18 @@ const TerminalPageContent: React.FC = () => {
       } catch {
         /* noop */
       }
+      let rafId: number | null = null;
       const ro = new ResizeObserver(() => {
         try {
-          virtualizer.measure();
+          if (rafId !== null) cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(() => {
+            try {
+              virtualizer.measureElement(el);
+            } catch {
+              /* noop */
+            }
+            rafId = null;
+          });
         } catch {
           /* noop */
         }
@@ -652,7 +698,7 @@ const TerminalPageContent: React.FC = () => {
   return (
     <div className="px-4 md:px-6 pt-4 md:pt-0 pb-4 md:pb-6 h-full min-h-0">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-0">
-        <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0">
+        <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0 md:max-h-[85vh]">
           <div className="flex-none">
             <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
               <div className="flex items-center gap-4">
@@ -690,6 +736,12 @@ const TerminalPageContent: React.FC = () => {
                           }
                           selected={selectedConditionIds}
                           onChange={setSelectedConditionIds}
+                          categoryById={Object.fromEntries(
+                            (conditions || []).map((c) => [
+                              c.id,
+                              c?.category?.slug ?? null,
+                            ])
+                          )}
                         />
                       </div>
                     </div>
@@ -712,7 +764,8 @@ const TerminalPageContent: React.FC = () => {
           </div>
           <div
             ref={scrollAreaRef}
-            className="flex-1 min-h-0 overflow-y-auto flex flex-col [overflow-anchor:none] md:max-h-[70vh]"
+            className="flex-1 min-h-0 overflow-y-auto flex flex-col"
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {auctionAndBidMessages.length === 0 ? (
               <div className="flex-1 flex items-center justify-center py-24">

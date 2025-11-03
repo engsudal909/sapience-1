@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import AuctionBidsChart from '~/components/terminal/AuctionBidsChart';
-import { formatEther } from 'viem';
+import { formatUnits } from 'viem';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import { Info } from 'lucide-react';
@@ -17,6 +17,7 @@ type Props = {
   maxEndTimeSec?: number;
   maker?: string | null;
   hasMultipleConditions?: boolean;
+  tokenDecimals: number;
 };
 
 const AuctionRequestChart: React.FC<Props> = ({
@@ -27,6 +28,7 @@ const AuctionRequestChart: React.FC<Props> = ({
   maxEndTimeSec: _maxEndTimeSec,
   maker,
   hasMultipleConditions,
+  tokenDecimals,
 }) => {
   // Throttle incoming bids to ~10–12 fps using rAF
   const [displayBids, setDisplayBids] = useState<AuctionBid[]>(bids || []);
@@ -59,7 +61,9 @@ const AuctionRequestChart: React.FC<Props> = ({
 
   const makerAmountDisplay = (() => {
     try {
-      return Number(formatEther(BigInt(String(makerWager ?? '0'))));
+      return Number(
+        formatUnits(BigInt(String(makerWager ?? '0')), tokenDecimals)
+      );
     } catch {
       return 0;
     }

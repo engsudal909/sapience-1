@@ -13,6 +13,7 @@ import {
   CommandGroup,
   CommandItem,
   CommandList,
+  CommandInput,
 } from '@sapience/sdk/ui/components/ui/command';
 import { Check, ChevronsUpDown } from 'lucide-react';
 
@@ -24,6 +25,16 @@ type Props = {
   selected: string[];
   onChange: (values: string[]) => void;
   className?: string;
+  enableSearch?: boolean;
+  renderTriggerContent?: (
+    selectedValues: string[],
+    items: MultiSelectItem[]
+  ) => React.ReactNode;
+  emptyMessage?: string;
+  renderItemContent?: (
+    item: MultiSelectItem,
+    isSelected: boolean
+  ) => React.ReactNode;
 };
 
 const MultiSelect: React.FC<Props> = ({
@@ -32,12 +43,18 @@ const MultiSelect: React.FC<Props> = ({
   selected,
   onChange,
   className,
+  enableSearch,
+  renderTriggerContent,
+  emptyMessage,
+  renderItemContent,
 }) => {
   const [open, setOpen] = useState(false);
 
-  const label = useMemo(() => {
-    return selected.length === 0 ? placeholder : `${selected.length} selected`;
-  }, [placeholder, selected.length]);
+  const triggerContent = useMemo(() => {
+    if (selected.length === 0) return placeholder;
+    if (renderTriggerContent) return renderTriggerContent(selected, items);
+    return `${selected.length} selected`;
+  }, [placeholder, renderTriggerContent, selected, items]);
 
   const toggle = useCallback(
     (value: string) => {
@@ -63,15 +80,18 @@ const MultiSelect: React.FC<Props> = ({
           <span
             className={selected.length === 0 ? 'text-muted-foreground' : ''}
           >
-            {label}
+            {triggerContent}
           </span>
           <ChevronsUpDown className="h-4 w-4 opacity-50" />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[280px] p-0" align="start">
         <Command>
+          {enableSearch && <CommandInput placeholder="Search…" />}
           <CommandList>
-            <CommandEmpty>No options</CommandEmpty>
+            <CommandEmpty className="pt-4 pb-2 text-center text-sm text-muted-foreground">
+              {emptyMessage || 'No options'}
+            </CommandEmpty>
             <CommandGroup>
               {items.map((it) => {
                 const isSelected = selected.includes(it.value);
@@ -81,10 +101,16 @@ const MultiSelect: React.FC<Props> = ({
                     onSelect={() => toggle(it.value)}
                     className="flex items-center justify-between"
                   >
-                    <span>{it.label}</span>
+                    <span className="inline-flex items-center gap-2">
+                      {renderItemContent
+                        ? renderItemContent(it, isSelected)
+                        : it.label}
+                    </span>
                     <Check
                       className={
-                        isSelected ? 'h-4 w-4 opacity-100' : 'h-4 w-4 opacity-0'
+                        isSelected
+                          ? 'h-4 w-4 opacity-100 text-amber-400'
+                          : 'h-4 w-4 opacity-0'
                       }
                     />
                   </CommandItem>
