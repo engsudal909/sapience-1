@@ -37,6 +37,7 @@ import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
 import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/lib/types';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 interface MarketGroupChartProps {
   chainShortName: string;
@@ -242,7 +243,7 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
 
         return (
           <Badge variant={variant as any} className={className}>
-            {`${percentage}% Chance`}
+            {`${formatPercentChance(percentage / 100)} Chance`}
           </Badge>
         );
       } catch (_) {

@@ -704,8 +704,8 @@ const TerminalPageContent: React.FC = () => {
   return (
     <ApprovalDialogProvider>
       <div className="px-4 md:px-6 pt-4 md:pt-0 pb-4 md:pb-6 h-full min-h-0">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-0">
-          <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0 md:max-h-[85vh]">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0">
+          <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black lg:col-span-3 flex flex-col h-full min-h-0 md:max-h-[85vh]">
             <div className="flex-none">
               <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
                 <div className="flex items-center gap-4">
@@ -896,7 +896,7 @@ const TerminalPageContent: React.FC = () => {
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-6 md:col-span-1 h-full min-h-0">
+          <div className="flex flex-col gap-6 lg:col-span-1 h-full min-h-0">
             <AutoBid />
           </div>
         </div>

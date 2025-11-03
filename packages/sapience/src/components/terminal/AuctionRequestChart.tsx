@@ -72,7 +72,7 @@ const AuctionRequestChart: React.FC<Props> = ({
   return (
     <div className="md:col-span-2 h-full min-h-0 flex flex-col">
       <div className="text-xs mt-0 mb-1">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
           <span className="font-medium">Live Auction</span>
           {hasMultipleConditions ? (
             <div className="text-muted-foreground inline-flex items-center gap-1">
@@ -85,7 +85,7 @@ const AuctionRequestChart: React.FC<Props> = ({
         </div>
       </div>
       <div className="flex items-center justify-between text-xs mb-2">
-        <div className="inline-flex items-center gap-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
           <span className="font-mono text-brand-white">
             {Number.isFinite(makerAmountDisplay)
               ? makerAmountDisplay.toLocaleString(undefined, {
@@ -96,16 +96,18 @@ const AuctionRequestChart: React.FC<Props> = ({
             {collateralAssetTicker}
           </span>
           <span className="text-muted-foreground">wager request</span>
-          <span className="text-muted-foreground">from</span>
-          <div className="inline-flex items-center gap-1 min-w-0">
-            <EnsAvatar
-              address={maker || ''}
-              className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
-              width={16}
-              height={16}
-            />
-            <div className="min-w-0">
-              <AddressDisplay address={maker || ''} compact />
+          <div className="w-full sm:w-auto inline-flex items-center gap-1 min-w-0">
+            <span className="text-muted-foreground">from</span>
+            <div className="inline-flex items-center gap-1 min-w-0">
+              <EnsAvatar
+                address={maker || ''}
+                className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
+                width={16}
+                height={16}
+              />
+              <div className="min-w-0">
+                <AddressDisplay address={maker || ''} compact />
+              </div>
             </div>
           </div>
         </div>

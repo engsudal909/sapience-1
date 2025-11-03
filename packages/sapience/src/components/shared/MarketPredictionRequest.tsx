@@ -11,6 +11,7 @@ import {
   buildAuctionStartPayload,
   type PredictedOutcomeInputStub,
 } from '~/lib/auction/buildAuctionPayload';
+import PercentChance from '~/components/shared/PercentChance';
 // Use one as the default wager for prediction requests
 
 export interface MarketPredictionRequestProps {
@@ -92,12 +93,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     query: { enabled: !!selectedMakerAddress && !!PREDICTION_MARKET_ADDRESS },
   });
 
-  const formatPriceAsPercentage = React.useCallback((price: number) => {
-    if (!Number.isFinite(price)) return 'Price N/A';
-    const percentage = Math.max(0, Math.min(100, price * 100));
-    if (percentage < 1) return '<1% chance';
-    return `${Math.round(percentage)}% chance`;
-  }, []);
+  // unified via PercentChance component
 
   React.useEffect(() => {
     if (!isRequesting) return;
@@ -266,9 +262,12 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           </button>
         )
       ) : (
-        <span className="text-foreground font-medium">
-          {formatPriceAsPercentage(requestedPrediction)}
-        </span>
+        <PercentChance
+          probability={requestedPrediction}
+          showLabel={true}
+          label="Chance"
+          className="text-foreground font-medium"
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import ToWinLine from '~/components/terminal/ToWinLine';
+import PercentChance from '~/components/shared/PercentChance';
 // removed ChevronsDown icon per design update
 import {
   Popover,
@@ -200,7 +201,7 @@ const PlaceBidForm: React.FC<Props> = ({
         <div className="space-y-1 border border-border rounded-md bg-background p-2">
           {/* Row 1: Amount input + inline to-win on left; chance on right */}
           <div className="flex items-baseline justify-between">
-            <div className="flex items-center gap-1 min-w-0">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-1 gap-y-0.5 min-w-0">
               <div className="inline-flex items-center gap-0.5 text-xs">
                 <span className="font-mono text-brand-white">
                   {amountDisplay}
@@ -215,13 +216,16 @@ const PlaceBidForm: React.FC<Props> = ({
                 asInline
                 label="to win "
                 textSize="text-xs"
-                className=""
+                className="block basis-full sm:basis-auto sm:inline"
               />
             </div>
             {typeof forecastPct === 'number' ? (
-              <span className="font-mono text-brand-white text-xs">
-                {forecastPct}% Chance
-              </span>
+              <PercentChance
+                probability={forecastPct / 100}
+                showLabel={true}
+                label="Chance"
+                className="font-mono text-brand-white text-xs whitespace-nowrap"
+              />
             ) : (
               <span />
             )}

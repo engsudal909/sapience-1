@@ -91,7 +91,7 @@ export const BetslipContent = ({
               <Button
                 variant="ghost"
                 size="xs"
-                className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm"
+                className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm relative -top-0.5"
                 onClick={
                   effectiveParlayMode ? clearParlaySelections : clearBetSlip
                 }

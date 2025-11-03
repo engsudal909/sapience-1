@@ -16,6 +16,7 @@ import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import ParlayLegsList from '~/components/shared/ParlayLegsList';
 import NumberDisplay from '~/components/shared/NumberDisplay';
+import { formatPercentChance } from '~/lib/format/percentChance';
 import {
   getSeriesColorByIndex,
   withAlpha,
@@ -379,7 +380,7 @@ export function TransactionAmountCell({
         : '';
       predictionBadge = (
         <Badge variant={variant} className={`${className} whitespace-nowrap`}>
-          {`${percentage}% Chance`}
+          {`${formatPercentChance(percentage / 100)} Chance`}
         </Badge>
       );
     } catch {
@@ -730,7 +731,7 @@ export function TransactionPositionCell({
             variant={variant}
             className={`${className} whitespace-nowrap shrink-0`}
           >
-            {`${percentage}% Chance`}
+            {`${formatPercentChance(percentage / 100)} Chance`}
           </Badge>
         );
       }

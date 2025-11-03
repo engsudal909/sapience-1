@@ -14,6 +14,7 @@ import { sqrtPriceX96ToPriceD18, getChainShortName } from '~/lib/utils/util';
 import { formatRelativeTime } from '~/lib/utils/timeUtils';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import EnsAvatar from '~/components/shared/EnsAvatar';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 // Helper function to check if a market is active
 function isMarketActive(market: any): boolean {
@@ -190,7 +191,12 @@ function attestationToComment(
     const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
     const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
     predictionPercent = Math.round(Number(percentageD2) / 100);
-    predictionText = `${predictionPercent}% Chance`;
+    {
+      const prob = Number.isFinite(predictionPercent)
+        ? Number(predictionPercent) / 100
+        : NaN;
+      predictionText = `${formatPercentChance(prob)} Chance`;
+    }
   } else if (marketClassification === '1') {
     // MULTIPLE_CHOICE - show percentage chance for yes/no within multiple choice
 
@@ -198,7 +204,12 @@ function attestationToComment(
     const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
     const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
     predictionPercent = Math.round(Number(percentageD2) / 100);
-    predictionText = `${predictionPercent}% Chance`;
+    {
+      const prob = Number.isFinite(predictionPercent)
+        ? Number(predictionPercent) / 100
+        : NaN;
+      predictionText = `${formatPercentChance(prob)} Chance`;
+    }
   } else if (marketClassification === '3') {
     // NUMERIC - show numeric value
     const hideQuote = (quoteTokenName || '').toUpperCase().includes('USD');
@@ -207,7 +218,11 @@ function attestationToComment(
     predictionText = `${numericValue?.toString()}${basePart}${quotePart}`;
   } else {
     // Fallback
-    predictionText = `${numericValue}% Chance`;
+    const prob =
+      typeof numericValue === 'number' && Number.isFinite(numericValue)
+        ? numericValue / 100
+        : NaN;
+    predictionText = `${formatPercentChance(prob)} Chance`;
   }
 
   return {
