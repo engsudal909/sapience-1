@@ -1,21 +1,6 @@
 import { Resolver, Query, Arg, Int, ObjectType, Field } from 'type-graphql';
 import prisma from '../../db';
-
-type PredictionMintedLogData = {
-  eventType: 'PredictionMinted';
-  maker: string;
-  taker: string;
-  makerNftTokenId: string;
-  takerNftTokenId: string;
-  makerCollateral: string;
-  takerCollateral: string;
-  totalCollateral: string;
-  refCode: string;
-  blockNumber: number;
-  transactionHash: string;
-  logIndex: number;
-  timestamp: number;
-};
+import { Prisma } from '../../../generated/prisma';
 
 @ObjectType()
 class ConditionSummary {
@@ -100,94 +85,170 @@ class ParlayType {
 
 @Resolver()
 export class ParlayResolver {
+  @Query(() => Int)
+  async userParlaysCount(
+    @Arg('address', () => String) address: string
+  ): Promise<number> {
+    const addr = address.toLowerCase();
+    const count = await prisma.parlay.count({
+      where: { OR: [{ maker: addr }, { taker: addr }] },
+    });
+    return count;
+  }
+
   @Query(() => [ParlayType])
   async userParlays(
     @Arg('address', () => String) address: string,
     @Arg('take', () => Int, { defaultValue: 50 }) take: number,
-    @Arg('skip', () => Int, { defaultValue: 0 }) skip: number
+    @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
+    @Arg('orderBy', () => String, { nullable: true }) orderBy?: string,
+    @Arg('orderDirection', () => String, { nullable: true }) orderDirection?: string
   ): Promise<ParlayType[]> {
     const addr = address.toLowerCase();
+    
+    // Helper function to process rows and return ParlayType[]
+    const processRows = async (rows: any[]): Promise<ParlayType[]> => {
+      // Collect condition ids
+      const conditionSet = new Set<string>();
+      for (const r of rows) {
+        // Parse predictedOutcomes if it's a string (from raw SQL)
+        let predictedOutcomesParsed = r.predictedOutcomes;
+        if (typeof predictedOutcomesParsed === 'string') {
+          try {
+            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+          } catch (e) {
+            predictedOutcomesParsed = [];
+          }
+        }
+        const outcomes =
+          (predictedOutcomesParsed as unknown as { conditionId: string }[]) || [];
+        for (const o of outcomes) conditionSet.add(o.conditionId);
+      }
+      const conditionIds = Array.from(conditionSet);
+      const conditions = conditionIds.length
+        ? await prisma.condition.findMany({
+            where: { id: { in: conditionIds } },
+            select: { id: true, question: true, shortName: true, endTime: true },
+          })
+        : [];
+      const condMap = new Map(conditions.map((c) => [c.id, c]));
+
+      return rows.map((r) => {
+        // Parse predictedOutcomes if it's a string (from raw SQL)
+        let predictedOutcomesParsed = r.predictedOutcomes;
+        if (typeof predictedOutcomesParsed === 'string') {
+          try {
+            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+          } catch (e) {
+            predictedOutcomesParsed = [];
+          }
+        }
+        const outcomesRaw =
+          (predictedOutcomesParsed as unknown as {
+            conditionId: string;
+            prediction: boolean;
+          }[]) || [];
+        const outcomes: PredictedOutcomeType[] = outcomesRaw.map((o) => ({
+          conditionId: o.conditionId,
+          prediction: o.prediction,
+          condition: condMap.get(o.conditionId) || null,
+        }));
+        return {
+          id: r.id,
+          chainId: r.chainId,
+          marketAddress: r.marketAddress,
+          maker: r.maker,
+          taker: r.taker,
+          makerNftTokenId: r.makerNftTokenId,
+          takerNftTokenId: r.takerNftTokenId,
+          totalCollateral: r.totalCollateral,
+          makerCollateral: r.makerCollateral ?? null,
+          takerCollateral: r.takerCollateral ?? null,
+          refCode: r.refCode,
+          status: r.status as unknown as ParlayType['status'],
+          makerWon: r.makerWon,
+          mintedAt: r.mintedAt,
+          settledAt: r.settledAt ?? null,
+          endsAt: r.endsAt ?? null,
+          predictedOutcomes: outcomes,
+        };
+      });
+    };
+
+    // For numeric/calculated sorting (wager, toWin, pnl), we need raw SQL
+    if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
+      const direction = orderDirection === 'asc' ? 'ASC' : 'DESC';
+      
+      if (orderBy === 'wager') {
+        // For wager, sort by the viewer's individual collateral
+        const rows = await prisma.$queryRaw<any[]>`
+          SELECT * FROM parlay
+          WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
+          ORDER BY CASE 
+            WHEN LOWER(maker) = ${addr} THEN CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+            WHEN LOWER(taker) = ${addr} THEN CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+            ELSE 0
+          END ${Prisma.raw(direction)}
+          LIMIT ${take}
+          OFFSET ${skip}
+        `;
+        return processRows(rows);
+      }
+      
+      if (orderBy === 'pnl') {
+        // For PnL, calculate profit/loss based on whether user is maker/taker and won/lost
+        const rows = await prisma.$queryRaw<any[]>`
+          SELECT * FROM parlay
+          WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
+          ORDER BY CASE 
+            WHEN status = 'active' THEN 0
+            WHEN LOWER(maker) = ${addr} THEN
+              CASE 
+                WHEN "makerWon" = true THEN 
+                  CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+                ELSE 
+                  -CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+              END
+            WHEN LOWER(taker) = ${addr} THEN
+              CASE 
+                WHEN "makerWon" = false THEN 
+                  CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+                ELSE 
+                  -CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+              END
+            ELSE 0
+          END ${Prisma.raw(direction)}
+          LIMIT ${take}
+          OFFSET ${skip}
+        `;
+        return processRows(rows);
+      }
+      
+      // For toWin, sort by totalCollateral
+      const rows = await prisma.$queryRaw<any[]>`
+        SELECT * FROM parlay
+        WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
+        ORDER BY CAST("totalCollateral" AS DECIMAL) ${Prisma.raw(direction)}
+        LIMIT ${take}
+        OFFSET ${skip}
+      `;
+      return processRows(rows);
+    }
+    
+    // For other sorting (like 'created'), use normal Prisma orderBy
+    let orderByClause: any = { mintedAt: 'desc' }; // default
+    
+    if (orderBy === 'created') {
+      orderByClause = { mintedAt: orderDirection === 'asc' ? 'asc' : 'desc' };
+    }
+    
     const rows = await prisma.parlay.findMany({
       where: { OR: [{ maker: addr }, { taker: addr }] },
-      orderBy: { mintedAt: 'desc' },
+      orderBy: orderByClause,
       take,
       skip,
     });
 
-    // Collect condition ids
-    const conditionSet = new Set<string>();
-    for (const r of rows) {
-      const outcomes =
-        (r.predictedOutcomes as unknown as { conditionId: string }[]) || [];
-      for (const o of outcomes) conditionSet.add(o.conditionId);
-    }
-    const conditionIds = Array.from(conditionSet);
-    const conditions = conditionIds.length
-      ? await prisma.condition.findMany({
-          where: { id: { in: conditionIds } },
-          select: { id: true, question: true, shortName: true, endTime: true },
-        })
-      : [];
-    const condMap = new Map(conditions.map((c) => [c.id, c]));
-
-    // Preload mint events for the set of mint timestamps to derive maker/taker collateral
-    const mintTimestamps = Array.from(
-      new Set(rows.map((r) => BigInt(r.mintedAt)))
-    );
-    const mintEvents = mintTimestamps.length
-      ? await prisma.event.findMany({
-          where: {
-            marketGroupId: null,
-            timestamp: { in: mintTimestamps },
-          },
-        })
-      : [];
-
-    // Build lookup by maker/taker NFT ids
-    const mintKeyToEvent = new Map<string, PredictionMintedLogData>();
-    for (const ev of mintEvents) {
-      try {
-        const data = ev.logData as unknown as PredictionMintedLogData;
-        if (!data || data.eventType !== 'PredictionMinted') continue;
-        const key = `${String(data.makerNftTokenId)}-${String(data.takerNftTokenId)}`;
-        mintKeyToEvent.set(key, data);
-      } catch {
-        // ignore malformed rows
-      }
-    }
-
-    return rows.map((r) => {
-      const outcomesRaw =
-        (r.predictedOutcomes as unknown as {
-          conditionId: string;
-          prediction: boolean;
-        }[]) || [];
-      const outcomes: PredictedOutcomeType[] = outcomesRaw.map((o) => ({
-        conditionId: o.conditionId,
-        prediction: o.prediction,
-        condition: condMap.get(o.conditionId) || null,
-      }));
-      const mintKey = `${r.makerNftTokenId}-${r.takerNftTokenId}`;
-      const mintData = mintKeyToEvent.get(mintKey);
-      return {
-        id: r.id,
-        chainId: r.chainId,
-        marketAddress: r.marketAddress,
-        maker: r.maker,
-        taker: r.taker,
-        makerNftTokenId: r.makerNftTokenId,
-        takerNftTokenId: r.takerNftTokenId,
-        totalCollateral: r.totalCollateral,
-        makerCollateral: mintData?.makerCollateral?.toString?.() ?? null,
-        takerCollateral: mintData?.takerCollateral?.toString?.() ?? null,
-        refCode: r.refCode,
-        status: r.status as unknown as ParlayType['status'],
-        makerWon: r.makerWon,
-        mintedAt: r.mintedAt,
-        settledAt: r.settledAt ?? null,
-        endsAt: r.endsAt ?? null,
-        predictedOutcomes: outcomes,
-      };
-    });
+    return processRows(rows);
   }
 }

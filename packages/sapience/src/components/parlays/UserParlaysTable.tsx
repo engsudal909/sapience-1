@@ -16,7 +16,6 @@ import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState,
@@ -53,13 +52,14 @@ import {
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
-import { useUserParlays } from '~/hooks/graphql/useUserParlays';
+import { useUserParlays, useUserParlaysCount, type Parlay } from '~/hooks/graphql/useUserParlays';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import ShareDialog from '~/components/shared/ShareDialog';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
+import LottieLoader from '~/components/shared/LottieLoader';
 
 function PredictionsScroller({
   legs,
@@ -233,8 +233,74 @@ export default function UserParlaysTable({
     marketAddress: Address;
   };
 
-  // Fetch real data
-  const { data } = useUserParlays({ address: String(account) });
+  // Infinite scroll state
+  const ITEMS_PER_PAGE = 50;
+  const [skip, setSkip] = React.useState(0);
+  const [allLoadedData, setAllLoadedData] = React.useState<Parlay[]>([]);
+  const [hasMore, setHasMore] = React.useState(true);
+
+  // Sorting state
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: 'created', desc: true },
+  ]);
+
+  // Convert sorting state to API params
+  const orderBy = sorting[0]?.id;
+  const orderDirection = sorting[0]?.desc ? 'desc' : 'asc';
+
+  // Reset when account or sorting changes
+  React.useEffect(() => {
+    setSkip(0);
+    setAllLoadedData([]);
+    setHasMore(true);
+  }, [account, sorting]);
+
+  // Fetch total count
+  const totalCount = useUserParlaysCount(String(account));
+
+  // Fetch real data with pagination - fetch one extra to detect if there are more pages
+  const { data: rawData, isLoading, error } = useUserParlays({
+    address: String(account),
+    take: ITEMS_PER_PAGE + 1,
+    skip,
+    orderBy,
+    orderDirection,
+  });
+
+  // Append new data when it arrives
+  React.useEffect(() => {
+    if (!rawData || rawData.length === 0) {
+      if (skip === 0) {
+        setAllLoadedData([]);
+        setHasMore(false);
+      }
+      return;
+    }
+    
+    const hasNextPage = rawData.length > ITEMS_PER_PAGE;
+    const newItems = hasNextPage ? rawData.slice(0, ITEMS_PER_PAGE) : rawData;
+    
+    if (skip === 0) {
+      // First load - replace all data
+      setAllLoadedData(newItems);
+    } else {
+      // Subsequent loads - append data
+      setAllLoadedData(prev => [...prev, ...newItems]);
+    }
+    
+    setHasMore(hasNextPage);
+  }, [rawData, skip]);
+
+  // Use accumulated data
+  const data = allLoadedData;
+
+  // Load more handler (wrapped in useCallback for IntersectionObserver dependency)
+  const handleLoadMore = React.useCallback(() => {
+    if (!isLoading && hasMore) {
+      setSkip(prev => prev + ITEMS_PER_PAGE);
+    }
+  }, [isLoading, hasMore]);
+
   // ---
 
   const viewer = React.useMemo(
@@ -402,7 +468,7 @@ export default function UserParlaysTable({
   );
   const ownersResult = useReadContracts({
     contracts: ownerReads,
-    query: { enabled: ownerReads.length > 0 },
+    query: { enabled: !isLoading && ownerReads.length > 0 },
   });
   const claimableTokenIds = React.useMemo(() => {
     const set = new Set<string>();
@@ -465,7 +531,7 @@ export default function UserParlaysTable({
   );
   const activeOwners = useReadContracts({
     contracts: activeOwnerReads,
-    query: { enabled: activeOwnerReads.length > 0 },
+    query: { enabled: !isLoading && activeOwnerReads.length > 0 },
   });
 
   // Derive which rows are still owned by the viewer
@@ -510,7 +576,7 @@ export default function UserParlaysTable({
   );
   const predictionDatas = useReadContracts({
     contracts: getPredictionReads,
-    query: { enabled: getPredictionReads.length > 0 },
+    query: { enabled: !isLoading && getPredictionReads.length > 0 },
   });
 
   // Phase 3: resolver.resolvePrediction(encodedPredictedOutcomes)
@@ -541,7 +607,7 @@ export default function UserParlaysTable({
   }, [predictionDatas?.data, ownedRowEntries]);
   const resolverResults = useReadContracts({
     contracts: resolverReads,
-    query: { enabled: resolverReads.length > 0 },
+    query: { enabled: !isLoading && resolverReads.length > 0 },
   });
 
   // Build a map from rowKey -> ChainResolutionState
@@ -849,7 +915,7 @@ export default function UserParlaysTable({
                 <div className="xl:hidden text-xs text-muted-foreground mb-1">
                   To Win
                 </div>
-                <span className="text-muted-foreground">—</span>
+                <span className="text-muted-foreground">Parlay Lost</span>
               </div>
             );
           }
@@ -1127,17 +1193,13 @@ export default function UserParlaysTable({
     ]
   );
 
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: 'created', desc: true },
-  ]);
-
   const table = useReactTable({
     data: rows,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    manualSorting: true, // Disable client-side sorting, we're doing server-side sorting
     columnResizeMode: 'onChange',
     enableColumnResizing: false,
     getRowId: (row) => row.uniqueRowKey,
@@ -1145,59 +1207,120 @@ export default function UserParlaysTable({
 
   // Claim button is inlined per row using shared hook to avoid many hook instances
 
+  // Auto-load more when scrolling near bottom
+  const loadMoreRef = React.useRef<HTMLDivElement>(null);
+  
+  React.useEffect(() => {
+    if (!loadMoreRef.current || !hasMore) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          handleLoadMore();
+        }
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '100px' // Start loading 100px before the element is visible
+      }
+    );
+    
+    observer.observe(loadMoreRef.current);
+    
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, handleLoadMore]);
+
   return (
     <div>
       {showHeaderText && (
         <h2 className="text-lg font-medium mb-2">Your Parlays</h2>
       )}
-      {rows.length === 0 ? (
+      {rows.length === 0 && !isLoading ? (
         <EmptyTabState message="No parlays found" />
-      ) : (
-        <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
-          <Table className="table-auto">
-            <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className={
-                        header.id === 'actions' ? 'text-right' : undefined
-                      }
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="group xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      ) : isLoading && rows.length === 0 ? (
+        <div className="flex justify-center py-16">
+          <LottieLoader width={32} height={32} />
         </div>
+      ) : (
+        <>
+          <div className="border-y border-border rounded-none overflow-hidden bg-brand-black relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-brand-black/50 flex items-center justify-center z-10">
+                <LottieLoader width={32} height={32} />
+              </div>
+            )}
+            <Table className="table-auto">
+              <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className={
+                          header.id === 'actions' ? 'text-right' : undefined
+                        }
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="group xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 align-top hover:bg-muted/50"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {/* Infinite scroll sentinel - triggers auto-load when visible */}
+          {hasMore && (
+            <div 
+              ref={loadMoreRef}
+              className="flex items-center justify-center px-4 py-6 border-b border-border bg-brand-black"
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <LottieLoader width={24} height={24} />
+                  <span className="text-sm text-muted-foreground">
+                    Loading more parlays...
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  Scroll to load more • {data.length} of {totalCount}
+                </span>
+              )}
+            </div>
+          )}
+          {!hasMore && data.length > 0 && (
+            <div className="flex items-center justify-center px-4 py-4 border-b border-border bg-brand-black">
+              <span className="text-sm text-muted-foreground">
+                ✓ All {data.length} parlays loaded
+              </span>
+            </div>
+          )}
+        </>
       )}
       {selectedParlay && (
         <ShareDialog

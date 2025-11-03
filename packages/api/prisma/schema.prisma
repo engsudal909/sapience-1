@@ -466,6 +466,8 @@ model Parlay {
   makerNftTokenId  String    @db.VarChar
   takerNftTokenId  String    @db.VarChar
   totalCollateral  String    @db.VarChar
+  makerCollateral  String?   @db.VarChar
+  takerCollateral  String?   @db.VarChar
   refCode          String?   @db.VarChar
 
   // Status
