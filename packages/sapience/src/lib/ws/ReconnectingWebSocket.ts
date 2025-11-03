@@ -31,7 +31,6 @@ export class ReconnectingWebSocketClient {
   private lastPongAt: number = Date.now();
   private outbox: string[] = [];
   private acks = new Map<string, AckResolver>();
-  private pausedForVisibility = false;
   private debug = false;
   private messageListeners = new Set<(msg: unknown) => void>();
   private openListeners = new Set<() => void>();
@@ -51,15 +50,6 @@ export class ReconnectingWebSocketClient {
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => this.tryReconnectSoon());
       window.addEventListener('offline', () => this.safeClose());
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-          this.pausedForVisibility = true;
-          this.safeClose();
-        } else {
-          this.pausedForVisibility = false;
-          this.tryReconnectSoon();
-        }
-      });
     }
 
     if (this.url) this.connect();
@@ -236,7 +226,6 @@ export class ReconnectingWebSocketClient {
     this.backoffMs = Math.min(this.backoffMs * 2, this.maxBackoffMs);
     window.setTimeout(() => {
       if (navigator.onLine === false) return;
-      if (this.pausedForVisibility) return;
       Sentry.addBreadcrumb({
         category: 'ws.lifecycle',
         level: 'info',
