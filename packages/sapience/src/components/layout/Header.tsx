@@ -29,6 +29,7 @@ import {
   Telescope,
   Bot,
   Zap,
+  Trophy,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -91,11 +92,11 @@ const NavLinks = ({
           Prediction Markets
         </Link>
         <Link
-          href="/leaderboard"
-          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          href="/terminal"
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/terminal', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
-          Leaderboard
+          Trading Terminal
         </Link>
         <Link
           href="/vaults"
@@ -103,6 +104,13 @@ const NavLinks = ({
           onClick={handleLinkClick}
         >
           Vaults
+        </Link>
+        <Link
+          href="/leaderboard"
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Leaderboard
         </Link>
         <Link
           href="/forecast"
@@ -316,10 +324,10 @@ const Header = () => {
                 Prediction Markets
               </Link>
               <Link
-                href="/leaderboard"
+                href="/terminal"
                 className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full hover:bg-transparent hover:text-accent-gold`}
               >
-                Leaderboard
+                Trading Terminal
               </Link>
               <Link
                 href="/vaults"
@@ -345,6 +353,15 @@ const Header = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/leaderboard"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
+                    >
+                      <Trophy className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
+                      <span>Leaderboard</span>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/forecast"

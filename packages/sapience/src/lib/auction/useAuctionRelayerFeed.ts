@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
+import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
+import * as Sentry from '@sentry/nextjs';
 
 export type AuctionFeedMessage = {
   time: number; // ms epoch
@@ -18,39 +20,31 @@ export function useAuctionRelayerFeed(options?: {
   const { apiBaseUrl } = useSettings();
   // Settings apiBaseUrl default already includes "/auction" path
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
-  const wsRef = useRef<WebSocket | null>(null);
   const [messages, setMessages] = useState<AuctionFeedMessage[]>([]);
+  const subscribedAuctionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!wsUrl) return;
-    let closed = false;
-    try {
-      // Debug: connection URL
-      console.debug('[AUCTION-FEED] connecting', { wsUrl });
-    } catch (err) {
-      console.error('[AUCTION-FEED] failed to log connect', err);
-    }
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    const client = getSharedAuctionWsClient(wsUrl);
+    // Observe vault quotes (queued until open)
+    if (observeVaultQuotes) client.send({ type: 'vault_quote.observe' });
 
-    ws.onopen = () => {
-      try {
-        console.debug('[AUCTION-FEED] open');
-      } catch (err) {
-        console.error('[AUCTION-FEED] failed to log onopen', err);
+    const offOpen = client.addOpenListener(() => {
+      // Resubscribe to all auctions on reconnect
+      for (const id of Array.from(subscribedAuctionsRef.current)) {
+        client.send({ type: 'auction.subscribe', payload: { auctionId: id } });
       }
-      // Opt-in to vault broadcast observer if requested
-      if (observeVaultQuotes) {
-        try {
-          ws.send(JSON.stringify({ type: 'vault_quote.observe' }));
-        } catch (err) {
-          console.error('[AUCTION-FEED] failed to send observe', err);
-        }
-      }
-    };
-    ws.onmessage = (ev) => {
+      Sentry.addBreadcrumb({
+        category: 'ws.app',
+        level: 'info',
+        message: 'resubscribe',
+        data: { count: subscribedAuctionsRef.current.size },
+      });
+    });
+
+    const offMsg = client.addMessageListener((raw) => {
       try {
-        const msg = JSON.parse(ev.data as string);
+        const msg = raw as any;
         const now = Date.now();
         const type = String(msg?.type || 'unknown');
         const channel =
@@ -59,11 +53,6 @@ export function useAuctionRelayerFeed(options?: {
           (typeof msg?.channel === 'string' && (msg.channel as string)) ||
           (typeof msg?.auctionId === 'string' && (msg.auctionId as string)) ||
           null;
-        try {
-          console.debug('[AUCTION-FEED] message', { type, channel });
-        } catch (err) {
-          console.error('[AUCTION-FEED] failed to log message', err);
-        }
         const entry: AuctionFeedMessage = {
           time: now,
           type,
@@ -71,9 +60,11 @@ export function useAuctionRelayerFeed(options?: {
           data: msg?.payload ?? msg,
         };
         setMessages((prev) => {
-          const next = [entry, ...prev];
+          const nowMs = Date.now();
+          const fiveMinutesAgo = nowMs - 5 * 60 * 1000;
+          const next = [entry, ...prev].filter((m) => m.time >= fiveMinutesAgo);
           // Keep a bounded buffer
-          return next.slice(0, 500);
+          return next.slice(0, 1000);
         });
 
         // Auto-subscribe to auction channel when an auction starts
@@ -82,80 +73,35 @@ export function useAuctionRelayerFeed(options?: {
             (msg?.payload?.auctionId as string) ||
             (msg?.auctionId as string) ||
             null;
-          if (subscribeAuctionId && ws.readyState === WebSocket.OPEN) {
-            try {
-              console.debug('[AUCTION-FEED] send auction.subscribe', {
-                auctionId: subscribeAuctionId,
-              });
-              ws.send(
-                JSON.stringify({
-                  type: 'auction.subscribe',
-                  payload: { auctionId: subscribeAuctionId },
-                })
-              );
-            } catch (err) {
-              console.error('[AUCTION-FEED] failed to send subscribe', err);
-            }
+          if (subscribeAuctionId) {
+            subscribedAuctionsRef.current.add(subscribeAuctionId);
+            client.send({
+              type: 'auction.subscribe',
+              payload: { auctionId: subscribeAuctionId },
+            });
           }
         }
-      } catch (err) {
-        console.error('[AUCTION-FEED] onmessage handler error', err);
+      } catch (_err) {
+        // swallow
       }
-    };
-    ws.onerror = (e) => {
-      try {
-        console.debug('[AUCTION-FEED] error', e);
-      } catch (err) {
-        console.error('[AUCTION-FEED] failed to log onerror', err);
-      }
-      // ignore; keep prior messages
-    };
-    ws.onclose = (e) => {
-      try {
-        console.debug('[AUCTION-FEED] close', {
-          code: e?.code,
-          reason: e?.reason,
-        });
-      } catch (err) {
-        console.error('[AUCTION-FEED] failed to log close', err);
-      }
-      if (!closed) {
-        console.debug(
-          '[AUCTION-FEED] socket closed unexpectedly while not marked closed'
-        );
-      }
-    };
+    });
 
     return () => {
-      closed = true;
-      try {
-        if (ws.readyState === WebSocket.OPEN && observeVaultQuotes) {
-          ws.send(JSON.stringify({ type: 'vault_quote.unobserve' }));
-        }
-        ws.close();
-      } catch (err) {
-        console.error('[AUCTION-FEED] failed to close websocket', err);
-      }
-      wsRef.current = null;
+      if (observeVaultQuotes) client.send({ type: 'vault_quote.unobserve' });
+      offMsg();
+      offOpen();
     };
   }, [wsUrl, observeVaultQuotes]);
 
   // Handle dynamic toggling of observer after connection is established
   useEffect(() => {
-    const ws = wsRef.current;
-    if (!ws) return;
-    if (ws.readyState !== WebSocket.OPEN) return;
-    try {
-      ws.send(
-        JSON.stringify({
-          type: observeVaultQuotes
-            ? 'vault_quote.observe'
-            : 'vault_quote.unobserve',
-        })
-      );
-    } catch (err) {
-      console.error('[AUCTION-FEED] failed to toggle observe', err);
-    }
+    if (!wsUrl) return;
+    const client = getSharedAuctionWsClient(wsUrl);
+    client.send({
+      type: observeVaultQuotes
+        ? 'vault_quote.observe'
+        : 'vault_quote.unobserve',
+    });
   }, [observeVaultQuotes]);
 
   return { messages };

@@ -32,6 +32,7 @@
     "@sapience/sdk": "workspace:*",
     "@sentry/nextjs": "8.49.0",
     "@tanstack/react-query": "5.84.2",
+    "@tanstack/react-virtual": "3.10.9",
     "@tanstack/react-table": "8.21.2",
     "@uniswap/sdk-core": "5.4.0",
     "@uniswap/v3-core": "1.0.1",

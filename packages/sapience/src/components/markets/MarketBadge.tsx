@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { findBadgeForLabel } from '~/lib/marketBadges';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 
 export interface MarketBadgeProps {
@@ -33,7 +32,6 @@ export default function MarketBadge({
   color,
   categorySlug,
 }: MarketBadgeProps) {
-  const filename = React.useMemo(() => findBadgeForLabel(label), [label]);
   const dimension = `${size}px`;
 
   const withAlpha = React.useCallback((c: string, alpha: number) => {
@@ -51,50 +49,6 @@ export default function MarketBadge({
     if (c.startsWith('rgb(')) return toSlashAlpha('rgb', c.slice(4, -1));
     return c;
   }, []);
-
-  if (filename) {
-    const src = `/market-badges/${filename}`;
-    const bgColor = color ? withAlpha(color, 0.1) : undefined;
-    const fgColor = color || undefined;
-    return (
-      <div
-        className={[
-          'rounded-full overflow-hidden shrink-0 p-2',
-          color ? '' : 'bg-muted',
-          className,
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        style={{
-          width: dimension,
-          height: dimension,
-          backgroundColor: bgColor,
-        }}
-        aria-label={label}
-        title={label}
-      >
-        <div
-          role="img"
-          aria-hidden="true"
-          style={
-            {
-              width: '100%',
-              height: '100%',
-              backgroundColor: fgColor,
-              WebkitMaskImage: `url(${src})`,
-              WebkitMaskRepeat: 'no-repeat',
-              WebkitMaskPosition: 'center',
-              WebkitMaskSize: 'contain',
-              maskImage: `url(${src})`,
-              maskRepeat: 'no-repeat',
-              maskPosition: 'center',
-              maskSize: 'contain',
-            } as React.CSSProperties
-          }
-        />
-      </div>
-    );
-  }
 
   const CategoryIcon = React.useMemo(
     () => getCategoryIcon(categorySlug),
