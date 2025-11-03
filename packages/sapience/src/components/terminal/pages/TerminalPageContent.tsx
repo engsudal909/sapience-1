@@ -9,6 +9,8 @@ import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionC
 import { useAuctionRelayerFeed } from '~/lib/auction/useAuctionRelayerFeed';
 import AuctionRequestRow from '~/components/terminal/AuctionRequestRow';
 import AutoBid from '~/components/terminal/AutoBid';
+import { ApprovalDialogProvider } from '~/components/terminal/ApprovalDialogContext';
+import ApprovalDialog from '~/components/terminal/ApprovalDialog';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useCategories } from '~/hooks/graphql/useMarketGroups';
 
@@ -696,167 +698,116 @@ const TerminalPageContent: React.FC = () => {
   }
 
   return (
-    <div className="px-4 md:px-6 pt-4 md:pt-0 pb-4 md:pb-6 h-full min-h-0">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-0">
-        <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0 md:max-h-[85vh]">
-          <div className="flex-none">
-            <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
-              <div className="flex items-center gap-4">
-                <div className="eyebrow text-foreground hidden md:block">
-                  Filters
-                </div>
-                <div className="grid gap-3 grid-cols-2 md:grid-cols-4 flex-1">
-                  {/* Categories */}
-                  <div className="flex flex-col md:col-span-1">
-                    <CategoryFilter
-                      items={
-                        (categories || []).map((c) => ({
-                          value: c.slug,
-                          label: c.name || c.slug,
-                        })) as MultiSelectItem[]
-                      }
-                      selected={selectedCategorySlugs}
-                      onChange={setSelectedCategorySlugs}
-                    />
+    <ApprovalDialogProvider>
+      <div className="px-4 md:px-6 pt-4 md:pt-0 pb-4 md:pb-6 h-full min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-0">
+          <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black md:col-span-3 flex flex-col h-full min-h-0 md:max-h-[85vh]">
+            <div className="flex-none">
+              <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
+                <div className="flex items-center gap-4">
+                  <div className="eyebrow text-foreground hidden md:block">
+                    Filters
                   </div>
+                  <div className="grid gap-3 grid-cols-2 md:grid-cols-4 flex-1">
+                    {/* Categories */}
+                    <div className="flex flex-col md:col-span-1">
+                      <CategoryFilter
+                        items={
+                          (categories || []).map((c) => ({
+                            value: c.slug,
+                            label: c.name || c.slug,
+                          })) as MultiSelectItem[]
+                        }
+                        selected={selectedCategorySlugs}
+                        onChange={setSelectedCategorySlugs}
+                      />
+                    </div>
 
-                  {/* Conditions with mode */}
-                  <div className="flex flex-col md:col-span-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <ConditionsFilter
-                          items={
-                            (conditions || []).map((c) => ({
-                              value: c.id,
-                              label:
-                                (c.shortName as string) ||
-                                (c.question as string) ||
+                    {/* Conditions with mode */}
+                    <div className="flex flex-col md:col-span-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <ConditionsFilter
+                            items={
+                              (conditions || []).map((c) => ({
+                                value: c.id,
+                                label:
+                                  (c.shortName as string) ||
+                                  (c.question as string) ||
+                                  c.id,
+                              })) as MultiSelectItem[]
+                            }
+                            selected={selectedConditionIds}
+                            onChange={setSelectedConditionIds}
+                            categoryById={Object.fromEntries(
+                              (conditions || []).map((c) => [
                                 c.id,
-                            })) as MultiSelectItem[]
-                          }
-                          selected={selectedConditionIds}
-                          onChange={setSelectedConditionIds}
-                          categoryById={Object.fromEntries(
-                            (conditions || []).map((c) => [
-                              c.id,
-                              c?.category?.slug ?? null,
-                            ])
-                          )}
-                        />
+                                c?.category?.slug ?? null,
+                              ])
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Minimum Bids */}
-                  <div className="flex flex-col md:col-span-1">
-                    <MinBidsFilter value={minBids} onChange={setMinBids} />
-                  </div>
+                    {/* Minimum Bids */}
+                    <div className="flex flex-col md:col-span-1">
+                      <MinBidsFilter value={minBids} onChange={setMinBids} />
+                    </div>
 
-                  {/* Minimum Wager */}
-                  <div className="flex flex-col md:col-span-1">
-                    <MinWagerFilter value={minWager} onChange={setMinWager} />
-                  </div>
+                    {/* Minimum Wager */}
+                    <div className="flex flex-col md:col-span-1">
+                      <MinWagerFilter value={minWager} onChange={setMinWager} />
+                    </div>
 
-                  {/* Addresses filter removed */}
+                    {/* Addresses filter removed */}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div
-            ref={scrollAreaRef}
-            className="flex-1 min-h-0 overflow-y-auto flex flex-col"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            {auctionAndBidMessages.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center py-24">
-                <div className="flex flex-col items-center">
-                  <span className="inline-flex items-center gap-1 text-brand-white font-mono">
-                    <span className="inline-block h-[6px] w-[6px] rounded-full bg-brand-white opacity-80 animate-ping mr-1.5" />
-                    <span>Listening for messages...</span>
-                  </span>
-                  <p className="mt-2 text-xs text-brand-white/70">
-                    <a
-                      href="/markets"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80"
-                    >
-                      Add predictions
-                    </a>{' '}
-                    to see its auction here.
-                  </p>
+            <div
+              ref={scrollAreaRef}
+              className="flex-1 min-h-0 overflow-y-auto flex flex-col"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {auctionAndBidMessages.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center py-24">
+                  <div className="flex flex-col items-center">
+                    <span className="inline-flex items-center gap-1 text-brand-white font-mono">
+                      <span className="inline-block h-[6px] w-[6px] rounded-full bg-brand-white opacity-80 animate-ping mr-1.5" />
+                      <span>Listening for messages...</span>
+                    </span>
+                    <p className="mt-2 text-xs text-brand-white/70">
+                      <a
+                        href="/markets"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80"
+                      >
+                        Make a prediction
+                      </a>{' '}
+                      to see an auction here.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <>
-                  {hasLoadedConditionsOnce && (
-                    <AnimatePresence initial={false} mode="sync">
-                      {pinnedRows.map((row, idx) => {
-                        const auctionId = row.id;
-                        const m = row.m;
-                        const rowKey = `auction-pinned-${auctionId ?? idx}`;
-                        return (
-                          <motion.div
-                            key={rowKey}
-                            layout
-                            initial={{ opacity: 0, y: -6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 6 }}
-                            transition={{ duration: 0.14, ease: 'easeOut' }}
-                          >
-                            <AuctionRequestRow
-                              uiTx={toUiTx(m)}
-                              predictionsContent={renderPredictionsCell(m)}
-                              auctionId={auctionId}
-                              makerWager={String(m?.data?.wager ?? '0')}
-                              maker={m?.data?.maker || null}
-                              resolver={m?.data?.resolver || null}
-                              predictedOutcomes={
-                                Array.isArray(m?.data?.predictedOutcomes)
-                                  ? (m?.data?.predictedOutcomes as string[])
-                                  : []
-                              }
-                              makerNonce={
-                                typeof m?.data?.makerNonce === 'number'
-                                  ? (m?.data?.makerNonce as number)
-                                  : null
-                              }
-                              collateralAssetTicker={collateralAssetTicker}
-                              onTogglePin={togglePin}
-                              isPinned={true}
-                            />
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  )}
-
-                  {hasLoadedConditionsOnce && (
-                    <div
-                      style={{
-                        height: virtualizer.getTotalSize(),
-                        position: 'relative',
-                      }}
-                    >
-                      {virtualizer.getVirtualItems().map((vi) => {
-                        const row = unpinnedRows[vi.index];
-                        const auctionId = row?.id;
-                        const m = row?.m;
-                        return (
-                          <div
-                            key={vi.key}
-                            data-index={vi.index}
-                            ref={attachRowRef(vi.index)}
-                            style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '100%',
-                              transform: `translateY(${vi.start}px)`,
-                            }}
-                          >
-                            {row && (
+              ) : (
+                <div>
+                  <>
+                    {hasLoadedConditionsOnce && (
+                      <AnimatePresence initial={false} mode="sync">
+                        {pinnedRows.map((row, idx) => {
+                          const auctionId = row.id;
+                          const m = row.m;
+                          const rowKey = `auction-pinned-${auctionId ?? idx}`;
+                          return (
+                            <motion.div
+                              key={rowKey}
+                              layout
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 6 }}
+                              transition={{ duration: 0.14, ease: 'easeOut' }}
+                            >
                               <AuctionRequestRow
                                 uiTx={toUiTx(m)}
                                 predictionsContent={renderPredictionsCell(m)}
@@ -869,31 +820,85 @@ const TerminalPageContent: React.FC = () => {
                                     ? (m?.data?.predictedOutcomes as string[])
                                     : []
                                 }
-                                makerNonce={
-                                  typeof m?.data?.makerNonce === 'number'
-                                    ? (m?.data?.makerNonce as number)
-                                    : null
-                                }
+                                makerNonce={(() => {
+                                  const raw = m?.data?.makerNonce;
+                                  const n = Number(raw);
+                                  return Number.isFinite(n) ? n : null;
+                                })()}
                                 collateralAssetTicker={collateralAssetTicker}
                                 onTogglePin={togglePin}
-                                isPinned={false}
+                                isPinned={true}
                               />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              </div>
-            )}
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    )}
+
+                    {hasLoadedConditionsOnce && (
+                      <div
+                        style={{
+                          height: virtualizer.getTotalSize(),
+                          position: 'relative',
+                        }}
+                      >
+                        {virtualizer.getVirtualItems().map((vi) => {
+                          const row = unpinnedRows[vi.index];
+                          const auctionId = row?.id;
+                          const m = row?.m;
+                          return (
+                            <div
+                              key={vi.key}
+                              data-index={vi.index}
+                              ref={attachRowRef(vi.index)}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${vi.start}px)`,
+                              }}
+                            >
+                              {row && (
+                                <AuctionRequestRow
+                                  uiTx={toUiTx(m)}
+                                  predictionsContent={renderPredictionsCell(m)}
+                                  auctionId={auctionId}
+                                  makerWager={String(m?.data?.wager ?? '0')}
+                                  maker={m?.data?.maker || null}
+                                  resolver={m?.data?.resolver || null}
+                                  predictedOutcomes={
+                                    Array.isArray(m?.data?.predictedOutcomes)
+                                      ? (m?.data?.predictedOutcomes as string[])
+                                      : []
+                                  }
+                                  makerNonce={(() => {
+                                    const raw = m?.data?.makerNonce;
+                                    const n = Number(raw);
+                                    return Number.isFinite(n) ? n : null;
+                                  })()}
+                                  collateralAssetTicker={collateralAssetTicker}
+                                  onTogglePin={togglePin}
+                                  isPinned={false}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-6 md:col-span-1 h-full min-h-0">
+            <AutoBid />
           </div>
         </div>
-        <div className="flex flex-col gap-6 md:col-span-1 h-full min-h-0">
-          <AutoBid />
-        </div>
+        <ApprovalDialog />
       </div>
-    </div>
+    </ApprovalDialogProvider>
   );
 };
 

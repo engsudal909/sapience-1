@@ -15,6 +15,7 @@ import {
 import type { AuctionBid } from '~/lib/auction/useAuctionBids';
 import { formatEther } from 'viem';
 import TradePopoverContent from '~/components/terminal/TradePopoverContent';
+import ExpiresInLabel from '~/components/terminal/ExpiresInLabel';
 
 type Props = {
   bids: AuctionBid[];
@@ -227,6 +228,7 @@ const AuctionBidsChart: React.FC<Props> = ({
             dataKey="amount"
             tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
             width={56}
+            domain={[0, (dataMax: number) => (dataMax > 0 ? dataMax * 1.1 : 1)]}
             tickFormatter={(v) => {
               const n = Number(v);
               if (!Number.isFinite(n)) return '';
@@ -251,13 +253,10 @@ const AuctionBidsChart: React.FC<Props> = ({
                   ? Math.round((takerAmount / total) * 100)
                   : undefined;
               const endMs = Number(p?.endMs || 0);
-              const remain = Math.max(0, Math.round((endMs - nowMs) / 1000));
-              const timeLabel =
-                Number.isFinite(endMs) && endMs > 0
-                  ? remain > 0
-                    ? `expires in ${remain}s`
-                    : 'Expired'
-                  : undefined;
+              const timeNode =
+                Number.isFinite(endMs) && endMs > 0 ? (
+                  <ExpiresInLabel endMs={endMs} nowMs={nowMs} />
+                ) : undefined;
               return (
                 <div className="rounded-md bg-background border border-border px-3 py-2.5">
                   <TradePopoverContent
@@ -267,7 +266,7 @@ const AuctionBidsChart: React.FC<Props> = ({
                     totalAmountEth={total}
                     percent={pct}
                     ticker={collateralAssetTicker}
-                    timeLabel={timeLabel}
+                    timeNode={timeNode}
                   />
                 </div>
               );

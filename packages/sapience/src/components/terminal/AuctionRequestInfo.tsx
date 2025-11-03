@@ -22,6 +22,7 @@ import { HelpCircle } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
 import { useLastTradeForIntent } from '~/hooks/graphql/useLastTradeForIntent';
 import TradePopoverContent from '~/components/terminal/TradePopoverContent';
+import ExpiresInLabel from '~/components/terminal/ExpiresInLabel';
 
 type SubmitData = {
   amount: string;
@@ -67,6 +68,21 @@ const BestBid: React.FC<BestBidProps> = ({
   lastBid,
   lastTradeTimeAgo,
 }) => {
+  const topUnexpiredBid = useMemo(() => {
+    try {
+      for (const b of sortedBids || []) {
+        const deadlineSec = Number(b?.takerDeadline || 0);
+        const ms =
+          Number.isFinite(deadlineSec) && deadlineSec > 0
+            ? deadlineSec * 1000
+            : Number.POSITIVE_INFINITY;
+        if (ms > now) return b;
+      }
+      return null as any;
+    } catch {
+      return null as any;
+    }
+  }, [sortedBids, now]);
   return (
     <div>
       <div className="text-xs mt-0 mb-1">
@@ -108,24 +124,10 @@ const BestBid: React.FC<BestBidProps> = ({
       <div className="max-h-[160px] overflow-y-auto overflow-x-auto mt-0 rounded-md bg-background border border-border px-2 py-1">
         <table className="w-full text-xs">
           <tbody>
-            {sortedBids.length > 0 ? (
-              sortedBids.map((b, i) => {
+            {topUnexpiredBid ? (
+              (() => {
+                const b = topUnexpiredBid;
                 const deadlineSec = Number(b?.takerDeadline || 0);
-                const countdown = (() => {
-                  if (!Number.isFinite(deadlineSec) || deadlineSec <= 0)
-                    return { label: '—', isExpired: false } as const;
-                  const ms = deadlineSec * 1000;
-                  if (ms > now) {
-                    return {
-                      label: formatDistanceToNowStrict(new Date(ms), {
-                        unit: 'second',
-                      }),
-                      isExpired: false,
-                    } as const;
-                  }
-                  return { label: 'Expired', isExpired: true } as const;
-                })();
-                const { isExpired } = countdown;
                 const secondsRemaining = (() => {
                   if (!Number.isFinite(deadlineSec) || deadlineSec <= 0)
                     return null;
@@ -142,121 +144,96 @@ const BestBid: React.FC<BestBidProps> = ({
                     return String(b?.takerWager || '0');
                   }
                 })();
-                // removed unused uiTxAmount
+                let toWinNumber = 0;
+                let takerNumber = 0;
+                try {
+                  toWinNumber = Number(formatEther(BigInt(toWinStr)));
+                } catch {
+                  toWinNumber = Number(toWinStr) || 0;
+                }
+                try {
+                  takerNumber = Number(
+                    formatEther(BigInt(String(b?.takerWager ?? '0')))
+                  );
+                } catch {
+                  takerNumber = 0;
+                }
+                let pct: number | null = null;
+                try {
+                  const maker = BigInt(String(makerWager ?? '0'));
+                  const taker = BigInt(String(b?.takerWager ?? '0'));
+                  const total = maker + taker;
+                  if (total > 0n) {
+                    const pctTimes100 = Number((taker * 10000n) / total);
+                    pct = Math.round(pctTimes100 / 100);
+                  }
+                } catch {
+                  /* noop */
+                }
+                const takerStr = Number.isFinite(takerNumber)
+                  ? takerNumber.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : '—';
+                const toWinDisplay = Number.isFinite(toWinNumber)
+                  ? toWinNumber.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : '—';
                 return (
-                  <tr
-                    key={i}
-                    className={
-                      i === 0
-                        ? 'border-b last:border-b-0'
-                        : 'border-t border-b last:border-b-0'
-                    }
-                  >
+                  <tr key="best-bid" className={'border-b last:border-b-0'}>
                     <td className="px-0 py-1.5 align-top" colSpan={2}>
-                      {(() => {
-                        let toWinNumber = 0;
-                        let takerNumber = 0;
-                        try {
-                          toWinNumber = Number(formatEther(BigInt(toWinStr)));
-                        } catch {
-                          toWinNumber = Number(toWinStr) || 0;
-                        }
-                        try {
-                          takerNumber = Number(
-                            formatEther(BigInt(String(b?.takerWager ?? '0')))
-                          );
-                        } catch {
-                          takerNumber = 0;
-                        }
-                        let pct: number | null = null;
-                        try {
-                          const maker = BigInt(String(makerWager ?? '0'));
-                          const taker = BigInt(String(b?.takerWager ?? '0'));
-                          const total = maker + taker;
-                          if (total > 0n) {
-                            const pctTimes100 = Number(
-                              (taker * 10000n) / total
-                            );
-                            pct = Math.round(pctTimes100 / 100);
-                          }
-                        } catch {
-                          /* noop */
-                        }
-                        const takerStr = Number.isFinite(takerNumber)
-                          ? takerNumber.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : '—';
-                        const toWinDisplay = Number.isFinite(toWinNumber)
-                          ? toWinNumber.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : '—';
-                        return (
-                          <div>
-                            <div className="flex items-baseline justify-between">
-                              <span className="align-baseline">
-                                <span className="font-mono font-semibold text-brand-white">
-                                  {takerStr} {collateralAssetTicker}
-                                </span>{' '}
-                                <span className="text-muted-foreground">
-                                  to win
-                                </span>{' '}
-                                <span className="font-mono font-semibold text-brand-white">
-                                  {toWinDisplay} {collateralAssetTicker}
-                                </span>
-                              </span>
-                              {typeof pct === 'number' ? (
-                                <span className="font-mono text-brand-white">
-                                  {pct}% Chance
-                                </span>
-                              ) : (
-                                <span />
-                              )}
-                            </div>
-                            <div className="flex items-center justify-between gap-3 mt-0.5">
-                              <div className="flex items-center gap-2 min-w-0 text-muted-foreground">
-                                <div className="inline-flex items-center gap-1 min-w-0">
-                                  <EnsAvatar
-                                    address={b?.taker || ''}
-                                    className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
-                                    width={16}
-                                    height={16}
-                                  />
-                                  <div className="min-w-0">
-                                    <AddressDisplay
-                                      address={b?.taker || ''}
-                                      compact
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-xs">
-                                {isExpired ? (
-                                  <span className="text-red-600">Expired</span>
-                                ) : secondsRemaining != null ? (
-                                  <span>
-                                    <span className="text-muted-foreground">
-                                      expires in{' '}
-                                    </span>
-                                    <span className="font-mono text-brand-white">
-                                      {secondsRemaining}s
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-brand-white">—</span>
-                                )}
+                      <div>
+                        <div className="flex items-baseline justify-between">
+                          <span className="align-baseline">
+                            <span className="font-mono font-semibold text-brand-white">
+                              {takerStr} {collateralAssetTicker}
+                            </span>{' '}
+                            <span className="text-muted-foreground">
+                              to win
+                            </span>{' '}
+                            <span className="font-mono font-semibold text-brand-white">
+                              {toWinDisplay} {collateralAssetTicker}
+                            </span>
+                          </span>
+                          {typeof pct === 'number' ? (
+                            <span className="font-mono text-brand-white">
+                              {pct}% Chance
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-3 mt-0.5">
+                          <div className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                            <div className="inline-flex items-center gap-1 min-w-0">
+                              <EnsAvatar
+                                address={b?.taker || ''}
+                                className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
+                                width={16}
+                                height={16}
+                              />
+                              <div className="min-w-0">
+                                <AddressDisplay
+                                  address={b?.taker || ''}
+                                  compact
+                                />
                               </div>
                             </div>
                           </div>
-                        );
-                      })()}
+                          <div className="text-xs">
+                            <ExpiresInLabel
+                              secondsRemaining={secondsRemaining}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );
-              })
+              })()
             ) : (
               <tr>
                 <td

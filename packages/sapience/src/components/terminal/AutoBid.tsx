@@ -1,9 +1,9 @@
 'use client';
 
 import type React from 'react';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
-import { formatUnits, isAddress } from 'viem';
+import { formatUnits } from 'viem';
 import { Pencil } from 'lucide-react';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
@@ -15,10 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { formatFiveSigFigs, getChainShortName } from '~/lib/utils/util';
+import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
 
 const AutoBid: React.FC = () => {
   const { address } = useAccount();
@@ -48,9 +47,8 @@ const AutoBid: React.FC = () => {
   });
 
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
-  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
-  const [approveAmount, setApproveAmount] = useState<string>('');
-  const [spenderAddressInput, setSpenderAddressInput] = useState<string>(
+  const { openApproval } = useApprovalDialog();
+  const [spenderAddressInput] = useState<string>(
     (SPENDER_ADDRESS as string | undefined) ?? ''
   );
 
@@ -74,19 +72,12 @@ const AutoBid: React.FC = () => {
     }
   }, [rawBalance, tokenDecimals]);
 
-  const {
-    allowance,
-    isLoadingAllowance,
-    approve,
-    isApproving,
-    isApproveSuccess,
-    refetchAllowance,
-  } = useTokenApproval({
+  const { allowance } = useTokenApproval({
     tokenAddress: COLLATERAL_ADDRESS,
     spenderAddress: (spenderAddressInput || SPENDER_ADDRESS) as
       | `0x${string}`
       | undefined,
-    amount: approveAmount,
+    amount: '',
     chainId: DEFAULT_CHAIN_ID,
     decimals: tokenDecimals,
     enabled: Boolean(
@@ -106,30 +97,7 @@ const AutoBid: React.FC = () => {
     }
   }, [allowance, tokenDecimals]);
 
-  // Open approval dialog from terminal bid flow and prefill amount
-  useEffect(() => {
-    function onOpenApproval(e: Event) {
-      try {
-        const ce = e as CustomEvent<{ amount?: string }>;
-        const next =
-          typeof ce?.detail?.amount === 'string' ? ce.detail.amount : '';
-        if (next) setApproveAmount(next);
-      } catch {
-        /* noop */
-      }
-      setIsApproveDialogOpen(true);
-    }
-    window.addEventListener(
-      'terminal.open.approval',
-      onOpenApproval as EventListener
-    );
-    return () => {
-      window.removeEventListener(
-        'terminal.open.approval',
-        onOpenApproval as EventListener
-      );
-    };
-  }, []);
+  // Approval dialog is controlled via context; no event listeners needed
 
   const chainShortName = getChainShortName(DEFAULT_CHAIN_ID);
   const buyUrl = COLLATERAL_ADDRESS
@@ -138,13 +106,6 @@ const AutoBid: React.FC = () => {
   const bridgeUrl = COLLATERAL_ADDRESS
     ? `https://jumper.exchange/?toChain=${chainShortName}&toToken=${COLLATERAL_ADDRESS}`
     : undefined;
-  const isSpenderValid = useMemo(
-    () =>
-      spenderAddressInput
-        ? isAddress(spenderAddressInput as `0x${string}`)
-        : !!SPENDER_ADDRESS,
-    [spenderAddressInput]
-  );
 
   return (
     <div className="border border-border/60 rounded-lg bg-brand-black text-brand-white h-full flex flex-col min-h-0 overflow-hidden">
@@ -168,7 +129,7 @@ const AutoBid: React.FC = () => {
                   type="button"
                   className="inline-flex items-center justify-center"
                   aria-label="Edit approved spend"
-                  onClick={() => setIsApproveDialogOpen(true)}
+                  onClick={() => openApproval()}
                 >
                   <Pencil className="h-3 w-3 text-accent-gold" />
                 </button>
@@ -283,86 +244,7 @@ const AutoBid: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Approved spend dialog: edit allowance and spender */}
-      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Edit approved spend</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <div className="flex items-center justify-between">
-                <span>Current approved</span>
-                <span className="text-foreground">{allowanceDisplay} USDe</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Spender address
-              </label>
-              <Input
-                type="text"
-                placeholder={SPENDER_ADDRESS ?? '0x...'}
-                value={spenderAddressInput}
-                onChange={(e) => setSpenderAddressInput(e.target.value.trim())}
-                className="h-9 font-mono text-[12px]"
-              />
-              {!isSpenderValid ? (
-                <div className="text-[11px] text-red-400 mt-1">
-                  Enter a valid address
-                </div>
-              ) : null}
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Set approve amount
-              </label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={approveAmount}
-                onChange={(e) => setApproveAmount(e.target.value.trim())}
-                className="h-9"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await approve();
-                    setTimeout(() => refetchAllowance(), 2000);
-                  } catch {
-                    // no-op
-                  }
-                }}
-                disabled={
-                  !approveAmount ||
-                  !isSpenderValid ||
-                  isApproving ||
-                  !COLLATERAL_ADDRESS
-                }
-              >
-                {isApproving ? 'Approving…' : 'Approve'}
-              </Button>
-            </div>
-
-            {isLoadingAllowance ? (
-              <div className="text-xs text-muted-foreground">
-                Refreshing allowance…
-              </div>
-            ) : isApproveSuccess ? (
-              <div className="text-xs text-emerald-400">
-                Approval submitted.
-              </div>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Approved spend dialog is provided at page level */}
     </div>
   );
 };

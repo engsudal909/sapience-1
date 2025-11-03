@@ -12,6 +12,7 @@ type TradePopoverContentProps = {
   percent?: number;
   ticker: string;
   timeLabel?: string | null;
+  timeNode?: React.ReactNode;
 };
 
 const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
@@ -22,6 +23,7 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
   percent,
   ticker,
   timeLabel,
+  timeNode,
 }) => {
   const takerStr = Number.isFinite(takerAmountEth)
     ? takerAmountEth.toLocaleString(undefined, {
@@ -71,7 +73,9 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
               </div>
             </div>
           </div>
-          {timeLabel ? (
+          {timeNode ? (
+            <div className="text-xs whitespace-nowrap ml-2">{timeNode}</div>
+          ) : timeLabel ? (
             <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
               {timeLabel}
             </div>

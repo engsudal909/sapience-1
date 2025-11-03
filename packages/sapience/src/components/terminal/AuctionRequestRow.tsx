@@ -16,17 +16,24 @@ import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionC
 import { useAuctionBids } from '~/lib/auction/useAuctionBids';
 import AuctionRequestInfo from '~/components/terminal/AuctionRequestInfo';
 import AuctionRequestChart from '~/components/terminal/AuctionRequestChart';
-import { useAccount, useSignTypedData, useReadContract } from 'wagmi';
+import {
+  useAccount,
+  useSignTypedData,
+  useReadContract,
+  useReadContracts,
+} from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
+import { predictionMarketAbi } from '@sapience/sdk';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
+import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
 
 type Props = {
   uiTx: UiTransaction;
@@ -65,9 +72,34 @@ const AuctionRequestRow: React.FC<Props> = ({
     | `0x${string}`
     | undefined;
   const { toast } = useToast();
-  const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
-    | `0x${string}`
-    | undefined;
+  const { openApproval } = useApprovalDialog();
+  // Resolve collateral token from PredictionMarket config (fallback to default constant)
+  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  const predictionMarketConfigRead = useReadContracts({
+    contracts: PREDICTION_MARKET_ADDRESS
+      ? [
+          {
+            address: PREDICTION_MARKET_ADDRESS,
+            abi: predictionMarketAbi,
+            functionName: 'getConfig',
+            chainId: DEFAULT_CHAIN_ID,
+          },
+        ]
+      : [],
+    query: { enabled: !!PREDICTION_MARKET_ADDRESS },
+  });
+  const COLLATERAL_ADDRESS = useMemo(() => {
+    const item = predictionMarketConfigRead.data?.[0];
+    if (item && item.status === 'success') {
+      try {
+        const cfg = item.result as { collateralToken: `0x${string}` };
+        if (cfg?.collateralToken) return cfg.collateralToken;
+      } catch {
+        /* noop */
+      }
+    }
+    return DEFAULT_COLLATERAL_ASSET as `0x${string}` | undefined;
+  }, [predictionMarketConfigRead.data]);
   // Read token decimals
   const { data: tokenDecimalsData } = useReadContract({
     abi: erc20Abi,
@@ -183,8 +215,63 @@ const AuctionRequestRow: React.FC<Props> = ({
       mode: 'duration' | 'datetime';
     }) => {
       try {
-        if (!auctionId) return;
-        // Ensure essential auction context
+        if (!auctionId) {
+          toast({
+            title: 'Auction not ready',
+            description: 'This auction is not active yet. Please try again.',
+          });
+          return;
+        }
+        // Ensure connected wallet FIRST so Privy opens immediately if needed
+        let taker = address;
+        if (!taker) {
+          // eslint-disable-next-line @typescript-eslint/await-thenable
+          await connectOrCreateWallet();
+          // try to read again (wagmi state updates asynchronously)
+          taker = (window as any)?.wagmi?.state?.address as
+            | `0x${string}`
+            | undefined;
+        }
+        if (!taker) {
+          openApproval(String(data.amount || ''));
+          toast({
+            title: 'Connect wallet',
+            description:
+              'We could not detect your address yet. Please connect and try again.',
+          });
+          return;
+        }
+        // Amount in display units -> wei (token decimals) and allowance check FIRST
+        const decimalsToUse = Number.isFinite(tokenDecimals)
+          ? tokenDecimals
+          : 18;
+        const takerWagerWei = parseUnits(
+          String(data.amount || '0'),
+          decimalsToUse
+        );
+        if (takerWagerWei <= 0n) {
+          toast({
+            title: 'Invalid amount',
+            description: 'Enter a valid bid amount greater than 0.',
+          });
+          return;
+        }
+
+        // Ensure sufficient ERC20 allowance to PredictionMarket
+        try {
+          const fresh = await Promise.resolve(refetchAllowance?.());
+          const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
+          if (currentAllowance < takerWagerWei) {
+            openApproval(String(data.amount || ''));
+            return;
+          }
+        } catch {
+          // If allowance check fails, open approval dialog anyway with requested amount
+          openApproval(String(data.amount || ''));
+          return;
+        }
+
+        // Ensure essential auction context (after allowance handling)
         const encodedPredicted =
           Array.isArray(predictedOutcomes) && predictedOutcomes[0]
             ? (predictedOutcomes[0] as `0x${string}`)
@@ -199,65 +286,39 @@ const AuctionRequestRow: React.FC<Props> = ({
             return 0n;
           }
         })();
-        const makerNonceVal =
+        // Resolve maker nonce: prefer feed-provided, fall back to on-chain
+        let makerNonceVal: number | undefined =
           typeof makerNonce === 'number' ? makerNonce : undefined;
+        if (makerNonceVal === undefined) {
+          try {
+            const fresh = await Promise.resolve(refetchMakerNonce?.());
+            const raw = (fresh?.data ?? makerNonceOnChain) as unknown;
+            const n = Number(raw);
+            if (Number.isFinite(n)) makerNonceVal = n;
+          } catch {
+            /* noop */
+          }
+        }
         if (
           !encodedPredicted ||
           !makerAddr ||
           !resolverAddr ||
-          !makerNonceVal ||
+          makerNonceVal === undefined ||
           makerWagerWei <= 0n
-        )
-          return;
-
-        // Ensure connected wallet
-        let taker = address;
-        if (!taker) {
-          // eslint-disable-next-line @typescript-eslint/await-thenable
-          await connectOrCreateWallet();
-          // try to read again (wagmi state updates asynchronously)
-          taker = (window as any)?.wagmi?.state?.address as
-            | `0x${string}`
-            | undefined;
-        }
-        if (!taker) return;
-
-        // Amount in display units -> wei (token decimals)
-        const decimalsToUse = Number.isFinite(tokenDecimals)
-          ? tokenDecimals
-          : 18;
-        const takerWagerWei = parseUnits(
-          String(data.amount || '0'),
-          decimalsToUse
-        );
-        if (takerWagerWei <= 0n) return;
-
-        // Ensure sufficient ERC20 allowance to PredictionMarket
-        try {
-          const fresh = await Promise.resolve(refetchAllowance?.());
-          const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
-          if (currentAllowance < takerWagerWei) {
-            try {
-              window.dispatchEvent(
-                new CustomEvent('terminal.open.approval', {
-                  detail: { amount: String(data.amount || '') },
-                })
-              );
-            } catch {
-              /* noop */
-            }
-            toast({
-              title: 'Approval required',
-              description:
-                'Increase your approved spend to the market, then submit again.',
-            });
-            return;
-          }
-        } catch {
-          // If allowance check fails, fall through to avoid blocking, but warn
+        ) {
+          const missing: string[] = [];
+          if (!encodedPredicted) missing.push('predicted outcomes');
+          if (!makerAddr) missing.push('maker');
+          if (!resolverAddr) missing.push('resolver');
+          if (makerNonceVal === undefined) missing.push('maker nonce');
+          if (makerWagerWei <= 0n) missing.push('maker wager');
           toast({
-            title: 'Allowance check failed',
-            description: 'Could not verify token approval. Please try again.',
+            title: 'Request not ready',
+            description:
+              missing.length > 0
+                ? `Missing: ${missing.join(', ')}`
+                : 'Required data not available yet. Please try again.',
+            variant: 'destructive' as any,
           });
           return;
         }
@@ -351,7 +412,14 @@ const AuctionRequestRow: React.FC<Props> = ({
         };
 
         // Send over shared Auction WS and await ack
-        if (!wsUrl) return;
+        if (!wsUrl) {
+          toast({
+            title: 'Unable to submit',
+            description: 'Realtime connection not configured',
+            variant: 'destructive' as any,
+          });
+          return;
+        }
         const client = getSharedAuctionWsClient(wsUrl);
         await client.sendWithAck('bid.submit', payload, { timeoutMs: 5000 });
         try {
