@@ -364,6 +364,10 @@ const TerminalPageContent: React.FC = () => {
           id: o.marketId,
           title: cond?.shortName ?? cond?.question ?? String(o.marketId),
           categorySlug: cond?.category?.slug ?? null,
+          // In the auction/taker view we show what the TAKER needs to win.
+          // The taker wins if the maker is wrong on at least one leg, so we invert
+          // the maker's predicted bool here for display only. Do not change encoding
+          // semantics elsewhere: on-chain, prediction=true still means "Yes".
           choice: o.prediction ? ('No' as const) : ('Yes' as const),
         };
       });

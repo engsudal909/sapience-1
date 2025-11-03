@@ -270,6 +270,9 @@ const AuctionPageContent: React.FC = () => {
             shortName: cond?.shortName ?? undefined,
             question: cond?.question ?? undefined,
             conditionId: o.marketId,
+            // Taker-facing display: show what needs to happen for the taker to win.
+            // Taker wins if the maker is wrong on any leg, so invert the maker's
+            // prediction for presentation only. On-chain encoding remains true = "Yes".
             choice: o.prediction ? ('No' as const) : ('Yes' as const),
           };
         }
