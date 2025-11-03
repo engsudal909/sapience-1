@@ -4,6 +4,7 @@ preset="ethereal"
 
 [var.settings]
 minCollateral = "10000000000000000" # .01 testUSDe (18 decimals)
+collateralAddress = "0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D" # (wUSDe)
 manager = "0x759dd186d243ddec7901d46d7ed94a3b1bc8b948"
 vaultTicker = "sapLP"
 vaultName = "Sapience LP"
@@ -16,21 +17,12 @@ vaultName = "Sapience LP"
 
 depends = []
 
-[deploy.nativeTokenWrapper]
-artifact="NativeTokenWrapper"
-args=[
-  "Wrapped USDe",
-  "wUSDe"
-]
-depends=[]
-highlight=true
-
 [deploy.PredictionMarket]
 artifact="PredictionMarket"
 args=[
   "Prediction Market",
   "SPM",
-  "<%= nativeTokenWrapper.address %>",
+  "<%= settings.collateralAddress %>",
   "<%= settings.minCollateral %>"
 ]
 depends=[]
@@ -54,7 +46,7 @@ highlight=true
 [deploy.PassiveLiquidityVault]
 artifact="PassiveLiquidityVault"
 args=[
-  "<%= nativeTokenWrapper.address %>",
+  "<%= settings.collateralAddress %>",
   "<%= settings.manager %>",
   "<%= settings.vaultName %>",
   "<%= settings.vaultTicker %>"
