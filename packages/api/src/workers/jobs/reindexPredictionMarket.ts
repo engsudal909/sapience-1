@@ -40,7 +40,7 @@ export async function reindexPredictionMarket(
         select: { id: true },
       });
 
-      const eventIds = predictionMarketEvents.map(e => e.id);
+      const eventIds = predictionMarketEvents.map((e) => e.id);
 
       if (eventIds.length > 0) {
         // Delete transactions that reference these events

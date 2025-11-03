@@ -1,6 +1,6 @@
 import { Resolver, Query, Arg, Int, ObjectType, Field } from 'type-graphql';
 import prisma from '../../db';
-import { Prisma } from '../../../generated/prisma';
+import { Prisma, Parlay } from '../../../generated/prisma';
 
 @ObjectType()
 class ConditionSummary {
@@ -102,12 +102,13 @@ export class ParlayResolver {
     @Arg('take', () => Int, { defaultValue: 50 }) take: number,
     @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
     @Arg('orderBy', () => String, { nullable: true }) orderBy?: string,
-    @Arg('orderDirection', () => String, { nullable: true }) orderDirection?: string
+    @Arg('orderDirection', () => String, { nullable: true })
+    orderDirection?: string
   ): Promise<ParlayType[]> {
     const addr = address.toLowerCase();
-    
+
     // Helper function to process rows and return ParlayType[]
-    const processRows = async (rows: any[]): Promise<ParlayType[]> => {
+    const processRows = async (rows: Parlay[]): Promise<ParlayType[]> => {
       // Collect condition ids
       const conditionSet = new Set<string>();
       for (const r of rows) {
@@ -116,19 +117,25 @@ export class ParlayResolver {
         if (typeof predictedOutcomesParsed === 'string') {
           try {
             predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
-          } catch (e) {
+          } catch {
             predictedOutcomesParsed = [];
           }
         }
         const outcomes =
-          (predictedOutcomesParsed as unknown as { conditionId: string }[]) || [];
+          (predictedOutcomesParsed as unknown as { conditionId: string }[]) ||
+          [];
         for (const o of outcomes) conditionSet.add(o.conditionId);
       }
       const conditionIds = Array.from(conditionSet);
       const conditions = conditionIds.length
         ? await prisma.condition.findMany({
             where: { id: { in: conditionIds } },
-            select: { id: true, question: true, shortName: true, endTime: true },
+            select: {
+              id: true,
+              question: true,
+              shortName: true,
+              endTime: true,
+            },
           })
         : [];
       const condMap = new Map(conditions.map((c) => [c.id, c]));
@@ -139,7 +146,7 @@ export class ParlayResolver {
         if (typeof predictedOutcomesParsed === 'string') {
           try {
             predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
-          } catch (e) {
+          } catch {
             predictedOutcomesParsed = [];
           }
         }
@@ -178,10 +185,10 @@ export class ParlayResolver {
     // For numeric/calculated sorting (wager, toWin, pnl), we need raw SQL
     if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
       const direction = orderDirection === 'asc' ? 'ASC' : 'DESC';
-      
+
       if (orderBy === 'wager') {
         // For wager, sort by the viewer's individual collateral
-        const rows = await prisma.$queryRaw<any[]>`
+        const rows = await prisma.$queryRaw<Parlay[]>`
           SELECT * FROM parlay
           WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
           ORDER BY CASE 
@@ -194,10 +201,10 @@ export class ParlayResolver {
         `;
         return processRows(rows);
       }
-      
+
       if (orderBy === 'pnl') {
         // For PnL, calculate profit/loss based on whether user is maker/taker and won/lost
-        const rows = await prisma.$queryRaw<any[]>`
+        const rows = await prisma.$queryRaw<Parlay[]>`
           SELECT * FROM parlay
           WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
           ORDER BY CASE 
@@ -223,9 +230,9 @@ export class ParlayResolver {
         `;
         return processRows(rows);
       }
-      
+
       // For toWin, sort by totalCollateral but treat lost parlays as 0
-      const rows = await prisma.$queryRaw<any[]>`
+      const rows = await prisma.$queryRaw<Parlay[]>`
         SELECT * FROM parlay
         WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
         ORDER BY CASE 
@@ -243,14 +250,16 @@ export class ParlayResolver {
       `;
       return processRows(rows);
     }
-    
+
     // For other sorting (like 'created'), use normal Prisma orderBy
-    let orderByClause: any = { mintedAt: 'desc' }; // default
-    
+    let orderByClause: Prisma.ParlayOrderByWithRelationInput = {
+      mintedAt: 'desc',
+    }; // default
+
     if (orderBy === 'created') {
       orderByClause = { mintedAt: orderDirection === 'asc' ? 'asc' : 'desc' };
     }
-    
+
     const rows = await prisma.parlay.findMany({
       where: { OR: [{ maker: addr }, { taker: addr }] },
       orderBy: orderByClause,
