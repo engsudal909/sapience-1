@@ -3,37 +3,33 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { decodeAbiParameters, parseUnits } from 'viem';
-import { useQuery } from '@tanstack/react-query';
-import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
+import { decodeAbiParameters, parseUnits, erc20Abi } from 'viem';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
 import { useAuctionRelayerFeed } from '~/lib/auction/useAuctionRelayerFeed';
 import AuctionRequestRow from '~/components/terminal/AuctionRequestRow';
 import AutoBid from '~/components/terminal/AutoBid';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useCategories } from '~/hooks/graphql/useMarketGroups';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from '@sapience/sdk/ui/components/ui/command';
-import { Check, ChevronsUpDown } from 'lucide-react';
+
 import MarketBadge from '~/components/markets/MarketBadge';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import CategoryFilter from '~/components/terminal/filters/CategoryFilter';
+import ConditionsFilter from '~/components/terminal/filters/ConditionsFilter';
+import MinBidsFilter from '~/components/terminal/filters/MinBidsFilter';
+import MinWagerFilter from '~/components/terminal/filters/MinWagerFilter';
+import { type MultiSelectItem } from '~/components/terminal/filters/MultiSelect';
+import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
+import { useReadContracts } from 'wagmi';
+import { predictionMarket } from '@sapience/sdk/contracts';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import { predictionMarketAbi } from '@sapience/sdk';
 
 const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);
-  const [minWager, setMinWager] = useState<string>('10');
+  const [minWager, setMinWager] = useState<string>('1');
   const [minBids, setMinBids] = useState<string>('0');
   const [selectedCategorySlugs, setSelectedCategorySlugs] = useState<string[]>(
     []
@@ -70,6 +66,58 @@ const TerminalPageContent: React.FC = () => {
       null
     );
   }, []);
+
+  // Cached decoder for predicted outcomes keyed by auctionId + makerNonce
+  const decodeCacheRef = useRef<
+    Map<string, Array<{ marketId: `0x${string}`; prediction: boolean }>>
+  >(new Map());
+  const getDecodedPredictedOutcomes = useCallback(
+    (m: {
+      type: string;
+      data: any;
+    }): Array<{ marketId: `0x${string}`; prediction: boolean }> => {
+      try {
+        if (m?.type !== 'auction.started') return [];
+        const cacheKey = `${getAuctionId(m) || 'unknown'}:${String(
+          m?.data?.makerNonce ?? 'n'
+        )}`;
+        const cached = decodeCacheRef.current.get(cacheKey);
+        if (cached) return cached;
+        const arr = Array.isArray(m?.data?.predictedOutcomes)
+          ? (m.data.predictedOutcomes as string[])
+          : [];
+        const encoded = arr[0] as `0x${string}` | undefined;
+        if (!encoded) return [];
+        const decodedUnknown = decodeAbiParameters(
+          [
+            {
+              type: 'tuple[]',
+              components: [
+                { name: 'marketId', type: 'bytes32' },
+                { name: 'prediction', type: 'bool' },
+              ],
+            },
+          ] as const,
+          encoded
+        ) as unknown;
+        const decodedArr = Array.isArray(decodedUnknown)
+          ? ((decodedUnknown as any)[0] as Array<{
+              marketId: `0x${string}`;
+              prediction: boolean;
+            }>)
+          : [];
+        const legs = (decodedArr || []).map((o) => ({
+          marketId: o.marketId,
+          prediction: !!o.prediction,
+        }));
+        decodeCacheRef.current.set(cacheKey, legs);
+        return legs;
+      } catch {
+        return [];
+      }
+    },
+    [getAuctionId]
+  );
 
   // Build maps for last activity and latest started message per auction
   const { lastActivityByAuction, latestStartedByAuction } = useMemo(() => {
@@ -135,117 +183,36 @@ const TerminalPageContent: React.FC = () => {
   }, [auctionAndBidMessages]);
 
   // Query conditions to enrich shortName/question for decoded predicted outcomes
-  const { data: conditions = [] } = useQuery<
-    {
-      id: string;
-      shortName?: string | null;
-      question?: string | null;
-      category?: { slug?: string | null } | null;
-    }[],
-    Error
-  >({
-    queryKey: ['terminalConditionsByIds', conditionIds.sort().join(',')],
-    enabled: conditionIds.length > 0,
-    staleTime: 60_000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const CONDITIONS_BY_IDS = /* GraphQL */ `
-        query ConditionsByIds($ids: [String!]!) {
-          conditions(where: { id: { in: $ids } }, take: 1000) {
-            id
-            shortName
-            question
-            category {
-              slug
-            }
-          }
-        }
-      `;
-      const resp = await graphqlRequest<{
-        conditions: Array<{
-          id: string;
-          shortName?: string | null;
-          question?: string | null;
-        }>;
-      }>(CONDITIONS_BY_IDS, { ids: conditionIds });
-      return resp?.conditions || [];
-    },
-  });
+  const {
+    map: conditionMap,
+    list: conditions,
+    isLoading: areConditionsLoading,
+    error: conditionsError,
+  } = useConditionsByIds(conditionIds);
 
-  const conditionMap = useMemo(() => {
-    return new Map(conditions.map((c) => [c.id, c]));
+  // Preserve previously resolved condition names to avoid flicker when query key changes
+  const stickyConditionMapRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => {
+    try {
+      for (const c of conditions || []) {
+        if (c && typeof c.id === 'string')
+          stickyConditionMapRef.current.set(c.id, c);
+      }
+    } catch {
+      /* noop */
+    }
   }, [conditions]);
+  const renderConditionMap = stickyConditionMapRef.current;
+
+  // Render rows only after the first conditions request completes (success or error); do not hide again on refetches
+  const [hasLoadedConditionsOnce, setHasLoadedConditionsOnce] = useState(false);
+  useEffect(() => {
+    if (!areConditionsLoading || !!conditionsError)
+      setHasLoadedConditionsOnce(true);
+  }, [areConditionsLoading, conditionsError]);
 
   // Categories for multi-select
   const { data: categories = [] } = useCategories();
-
-  // Reusable MultiSelect component
-  const MultiSelect: React.FC<{
-    placeholder: string;
-    items: { value: string; label: string }[];
-    selected: string[];
-    onChange: (values: string[]) => void;
-  }> = ({ placeholder, items, selected, onChange }) => {
-    const [open, setOpen] = useState(false);
-    const toggle = useCallback(
-      (value: string) => {
-        onChange(
-          selected.includes(value)
-            ? selected.filter((v) => v !== value)
-            : [...selected, value]
-        );
-      },
-      [onChange, selected]
-    );
-    const summary =
-      selected.length === 0 ? placeholder : `${selected.length} selected`;
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="h-8 w-full rounded-md border border-border bg-background px-3 text-left text-sm inline-flex items-center justify-between"
-          >
-            <span
-              className={selected.length === 0 ? 'text-muted-foreground' : ''}
-            >
-              {summary}
-            </span>
-            <ChevronsUpDown className="h-4 w-4 opacity-50" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[280px] p-0" align="start">
-          <Command>
-            <CommandList>
-              <CommandEmpty>No options</CommandEmpty>
-              <CommandGroup>
-                {items.map((it) => {
-                  const isSelected = selected.includes(it.value);
-                  return (
-                    <CommandItem
-                      key={it.value}
-                      onSelect={() => toggle(it.value)}
-                      className="flex items-center justify-between"
-                    >
-                      <span>{it.label}</span>
-                      <Check
-                        className={
-                          isSelected
-                            ? 'h-4 w-4 opacity-100'
-                            : 'h-4 w-4 opacity-0'
-                        }
-                      />
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
-  };
 
   // Horizontal predictions scroller with right gradient (mirrors UserParlaysTable)
   const PredictionsScroller: React.FC<{
@@ -300,7 +267,10 @@ const TerminalPageContent: React.FC = () => {
         >
           <div className="flex items-center gap-3 md:gap-4 pr-16 flex-nowrap">
             {legs.map((leg, i) => (
-              <div key={i} className="inline-flex items-center gap-3 shrink-0">
+              <div
+                key={i}
+                className="inline-flex h-7 items-center gap-3 shrink-0"
+              >
                 <MarketBadge
                   label={String(leg.title)}
                   size={28}
@@ -344,54 +314,133 @@ const TerminalPageContent: React.FC = () => {
     try {
       if (m.type !== 'auction.started')
         return <span className="text-muted-foreground">—</span>;
-      const arr = Array.isArray((m as any)?.data?.predictedOutcomes)
-        ? ((m as any).data.predictedOutcomes as unknown as string[])
-        : [];
-      if (arr.length === 0)
-        return <span className="text-muted-foreground">—</span>;
-      const decodedUnknown = decodeAbiParameters(
-        [
-          {
-            type: 'tuple[]',
-            components: [
-              { name: 'marketId', type: 'bytes32' },
-              { name: 'prediction', type: 'bool' },
-            ],
-          },
-        ] as const,
-        arr[0] as `0x${string}`
-      ) as unknown;
-      const decodedArr = Array.isArray(decodedUnknown)
-        ? ((decodedUnknown as any)[0] as Array<{
-            marketId: `0x${string}`;
-            prediction: boolean;
-          }>)
-        : [];
-      const legs = (decodedArr || []).map((o) => {
-        const cond = conditionMap.get(o.marketId);
+      const decoded = getDecodedPredictedOutcomes(m as any);
+
+      // If we can't decode any legs, show bytecode payload only if request errored or completed
+      if (!decoded || decoded.length === 0) {
+        const encodedArr: string[] = Array.isArray(
+          (m as any)?.data?.predictedOutcomes
+        )
+          ? ((m as any).data.predictedOutcomes as string[])
+          : [];
+        const encoded = encodedArr[0];
+        if (encoded && (conditionsError || !areConditionsLoading)) {
+          return (
+            <span className="text-xs font-mono text-brand-white/80 break-all">
+              {String(encoded)}
+            </span>
+          );
+        }
+        return null;
+      }
+
+      // Gate until all condition names are available to avoid flashing raw IDs
+      const allResolved = decoded.every((o) =>
+        renderConditionMap.has(o.marketId)
+      );
+      if (!allResolved) {
+        // If the query errored, fallback to bytecode to at least show something
+        const encodedArr: string[] = Array.isArray(
+          (m as any)?.data?.predictedOutcomes
+        )
+          ? ((m as any).data.predictedOutcomes as string[])
+          : [];
+        const encoded = encodedArr[0];
+        if (conditionsError && encoded) {
+          return (
+            <span className="text-xs font-mono text-brand-white/80 break-all">
+              {String(encoded)}
+            </span>
+          );
+        }
+        return null;
+      }
+
+      const legs = decoded.map((o) => {
+        const cond = renderConditionMap.get(o.marketId);
         return {
           id: o.marketId,
-          title: cond?.shortName ?? cond?.question ?? o.marketId,
+          title: cond?.shortName ?? cond?.question ?? String(o.marketId),
           categorySlug: cond?.category?.slug ?? null,
           choice: o.prediction ? ('No' as const) : ('Yes' as const),
         };
       });
-      if (legs.length === 0)
-        return <span className="text-muted-foreground">—</span>;
-      return <PredictionsScroller legs={legs} />;
+
+      // Avoid flashing: wait until at least one conditions request completed
+      if (!hasLoadedConditionsOnce) return null;
+      return (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.14, ease: 'easeOut' }}
+        >
+          <PredictionsScroller legs={legs} />
+        </motion.div>
+      );
     } catch {
-      return <span className="text-muted-foreground">—</span>;
+      return null;
     }
   }
 
   const collateralAssetTicker = 'testUSDe';
+  // Fetch PredictionMarket config to get collateral token, then read ERC20 decimals
+  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  const predictionMarketConfigRead = useReadContracts({
+    contracts: PREDICTION_MARKET_ADDRESS
+      ? [
+          {
+            address: PREDICTION_MARKET_ADDRESS,
+            abi: predictionMarketAbi,
+            functionName: 'getConfig',
+            chainId: DEFAULT_CHAIN_ID,
+          },
+        ]
+      : [],
+    query: { enabled: !!PREDICTION_MARKET_ADDRESS },
+  });
+
+  const collateralTokenAddress: `0x${string}` | undefined = useMemo(() => {
+    const item = predictionMarketConfigRead.data?.[0];
+    if (item && item.status === 'success') {
+      const cfg = item.result as { collateralToken: `0x${string}` };
+      return cfg?.collateralToken;
+    }
+    return undefined;
+  }, [predictionMarketConfigRead.data]);
+
+  const erc20MetaRead = useReadContracts({
+    contracts: collateralTokenAddress
+      ? [
+          {
+            address: collateralTokenAddress,
+            abi: erc20Abi,
+            functionName: 'decimals',
+            chainId: DEFAULT_CHAIN_ID,
+          },
+        ]
+      : [],
+    query: { enabled: !!collateralTokenAddress },
+  });
+
+  const tokenDecimals = useMemo(() => {
+    const item = erc20MetaRead.data?.[0];
+    if (item && item.status === 'success') {
+      try {
+        return Number(item.result as unknown as number) || 18;
+      } catch {
+        return 18;
+      }
+    }
+    return 18;
+  }, [erc20MetaRead.data]);
+
   const minWagerWei = useMemo(() => {
     try {
-      return parseUnits(minWager || '0', 18);
+      return parseUnits(minWager || '0', tokenDecimals);
     } catch {
       return 0n;
     }
-  }, [minWager]);
+  }, [minWager, tokenDecimals]);
 
   const minBidsNum = useMemo(() => {
     const n = parseInt(minBids || '0', 10);
@@ -414,22 +463,146 @@ const TerminalPageContent: React.FC = () => {
     return map;
   }, [auctionAndBidMessages, getAuctionId]);
 
+  // Build pinned/unpinned rows for rendering
+  const { pinnedRows, unpinnedRows } = useMemo(() => {
+    const allRows = Array.from(latestStartedByAuction.entries())
+      .map(([id, m]) => {
+        const lastActivity =
+          lastActivityByAuction.get(id) || Number(m?.time || 0);
+        const pinned = pinnedAuctions.includes(id);
+        return { id, m, lastActivity, pinned } as const;
+      })
+      .filter((row) => {
+        // Apply category/condition filters (Option A: AND across groups, OR within each group)
+        const legs = getDecodedPredictedOutcomes(row.m);
+        const legConditionIds = legs.map((l) => String(l.marketId));
+        const legCategorySlugs = legs.map((l) => {
+          const cond = renderConditionMap.get(String(l.marketId));
+          return cond?.category?.slug ?? null;
+        });
+
+        const matchesCategory =
+          selectedCategorySlugs.length === 0 ||
+          legCategorySlugs.some(
+            (slug) => slug != null && selectedCategorySlugs.includes(slug)
+          );
+        if (!matchesCategory) return false;
+
+        const matchesCondition =
+          selectedConditionIds.length === 0 ||
+          legConditionIds.some(
+            (id) => !!id && selectedConditionIds.includes(id)
+          );
+        if (!matchesCondition) return false;
+
+        try {
+          const makerWagerWei = BigInt(String(row.m?.data?.wager ?? '0'));
+          const bidsCount = bidsCountByAuction.get(row.id) ?? 0;
+          if (bidsCount < minBidsNum) return false;
+          return makerWagerWei >= minWagerWei;
+        } catch {
+          return true;
+        }
+      })
+      .filter((row) => {
+        // prune non-pinned auctions inactive > 30m
+        const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+        return row.pinned || row.lastActivity >= thirtyMinAgo;
+      });
+    allRows.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.lastActivity - a.lastActivity;
+    });
+    const pinned = allRows.filter((r) => r.pinned);
+    const unpinned = allRows.filter((r) => !r.pinned);
+    return { pinnedRows: pinned, unpinnedRows: unpinned };
+  }, [
+    latestStartedByAuction,
+    lastActivityByAuction,
+    pinnedAuctions,
+    minWagerWei,
+    minBidsNum,
+    bidsCountByAuction,
+    selectedCategorySlugs,
+    selectedConditionIds,
+    conditionMap,
+    getDecodedPredictedOutcomes,
+  ]);
+
   // Keep the list area under Filters at its initial height and scroll when content grows
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const [initialMaxHeight, setInitialMaxHeight] = useState<number | null>(null);
-  useEffect(() => {
-    const el = scrollAreaRef.current;
-    if (!el) return;
-    const id = requestAnimationFrame(() => {
+
+  // Virtualizer must be created unconditionally to keep hook order stable
+  const virtualizer = useVirtualizer({
+    count: hasLoadedConditionsOnce ? unpinnedRows.length : 0,
+    getScrollElement: () => scrollAreaRef.current,
+    estimateSize: () => 84,
+    overscan: 8,
+    getItemKey: (index) => unpinnedRows[index]?.id ?? index,
+  });
+
+  // Observe intrinsic row size changes and re-measure the virtualizer to prevent snap-backs
+  const rowElsRef = useRef<Map<number, HTMLDivElement>>(new Map());
+  const rowObserversRef = useRef<Map<number, ResizeObserver>>(new Map());
+  const attachRowRef = useCallback(
+    (index: number) => (el: HTMLDivElement | null) => {
+      const existing = rowObserversRef.current.get(index);
+      if (existing) {
+        existing.disconnect();
+        rowObserversRef.current.delete(index);
+      }
+      if (!el) {
+        rowElsRef.current.delete(index);
+        return;
+      }
+      rowElsRef.current.set(index, el);
       try {
-        const h = el.offsetHeight;
-        if (Number.isFinite(h) && h > 0) setInitialMaxHeight(h);
+        virtualizer.measureElement(el);
       } catch {
         /* noop */
       }
-    });
-    return () => cancelAnimationFrame(id);
+      const ro = new ResizeObserver(() => {
+        try {
+          virtualizer.measure();
+        } catch {
+          /* noop */
+        }
+      });
+      ro.observe(el);
+      rowObserversRef.current.set(index, ro);
+    },
+    [virtualizer]
+  );
+
+  useEffect(() => {
+    return () => {
+      rowObserversRef.current.forEach((ro) => ro.disconnect());
+      rowObserversRef.current.clear();
+      rowElsRef.current.clear();
+    };
   }, []);
+
+  // Re-measure virtual items when a row toggles/animates to ensure layout pushes down
+  useEffect(() => {
+    const remeasure = () => {
+      try {
+        virtualizer.measure();
+      } catch {
+        /* noop */
+      }
+    };
+    window.addEventListener('terminal.row.expanded', remeasure);
+    window.addEventListener('terminal.row.collapsed', remeasure);
+    window.addEventListener('terminal.row.toggled', remeasure);
+    window.addEventListener('terminal.row.layout', remeasure);
+    return () => {
+      window.removeEventListener('terminal.row.expanded', remeasure);
+      window.removeEventListener('terminal.row.collapsed', remeasure);
+      window.removeEventListener('terminal.row.toggled', remeasure);
+      window.removeEventListener('terminal.row.layout', remeasure);
+    };
+  }, [virtualizer]);
 
   function toUiTx(m: { time: number; type: string; data: any }): UiTransaction {
     const createdAt = new Date(m.time).toISOString();
@@ -489,12 +662,13 @@ const TerminalPageContent: React.FC = () => {
                 <div className="grid gap-3 grid-cols-2 md:grid-cols-4 flex-1">
                   {/* Categories */}
                   <div className="flex flex-col md:col-span-1">
-                    <MultiSelect
-                      placeholder="All Focus Areas"
-                      items={(categories || []).map((c) => ({
-                        value: c.slug,
-                        label: c.name || c.slug,
-                      }))}
+                    <CategoryFilter
+                      items={
+                        (categories || []).map((c) => ({
+                          value: c.slug,
+                          label: c.name || c.slug,
+                        })) as MultiSelectItem[]
+                      }
                       selected={selectedCategorySlugs}
                       onChange={setSelectedCategorySlugs}
                     />
@@ -504,15 +678,16 @@ const TerminalPageContent: React.FC = () => {
                   <div className="flex flex-col md:col-span-1">
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <MultiSelect
-                          placeholder="All predictions"
-                          items={(conditions || []).map((c) => ({
-                            value: c.id,
-                            label:
-                              (c.shortName as string) ||
-                              (c.question as string) ||
-                              c.id,
-                          }))}
+                        <ConditionsFilter
+                          items={
+                            (conditions || []).map((c) => ({
+                              value: c.id,
+                              label:
+                                (c.shortName as string) ||
+                                (c.question as string) ||
+                                c.id,
+                            })) as MultiSelectItem[]
+                          }
                           selected={selectedConditionIds}
                           onChange={setSelectedConditionIds}
                         />
@@ -522,38 +697,12 @@ const TerminalPageContent: React.FC = () => {
 
                   {/* Minimum Bids */}
                   <div className="flex flex-col md:col-span-1">
-                    <div className="flex">
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        step={1}
-                        className="h-8 rounded-r-none border-r-0"
-                        value={minBids}
-                        onChange={(e) => setMinBids(e.target.value)}
-                      />
-                      <span className="inline-flex items-center h-8 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {minBidsNum === 1 ? 'Minimum Bid' : 'Minimum Bids'}
-                      </span>
-                    </div>
+                    <MinBidsFilter value={minBids} onChange={setMinBids} />
                   </div>
 
                   {/* Minimum Wager */}
                   <div className="flex flex-col md:col-span-1">
-                    <div className="flex">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        className="h-8 rounded-r-none border-r-0"
-                        value={minWager}
-                        onChange={(e) => setMinWager(e.target.value)}
-                      />
-                      <span className="inline-flex items-center h-8 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-xs text-muted-foreground whitespace-nowrap">
-                        Minimum Wager
-                      </span>
-                    </div>
+                    <MinWagerFilter value={minWager} onChange={setMinWager} />
                   </div>
 
                   {/* Addresses filter removed */}
@@ -563,10 +712,7 @@ const TerminalPageContent: React.FC = () => {
           </div>
           <div
             ref={scrollAreaRef}
-            className="flex-1 min-h-0 overflow-y-auto flex flex-col [overflow-anchor:none]"
-            style={
-              initialMaxHeight ? { maxHeight: initialMaxHeight } : undefined
-            }
+            className="flex-1 min-h-0 overflow-y-auto flex flex-col [overflow-anchor:none] md:max-h-[70vh]"
           >
             {auctionAndBidMessages.length === 0 ? (
               <div className="flex-1 flex items-center justify-center py-24">
@@ -584,77 +730,108 @@ const TerminalPageContent: React.FC = () => {
                     >
                       Add predictions
                     </a>{' '}
-                    to see its corresponding auction here.
+                    to see its auction here.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-border/60 border-b border-border/60">
-                <AnimatePresence initial={false} mode="sync">
-                  {(() => {
-                    const rows = Array.from(latestStartedByAuction.entries())
-                      .map(([id, m]) => {
-                        const lastActivity =
-                          lastActivityByAuction.get(id) || Number(m?.time || 0);
-                        const pinned = pinnedAuctions.includes(id);
-                        return { id, m, lastActivity, pinned } as const;
-                      })
-                      .filter((row) => {
-                        try {
-                          const makerWagerWei = BigInt(
-                            String(row.m?.data?.wager ?? '0')
-                          );
-                          const bidsCount = bidsCountByAuction.get(row.id) ?? 0;
-                          if (bidsCount < minBidsNum) return false;
-                          return makerWagerWei >= minWagerWei;
-                        } catch {
-                          return true;
-                        }
-                      });
-                    rows.sort((a, b) => {
-                      if (a.pinned && !b.pinned) return -1;
-                      if (!a.pinned && b.pinned) return 1;
-                      return b.lastActivity - a.lastActivity;
-                    });
-                    return rows.map((row, idx) => {
-                      const auctionId = row.id;
-                      const m = row.m;
-                      const rowKey = `auction-${auctionId ?? idx}`;
-                      return (
-                        <motion.div
-                          key={rowKey}
-                          layout
-                          initial={{ opacity: 0, y: -6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 6 }}
-                          transition={{ duration: 0.14, ease: 'easeOut' }}
-                        >
-                          <AuctionRequestRow
-                            uiTx={toUiTx(m)}
-                            predictionsContent={renderPredictionsCell(m)}
-                            auctionId={auctionId}
-                            makerWager={String(m?.data?.wager ?? '0')}
-                            maker={m?.data?.maker || null}
-                            resolver={m?.data?.resolver || null}
-                            predictedOutcomes={
-                              Array.isArray(m?.data?.predictedOutcomes)
-                                ? (m?.data?.predictedOutcomes as string[])
-                                : []
-                            }
-                            makerNonce={
-                              typeof m?.data?.makerNonce === 'number'
-                                ? (m?.data?.makerNonce as number)
-                                : null
-                            }
-                            collateralAssetTicker={collateralAssetTicker}
-                            onTogglePin={togglePin}
-                            isPinned={pinnedAuctions.includes(auctionId)}
-                          />
-                        </motion.div>
-                      );
-                    });
-                  })()}
-                </AnimatePresence>
+              <div>
+                <>
+                  {hasLoadedConditionsOnce && (
+                    <AnimatePresence initial={false} mode="sync">
+                      {pinnedRows.map((row, idx) => {
+                        const auctionId = row.id;
+                        const m = row.m;
+                        const rowKey = `auction-pinned-${auctionId ?? idx}`;
+                        return (
+                          <motion.div
+                            key={rowKey}
+                            layout
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 6 }}
+                            transition={{ duration: 0.14, ease: 'easeOut' }}
+                          >
+                            <AuctionRequestRow
+                              uiTx={toUiTx(m)}
+                              predictionsContent={renderPredictionsCell(m)}
+                              auctionId={auctionId}
+                              makerWager={String(m?.data?.wager ?? '0')}
+                              maker={m?.data?.maker || null}
+                              resolver={m?.data?.resolver || null}
+                              predictedOutcomes={
+                                Array.isArray(m?.data?.predictedOutcomes)
+                                  ? (m?.data?.predictedOutcomes as string[])
+                                  : []
+                              }
+                              makerNonce={
+                                typeof m?.data?.makerNonce === 'number'
+                                  ? (m?.data?.makerNonce as number)
+                                  : null
+                              }
+                              collateralAssetTicker={collateralAssetTicker}
+                              onTogglePin={togglePin}
+                              isPinned={true}
+                            />
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  )}
+
+                  {hasLoadedConditionsOnce && (
+                    <div
+                      style={{
+                        height: virtualizer.getTotalSize(),
+                        position: 'relative',
+                      }}
+                    >
+                      {virtualizer.getVirtualItems().map((vi) => {
+                        const row = unpinnedRows[vi.index];
+                        const auctionId = row?.id;
+                        const m = row?.m;
+                        return (
+                          <div
+                            key={vi.key}
+                            data-index={vi.index}
+                            ref={attachRowRef(vi.index)}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              transform: `translateY(${vi.start}px)`,
+                            }}
+                          >
+                            {row && (
+                              <AuctionRequestRow
+                                uiTx={toUiTx(m)}
+                                predictionsContent={renderPredictionsCell(m)}
+                                auctionId={auctionId}
+                                makerWager={String(m?.data?.wager ?? '0')}
+                                maker={m?.data?.maker || null}
+                                resolver={m?.data?.resolver || null}
+                                predictedOutcomes={
+                                  Array.isArray(m?.data?.predictedOutcomes)
+                                    ? (m?.data?.predictedOutcomes as string[])
+                                    : []
+                                }
+                                makerNonce={
+                                  typeof m?.data?.makerNonce === 'number'
+                                    ? (m?.data?.makerNonce as number)
+                                    : null
+                                }
+                                collateralAssetTicker={collateralAssetTicker}
+                                onTogglePin={togglePin}
+                                isPinned={false}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,6 +14,7 @@ import {
 } from 'recharts';
 import type { AuctionBid } from '~/lib/auction/useAuctionBids';
 import { formatEther } from 'viem';
+import TradePopoverContent from '~/components/terminal/TradePopoverContent';
 
 type Props = {
   bids: AuctionBid[];
@@ -20,15 +22,27 @@ type Props = {
   refreshMs?: number;
   // When true, use requestAnimationFrame to continuously update time window
   continuous?: boolean;
+  makerWager?: string | null;
+  maker?: string | null;
+  collateralAssetTicker: string;
 };
 
 const AuctionBidsChart: React.FC<Props> = ({
   bids,
   refreshMs = 1000,
   continuous = false,
+  makerWager,
+  maker,
+  collateralAssetTicker,
 }) => {
   const [nowMs, setNowMs] = useState<number>(Date.now());
-  const collateralAssetTicker = 'testUSDe';
+  const makerEth = (() => {
+    try {
+      return Number(formatEther(BigInt(String(makerWager ?? '0'))));
+    } catch {
+      return 0;
+    }
+  })();
 
   useEffect(() => {
     if (continuous) {
@@ -76,7 +90,13 @@ const AuctionBidsChart: React.FC<Props> = ({
               key: string;
               start: number;
               end: number;
-              data: { time: number; amount: number }[];
+              data: {
+                time: number;
+                amount: number;
+                takerAddress?: string;
+                takerAmountEth?: number;
+                endMs?: number;
+              }[];
             };
           }
           const key = `${String((b as any)?.id ?? (b as any)?.takerTxHash ?? start)}-${end}`;
@@ -85,8 +105,20 @@ const AuctionBidsChart: React.FC<Props> = ({
             start,
             end,
             data: [
-              { time: start, amount },
-              { time: end, amount },
+              {
+                time: start,
+                amount,
+                takerAddress: (b as any)?.taker || '',
+                takerAmountEth: amount,
+                endMs: end,
+              },
+              {
+                time: end,
+                amount,
+                takerAddress: (b as any)?.taker || '',
+                takerAmountEth: amount,
+                endMs: end,
+              },
             ],
           };
         })
@@ -94,7 +126,13 @@ const AuctionBidsChart: React.FC<Props> = ({
         key: string;
         start: number;
         end: number;
-        data: { time: number; amount: number }[];
+        data: {
+          time: number;
+          amount: number;
+          takerAddress?: string;
+          takerAmountEth?: number;
+          endMs?: number;
+        }[];
       }[],
     [bids]
   );
@@ -131,7 +169,7 @@ const AuctionBidsChart: React.FC<Props> = ({
           </defs>
           <CartesianGrid
             stroke="rgba(128,128,128,0.15)"
-            strokeDasharray="3 3"
+            strokeDasharray="1 3"
           />
           <XAxis
             dataKey="time"
@@ -199,17 +237,40 @@ const AuctionBidsChart: React.FC<Props> = ({
             }}
           />
           <Tooltip
-            contentStyle={{
-              background: 'rgba(20,20,20,0.9)',
-              border: '1px solid rgba(128,128,128,0.3)',
-            }}
-            labelFormatter={(label) => new Date(Number(label)).toLocaleString()}
-            formatter={(value) => {
-              const n = Number(value as number);
-              const text = Number.isFinite(n)
-                ? `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${collateralAssetTicker}`
-                : String(value);
-              return [text, 'Amount'];
+            content={({ active, payload }) => {
+              if (!active || !payload || payload.length === 0) return null;
+              const p: any = payload[0]?.payload || {};
+              const takerAmount = Number(p?.takerAmountEth || p?.amount || 0);
+              const total = Number.isFinite(takerAmount)
+                ? takerAmount + (Number.isFinite(makerEth) ? makerEth : 0)
+                : 0;
+              const pct =
+                Number.isFinite(takerAmount) &&
+                Number.isFinite(total) &&
+                total > 0
+                  ? Math.round((takerAmount / total) * 100)
+                  : undefined;
+              const endMs = Number(p?.endMs || 0);
+              const remain = Math.max(0, Math.round((endMs - nowMs) / 1000));
+              const timeLabel =
+                Number.isFinite(endMs) && endMs > 0
+                  ? remain > 0
+                    ? `expires in ${remain}s`
+                    : 'Expired'
+                  : undefined;
+              return (
+                <div className="rounded-md bg-background border border-border px-3 py-2.5">
+                  <TradePopoverContent
+                    leftAddress={String(p?.takerAddress || '')}
+                    rightAddress={String(maker || '')}
+                    takerAmountEth={takerAmount}
+                    totalAmountEth={total}
+                    percent={pct}
+                    ticker={collateralAssetTicker}
+                    timeLabel={timeLabel}
+                  />
+                </div>
+              );
             }}
           />
           {series.map((s) => {
@@ -234,8 +295,29 @@ const AuctionBidsChart: React.FC<Props> = ({
               />
             );
           })}
+          {/* Dotted vertical line at current time (center "NOW") */}
+          <ReferenceLine
+            x={nowMs}
+            stroke={'hsl(var(--brand-white))'}
+            strokeDasharray="1 3"
+            strokeWidth={1}
+            className="now-ref-line"
+            isFront
+            ifOverflow="hidden"
+          />
         </AreaChart>
       </ResponsiveContainer>
+      <style jsx>{`
+        :global(.now-ref-line .recharts-reference-line-line) {
+          stroke-dasharray: 1 3;
+          animation: nowLineDash 1.4s linear infinite;
+        }
+        @keyframes nowLineDash {
+          to {
+            stroke-dashoffset: 8;
+          }
+        }
+      `}</style>
     </div>
   );
 };

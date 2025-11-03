@@ -3,7 +3,6 @@
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { Label } from '@sapience/sdk/ui/components/ui/label';
 import ToWinLine from '~/components/terminal/ToWinLine';
 // removed ChevronsDown icon per design update
 import {
@@ -30,6 +29,10 @@ type Props = {
   makerAmountDisplay?: number;
   // Optional initial amount in display units to prefill (e.g., highest bid + 1)
   initialAmountDisplay?: number;
+  // Optional maximum expiry seconds allowed (e.g., remaining time until latest condition end)
+  maxExpirySeconds?: number;
+  // Current best taker wager in display units; used to anchor quick-increment buttons
+  bestBidDisplay?: number;
 };
 
 const formatAmount = (value: number, decimals = 2): string => {
@@ -53,6 +56,8 @@ const PlaceBidForm: React.FC<Props> = ({
   variant = 'card',
   makerAmountDisplay,
   initialAmountDisplay,
+  maxExpirySeconds,
+  bestBidDisplay,
 }) => {
   const [amount, setAmount] = useState<string>('');
   const [mode, setMode] = useState<ExpiryMode>('duration');
@@ -61,6 +66,7 @@ const PlaceBidForm: React.FC<Props> = ({
   const [time, setTime] = useState<string>(''); // HH:mm
   const [seconds, setSeconds] = useState<string>('60'); // compact variant expiry seconds
   const [increment, setIncrement] = useState<number>(1);
+  const [anchorAmount, setAnchorAmount] = useState<number | null>(null);
 
   const parsedAmount = useMemo(() => {
     const n = Number(amount);
@@ -80,6 +86,48 @@ const PlaceBidForm: React.FC<Props> = ({
     // Only run when initialAmountDisplay changes and amount is empty
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAmountDisplay]);
+
+  // One-time anchor to the best bid on mount/init; do not react to subsequent best bid changes
+  useEffect(() => {
+    if (anchorAmount != null) return;
+    const base = Number(bestBidDisplay);
+    if (!Number.isFinite(base) || base <= 0) return;
+    setAnchorAmount(base);
+    const next = base + increment;
+    try {
+      setAmount(next.toFixed(decimals));
+    } catch {
+      setAmount(String(next));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bestBidDisplay]);
+
+  // After a bid is submitted, re-anchor to the latest best bid value passed down at that time
+  useEffect(() => {
+    const handler = () => {
+      const base = Number(bestBidDisplay);
+      if (!Number.isFinite(base) || base <= 0) return;
+      setAnchorAmount(base);
+      const next = base + increment;
+      try {
+        setAmount(next.toFixed(decimals));
+      } catch {
+        setAmount(String(next));
+      }
+    };
+    try {
+      window.addEventListener('auction.bid.submitted', handler);
+    } catch {
+      /* noop */
+    }
+    return () => {
+      try {
+        window.removeEventListener('auction.bid.submitted', handler);
+      } catch {
+        /* noop */
+      }
+    };
+  }, [bestBidDisplay, increment, decimals]);
 
   const isAmountValid = useMemo(() => {
     if (amount === '') return false;
@@ -157,7 +205,7 @@ const PlaceBidForm: React.FC<Props> = ({
                 <span className="font-mono text-brand-white">
                   {amountDisplay}
                 </span>
-                <span className="font-mono text-brand-white">
+                <span className="font-mono text-brand-white ml-1">
                   {collateralAssetTicker}
                 </span>
               </div>
@@ -186,7 +234,19 @@ const PlaceBidForm: React.FC<Props> = ({
                 <button
                   key={opt}
                   type="button"
-                  onClick={() => setIncrement(opt)}
+                  onClick={() => {
+                    setIncrement(opt);
+                    const base =
+                      anchorAmount != null
+                        ? anchorAmount
+                        : Number(amount || '0');
+                    const next = Number.isFinite(base) ? base + opt : opt;
+                    try {
+                      setAmount(next.toFixed(decimals));
+                    } catch {
+                      setAmount(String(next));
+                    }
+                  }}
                   aria-pressed={increment === opt}
                   className={
                     (increment === opt
@@ -210,7 +270,6 @@ const PlaceBidForm: React.FC<Props> = ({
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-64 p-3">
                   <div className="space-y-2">
-                    <Label className="text-xs">Wager amount</Label>
                     <div className="flex">
                       <Input
                         type="text"
@@ -244,9 +303,6 @@ const PlaceBidForm: React.FC<Props> = ({
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56 p-3">
                 <div className="space-y-2">
-                  <div className="text-xs mt-0 mb-1">
-                    <span className="font-medium">Expires in</span>
-                  </div>
                   <div className="flex">
                     <Input
                       type="number"
@@ -263,6 +319,24 @@ const PlaceBidForm: React.FC<Props> = ({
                       seconds
                     </span>
                   </div>
+                  {(() => {
+                    const max = Number(maxExpirySeconds);
+                    const s = Number(seconds);
+                    if (
+                      Number.isFinite(max) &&
+                      max > 0 &&
+                      Number.isFinite(s) &&
+                      s > max
+                    ) {
+                      return (
+                        <div className="text-[11px] text-amber-500">
+                          Clamped to {Math.floor(max)}s (max allowed for this
+                          auction)
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </PopoverContent>
             </Popover>
@@ -275,16 +349,17 @@ const PlaceBidForm: React.FC<Props> = ({
           disabled={!canSubmitCompact}
           onClick={() => {
             if (!canSubmitCompact || !Number.isFinite(secondsNumber)) return;
-            onSubmit?.({
-              amount,
-              expirySeconds: secondsNumber,
-              mode: 'duration',
-            });
+            const sMax = Number(maxExpirySeconds);
+            const clamped =
+              Number.isFinite(sMax) && sMax > 0
+                ? Math.min(secondsNumber, Math.floor(sMax))
+                : secondsNumber;
+            onSubmit?.({ amount, expirySeconds: clamped, mode: 'duration' });
           }}
           className={
             (canSubmitCompact
               ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-normal '
-              : 'bg-muted text-muted-foreground cursor-not-allowed ') +
+              : 'bg-muted text-muted-foreground cursor-not-allowed border border-input ') +
             'w-full rounded-md px-3 py-1.5 inline-flex items-center justify-center text-center text-xs whitespace-nowrap'
           }
         >
@@ -510,12 +585,17 @@ const PlaceBidForm: React.FC<Props> = ({
         disabled={!canSubmit}
         onClick={() => {
           if (!canSubmit || typeof expirySeconds !== 'number') return;
-          onSubmit?.({ amount, expirySeconds, mode });
+          const sMax = Number(maxExpirySeconds);
+          const clamped =
+            Number.isFinite(sMax) && sMax > 0
+              ? Math.min(expirySeconds, Math.floor(sMax))
+              : expirySeconds;
+          onSubmit?.({ amount, expirySeconds: clamped, mode });
         }}
         className={
           (canSubmit
             ? 'bg-[hsl(var(--accent-gold)/0.08)] text-accent-gold border border-[hsl(var(--accent-gold)/0.4)] hover:bg-[hsl(var(--accent-gold)/0.03)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent-gold)/0.4)] tracking-normal '
-            : 'bg-muted text-muted-foreground cursor-not-allowed ') +
+            : 'bg-muted text-muted-foreground cursor-not-allowed border border-input ') +
           'self-stretch w-28 shrink-0 rounded-md px-3 inline-flex items-center justify-center text-center text-sm whitespace-nowrap'
         }
       >

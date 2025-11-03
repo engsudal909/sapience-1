@@ -45,6 +45,27 @@ class PredictedOutcomeType {
 }
 
 @ObjectType()
+class LastParlayForIntentType {
+  @Field(() => Int)
+  mintedAt!: number;
+
+  @Field(() => String)
+  maker!: string;
+
+  @Field(() => String)
+  taker!: string;
+
+  @Field(() => String, { nullable: true })
+  makerCollateral?: string | null;
+
+  @Field(() => String, { nullable: true })
+  takerCollateral?: string | null;
+
+  @Field(() => String)
+  totalCollateral!: string;
+}
+
+@ObjectType()
 class ParlayType {
   @Field(() => Int)
   id!: number;
@@ -189,5 +210,80 @@ export class ParlayResolver {
         predictedOutcomes: outcomes,
       };
     });
+  }
+
+  @Query(() => LastParlayForIntentType, { nullable: true })
+  async lastParlayForIntent(
+    @Arg('chainId', () => Int) chainId: number,
+    @Arg('marketAddress', () => String) marketAddress: string,
+    @Arg('outcomesSignature', () => String) outcomesSignature: string
+  ): Promise<LastParlayForIntentType | null> {
+    // Fetch recent parlays for this market and scan for signature match
+    const recent = await prisma.parlay.findMany({
+      where: { chainId, marketAddress: marketAddress.toLowerCase() },
+      orderBy: { mintedAt: 'desc' },
+      take: 200,
+    });
+
+    function normalize(outcomes: unknown): string {
+      try {
+        const arr = (outcomes as { conditionId: string; prediction: boolean }[]) || [];
+        const norm = arr
+          .map((o) => ({ conditionId: String(o.conditionId).toLowerCase(), prediction: !!o.prediction }))
+          .sort((a, b) =>
+            a.conditionId === b.conditionId
+              ? Number(a.prediction) - Number(b.prediction)
+              : a.conditionId.localeCompare(b.conditionId)
+          );
+        return JSON.stringify(norm);
+      } catch {
+        return '[]';
+      }
+    }
+
+    const targetSig = (() => {
+      try {
+        const parsed = JSON.parse(outcomesSignature) as { conditionId: string; prediction: boolean }[];
+        return normalize(parsed);
+      } catch {
+        return outcomesSignature;
+      }
+    })();
+
+    let match: typeof recent[number] | null = null;
+    for (const r of recent) {
+      const sig = normalize(r.predictedOutcomes as unknown);
+      if (sig === targetSig) {
+        match = r;
+        break;
+      }
+    }
+    if (!match) return null;
+
+    // Derive maker/taker collateral from corresponding mint event
+    const ev = await prisma.event.findFirst({
+      where: { marketGroupId: null, timestamp: BigInt(match.mintedAt) },
+      orderBy: { logIndex: 'asc' },
+    });
+    let makerCollateral: string | null = null;
+    let takerCollateral: string | null = null;
+    try {
+      const data = ev?.logData as unknown as PredictionMintedLogData | undefined;
+      if (data && data.eventType === 'PredictionMinted') {
+        makerCollateral = data.makerCollateral?.toString?.() ?? null;
+        takerCollateral = data.takerCollateral?.toString?.() ?? null;
+      }
+    } catch {
+      // ignore
+    }
+
+    return {
+      mintedAt: match.mintedAt,
+      maker: match.maker,
+      taker: match.taker,
+      makerCollateral,
+      takerCollateral,
+      totalCollateral: match.totalCollateral,
+    };
   }
 }

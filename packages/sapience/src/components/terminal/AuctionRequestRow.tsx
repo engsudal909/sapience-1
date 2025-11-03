@@ -3,7 +3,6 @@
 import type React from 'react';
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
 import {
   parseUnits,
   encodeAbiParameters,
@@ -17,14 +16,17 @@ import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionC
 import { useAuctionBids } from '~/lib/auction/useAuctionBids';
 import AuctionRequestInfo from '~/components/terminal/AuctionRequestInfo';
 import AuctionRequestChart from '~/components/terminal/AuctionRequestChart';
-import { useAccount, useSignTypedData } from 'wagmi';
+import { useAccount, useSignTypedData, useReadContract } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
+import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
+import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
-import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
+import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
+import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 
 type Props = {
   uiTx: UiTransaction;
@@ -63,6 +65,41 @@ const AuctionRequestRow: React.FC<Props> = ({
     | `0x${string}`
     | undefined;
   const { toast } = useToast();
+  const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
+    | `0x${string}`
+    | undefined;
+  // Read token decimals
+  const { data: tokenDecimalsData } = useReadContract({
+    abi: erc20Abi,
+    address: COLLATERAL_ADDRESS,
+    functionName: 'decimals',
+    chainId: DEFAULT_CHAIN_ID,
+    query: { enabled: Boolean(COLLATERAL_ADDRESS) },
+  });
+  const tokenDecimals = useMemo(() => {
+    try {
+      return typeof tokenDecimalsData === 'number'
+        ? tokenDecimalsData
+        : Number(tokenDecimalsData ?? 18);
+    } catch {
+      return 18;
+    }
+  }, [tokenDecimalsData]);
+  // Read allowance for connected address -> PredictionMarket
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    abi: erc20Abi,
+    address: COLLATERAL_ADDRESS,
+    functionName: 'allowance',
+    args: [
+      (address as `0x${string}`) ||
+        '0x0000000000000000000000000000000000000000',
+      verifyingContract as `0x${string}`,
+    ],
+    chainId: DEFAULT_CHAIN_ID,
+    query: {
+      enabled: Boolean(address && COLLATERAL_ADDRESS && verifyingContract),
+    },
+  });
   const [isExpanded, setIsExpanded] = useState(false);
   const [highlightNewBid, setHighlightNewBid] = useState(false);
   const numBids = useMemo(
@@ -123,30 +160,7 @@ const AuctionRequestRow: React.FC<Props> = ({
   }, [predictedOutcomes]);
 
   // Fetch conditions by IDs to get endTime values
-  const { data: conditionEnds = [] } = useQuery<
-    { id: string; endTime: number }[],
-    Error
-  >({
-    queryKey: ['auctionConditionsEndTimes', conditionIds.sort().join(',')],
-    enabled: conditionIds.length > 0,
-    staleTime: 60_000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const CONDITIONS_BY_IDS = /* GraphQL */ `
-        query ConditionsByIds($ids: [String!]!) {
-          conditions(where: { id: { in: $ids } }, take: 1000) {
-            id
-            endTime
-          }
-        }
-      `;
-      const resp = await graphqlRequest<{
-        conditions: Array<{ id: string; endTime: number }>;
-      }>(CONDITIONS_BY_IDS, { ids: conditionIds });
-      return resp?.conditions || [];
-    },
-  });
+  const { list: conditionEnds = [] } = useConditionsByIds(conditionIds);
 
   const maxEndTimeSec = useMemo(() => {
     try {
@@ -208,13 +222,55 @@ const AuctionRequestRow: React.FC<Props> = ({
         }
         if (!taker) return;
 
-        // Amount in display units -> wei (assume 18)
-        const takerWagerWei = parseUnits(String(data.amount || '0'), 18);
+        // Amount in display units -> wei (token decimals)
+        const decimalsToUse = Number.isFinite(tokenDecimals)
+          ? tokenDecimals
+          : 18;
+        const takerWagerWei = parseUnits(
+          String(data.amount || '0'),
+          decimalsToUse
+        );
         if (takerWagerWei <= 0n) return;
 
-        const takerDeadline =
-          Math.floor(Date.now() / 1000) +
-          Math.max(0, Number(data.expirySeconds || 0));
+        // Ensure sufficient ERC20 allowance to PredictionMarket
+        try {
+          const fresh = await Promise.resolve(refetchAllowance?.());
+          const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
+          if (currentAllowance < takerWagerWei) {
+            try {
+              window.dispatchEvent(
+                new CustomEvent('terminal.open.approval', {
+                  detail: { amount: String(data.amount || '') },
+                })
+              );
+            } catch {
+              /* noop */
+            }
+            toast({
+              title: 'Approval required',
+              description:
+                'Increase your approved spend to the market, then submit again.',
+            });
+            return;
+          }
+        } catch {
+          // If allowance check fails, fall through to avoid blocking, but warn
+          toast({
+            title: 'Allowance check failed',
+            description: 'Could not verify token approval. Please try again.',
+          });
+          return;
+        }
+
+        const nowSec = Math.floor(Date.now() / 1000);
+        const requested = Math.max(0, Number(data.expirySeconds || 0));
+        const clampedExpiry = (() => {
+          const end = Number(maxEndTimeSec || 0);
+          if (!Number.isFinite(end) || end <= 0) return requested;
+          const remaining = Math.max(0, end - nowSec);
+          return Math.min(requested, remaining);
+        })();
+        const takerDeadline = nowSec + clampedExpiry;
 
         // Build inner message hash (bytes, uint256, uint256, address, address, uint256)
         const innerMessageHash = keccak256(
@@ -294,74 +350,15 @@ const AuctionRequestRow: React.FC<Props> = ({
           makerNonce: makerNonceVal,
         };
 
-        // Send over Auction WS and await ack
+        // Send over shared Auction WS and await ack
         if (!wsUrl) return;
-        await new Promise<void>((resolve, reject) => {
-          let settled = false;
-          const ws = new WebSocket(wsUrl);
-          const timeout = window.setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            try {
-              ws.close();
-            } catch {
-              void 0;
-            }
-            reject(new Error('ack_timeout'));
-          }, 5000);
-          ws.onopen = () => {
-            try {
-              ws.send(JSON.stringify({ type: 'bid.submit', payload }));
-            } catch (e) {
-              window.clearTimeout(timeout);
-              if (!settled) {
-                settled = true;
-                try {
-                  ws.close();
-                } catch {
-                  void 0;
-                }
-                reject(new Error(String(e)));
-              }
-            }
-          };
-          ws.onmessage = (ev) => {
-            try {
-              const msg = JSON.parse(String(ev.data));
-              if (msg?.type === 'bid.ack') {
-                window.clearTimeout(timeout);
-                if (!settled) {
-                  settled = true;
-                  try {
-                    ws.close();
-                  } catch {
-                    void 0;
-                  }
-                  if (msg?.payload?.error)
-                    reject(new Error(String(msg.payload.error)));
-                  else resolve();
-                }
-              }
-            } catch {
-              void 0;
-            }
-          };
-          ws.onerror = () => {
-            window.clearTimeout(timeout);
-            if (!settled) {
-              settled = true;
-              try {
-                ws.close();
-              } catch {
-                void 0;
-              }
-              reject(new Error('ws_error'));
-            }
-          };
-          ws.onclose = () => {
-            // no-op (handled by ack/timeout)
-          };
-        });
+        const client = getSharedAuctionWsClient(wsUrl);
+        await client.sendWithAck('bid.submit', payload, { timeoutMs: 5000 });
+        try {
+          window.dispatchEvent(new Event('auction.bid.submitted'));
+        } catch {
+          void 0;
+        }
         toast({
           title: 'Bid submitted',
           description: 'Your bid was submitted successfully.',
@@ -391,8 +388,12 @@ const AuctionRequestRow: React.FC<Props> = ({
   );
 
   return (
-    <div className={'px-4 py-3 relative group h-full min-h-0'}>
-      <div className="flex items-start justify-between gap-2">
+    <div
+      className={
+        'px-4 py-3 relative group h-full min-h-0 border-b border-border/60'
+      }
+    >
+      <div className="flex items-center justify-between gap-2 min-h-[28px]">
         <div className="flex-1 min-w-0">
           {/* label removed */}
           <div className={'mb-0'}>{predictionsContent}</div>
@@ -412,7 +413,22 @@ const AuctionRequestRow: React.FC<Props> = ({
           </button>
           <button
             type="button"
-            onClick={() => setIsExpanded((v) => !v)}
+            onClick={() =>
+              setIsExpanded((v) => {
+                const next = !v;
+                try {
+                  window.dispatchEvent(new Event('terminal.row.toggled'));
+                  window.dispatchEvent(
+                    new Event(
+                      next ? 'terminal.row.expanded' : 'terminal.row.collapsed'
+                    )
+                  );
+                } catch {
+                  void 0;
+                }
+                return next;
+              })
+            }
             className={
               highlightNewBid
                 ? 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 transition-colors duration-300 ease-out bg-[hsl(var(--accent-gold)/0.06)] text-accent-gold animate-[gold-border-pulse_900ms_ease-out_1]'
@@ -439,13 +455,19 @@ const AuctionRequestRow: React.FC<Props> = ({
         {isExpanded ? (
           <motion.div
             key="expanded"
-            className="pt-3 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-stretch min-h-0"
+            className="py-3 grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-8 items-stretch min-h-0"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            layout
             style={{ overflow: 'hidden' }}
+            onAnimationComplete={() => {
+              try {
+                window.dispatchEvent(new Event('terminal.row.layout'));
+              } catch {
+                void 0;
+              }
+            }}
           >
             <AuctionRequestChart
               bids={bids}
@@ -462,6 +484,8 @@ const AuctionRequestRow: React.FC<Props> = ({
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
               onSubmit={submitBid}
+              maker={maker}
+              predictedOutcomes={predictedOutcomes}
             />
           </motion.div>
         ) : null}

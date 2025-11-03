@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AuctionBidsChart from '~/components/terminal/AuctionBidsChart';
 import { formatEther } from 'viem';
 import EnsAvatar from '~/components/shared/EnsAvatar';
@@ -20,13 +21,42 @@ type Props = {
 
 const AuctionRequestChart: React.FC<Props> = ({
   bids,
-  refreshMs = 250,
+  refreshMs = 90,
   makerWager,
   collateralAssetTicker,
   maxEndTimeSec: _maxEndTimeSec,
   maker,
   hasMultipleConditions,
 }) => {
+  // Throttle incoming bids to ~10–12 fps using rAF
+  const [displayBids, setDisplayBids] = useState<AuctionBid[]>(bids || []);
+  const pendingRef = useRef<AuctionBid[] | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastRenderRef = useRef<number>(0);
+  const minFrameMs = 90; // ~11 fps
+
+  useEffect(() => {
+    pendingRef.current = bids || [];
+    const loop = (t: number) => {
+      const now = t || performance.now();
+      const elapsed = now - (lastRenderRef.current || 0);
+      if (elapsed >= minFrameMs) {
+        lastRenderRef.current = now;
+        if (pendingRef.current) setDisplayBids(pendingRef.current);
+      }
+      rafRef.current = window.requestAnimationFrame(loop);
+    };
+    if (rafRef.current == null) {
+      rafRef.current = window.requestAnimationFrame(loop);
+    }
+    return () => {
+      if (rafRef.current != null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [bids]);
+
   const makerAmountDisplay = (() => {
     try {
       return Number(formatEther(BigInt(String(makerWager ?? '0'))));
@@ -78,7 +108,14 @@ const AuctionRequestChart: React.FC<Props> = ({
         <div />
       </div>
       <div className="flex-1 min-h-0">
-        <AuctionBidsChart bids={bids} continuous refreshMs={refreshMs} />
+        <AuctionBidsChart
+          bids={displayBids}
+          continuous
+          refreshMs={refreshMs}
+          makerWager={makerWager}
+          maker={maker}
+          collateralAssetTicker={collateralAssetTicker}
+        />
       </div>
     </div>
   );

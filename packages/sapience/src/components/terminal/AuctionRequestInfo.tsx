@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { formatEther } from 'viem';
+import { formatEther, decodeAbiParameters } from 'viem';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import PlaceBidForm from '~/components/terminal/PlaceBidForm';
@@ -20,6 +20,8 @@ import {
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { HelpCircle } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
+import { useLastTradeForIntent } from '~/hooks/graphql/useLastTradeForIntent';
+import TradePopoverContent from '~/components/terminal/TradePopoverContent';
 
 type SubmitData = {
   amount: string;
@@ -34,6 +36,8 @@ type Props = {
   collateralAssetTicker: string;
   onSubmit: (data: SubmitData) => void | Promise<void>;
   maxEndTimeSec?: number | null;
+  maker?: string | null;
+  predictedOutcomes?: string[];
 };
 
 type BestBidProps = {
@@ -42,7 +46,13 @@ type BestBidProps = {
   now: number;
   makerWager: string | null;
   collateralAssetTicker: string;
-  lastTrade: { takerStr: string; toWinStr: string; pct?: number } | null;
+  lastTrade: {
+    takerStr: string;
+    toWinStr: string;
+    takerNum: number;
+    totalNum: number;
+    pct?: number;
+  } | null;
   lastBid: any;
   lastTradeTimeAgo: string | null;
 };
@@ -78,12 +88,14 @@ const BestBid: React.FC<BestBidProps> = ({
                   align="end"
                   className="w-[min(520px,90vw)] rounded-md bg-background border border-border px-3 py-2.5"
                 >
-                  <LastTrade
-                    uiTx={uiTx}
-                    lastTrade={lastTrade}
-                    lastBid={lastBid}
-                    lastTradeTimeAgo={lastTradeTimeAgo}
-                    collateralAssetTicker={collateralAssetTicker}
+                  <TradePopoverContent
+                    leftAddress={lastBid?.taker || ''}
+                    rightAddress={uiTx?.position?.owner || ''}
+                    takerAmountEth={lastTrade.takerNum}
+                    totalAmountEth={lastTrade.totalNum}
+                    percent={lastTrade.pct}
+                    ticker={collateralAssetTicker}
+                    timeLabel={lastTradeTimeAgo}
                   />
                 </PopoverContent>
               </Popover>
@@ -262,86 +274,6 @@ const BestBid: React.FC<BestBidProps> = ({
   );
 };
 
-type LastTradeProps = {
-  uiTx: UiTransaction;
-  lastTrade: { takerStr: string; toWinStr: string; pct?: number } | null;
-  lastBid: any;
-  lastTradeTimeAgo: string | null;
-  collateralAssetTicker: string;
-};
-
-const LastTrade: React.FC<LastTradeProps> = ({
-  uiTx,
-  lastTrade,
-  lastBid,
-  lastTradeTimeAgo,
-  collateralAssetTicker,
-}) => {
-  return (
-    <div className="text-xs">
-      {lastTrade ? (
-        <div className="space-y-1">
-          <div className="flex items-baseline justify-between">
-            <span className="align-baseline">
-              <span className="font-mono font-semibold text-brand-white">
-                {lastTrade.takerStr} {collateralAssetTicker}
-              </span>{' '}
-              <span className="text-muted-foreground">to win</span>{' '}
-              <span className="font-mono font-semibold text-brand-white">
-                {lastTrade.toWinStr} {collateralAssetTicker}
-              </span>
-            </span>
-            {typeof lastTrade.pct === 'number' ? (
-              <span className="font-mono text-brand-white">
-                {lastTrade.pct}% Chance
-              </span>
-            ) : (
-              <span />
-            )}
-          </div>
-          <div className="flex items-center justify-between mt-0">
-            <div className="inline-flex items-center gap-1 min-w-0 text-muted-foreground">
-              <div className="inline-flex items-center gap-1 min-w-0">
-                <EnsAvatar
-                  address={lastBid?.taker || ''}
-                  className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
-                  width={16}
-                  height={16}
-                />
-                <div className="min-w-0">
-                  <AddressDisplay address={lastBid?.taker || ''} compact />
-                </div>
-              </div>
-              <span className="text-muted-foreground mx-0.5">versus</span>
-              <div className="inline-flex items-center gap-1 min-w-0">
-                <EnsAvatar
-                  address={uiTx?.position?.owner || ''}
-                  className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
-                  width={16}
-                  height={16}
-                />
-                <div className="min-w-0">
-                  <AddressDisplay
-                    address={uiTx?.position?.owner || ''}
-                    compact
-                  />
-                </div>
-              </div>
-            </div>
-            {lastTradeTimeAgo ? (
-              <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                {lastTradeTimeAgo}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      )}
-    </div>
-  );
-};
-
 const AuctionRequestInfo: React.FC<Props> = ({
   uiTx,
   bids,
@@ -349,6 +281,8 @@ const AuctionRequestInfo: React.FC<Props> = ({
   collateralAssetTicker,
   onSubmit,
   maxEndTimeSec,
+  maker,
+  predictedOutcomes,
 }) => {
   const [now, setNow] = useState<number>(Date.now());
 
@@ -391,13 +325,70 @@ const AuctionRequestInfo: React.FC<Props> = ({
     }, bids[0]);
   }, [bids]);
 
+  // GraphQL-sourced Last Trade based on maker + predicted outcomes signature
+  const outcomesSignature = useMemo(() => {
+    try {
+      const arr = Array.isArray(predictedOutcomes)
+        ? (predictedOutcomes as `0x${string}`[])
+        : [];
+      if (arr.length === 0) return null;
+      const decodedUnknown = decodeAbiParameters(
+        [
+          {
+            type: 'tuple[]',
+            components: [
+              { name: 'marketId', type: 'bytes32' },
+              { name: 'prediction', type: 'bool' },
+            ],
+          },
+        ] as const,
+        arr[0]
+      ) as unknown;
+      const decodedArr = Array.isArray(decodedUnknown)
+        ? ((decodedUnknown as any)[0] as Array<{
+            marketId: `0x${string}`;
+            prediction: boolean;
+          }>)
+        : [];
+      const norm = decodedArr
+        .map((o) => ({
+          conditionId: String(o.marketId).toLowerCase(),
+          prediction: !!o.prediction,
+        }))
+        .sort((a, b) =>
+          a.conditionId === b.conditionId
+            ? Number(a.prediction) - Number(b.prediction)
+            : a.conditionId.localeCompare(b.conditionId)
+        );
+      return JSON.stringify(norm);
+    } catch {
+      return null;
+    }
+  }, [predictedOutcomes]);
+
+  const { data: lastParlay, refetch: refetchLastTrade } = useLastTradeForIntent(
+    {
+      maker: maker || uiTx?.position?.owner,
+      outcomesSignature: outcomesSignature,
+    }
+  );
+
+  // Trigger refetch on mount (row expand) and when a bid is submitted
+  useEffect(() => {
+    refetchLastTrade();
+    const onBidSubmitted = () => refetchLastTrade();
+    window.addEventListener('auction.bid.submitted', onBidSubmitted);
+    return () =>
+      window.removeEventListener('auction.bid.submitted', onBidSubmitted);
+  }, []);
+
   const lastTrade = useMemo(() => {
     try {
-      if (!lastBid) return null;
-      const maker = BigInt(String(makerWager ?? '0'));
-      const taker = BigInt(String(lastBid?.takerWager ?? '0'));
-      const takerEth = Number(formatEther(taker));
-      const totalEth = Number(formatEther(maker + taker));
+      if (!lastParlay) return null;
+      const makerWei = BigInt(String(lastParlay?.makerCollateral ?? '0'));
+      const takerWei = BigInt(String(lastParlay?.takerCollateral ?? '0'));
+      const takerEth = Number(formatEther(takerWei));
+      const totalEth = Number(formatEther(makerWei + takerWei));
       const pct =
         Number.isFinite(takerEth) && Number.isFinite(totalEth) && totalEth > 0
           ? Math.round((takerEth / totalEth) * 100)
@@ -411,22 +402,24 @@ const AuctionRequestInfo: React.FC<Props> = ({
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         }),
+        takerNum: takerEth,
+        totalNum: totalEth,
         pct,
       } as const;
     } catch {
       return null;
     }
-  }, [lastBid, makerWager]);
+  }, [lastParlay]);
 
   const lastTradeTimeAgo = useMemo(() => {
     try {
-      const ms = Number(lastBid?.receivedAtMs || 0);
+      const ms = lastParlay ? Number(lastParlay.mintedAt) * 1000 : 0;
       if (!Number.isFinite(ms) || ms <= 0) return null;
       return formatDistanceToNowStrict(new Date(ms), { addSuffix: true });
     } catch {
       return null;
     }
-  }, [lastBid, now]);
+  }, [lastParlay, now]);
 
   const maxDurationLabel = useMemo(() => {
     try {
@@ -435,6 +428,17 @@ const AuctionRequestInfo: React.FC<Props> = ({
       return formatDistanceToNowStrict(new Date(endSec * 1000));
     } catch {
       return null;
+    }
+  }, [maxEndTimeSec, now]);
+
+  const maxRemainingExpirySeconds = useMemo(() => {
+    try {
+      const endSec = Number(maxEndTimeSec || 0);
+      if (!Number.isFinite(endSec) || endSec <= 0) return undefined;
+      const remain = Math.max(0, Math.floor(endSec - Math.floor(now / 1000)));
+      return remain > 0 ? remain : undefined;
+    } catch {
+      return undefined;
     }
   }, [maxEndTimeSec, now]);
 
@@ -521,10 +525,9 @@ const AuctionRequestInfo: React.FC<Props> = ({
         decimals={2}
         variant="compact"
         makerAmountDisplay={makerAmountDisplay}
-        initialAmountDisplay={
-          highestTakerBidDisplay > 0 ? highestTakerBidDisplay + 1 : undefined
-        }
+        bestBidDisplay={highestTakerBidDisplay}
         onSubmit={onSubmit}
+        maxExpirySeconds={maxRemainingExpirySeconds}
       />
 
       <div className="mt-1 pt-1">

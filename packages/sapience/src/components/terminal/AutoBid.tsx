@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits, isAddress } from 'viem';
 import { Pencil } from 'lucide-react';
@@ -105,6 +105,31 @@ const AutoBid: React.FC = () => {
       return '0';
     }
   }, [allowance, tokenDecimals]);
+
+  // Open approval dialog from terminal bid flow and prefill amount
+  useEffect(() => {
+    function onOpenApproval(e: Event) {
+      try {
+        const ce = e as CustomEvent<{ amount?: string }>;
+        const next =
+          typeof ce?.detail?.amount === 'string' ? ce.detail.amount : '';
+        if (next) setApproveAmount(next);
+      } catch {
+        /* noop */
+      }
+      setIsApproveDialogOpen(true);
+    }
+    window.addEventListener(
+      'terminal.open.approval',
+      onOpenApproval as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        'terminal.open.approval',
+        onOpenApproval as EventListener
+      );
+    };
+  }, []);
 
   const chainShortName = getChainShortName(DEFAULT_CHAIN_ID);
   const buyUrl = COLLATERAL_ADDRESS
