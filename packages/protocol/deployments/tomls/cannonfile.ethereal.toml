@@ -30,7 +30,7 @@ artifact="PredictionMarket"
 args=[
   "Prediction Market",
   "SPM",
-  "<%= NativeTokenWrapper.address %>",
+  "<%= nativeTokenWrapper.address %>",
   "<%= settings.minCollateral %>"
 ]
 depends=[]
@@ -54,7 +54,7 @@ highlight=true
 [deploy.PassiveLiquidityVault]
 artifact="PassiveLiquidityVault"
 args=[
-  "<%= NativeTokenWrapper.address %>",
+  "<%= nativeTokenWrapper.address %>",
   "<%= settings.manager %>",
   "<%= settings.vaultName %>",
   "<%= settings.vaultTicker %>"
