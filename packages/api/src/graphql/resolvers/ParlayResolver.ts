@@ -224,11 +224,20 @@ export class ParlayResolver {
         return processRows(rows);
       }
       
-      // For toWin, sort by totalCollateral
+      // For toWin, sort by totalCollateral but treat lost parlays as 0
       const rows = await prisma.$queryRaw<any[]>`
         SELECT * FROM parlay
         WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
-        ORDER BY CAST("totalCollateral" AS DECIMAL) ${Prisma.raw(direction)}
+        ORDER BY CASE 
+          WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
+          WHEN status != 'active' THEN
+            CASE
+              WHEN (LOWER(maker) = ${addr} AND "makerWon" = true) THEN CAST("totalCollateral" AS DECIMAL)
+              WHEN (LOWER(taker) = ${addr} AND "makerWon" = false) THEN CAST("totalCollateral" AS DECIMAL)
+              ELSE 0
+            END
+          ELSE 0
+        END ${Prisma.raw(direction)}
         LIMIT ${take}
         OFFSET ${skip}
       `;
