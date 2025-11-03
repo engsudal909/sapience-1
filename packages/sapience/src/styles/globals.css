@@ -167,6 +167,17 @@
   .animate-overlay-pulse {
     animation: overlay-pulse 9.6s ease-in-out infinite;
   }
+  @keyframes gold-border-pulse {
+    0% {
+      border-color: hsl(var(--input));
+    }
+    35% {
+      border-color: hsl(var(--accent-gold) / 0.7);
+    }
+    100% {
+      border-color: hsl(var(--input));
+    }
+  }
   @keyframes gold-underline-sweep-bg {
     0% {
       /* base underline position, sweep starts slightly off the left */

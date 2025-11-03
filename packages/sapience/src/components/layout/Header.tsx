@@ -29,6 +29,7 @@ import {
   Telescope,
   Bot,
   Zap,
+  Trophy,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -67,7 +68,7 @@ const NavLinks = ({
   const linkClass = isMobileProp
     ? 'sc-heading justify-start rounded-full'
     : 'sc-heading justify-start rounded-full';
-  const activeClass = 'bg-secondary';
+  const activeClass = 'text-accent-gold';
 
   // No feature flag: Chat button is always available in the sidebar for authenticated users
 
@@ -91,11 +92,11 @@ const NavLinks = ({
           Prediction Markets
         </Link>
         <Link
-          href="/leaderboard"
-          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          href="/terminal"
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/terminal', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
-          Leaderboard
+          Trading Terminal
         </Link>
         <Link
           href="/vaults"
@@ -103,6 +104,13 @@ const NavLinks = ({
           onClick={handleLinkClick}
         >
           Vaults
+        </Link>
+        <Link
+          href="/leaderboard"
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/leaderboard', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Leaderboard
         </Link>
         <Link
           href="/forecast"
@@ -316,10 +324,10 @@ const Header = () => {
                 Prediction Markets
               </Link>
               <Link
-                href="/leaderboard"
+                href="/terminal"
                 className={`sc-heading text-foreground transition-colors px-3 py-2 rounded-full hover:bg-transparent hover:text-accent-gold`}
               >
-                Leaderboard
+                Trading Terminal
               </Link>
               <Link
                 href="/vaults"
@@ -345,6 +353,15 @@ const Header = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/leaderboard"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
+                    >
+                      <Trophy className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
+                      <span>Leaderboard</span>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
                       href="/forecast"
@@ -469,7 +486,7 @@ const Header = () => {
         <SidebarFooter>
           <div className="flex flex-col gap-2 text-xs w-full ml-4 rounded-lg">
             <div className="flex flex-col items-start gap-2 mb-3">
-              <span>Powered by</span>
+              <span className="text-[hsl(var(--brand-white))]">Powered by</span>
               <a
                 href="https://ethena.fi"
                 target="_blank"

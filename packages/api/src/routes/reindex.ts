@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { handleAsyncErrors } from '../helpers/handleAsyncErrors';
 import prisma from '../db';
-import { createRenderJob, fetchRenderServices } from 'src/utils/utils';
-import { Request, Response } from 'express';
+import { createRenderJob, fetchRenderServices } from '../utils/utils';
+import { config } from '../config';
+
+import type { Request, Response } from 'express';
 
 const router = Router();
 router.post(
@@ -13,11 +15,7 @@ router.post(
     const startCommand =
       `pnpm run start:reindex-accuracy ${address || ''} ${marketId || ''}`.trim();
 
-    const isProduction =
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'staging';
-
-    if (isProduction) {
+    if (config.isProd) {
       const renderServices = await fetchRenderServices();
       const worker = renderServices.find(
         (item: {
@@ -30,8 +28,7 @@ router.post(
         }) =>
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch ===
-            (process.env.NODE_ENV === 'staging' ? 'staging' : 'main')
+          item?.service?.branch === 'main'
       );
 
       if (!worker?.service?.id) {
@@ -105,12 +102,9 @@ router.post(
   '/resource',
   handleAsyncErrors(async (req, res) => {
     const { startTimestamp, endTimestamp, slug } = req.body;
-    const isProduction =
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'staging';
 
-    // For production/staging environments
-    if (isProduction) {
+    // For production environments
+    if (config.isProd) {
       // Get background worker service ID
       const renderServices = await fetchRenderServices();
       const worker = renderServices.find(
@@ -124,8 +118,7 @@ router.post(
         }) =>
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch ===
-            (process.env.NODE_ENV === 'staging' ? 'staging' : 'main')
+          item?.service?.branch === 'main'
       );
 
       if (!worker?.service?.id) {
@@ -174,10 +167,7 @@ const handleReindexRequest = async (
     ? `pnpm run start:reindex-missing ${chainId} ${address} ${marketId}`
     : `pnpm run start:reindex-market ${chainId} ${address} ${marketId}`;
 
-  const isProduction =
-    process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging';
-
-  if (isProduction) {
+  if (config.isProd) {
     let id: string = '';
     const renderServices = await fetchRenderServices();
     for (const item of renderServices) {
@@ -185,9 +175,7 @@ const handleReindexRequest = async (
         item?.service?.type === 'background_worker' &&
         item?.service?.name?.startsWith('background-worker') &&
         item?.service?.id &&
-        (process.env.NODE_ENV === 'staging'
-          ? item?.service?.branch === 'staging'
-          : item?.service?.branch === 'main')
+        item?.service?.branch === 'main'
       ) {
         id = item?.service.id;
         break;
@@ -243,11 +231,7 @@ router.post(
 
     const startCommand = `pnpm run start:reindex-prediction-market ${chainId} ${startTimestamp || 'undefined'} ${endTimestamp || 'undefined'} ${clearExisting || false}`;
 
-    const isProduction =
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'staging';
-
-    if (isProduction) {
+    if (config.isProd) {
       const renderServices = await fetchRenderServices();
       const worker = renderServices.find(
         (item: {
@@ -260,8 +244,7 @@ router.post(
         }) =>
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch ===
-            (process.env.NODE_ENV === 'staging' ? 'staging' : 'main')
+          item?.service?.branch === 'main'
       );
 
       if (!worker?.service?.id) {
@@ -314,11 +297,7 @@ router.post(
 
     const startCommand = `pnpm run start:reindex-market-group-factory ${chainId} ${factoryAddress}`;
 
-    const isProduction =
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'staging';
-
-    if (isProduction) {
+    if (config.isProd) {
       let id: string = '';
       const renderServices = await fetchRenderServices();
       for (const item of renderServices) {
@@ -326,9 +305,7 @@ router.post(
           item?.service?.type === 'background_worker' &&
           item?.service?.name?.startsWith('background-worker') &&
           item?.service?.id &&
-          (process.env.NODE_ENV === 'staging'
-            ? item?.service?.branch === 'staging'
-            : item?.service?.branch === 'main')
+          item?.service?.branch === 'main'
         ) {
           id = item?.service.id;
           break;

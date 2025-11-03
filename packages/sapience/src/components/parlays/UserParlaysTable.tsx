@@ -971,7 +971,7 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'USDe';
+          const symbol = 'testUSDe';
           const isClosed = row.original.status !== 'active';
 
           if (!isClosed) {

@@ -12,9 +12,7 @@ import { TOKEN_PRECISION } from '../constants';
 import prisma from '../db';
 import { Deployment } from '../interfaces';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { fromRoot } from './fromRoot';
 import * as viem from 'viem';
 import * as viemChains from 'viem/chains';
 import * as Sentry from '@sentry/node';
@@ -48,12 +46,9 @@ export function getChainById(id: number): viem.Chain | undefined {
   if (chain) return chain;
 }
 
-// Replace __dirname reference with this
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: fromRoot('.env') });
+
 const clientMap = new Map<number, PublicClient>();
 
 // added reconnection configurations from viem.
