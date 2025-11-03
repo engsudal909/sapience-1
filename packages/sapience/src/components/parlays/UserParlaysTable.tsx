@@ -52,7 +52,11 @@ import {
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
-import { useUserParlays, useUserParlaysCount, type Parlay } from '~/hooks/graphql/useUserParlays';
+import {
+  useUserParlays,
+  useUserParlaysCount,
+  type Parlay,
+} from '~/hooks/graphql/useUserParlays';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import ShareDialog from '~/components/shared/ShareDialog';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
@@ -259,7 +263,7 @@ export default function UserParlaysTable({
   const totalCount = useUserParlaysCount(String(account));
 
   // Fetch real data with pagination - fetch one extra to detect if there are more pages
-  const { data: rawData, isLoading, error } = useUserParlays({
+  const { data: rawData, isLoading } = useUserParlays({
     address: String(account),
     take: ITEMS_PER_PAGE + 1,
     skip,
@@ -276,18 +280,18 @@ export default function UserParlaysTable({
       }
       return;
     }
-    
+
     const hasNextPage = rawData.length > ITEMS_PER_PAGE;
     const newItems = hasNextPage ? rawData.slice(0, ITEMS_PER_PAGE) : rawData;
-    
+
     if (skip === 0) {
       // First load - replace all data
       setAllLoadedData(newItems);
     } else {
       // Subsequent loads - append data
-      setAllLoadedData(prev => [...prev, ...newItems]);
+      setAllLoadedData((prev) => [...prev, ...newItems]);
     }
-    
+
     setHasMore(hasNextPage);
   }, [rawData, skip]);
 
@@ -297,7 +301,7 @@ export default function UserParlaysTable({
   // Load more handler (wrapped in useCallback for IntersectionObserver dependency)
   const handleLoadMore = React.useCallback(() => {
     if (!isLoading && hasMore) {
-      setSkip(prev => prev + ITEMS_PER_PAGE);
+      setSkip((prev) => prev + ITEMS_PER_PAGE);
     }
   }, [isLoading, hasMore]);
 
@@ -1209,24 +1213,24 @@ export default function UserParlaysTable({
 
   // Auto-load more when scrolling near bottom
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
-  
+
   React.useEffect(() => {
     if (!loadMoreRef.current || !hasMore) return;
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isLoading) {
           handleLoadMore();
         }
       },
-      { 
+      {
         threshold: 0.1,
-        rootMargin: '100px' // Start loading 100px before the element is visible
+        rootMargin: '100px', // Start loading 100px before the element is visible
       }
     );
-    
+
     observer.observe(loadMoreRef.current);
-    
+
     return () => observer.disconnect();
   }, [hasMore, isLoading, handleLoadMore]);
 
@@ -1295,7 +1299,7 @@ export default function UserParlaysTable({
           </div>
           {/* Infinite scroll sentinel - triggers auto-load when visible */}
           {hasMore && (
-            <div 
+            <div
               ref={loadMoreRef}
               className="flex items-center justify-center px-4 py-6 border-b border-border bg-brand-black"
             >

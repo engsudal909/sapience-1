@@ -33,8 +33,20 @@ export type Parlay = {
 };
 
 const USER_PARLAYS_QUERY = /* GraphQL */ `
-  query UserParlays($address: String!, $take: Int, $skip: Int, $orderBy: String, $orderDirection: String) {
-    userParlays(address: $address, take: $take, skip: $skip, orderBy: $orderBy, orderDirection: $orderDirection) {
+  query UserParlays(
+    $address: String!
+    $take: Int
+    $skip: Int
+    $orderBy: String
+    $orderDirection: String
+  ) {
+    userParlays(
+      address: $address
+      take: $take
+      skip: $skip
+      orderBy: $orderBy
+      orderDirection: $orderDirection
+    ) {
       id
       chainId
       marketAddress
