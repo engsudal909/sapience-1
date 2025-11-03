@@ -132,6 +132,18 @@ const AuctionRequestRow: React.FC<Props> = ({
       enabled: Boolean(address && COLLATERAL_ADDRESS && verifyingContract),
     },
   });
+  // Read maker nonce on-chain for the provided maker address
+  const { data: makerNonceOnChain, refetch: refetchMakerNonce } =
+    useReadContract({
+      address: PREDICTION_MARKET_ADDRESS,
+      abi: predictionMarketAbi,
+      functionName: 'nonces',
+      args: typeof maker === 'string' ? [maker as `0x${string}`] : undefined,
+      chainId: DEFAULT_CHAIN_ID,
+      query: {
+        enabled: Boolean(PREDICTION_MARKET_ADDRESS && maker),
+      },
+    });
   const [isExpanded, setIsExpanded] = useState(false);
   const [highlightNewBid, setHighlightNewBid] = useState(false);
   const numBids = useMemo(
@@ -292,7 +304,7 @@ const AuctionRequestRow: React.FC<Props> = ({
         if (makerNonceVal === undefined) {
           try {
             const fresh = await Promise.resolve(refetchMakerNonce?.());
-            const raw = (fresh?.data ?? makerNonceOnChain) as unknown;
+            const raw = fresh?.data ?? makerNonceOnChain;
             const n = Number(raw);
             if (Number.isFinite(n)) makerNonceVal = n;
           } catch {

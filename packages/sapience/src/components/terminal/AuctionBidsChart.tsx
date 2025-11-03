@@ -205,7 +205,7 @@ const AuctionBidsChart: React.FC<Props> = ({
                 textAnchor = 'end';
                 dx = -4;
               }
-              if (!label) return null;
+              if (!label) return <g />;
               return (
                 <text
                   x={x}

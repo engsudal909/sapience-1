@@ -323,7 +323,11 @@ export class ReconnectingWebSocketClient {
         });
         reject(new Error('ack_timeout'));
       }, timeoutMs);
-      this.acks.set(id, { resolve, reject, timeout });
+      this.acks.set(id, {
+        resolve: (value: unknown) => resolve(value as T),
+        reject,
+        timeout,
+      });
       this.send({ id, type, payload: { ...payload, id } });
     });
   }
