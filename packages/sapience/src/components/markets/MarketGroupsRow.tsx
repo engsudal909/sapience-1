@@ -17,6 +17,7 @@ import { useMarketGroupChartData } from '~/hooks/graphql/useMarketGroupChartData
 import { DEFAULT_WAGER_AMOUNT } from '~/lib/utils/betslipUtils';
 import type { MultiMarketChartDataPoint } from '~/lib/utils/chartUtils';
 import { useSettings } from '~/lib/context/SettingsContext';
+import PercentChance from '~/components/shared/PercentChance';
 
 export interface MarketGroupsRowProps {
   chainId: number;
@@ -105,13 +106,7 @@ const MarketGroupsRow = ({
     return prices;
   }, [chartData]);
 
-  // Helper function to format price as percentage
-  const formatPriceAsPercentage = (price: number) => {
-    if (!Number.isFinite(price)) return 'Price N/A';
-    const percentage = Math.max(0, Math.min(100, price * 100));
-    if (percentage < 1) return '<1% chance';
-    return `${Math.round(percentage)}% chance`;
-  };
+  // unified percent chance rendering via shared component
 
   // Helper function to handle adding market to bet slip
   const handleAddToBetSlip = (
@@ -194,9 +189,12 @@ const MarketGroupsRow = ({
         } else {
           // For YES/NO markets, show as percentage
           return (
-            <span className="font-medium text-foreground">
-              {formatPriceAsPercentage(currentPrice)}
-            </span>
+            <PercentChance
+              probability={currentPrice}
+              showLabel={true}
+              label="Chance"
+              className="font-medium text-foreground"
+            />
           );
         }
       }
@@ -219,9 +217,12 @@ const MarketGroupsRow = ({
 
     if (currentPrice > 0) {
       return (
-        <span className="font-medium text-foreground">
-          {formatPriceAsPercentage(currentPrice)}
-        </span>
+        <PercentChance
+          probability={currentPrice}
+          showLabel={true}
+          label="Chance"
+          className="font-medium text-foreground"
+        />
       );
     }
 

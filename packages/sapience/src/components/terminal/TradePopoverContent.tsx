@@ -3,6 +3,7 @@
 import type React from 'react';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import PercentChance from '~/components/shared/PercentChance';
 
 type TradePopoverContentProps = {
   leftAddress: string;
@@ -52,9 +53,12 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
             </span>
           </span>
           {typeof percent === 'number' ? (
-            <span className="font-mono text-brand-white ml-2">
-              {percent}% Chance
-            </span>
+            <PercentChance
+              probability={percent / 100}
+              showLabel={true}
+              label="Chance"
+              className="font-mono text-brand-white ml-2"
+            />
           ) : (
             <span />
           )}

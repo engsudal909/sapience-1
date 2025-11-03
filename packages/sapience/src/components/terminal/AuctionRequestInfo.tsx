@@ -23,6 +23,7 @@ import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionC
 import { useLastTradeForIntent } from '~/hooks/graphql/useLastTradeForIntent';
 import TradePopoverContent from '~/components/terminal/TradePopoverContent';
 import ExpiresInLabel from '~/components/terminal/ExpiresInLabel';
+import PercentChance from '~/components/shared/PercentChance';
 
 type SubmitData = {
   amount: string;
@@ -97,7 +98,12 @@ const BestBid: React.FC<BestBidProps> = ({
                     type="button"
                     className="font-mono text-brand-white underline decoration-dotted underline-offset-2 hover:opacity-90"
                   >
-                    {lastTrade.pct}% Chance
+                    <PercentChance
+                      probability={lastTrade.pct / 100}
+                      showLabel={true}
+                      label="Chance"
+                      className="whitespace-nowrap"
+                    />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -188,20 +194,24 @@ const BestBid: React.FC<BestBidProps> = ({
                       <div>
                         <div className="flex items-baseline justify-between">
                           <span className="align-baseline">
-                            <span className="font-mono font-semibold text-brand-white">
+                            <span className="font-mono text-brand-white">
                               {takerStr} {collateralAssetTicker}
                             </span>{' '}
+                            <br className="sm:hidden" />
                             <span className="text-muted-foreground">
                               to win
                             </span>{' '}
-                            <span className="font-mono font-semibold text-brand-white">
+                            <span className="font-mono text-brand-white">
                               {toWinDisplay} {collateralAssetTicker}
                             </span>
                           </span>
                           {typeof pct === 'number' ? (
-                            <span className="font-mono text-brand-white">
-                              {pct}% Chance
-                            </span>
+                            <PercentChance
+                              probability={pct / 100}
+                              showLabel={true}
+                              label="Chance"
+                              className="font-mono text-brand-white whitespace-nowrap"
+                            />
                           ) : (
                             <span />
                           )}

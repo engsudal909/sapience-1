@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import NumberDisplay from '~/components/shared/NumberDisplay';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 type Props = {
   value: number | null | undefined;
@@ -9,7 +10,7 @@ type Props = {
   pct?: number | null | undefined;
   className?: string;
   textSize?: string; // e.g., 'text-[11px]' or 'text-xs'
-  label?: string; // defaults to 'To win: '
+  label?: React.ReactNode; // defaults to 'To win: '
   asInline?: boolean; // when true, renders inline (span)
 };
 
@@ -33,7 +34,9 @@ const ToWinLine: React.FC<Props> = ({
         {isFiniteNumber ? <NumberDisplay value={value as number} /> : '—'}
         {ticker ? ` ${ticker}` : ''}
       </span>
-      {typeof pct === 'number' ? <span> ({pct}% Chance)</span> : null}
+      {typeof pct === 'number' ? (
+        <span> ({formatPercentChance(pct / 100)} Chance)</span>
+      ) : null}
     </Container>
   );
 };
