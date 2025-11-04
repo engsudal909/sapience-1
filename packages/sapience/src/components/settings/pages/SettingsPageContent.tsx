@@ -43,6 +43,7 @@ type SettingFieldProps = {
   clearOnEmpty?: boolean;
   maskAfterPersist?: boolean;
   disabled?: boolean;
+  showResetButton?: boolean;
 };
 
 const SettingField = ({
@@ -59,6 +60,7 @@ const SettingField = ({
   clearOnEmpty = true,
   maskAfterPersist = false,
   disabled = false,
+  showResetButton = true,
 }: SettingFieldProps) => {
   const [draft, setDraft] = useState<string>(value);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -112,7 +114,7 @@ const SettingField = ({
     }
   };
 
-  const showReset = draft !== defaultValue;
+  const showReset = showResetButton && draft !== defaultValue;
 
   return (
     <div className="w-full">
@@ -191,6 +193,10 @@ const SettingsPageContent = () => {
   const [activeTab, setActiveTab] = useState<
     'network' | 'appearance' | 'agent'
   >('network');
+  const [selectedChain, setSelectedChain] = useState<'arbitrum' | 'ethereal'>(
+    'arbitrum'
+  );
+  const [isEtherealEnabled, setIsEtherealEnabled] = useState(false);
   const { ready, exportWallet } = usePrivy();
   const { wallets } = useWallets();
   const activeWallet = (
@@ -226,6 +232,46 @@ const SettingsPageContent = () => {
     window.addEventListener('hashchange', syncFromHash);
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
+
+  // Feature flag: enable chain switcher when URL includes `ethereal=true` (or 1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = (params.get('ethereal') || '').toLowerCase();
+      setIsEtherealEnabled(raw === 'true' || raw === '1');
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  // If the flag is off while Ethereal is selected, revert to Arbitrum
+  useEffect(() => {
+    if (!isEtherealEnabled && selectedChain === 'ethereal') {
+      setSelectedChain('arbitrum');
+    }
+  }, [isEtherealEnabled, selectedChain]);
+
+  // Update RPC input and store chain id when the chain selection changes
+  useEffect(() => {
+    const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
+    try {
+      if (selectedChain === 'ethereal') {
+        setRpcInput(ETHEREAL_RPC);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('sapience.settings.chainId', '5064014');
+        }
+      } else {
+        setRpcInput(arbitrumRpcUrl ?? defaults.arbitrumRpcUrl);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('sapience.settings.chainId', '42161');
+        }
+      }
+    } catch {
+      // no-op
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChain, arbitrumRpcUrl]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -303,13 +349,9 @@ const SettingsPageContent = () => {
         </h1>
 
         {!hydrated ? (
-          <Card>
-            <CardContent className="px-6 py-8">
-              <div className="h-[720px] flex items-center justify-center">
-                <LottieLoader width={48} height={48} />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="h-[720px] flex items-center justify-center">
+            <LottieLoader width={48} height={48} />
+          </div>
         ) : (
           <Tabs
             value={activeTab}
@@ -360,6 +402,30 @@ const SettingsPageContent = () => {
                 <CardContent className="p-8">
                   <div className="space-y-6">
                     <div className="grid gap-2">
+                      <Label htmlFor="chain-selector">Chain</Label>
+                      <div id="chain-selector">
+                        <Tabs
+                          value={selectedChain}
+                          onValueChange={(v) => {
+                            const next = v as 'arbitrum' | 'ethereal';
+                            if (next === 'ethereal' && !isEtherealEnabled)
+                              return;
+                            setSelectedChain(next);
+                          }}
+                        >
+                          <SegmentedTabsList>
+                            <TabsTrigger value="arbitrum">Arbitrum</TabsTrigger>
+                            <TabsTrigger
+                              value="ethereal"
+                              disabled={!isEtherealEnabled}
+                            >
+                              Ethereal
+                            </TabsTrigger>
+                          </SegmentedTabsList>
+                        </Tabs>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="ethereum-rpc-endpoint">
                         Ethereum RPC Endpoint
                       </Label>
@@ -372,18 +438,25 @@ const SettingsPageContent = () => {
                         validate={isHttpUrl}
                         normalizeOnChange={(s) => s.trim()}
                         invalidMessage="Must be an absolute http(s) URL"
+                        showResetButton={false}
                       />
                       <p className="text-xs text-muted-foreground">
-                        JSON-RPC URL for the{' '}
-                        <a
-                          href="https://chainlist.org/chain/42161"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          Arbitrum
-                        </a>{' '}
-                        network
+                        {selectedChain === 'arbitrum' ? (
+                          <>
+                            JSON-RPC URL for the{' '}
+                            <a
+                              href="https://chainlist.org/chain/42161"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Arbitrum
+                            </a>{' '}
+                            network
+                          </>
+                        ) : (
+                          <>JSON-RPC URL for the Ethereal network</>
+                        )}
                       </p>
                     </div>
 
