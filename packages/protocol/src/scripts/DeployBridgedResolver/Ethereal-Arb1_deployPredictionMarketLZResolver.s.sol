@@ -10,10 +10,10 @@ contract DeployPredictionMarketLZResolver is Script {
     function run() external {
         // Load from environment (.env/.env.local)
         address endpoint = vm.envAddress("ETHEREAL_LZ_ENDPOINT");
-        address owner = vm.envAddress("OWNER");
+        address owner = vm.envAddress("ETHEREAL_OWNER");
         uint256 maxPredictionMarkets = vm.envOr("PM_MAX_MARKETS", uint256(20));
 
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
+        vm.startBroadcast(vm.envUint("ETHEREAL_PRIVATE_KEY"));
         PredictionMarketLZResolver resolver = new PredictionMarketLZResolver(
             endpoint,
             owner,

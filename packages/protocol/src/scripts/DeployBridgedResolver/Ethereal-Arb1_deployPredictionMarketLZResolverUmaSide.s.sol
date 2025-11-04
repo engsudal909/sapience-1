@@ -10,14 +10,14 @@ contract DeployPredictionMarketLZResolverUmaSide is Script {
     function run() external {
         // Load from environment (.env/.env.local)
         address endpoint = vm.envAddress("ARB_LZ_ENDPOINT");
-        address owner = vm.envAddress("OWNER");
+        address owner = vm.envAddress("ARB_OWNER");
         address optimisticOracleV3 = vm.envAddress("UMA_OOV3");
 
         address bondCurrency = vm.envAddress("UMA_BOND_TOKEN");
         uint256 bondAmount = vm.envUint("UMA_BOND_AMOUNT");
         uint64 assertionLiveness = uint64(vm.envOr("UMA_ASSERTION_LIVENESS", uint256(3600)));
 
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
+        vm.startBroadcast(vm.envUint("ARB_PRIVATE_KEY"));
         PredictionMarketLZResolverUmaSide resolver = new PredictionMarketLZResolverUmaSide(
             endpoint,
             owner,

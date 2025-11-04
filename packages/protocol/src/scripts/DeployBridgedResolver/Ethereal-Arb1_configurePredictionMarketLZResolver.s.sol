@@ -16,7 +16,7 @@ contract ConfigurePredictionMarketLZResolver is Script {
         address umaSideResolver = vm.envAddress("UMA_SIDE_RESOLVER");
         uint32 umaSideEid = uint32(vm.envUint("UMA_SIDE_EID"));
 
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
+        vm.startBroadcast(vm.envUint("ETHEREAL_PRIVATE_KEY"));
         PredictionMarketLZResolver resolver = PredictionMarketLZResolver(payable(pmLzResolver));
 
         resolver.setBridgeConfig(
