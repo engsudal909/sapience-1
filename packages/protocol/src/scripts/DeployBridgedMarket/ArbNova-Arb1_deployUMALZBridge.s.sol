@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
-import {UMALayerZeroBridge} from "../bridge/UMALayerZeroBridge.sol";
+import {UMALayerZeroBridge} from "../../bridge/UMALayerZeroBridge.sol";
 
 contract DeployUMALZBridge is Script {
     function run() external {

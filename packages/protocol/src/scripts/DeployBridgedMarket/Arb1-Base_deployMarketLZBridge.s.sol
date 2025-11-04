@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
-import {MarketLayerZeroBridge} from "../bridge/MarketLayerZeroBridge.sol";
+import {MarketLayerZeroBridge} from "../../bridge/MarketLayerZeroBridge.sol";
 
 // Market is on Arbitrum One
 // Deploy this contract on Arbitrum One (where Market is deployed)

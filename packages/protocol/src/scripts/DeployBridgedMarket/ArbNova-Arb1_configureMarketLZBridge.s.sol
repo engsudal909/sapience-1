@@ -2,8 +2,8 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
-import {MarketLayerZeroBridge} from "../bridge/MarketLayerZeroBridge.sol";
-import {BridgeTypes} from "../bridge/BridgeTypes.sol";
+import {MarketLayerZeroBridge} from "../../bridge/MarketLayerZeroBridge.sol";
+import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 
 contract ConfigureMarketLZBridge is Script {
     function run() external {
