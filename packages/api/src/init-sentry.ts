@@ -6,6 +6,5 @@ if (config.SENTRY_DSN) {
     dsn: config.SENTRY_DSN,
     tracesSampleRate: 1.0,
   });
-} else {
-  console.log('Sentry disabled in development mode');
+  console.log('Sentry initialized');
 }
