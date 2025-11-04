@@ -396,10 +396,10 @@ const CopyMarketParametersDialog = ({
                   onValueChange={setCategoryFilter}
                 >
                   <SelectTrigger id={'cmpd-categoryFilter'} className="h-9">
-                    <SelectValue placeholder="All categories" />
+                    <SelectValue placeholder="All Focus Areas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="all">All Focus Areas</SelectItem>
                     {availableCategories.map((categoryItem) => (
                       <SelectItem
                         key={categoryItem.slug}
