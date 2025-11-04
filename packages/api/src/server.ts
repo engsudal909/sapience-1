@@ -1,17 +1,16 @@
+import './init-sentry';
+
 import 'reflect-metadata';
-import { initializeDataSource } from './db';
+import { createServer } from 'node:http';
 import { expressMiddleware } from '@apollo/server/express4';
+import * as Sentry from '@sentry/node';
+import { NextFunction, Request, Response } from 'express';
+import { initializeDataSource } from './db';
 import { createLoaders } from './graphql/loaders';
 import { app } from './app';
-import { createServer } from 'http';
 import { createAuctionWebSocketServer } from './auction/ws';
 import { createChatWebSocketServer } from './websocket/chat';
-import type { IncomingMessage } from 'http';
-import type { Socket } from 'net';
-import { initSentry } from './instrument';
 import { initializeApolloServer } from './graphql/startApolloServer';
-import Sentry from './instrument';
-import { NextFunction, Request, Response } from 'express';
 import { initializeFixtures } from './fixtures';
 import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
@@ -19,7 +18,8 @@ import { config } from './config';
 import { validateOrigin } from './utils/url';
 import { closeSocket } from './utils/socket';
 
-initSentry();
+import type { IncomingMessage } from 'node:http';
+import type { Socket } from 'node:net';
 
 const startServer = async () => {
   await initializeDataSource();

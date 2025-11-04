@@ -17,6 +17,10 @@ export const config = cleanEnv(process.env, {
   PORT: num({ default: 3001 }),
   CHAT_ALLOWED_ORIGINS: originsArray({
     default: [],
-    desc: 'Comma-separated list of Origins (scheme + host + optional port) allowed to open chat websockets. e.g.: https://www.domain.xyz,https://domain.xyz',
+    desc: 'Comma-separated list of Origins (scheme + host + optional port) allowed to open chat websockets. E.g.: https://www.domain.xyz,https://domain.xyz',
+  }),
+  SENTRY_DSN: str({
+    default: '',
+    desc: 'Sentry endpoint that should be used. E.g.: https://<sentry-public-key>.ingest.us.sentry.io/<sentry-project>',
   }),
 });
