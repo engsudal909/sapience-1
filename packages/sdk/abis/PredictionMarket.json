@@ -1,5 +1,5 @@
 {
-  "address": "0xb04841CAd1147675505816e2Ec5c915430857B40",
+  "address": "0xAcD757322df2A1A0B3283c851380f3cFd4882cB4",
   "abi": [
     {
       "type": "constructor",
@@ -333,26 +333,6 @@
               "internalType": "uint256"
             },
             {
-              "name": "resolver",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
-              "name": "maker",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
-              "name": "taker",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
-              "name": "encodedPredictedOutcomes",
-              "type": "bytes",
-              "internalType": "bytes"
-            },
-            {
               "name": "makerNftTokenId",
               "type": "uint256",
               "internalType": "uint256"
@@ -371,6 +351,26 @@
               "name": "takerCollateral",
               "type": "uint256",
               "internalType": "uint256"
+            },
+            {
+              "name": "encodedPredictedOutcomes",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "resolver",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maker",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "taker",
+              "type": "address",
+              "internalType": "address"
             },
             {
               "name": "settled",
@@ -409,16 +409,6 @@
               "internalType": "uint256"
             },
             {
-              "name": "encodedPredictedOutcomes",
-              "type": "bytes",
-              "internalType": "bytes"
-            },
-            {
-              "name": "resolver",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
               "name": "makerCollateral",
               "type": "uint256",
               "internalType": "uint256"
@@ -429,6 +419,21 @@
               "internalType": "uint256"
             },
             {
+              "name": "orderDeadline",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "encodedPredictedOutcomes",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "resolver",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
               "name": "maker",
               "type": "address",
               "internalType": "address"
@@ -437,11 +442,6 @@
               "name": "taker",
               "type": "address",
               "internalType": "address"
-            },
-            {
-              "name": "orderDeadline",
-              "type": "uint256",
-              "internalType": "uint256"
             }
           ]
         }
@@ -1511,6 +1511,11 @@
     },
     {
       "type": "error",
+      "name": "TransferInProcess",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "TransferNotAllowed",
       "inputs": []
     }
@@ -1518,17 +1523,17 @@
   "constructorArgs": [
     "Prediction Market",
     "SPM",
-    "0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA",
+    "0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D",
     "10000000000000000"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0x49aa9bcce78561dd57c45eb808fa884ab447b1fc54cbcd5a6ebb2ace348de6c1",
-  "deployTxnBlockNumber": "386456655",
-  "deployTimestamp": "1759700130",
+  "deployTxnHash": "0xa6ad7d5e1311005eef5f97c0dc04f40552fe3c7cc126d127d27f4f4a8c0c6da5",
+  "deployTxnBlockNumber": "139189",
+  "deployTimestamp": "1762258586",
   "sourceName": "src/predictionMarket/PredictionMarket.sol",
   "contractName": "PredictionMarket",
   "deployedOn": "deploy.PredictionMarket",
   "highlight": true,
-  "gasUsed": 3892720,
+  "gasUsed": 3859589,
   "gasCost": "10000000"
 }
