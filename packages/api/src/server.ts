@@ -16,6 +16,8 @@ import { initializeFixtures } from './fixtures';
 import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
 import { config } from './config';
+import { validateOrigin } from './utils/url';
+import { closeSocket } from './utils/socket';
 
 initSentry();
 
@@ -56,49 +58,41 @@ const startServer = async () => {
   httpServer.on(
     'upgrade',
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
-      try {
-        const url = request.url || '/';
-        // Origin validation for prod if configured
+      if (!request.url) return closeSocket(socket, 403);
+
+      const uri = new URL(request.url);
+
+      if (uri.pathname === '/chat') {
+        const allowedOrigins = config.CHAT_ALLOWED_ORIGINS;
+
+        // Origin validation if configured
         if (
-          url.startsWith('/chat') &&
-          !config.isDev &&
-          process.env.CHAT_ALLOWED_ORIGINS
+          allowedOrigins.length &&
+          !validateOrigin(request, config.CHAT_ALLOWED_ORIGINS)
         ) {
-          const origin = request.headers['origin'] as string | undefined;
-          const allowed = new Set(
-            process.env.CHAT_ALLOWED_ORIGINS.split(',').map((s) => s.trim())
-          );
-          if (!origin || !Array.from(allowed).some((o) => origin === o)) {
-            try {
-              socket.destroy();
-            } catch {
-              /* ignore */
-            }
-            return;
-          }
+          return closeSocket(socket, 401);
         }
-        if (auctionWsEnabled && url.startsWith('/auction') && auctionWss) {
+
+        chatWss.handleUpgrade(request, socket, head, (ws) => {
+          chatWss.emit('connection', ws, request);
+        });
+
+        return;
+      }
+
+      if (uri.pathname === '/auction') {
+        if (auctionWsEnabled && auctionWss) {
           auctionWss.handleUpgrade(request, socket, head, (ws) => {
             auctionWss.emit('connection', ws, request);
           });
-          return;
+        } else {
+          closeSocket(socket, 410);
         }
-        if (url.startsWith('/chat')) {
-          chatWss.handleUpgrade(request, socket, head, (ws) => {
-            chatWss.emit('connection', ws, request);
-          });
-          return;
-        }
-        // Deprecated: /vault-quotes is no longer used; multiplexed on /auction
-      } catch {
-        /* ignore */
+
+        return;
       }
-      // If not handled, destroy the socket
-      try {
-        socket.destroy();
-      } catch {
-        /* ignore */
-      }
+
+      return closeSocket(socket, 404);
     }
   );
 
@@ -109,7 +103,6 @@ const startServer = async () => {
     console.log(`Chat WebSocket endpoint at /chat`);
   });
 
-  // Only set up Sentry error handling in production
   if (config.isProd) {
     Sentry.setupExpressErrorHandler(app);
   }

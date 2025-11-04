@@ -1,6 +1,7 @@
 import { cleanEnv, str, num } from 'envalid';
 import { config as dotEnvConfig } from 'dotenv';
 import { fromRoot } from './utils/fromRoot';
+import { originsArray } from './utils/configTypes';
 
 dotEnvConfig({ path: fromRoot('.env') });
 
@@ -13,7 +14,9 @@ export const config = cleanEnv(process.env, {
     choices: ['development', 'production', 'test'],
     default: 'development',
   }),
-  PORT: num({
-    default: 3001,
+  PORT: num({ default: 3001 }),
+  CHAT_ALLOWED_ORIGINS: originsArray({
+    default: [],
+    desc: 'Comma-separated list of Origins (scheme + host + optional port) allowed to open chat websockets. e.g.: https://www.domain.xyz,https://domain.xyz',
   }),
 });
