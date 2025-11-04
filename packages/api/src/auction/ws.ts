@@ -9,7 +9,7 @@ import {
   PREDICTION_MARKET_ADDRESS_ARB1,
   PREDICTION_MARKET_CHAIN_ID_ARB1,
 } from '../constants';
-import Sentry from '../instrument';
+import * as Sentry from '@sentry/node';
 import type {
   BotToServerMessage,
   ClientToServerMessage,

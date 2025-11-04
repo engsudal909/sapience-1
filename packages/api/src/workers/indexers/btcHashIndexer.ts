@@ -1,7 +1,7 @@
 import { IResourcePriceIndexer } from '../../interfaces';
 import prisma from '../../db';
 import axios from 'axios';
-import Sentry from '../../instrument';
+import * as Sentry from '@sentry/node';
 
 interface PriceData {
   timestamp: Date;

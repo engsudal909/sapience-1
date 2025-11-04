@@ -2,7 +2,7 @@ import { IResourcePriceIndexer } from '../../interfaces';
 import type { Resource } from '../../../generated/prisma';
 import prisma from '../../db';
 import axios from 'axios';
-import Sentry from '../../instrument';
+import * as Sentry from '@sentry/node';
 
 interface BlockData {
   height: number;

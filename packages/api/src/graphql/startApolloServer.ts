@@ -9,7 +9,7 @@ import responseCachePlugin from '@apollo/server-plugin-response-cache';
 import depthLimit from 'graphql-depth-limit';
 import { createComplexityLimitRule } from 'graphql-validation-complexity';
 import { config } from '../config';
-import Sentry from '../instrument';
+import * as Sentry from '@sentry/node';
 
 // Import only the query (read-only) resolvers from generated TypeGraphQL
 import {
