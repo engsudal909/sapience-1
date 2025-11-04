@@ -9,12 +9,14 @@ set -euo pipefail
 #   UMA_SIDE_EID       - Arbitrum One LayerZero EID (e.g., 30110)
 #   PM_SIDE_EID        - Ethereal LayerZero EID
 
-# Resolve directories relative to current working directory
-SCRIPTS_DIR=$(pwd -P)
-BROADCAST_DIR="$SCRIPTS_DIR/broadcast"
+# Resolve directories relative to script location and protocol root
+SCRIPT_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+SCRIPTS_DIR="$SCRIPT_PATH"
+PROTOCOL_DIR=$(cd "$SCRIPT_PATH/../../.." && pwd -P)
+BROADCAST_DIR="$PROTOCOL_DIR/broadcast"
 
 # Load .env files from packages/protocol before validating env
-ENV_DIR="$SCRIPTS_DIR"
+ENV_DIR="$PROTOCOL_DIR"
 if [[ -f "$ENV_DIR/.env.deployments" ]]; then
   echo "Loading environment from $ENV_DIR/.env*"
   set -a
@@ -58,22 +60,13 @@ export ARB_OWNER=0x...
 # export UMA_ASSERTION_LIVENESS=3600
 # export UMA_ASSERTER=0x...
 
-cd packages/protocol/src/scripts/DeployBridgedResolver
-bash Ethereal-Arb1_all.sh
+# Run from packages/protocol:
+bash src/scripts/DeployBridgedResolver/Ethereal-Arb1_all.sh
 USAGE
   exit 1
 fi
 
-# Ensure running from packages/protocol/src/scripts/DeployBridgedResolver
-if [[ ! -f "Ethereal-Arb1_all.sh" ]]; then
-  cat >&2 <<'USAGE'
-Please run from packages/protocol/src/scripts/DeployBridgedResolver
-
-cd packages/protocol/src/scripts/DeployBridgedResolver
-bash Ethereal-Arb1_all.sh
-USAGE
-  exit 1
-fi
+# Script can now be run from any directory - paths are resolved dynamically
 
 need() {
   command -v "$1" >/dev/null 2>&1 || { echo "Missing dependency: $1" >&2; exit 1; }
@@ -82,12 +75,11 @@ need() {
 need jq
 
 echo "[1/4] Deploy PM LZ Resolver on Ethereal"
-forge script \
+(cd "$SCRIPTS_DIR" && forge script \
   Ethereal-Arb1_deployPredictionMarketLZResolver.s.sol \
   --rpc-url "$ETHEREAL_RPC" \
   --broadcast \
-  --private-key "$ETHEREAL_PRIVATE_KEY" \
-  --verify
+  --private-key "$ETHEREAL_PRIVATE_KEY" )
 
 # Extract PM resolver address from broadcast JSON
 PM_RUN_JSON=$(ls -td "$BROADCAST_DIR"/Ethereal-Arb1_deployPredictionMarketLZResolver.s.sol/*/run-latest.json 2>/dev/null | head -n1)
@@ -99,12 +91,11 @@ fi
 echo "PM_LZ_RESOLVER=$PM_LZ_RESOLVER"
 
 echo "[2/4] Deploy UMA-side Resolver on Arbitrum"
-forge script \
+(cd "$SCRIPTS_DIR" && forge script \
   Ethereal-Arb1_deployPredictionMarketLZResolverUmaSide.s.sol \
   --rpc-url "$ARB_RPC" \
   --broadcast \
-  --private-key "$ARB_PRIVATE_KEY" \
-  --verify
+  --private-key "$ARB_PRIVATE_KEY" )
 
 # Extract UMA-side resolver address from broadcast JSON
 UMA_RUN_JSON=$(ls -td "$BROADCAST_DIR"/Ethereal-Arb1_deployPredictionMarketLZResolverUmaSide.s.sol/*/run-latest.json 2>/dev/null | head -n1)
@@ -118,18 +109,18 @@ echo "UMA_SIDE_RESOLVER=$UMA_SIDE_RESOLVER"
 # EIDs are required and already validated above
 
 echo "[3/4] Configure PM LZ Resolver on Ethereal"
-forge script \
+(cd "$SCRIPTS_DIR" && forge script \
   Ethereal-Arb1_configurePredictionMarketLZResolver.s.sol \
   --rpc-url "$ETHEREAL_RPC" \
   --private-key "$ETHEREAL_PRIVATE_KEY" \
-  --broadcast
+  --broadcast)
 
 echo "[4/4] Configure UMA-side Resolver on Arbitrum"
-forge script \
+(cd "$SCRIPTS_DIR" && forge script \
   Ethereal-Arb1_configurePredictionMarketLZResolverUmaSide.s.sol \
   --rpc-url "$ARB_RPC" \
   --private-key "$ARB_PRIVATE_KEY" \
-  --broadcast
+  --broadcast)
 
 echo "Done."
 
