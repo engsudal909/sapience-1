@@ -56,7 +56,7 @@ const converge = {
 } as const satisfies Chain;
 
 const useWagmiConfig = () => {
-  const { arbitrumRpcUrl } = useSettings();
+  const { rpcURL: arbitrumRpcUrl } = useSettings();
 
   const config = useMemo(() => {
     const transports: Record<number, HttpTransport> = {
