@@ -937,7 +937,7 @@ const Betslip = ({
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm"
+                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm relative -top-0.5"
                   onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
                   title="Reset"
                 >
@@ -985,7 +985,7 @@ const Betslip = ({
                   <Button
                     variant="ghost"
                     size="xs"
-                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm"
+                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm relative -top-0.5"
                     onClick={
                       isParlayMode ? clearParlaySelections : clearBetSlip
                     }

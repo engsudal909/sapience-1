@@ -29,6 +29,31 @@ export async function reindexPredictionMarket(
         `[PredictionMarket Reindex] Clearing existing parlay and prediction market event data for chain ${chainId}`
       );
 
+      const predictionMarketEvents = await prisma.event.findMany({
+        where: {
+          marketGroupId: null,
+          logData: {
+            path: ['eventType'],
+            string_contains: 'Prediction',
+          },
+        },
+        select: { id: true },
+      });
+
+      const eventIds = predictionMarketEvents.map((e) => e.id);
+
+      if (eventIds.length > 0) {
+        // Delete transactions that reference these events
+        const deletedTransactions = await prisma.transaction.deleteMany({
+          where: {
+            eventId: { in: eventIds },
+          },
+        });
+        console.log(
+          `[PredictionMarket Reindex] Deleted ${deletedTransactions.count} transactions referencing prediction market events`
+        );
+      }
+
       // Delete parlays for this chain
       const deletedParlays = await prisma.parlay.deleteMany({
         where: { chainId },

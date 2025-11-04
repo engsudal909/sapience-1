@@ -37,6 +37,7 @@ import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
 import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/lib/types';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 interface MarketGroupChartProps {
   chainShortName: string;
@@ -242,7 +243,7 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
 
         return (
           <Badge variant={variant as any} className={className}>
-            {`${percentage}% Chance`}
+            {`${formatPercentChance(percentage / 100)} Chance`}
           </Badge>
         );
       } catch (_) {
@@ -511,9 +512,8 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
               ticks={dailyTicks}
               axisLine={{ stroke: 'hsl(var(--border))' }}
               tickLine={false}
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
               tickFormatter={formatTimestampCompact}
-              fontSize={12}
               minTickGap={24}
               dy={10} // Adjust vertical position of ticks
               domain={
@@ -541,9 +541,8 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
               tickFormatter={yAxisConfig.tickFormatter}
-              fontSize={12}
               dx={0}
               domain={yAxisConfig.domain}
               width={40}
