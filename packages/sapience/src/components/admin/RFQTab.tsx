@@ -124,17 +124,12 @@ const RFQTab = ({
   const currentChainId = getChainIdFromLocalStorage();
   const currentChainName = currentChainId === 5064014 ? 'Ethereal' : 'Arbitrum';
 
-  console.log('[RFQTab] Current chainId from localStorage:', currentChainId);
-  console.log('[RFQTab] Current chainName:', currentChainName);
 
   const { data: conditions, isLoading, refetch } = useConditions({
     take: 200,
     chainId: currentChainId,
   });
 
-  console.log('[RFQTab] Conditions data:', conditions);
-  console.log('[RFQTab] Number of conditions:', conditions?.length ?? 0);
-  console.log('[RFQTab] Is loading:', isLoading);
 
   const [question, setQuestion] = useState('');
   const [shortName, setShortName] = useState('');
