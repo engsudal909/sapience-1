@@ -67,6 +67,7 @@ type RFQRow = {
   claimStatement: string;
   description: string;
   similarMarketUrls?: string[];
+  chainId?: number;
 };
 
 type CSVRow = {
@@ -108,7 +109,32 @@ const RFQTab = ({
   const { toast } = useToast();
   const { postJson, putJson } = useAdminApi();
   const { data: categories } = useCategories();
-  const { data: conditions, isLoading, refetch } = useConditions({ take: 200 });
+  
+  // Read chainId from localStorage
+  const getChainIdFromLocalStorage = (): number => {
+    if (typeof window === 'undefined') return 42161;
+    try {
+      const stored = window.localStorage.getItem('sapience.settings.chainId');
+      return stored ? parseInt(stored, 10) : 42161;
+    } catch {
+      return 42161;
+    }
+  };
+
+  const currentChainId = getChainIdFromLocalStorage();
+  const currentChainName = currentChainId === 5064014 ? 'Ethereal' : 'Arbitrum';
+
+  console.log('[RFQTab] Current chainId from localStorage:', currentChainId);
+  console.log('[RFQTab] Current chainName:', currentChainName);
+
+  const { data: conditions, isLoading, refetch } = useConditions({
+    take: 200,
+    chainId: currentChainId,
+  });
+
+  console.log('[RFQTab] Conditions data:', conditions);
+  console.log('[RFQTab] Number of conditions:', conditions?.length ?? 0);
+  console.log('[RFQTab] Is loading:', isLoading);
 
   const [question, setQuestion] = useState('');
   const [shortName, setShortName] = useState('');
@@ -119,6 +145,7 @@ const RFQTab = ({
   const [description, setDescription] = useState('');
   const [similarMarketsText, setSimilarMarketsText] = useState('');
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [editingChainId, setEditingChainId] = useState<number | undefined>(undefined);
   const [filter, setFilter] = useState<ConditionFilter>('all');
 
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
@@ -194,6 +221,7 @@ const RFQTab = ({
     setDescription('');
     setSimilarMarketsText('');
     setEditingId(undefined);
+    setEditingChainId(undefined);
   };
 
   // CSV Import helper functions
@@ -536,6 +564,20 @@ const RFQTab = ({
         size: 120,
       },
       {
+        header: 'Chain',
+        accessorKey: 'chainId',
+        size: 100,
+        cell: ({ getValue }) => {
+          const chainId = getValue() as number;
+          const chainName = chainId === 5064014 ? 'Ethereal' : 'Arbitrum';
+          return (
+            <Badge variant="outline" className="whitespace-nowrap">
+              {chainName}
+            </Badge>
+          );
+        },
+      },
+      {
         header: 'Public',
         accessorKey: 'public',
         size: 80,
@@ -616,6 +658,7 @@ const RFQTab = ({
                 size="sm"
                 onClick={() => {
                   setEditingId(id);
+                  setEditingChainId(original.chainId ?? 42161);
                   setQuestion(original.question || '');
                   setShortName(original.shortName || '');
                   setCategorySlug(original.category?.slug || '');
@@ -660,6 +703,7 @@ const RFQTab = ({
         claimStatement: c.claimStatement,
         description: c.description,
         similarMarketUrls: c.similarMarkets,
+        chainId: c.chainId,
         _isSettled: isSettled,
         _hasData: settlementResult?.status === 'success',
       };
@@ -723,6 +767,7 @@ const RFQTab = ({
           claimStatement,
           description,
           similarMarkets,
+          chainId: currentChainId,
         };
         await postJson<RFQRow>(`/conditions`, body);
         // Refresh list to reflect server state and close the modal
@@ -993,6 +1038,20 @@ const RFQTab = ({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Chain</label>
+              <Input
+                value={
+                  editingId
+                    ? editingChainId === 5064014
+                      ? 'Ethereal'
+                      : 'Arbitrum'
+                    : currentChainName
+                }
+                disabled
+                readOnly
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">End Time (UTC)</label>
