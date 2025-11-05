@@ -51,7 +51,6 @@ export const useConditions = (opts?: {
   const skip = opts?.skip ?? 0;
   const chainId = opts?.chainId;
   
-  console.log('[useConditions] Query options:', { take, skip, chainId });
   
   return useQuery<ConditionType[], Error>({
     queryKey: ['conditions', take, skip, chainId],
@@ -66,9 +65,6 @@ export const useConditions = (opts?: {
       console.log('[useConditions] GraphQL variables:', variables);
       
       const data = await graphqlRequest<ConditionsQueryResult>(GET_CONDITIONS, variables);
-      
-      console.log('[useConditions] GraphQL response:', data);
-      console.log('[useConditions] Conditions returned:', data.conditions?.length ?? 0);
       
       return data.conditions ?? [];
     },
