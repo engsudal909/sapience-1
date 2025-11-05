@@ -126,7 +126,7 @@ const RFQTab = ({
 
 
   const { data: conditions, isLoading, refetch } = useConditions({
-    take: 200,
+    take: 500,
     chainId: currentChainId,
   });
 
@@ -142,6 +142,7 @@ const RFQTab = ({
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [editingChainId, setEditingChainId] = useState<number | undefined>(undefined);
   const [filter, setFilter] = useState<ConditionFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
   const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
@@ -706,30 +707,30 @@ const RFQTab = ({
 
     // Filter based on selected filter
     const filtered = mapped.filter((row) => {
-      if (filter === 'all') return true;
+      let passesSettlementFilter = true;
+      if (filter !== 'all') {
+        const isPastEnd = !!(row.endTime && row.endTime <= now);
+        const isUpcoming = !!(row.endTime && row.endTime > now);
 
-      const isPastEnd = row.endTime && row.endTime <= now;
-      const isUpcoming = row.endTime && row.endTime > now;
-
-      if (filter === 'needs-settlement') {
-        // Show only: past end + have settlement data + NOT settled
-        return isPastEnd && row._hasData && row._isSettled === false;
+        if (filter === 'needs-settlement') {
+          passesSettlementFilter = isPastEnd && row._hasData && row._isSettled === false;
+        } else if (filter === 'upcoming') {
+          passesSettlementFilter = isUpcoming;
+        } else if (filter === 'settled') {
+          passesSettlementFilter = row._isSettled === true;
+        }
       }
 
-      if (filter === 'upcoming') {
-        return isUpcoming;
+      let passesCategoryFilter = true;
+      if (categoryFilter !== 'all') {
+        passesCategoryFilter = row.category?.slug === categoryFilter;
       }
 
-      if (filter === 'settled') {
-        // Show only: explicitly settled (regardless of end time)
-        return row._isSettled === true;
-      }
-
-      return true;
+      return passesSettlementFilter && passesCategoryFilter;
     });
 
     return filtered;
-  }, [conditions, filter, settlementData]);
+  }, [conditions, filter, categoryFilter, settlementData]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -786,8 +787,8 @@ const RFQTab = ({
     <div className="space-y-4">
       {/* Filter and Import Controls */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Filter:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">Settlement:</span>
           <Select
             value={filter}
             onValueChange={(value) => setFilter(value as ConditionFilter)}
@@ -802,7 +803,26 @@ const RFQTab = ({
               <SelectItem value="settled">Settled</SelectItem>
             </SelectContent>
           </Select>
-          {filter !== 'all' && (
+          
+          <span className="text-sm font-medium">Category:</span>
+          <Select
+            value={categoryFilter}
+            onValueChange={(value) => setCategoryFilter(value)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories?.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {(filter !== 'all' || categoryFilter !== 'all') && (
             <span className="text-sm text-muted-foreground">
               ({rows.length} {rows.length === 1 ? 'condition' : 'conditions'})
             </span>
