@@ -447,6 +447,7 @@ model Condition {
   claimStatement String    @db.VarChar
   description    String    @db.Text
   similarMarkets String[]  @default([])
+  chainId        Int       @default(42161)
 
   @@index([categoryId])
   @@index([endTime])

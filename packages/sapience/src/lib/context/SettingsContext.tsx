@@ -16,7 +16,7 @@ type SettingsContextValue = {
   quoterBaseUrl: string | null;
   chatBaseUrl: string | null;
   adminBaseUrl: string | null;
-  arbitrumRpcUrl: string | null;
+  rpcURL: string | null;
   // Research Agent settings
   openrouterApiKey: string | null;
   researchAgentSystemMessage: string | null;
@@ -29,7 +29,7 @@ type SettingsContextValue = {
   setQuoterBaseUrl: (value: string | null) => void;
   setChatBaseUrl: (value: string | null) => void;
   setAdminBaseUrl: (value: string | null) => void;
-  setArbitrumRpcUrl: (value: string | null) => void;
+  setRpcUrl: (value: string | null) => void;
   setOpenrouterApiKey: (value: string | null) => void;
   setResearchAgentSystemMessage: (value: string | null) => void;
   setResearchAgentModel: (value: string | null) => void;
@@ -41,7 +41,7 @@ type SettingsContextValue = {
     quoterBaseUrl: string;
     chatBaseUrl: string;
     adminBaseUrl: string;
-    arbitrumRpcUrl: string;
+    rpcURL: string;
     researchAgentSystemMessage: string;
     researchAgentModel: string;
     researchAgentTemperature: number;
@@ -55,7 +55,7 @@ const STORAGE_KEYS = {
   quoter: 'sapience.settings.quoterBaseUrl',
   chat: 'sapience.settings.chatBaseUrl',
   admin: 'sapience.settings.adminBaseUrl',
-  arbitrum: 'sapience.settings.arbitrumRpcUrl',
+  rpcURL: 'sapience.settings.rpcURL',
   openrouterApiKey: 'sapience.settings.openrouterApiKey',
   researchAgentSystemMessage: 'sapience.settings.researchAgentSystemMessage',
   researchAgentModel: 'sapience.settings.researchAgentModel',
@@ -142,7 +142,7 @@ function getDefaultAdminBase(): string {
   }
 }
 
-function getDefaultArbitrumRpcUrl(): string {
+function getDefaultRpcURL(): string {
   const infuraKey = process.env.NEXT_PUBLIC_INFURA_API_KEY;
   return infuraKey
     ? `https://arbitrum-mainnet.infura.io/v3/${infuraKey}`
@@ -167,9 +167,7 @@ export const SettingsProvider = ({
   const [adminBaseOverride, setAdminBaseOverride] = useState<string | null>(
     null
   );
-  const [arbitrumRpcOverride, setArbitrumRpcOverride] = useState<string | null>(
-    null
-  );
+  const [rpcOverride, setRpcOverride] = useState<string | null>(null);
   const [openrouterApiKeyOverride, setOpenrouterApiKeyOverride] = useState<
     string | null
   >(null);
@@ -214,7 +212,7 @@ export const SettingsProvider = ({
           : null;
       const r =
         typeof window !== 'undefined'
-          ? window.localStorage.getItem(STORAGE_KEYS.arbitrum)
+          ? window.localStorage.getItem(STORAGE_KEYS.rpcURL)
           : null;
       const ork =
         typeof window !== 'undefined'
@@ -245,7 +243,7 @@ export const SettingsProvider = ({
         setChatBaseOverride(normalizeBaseUrlPreservePath(c));
       if (admin && isHttpUrl(admin))
         setAdminBaseOverride(normalizeBaseUrlPreservePath(admin));
-      if (r && isHttpUrl(r)) setArbitrumRpcOverride(r);
+      if (r && isHttpUrl(r)) setRpcOverride(r);
       if (ork) setOpenrouterApiKeyOverride(ork);
       if (rsm) setResearchAgentSystemMessageOverride(rsm);
       if (rmodel) setResearchAgentModelOverride(rmodel);
@@ -272,7 +270,7 @@ export const SettingsProvider = ({
       quoterBaseUrl: getDefaultQuoterBase(),
       chatBaseUrl: getDefaultChatBase(),
       adminBaseUrl: getDefaultAdminBase(),
-      arbitrumRpcUrl: getDefaultArbitrumRpcUrl(),
+      rpcURL: getDefaultRpcURL(),
       researchAgentSystemMessage:
         'You are an expert researcher assisting a prediction market participant via chat. You are friendly, smart, curious, succinct, and analytical. You proactively search the web for the most recent information relevant to the questions being discussed.',
       researchAgentModel: 'anthropic/claude-sonnet-4:online',
@@ -311,9 +309,7 @@ export const SettingsProvider = ({
   const adminBaseUrl = mounted
     ? adminBaseOverride || defaults.adminBaseUrl
     : null;
-  const arbitrumRpcUrl = mounted
-    ? arbitrumRpcOverride || defaults.arbitrumRpcUrl
-    : null;
+  const rpcURL = mounted ? rpcOverride || defaults.rpcURL : null;
   const openrouterApiKey = mounted ? openrouterApiKeyOverride || '' : null;
   const researchAgentSystemMessage = mounted
     ? researchAgentSystemMessageOverride || defaults.researchAgentSystemMessage
@@ -413,18 +409,18 @@ export const SettingsProvider = ({
     }
   }, []);
 
-  const setArbitrumRpcUrl = useCallback((value: string | null) => {
+  const setRpcUrl = useCallback((value: string | null) => {
     try {
       if (typeof window === 'undefined') return;
       if (!value) {
-        window.localStorage.removeItem(STORAGE_KEYS.arbitrum);
-        setArbitrumRpcOverride(null);
+        window.localStorage.removeItem(STORAGE_KEYS.rpcURL);
+        setRpcOverride(null);
         return;
       }
       const v = value.trim();
       if (!isHttpUrl(v)) return;
-      window.localStorage.setItem(STORAGE_KEYS.arbitrum, v);
-      setArbitrumRpcOverride(v);
+      window.localStorage.setItem(STORAGE_KEYS.rpcURL, v);
+      setRpcOverride(v);
     } catch {
       /* noop */
     }
@@ -521,7 +517,7 @@ export const SettingsProvider = ({
     quoterBaseUrl,
     chatBaseUrl,
     adminBaseUrl,
-    arbitrumRpcUrl,
+    rpcURL,
     openrouterApiKey,
     researchAgentSystemMessage,
     researchAgentModel,
@@ -532,7 +528,7 @@ export const SettingsProvider = ({
     setQuoterBaseUrl,
     setChatBaseUrl,
     setAdminBaseUrl,
-    setArbitrumRpcUrl,
+    setRpcUrl,
     setOpenrouterApiKey,
     setResearchAgentSystemMessage,
     setResearchAgentModel,
@@ -588,8 +584,8 @@ export const settingsStorage = {
     const v = this.read('graphql');
     return v || null;
   },
-  getArbitrumRpcUrl(): string | null {
-    const v = this.read('arbitrum');
+  getRpcUrl(): string | null {
+    const v = this.read('rpcURL');
     return v || null;
   },
 };
