@@ -1,16 +1,10 @@
-import dotenv from 'dotenv';
-import path from 'path';
 import type { Request, Response, NextFunction } from 'express';
 import { recoverMessageAddress } from 'viem';
+import { config } from './config';
 
 // TODO: Update monorepo structure so that we can import this from packages/app/src/lib/constants/constants.ts
 const ADMIN_AUTHENTICATE_MSG =
   'Sign this message to authenticate for admin actions.';
-
-// Load environment variables
-dotenv.config({
-  path: path.resolve(new URL('.', import.meta.url).pathname, '../.env'),
-});
 const ALLOWED_ADDRESSES =
   process.env.ALLOWED_ADDRESSES?.split(',').map((a) => a.toLowerCase()) || [];
 const MESSAGE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -60,11 +54,8 @@ export async function adminAuth(
   res: Response,
   next: NextFunction
 ) {
-  const isProductionOrStaging =
-    process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging';
-
   // In local development, skip admin auth checks
-  if (!isProductionOrStaging) {
+  if (!config.isProd) {
     return next();
   }
 

@@ -15,19 +15,22 @@ import { Textarea } from '@sapience/sdk/ui/components/ui/textarea';
 import { Switch } from '@sapience/sdk/ui/components/ui/switch';
 import {
   Tabs,
-  TabsList,
   TabsTrigger,
   TabsContent,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useChat } from '~/lib/context/ChatContext';
 import { useSettings } from '~/lib/context/SettingsContext';
 import LottieLoader from '~/components/shared/LottieLoader';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
+
+export const CHAIN_ID_ARBITRUM = '42161';
+export const CHAIN_ID_ETHEREAL = '5064014';
 
 type SettingFieldProps = {
   id: string;
@@ -43,6 +46,7 @@ type SettingFieldProps = {
   clearOnEmpty?: boolean;
   maskAfterPersist?: boolean;
   disabled?: boolean;
+  showResetButton?: boolean;
 };
 
 const SettingField = ({
@@ -59,6 +63,7 @@ const SettingField = ({
   clearOnEmpty = true,
   maskAfterPersist = false,
   disabled = false,
+  showResetButton = true,
 }: SettingFieldProps) => {
   const [draft, setDraft] = useState<string>(value);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -112,7 +117,7 @@ const SettingField = ({
     }
   };
 
-  const showReset = draft !== defaultValue;
+  const showReset = showResetButton && draft !== defaultValue;
 
   return (
     <div className="w-full">
@@ -154,13 +159,12 @@ const SettingField = ({
 
 const SettingsPageContent = () => {
   const { openChat } = useChat();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const {
     graphqlEndpoint,
     apiBaseUrl,
     quoterBaseUrl,
     chatBaseUrl,
-    arbitrumRpcUrl,
+    rpcURL,
     openrouterApiKey,
     researchAgentSystemMessage,
     researchAgentModel,
@@ -170,7 +174,7 @@ const SettingsPageContent = () => {
     setApiBaseUrl,
     setQuoterBaseUrl,
     setChatBaseUrl,
-    setArbitrumRpcUrl,
+    setRpcUrl,
     setOpenrouterApiKey,
     setResearchAgentSystemMessage,
     setResearchAgentModel,
@@ -192,6 +196,10 @@ const SettingsPageContent = () => {
   const [activeTab, setActiveTab] = useState<
     'network' | 'appearance' | 'agent'
   >('network');
+  const [selectedChain, setSelectedChain] = useState<
+    'arbitrum' | 'ethereal' | null
+  >(null);
+  const [isEtherealEnabled, setIsEtherealEnabled] = useState(false);
   const { ready, exportWallet } = usePrivy();
   const { wallets } = useWallets();
   const activeWallet = (
@@ -204,6 +212,78 @@ const SettingsPageContent = () => {
 
   // Validation hints handled within SettingField to avoid parent re-renders breaking focus
   const [hydrated, setHydrated] = useState(false);
+
+  // Initialize selectedChain from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const chainIdLocalStorage = window.localStorage.getItem(
+      'sapience.settings.chainId'
+    );
+    if (chainIdLocalStorage === CHAIN_ID_ETHEREAL) {
+      setSelectedChain('ethereal');
+    } else {
+      setSelectedChain('arbitrum');
+    }
+    console.log(
+      'window.localStorage.getItem(sapience.settings.rpcURL)',
+      window.localStorage.getItem('sapience.settings.rpcURL')
+    );
+    setRpcInput(
+      window.localStorage.getItem('sapience.settings.rpcURL') || defaults.rpcURL
+    );
+  }, []);
+
+  // If the flag is off while Ethereal is selected, revert to Arbitrum
+  useEffect(() => {
+    if (!isEtherealEnabled && selectedChain === 'ethereal') {
+      setSelectedChain('arbitrum');
+    }
+  }, [isEtherealEnabled, selectedChain]);
+
+  // Update RPC input and store chain id when the chain selection changes
+  useEffect(() => {
+    const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
+    if (typeof window === 'undefined' || !selectedChain) return;
+
+    try {
+      if (selectedChain === 'ethereal') {
+        setRpcInput(ETHEREAL_RPC);
+        window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_RPC);
+        window.localStorage.setItem(
+          'sapience.settings.chainId',
+          CHAIN_ID_ETHEREAL
+        );
+      } else {
+        console.log(defaults.rpcURL);
+        if (
+          window.localStorage.getItem('sapience.settings.rpcURL') !==
+          defaults.rpcURL
+        ) {
+          setRpcInput(defaults.rpcURL);
+          window.localStorage.setItem(
+            'sapience.settings.rpcURL',
+            defaults.rpcURL
+          );
+        }
+        window.localStorage.setItem(
+          'sapience.settings.chainId',
+          CHAIN_ID_ARBITRUM
+        );
+      }
+    } catch (e) {
+      console.log('error', e);
+      // no-op
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChain]);
+
+  // override from SettingsContext if exists for first render after mount
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof window === 'undefined') return;
+    setRpcInput(rpcURL || '');
+    window.localStorage.setItem('sapience.settings.rpcURL', rpcURL || '');
+  }, [rpcURL, mounted]);
 
   useEffect(() => {
     setMounted(true);
@@ -228,27 +308,15 @@ const SettingsPageContent = () => {
     return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
 
-  // Force light mode rendering for the iframe (match Vaults page)
+  // Feature flag: enable chain switcher when URL includes `ethereal=true` (or 1)
   useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleIframeLoad);
-      return () => iframe.removeEventListener('load', handleIframeLoad);
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = (params.get('ethereal') || '').toLowerCase();
+      setIsEtherealEnabled(raw === 'true' || raw === '1');
+    } catch {
+      // no-op
     }
   }, []);
 
@@ -258,7 +326,6 @@ const SettingsPageContent = () => {
     setApiInput(apiBaseUrl ?? defaults.apiBaseUrl);
     setQuoterInput(quoterBaseUrl ?? defaults.quoterBaseUrl);
     setChatInput(chatBaseUrl ?? defaults.chatBaseUrl);
-    setRpcInput(arbitrumRpcUrl ?? defaults.arbitrumRpcUrl);
     // If a key exists, show masked dots and disable input
     setOpenrouterKeyInput(
       openrouterApiKey
@@ -321,39 +388,16 @@ const SettingsPageContent = () => {
 
   return (
     <div className="relative min-h-screen">
-      {/* Spline Background - Full Width (match Vaults) */}
-      <div className="absolute inset-0 pointer-events-none top-0 left-0 w-full h-100dvh -scale-y-100 -translate-y-1/4 opacity-50 dark:opacity-75">
-        <iframe
-          ref={iframeRef}
-          src="https://my.spline.design/particlesfutarchy-SDhuN0OYiCRHRPt2fFec4bCm/"
-          className="w-full h-full"
-          style={{
-            opacity: 0.5,
-            border: 'none',
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        />
-        <div className="absolute top-0 left-0 h-full w-[100px] bg-gradient-to-r from-background to-transparent hidden md:block" />
-      </div>
-
-      {/* Main Content (match Vaults spacing) */}
+      {/* Main Content */}
       <div className="container max-w-[750px] mx-auto px-4 pt-32 pb-12 relative z-10">
-        <h1 className="text-3xl md:text-5xl font-heading font-normal mb-4 md:mb-8">
+        <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
           Settings
         </h1>
 
         {!hydrated ? (
-          <Card>
-            <CardContent className="px-6 py-8">
-              <div className="h-[720px] flex items-center justify-center">
-                <LottieLoader width={48} height={48} />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="h-[720px] flex items-center justify-center">
+            <LottieLoader width={48} height={48} />
+          </div>
         ) : (
           <Tabs
             value={activeTab}
@@ -376,36 +420,27 @@ const SettingsPageContent = () => {
             }}
             className="w-full"
           >
-            <div className="flex flex-col md:flex-row justify-between w-full items-center md:items-center mb-5 flex-shrink-0 gap-3">
-              <TabsList className="order-2 md:order-1 grid w-full md:w-auto grid-cols-1 md:grid-cols-none md:grid-flow-col md:auto-cols-auto h-auto gap-2">
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="network"
-                >
+            <div className="mb-3">
+              <SegmentedTabsList>
+                <TabsTrigger value="network">
                   <span className="inline-flex items-center gap-1.5">
                     <Share2 className="w-4 h-4" />
                     Network
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="agent"
-                >
+                <TabsTrigger value="agent">
                   <span className="inline-flex items-center gap-1.5">
                     <Bot className="w-4 h-4" />
                     Agent
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  className="w-full md:w-auto justify-center md:justify-start"
-                  value="appearance"
-                >
+                <TabsTrigger value="appearance">
                   <span className="inline-flex items-center gap-1.5">
                     <Monitor className="w-4 h-4" />
                     Appearance
                   </span>
                 </TabsTrigger>
-              </TabsList>
+              </SegmentedTabsList>
             </div>
 
             <TabsContent value="network">
@@ -413,30 +448,61 @@ const SettingsPageContent = () => {
                 <CardContent className="p-8">
                   <div className="space-y-6">
                     <div className="grid gap-2">
-                      <Label htmlFor="ethereum-rpc-endpoint">
-                        Ethereum RPC Endpoint
+                      <Label htmlFor="chain-selector">Chain</Label>
+                      <div id="chain-selector">
+                        <Tabs
+                          value={selectedChain ?? 'arbitrum'}
+                          onValueChange={(v) => {
+                            const next = v as 'arbitrum' | 'ethereal';
+                            if (next === 'ethereal' && !isEtherealEnabled)
+                              return;
+                            setSelectedChain(next);
+                          }}
+                        >
+                          <SegmentedTabsList>
+                            <TabsTrigger value="arbitrum">Arbitrum</TabsTrigger>
+                            <TabsTrigger
+                              value="ethereal"
+                              disabled={!isEtherealEnabled}
+                            >
+                              Ethereal
+                            </TabsTrigger>
+                          </SegmentedTabsList>
+                        </Tabs>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="network-rpc-endpoint">
+                        Network RPC Endpoint
                       </Label>
                       <SettingField
-                        id="ethereum-rpc-endpoint"
+                        id="network-rpc-endpoint"
                         value={rpcInput}
                         setValue={setRpcInput}
-                        defaultValue={defaults.arbitrumRpcUrl}
-                        onPersist={setArbitrumRpcUrl}
+                        defaultValue={defaults.rpcURL}
+                        onPersist={setRpcUrl}
                         validate={isHttpUrl}
                         normalizeOnChange={(s) => s.trim()}
                         invalidMessage="Must be an absolute http(s) URL"
+                        showResetButton={false}
                       />
                       <p className="text-xs text-muted-foreground">
-                        JSON-RPC URL for the{' '}
-                        <a
-                          href="https://chainlist.org/chain/42161"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          Arbitrum
-                        </a>{' '}
-                        network
+                        {selectedChain === 'arbitrum' ? (
+                          <>
+                            JSON-RPC URL for the{' '}
+                            <a
+                              href="https://chainlist.org/chain/42161"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Arbitrum
+                            </a>{' '}
+                            network
+                          </>
+                        ) : (
+                          <>JSON-RPC URL for the Ethereal network</>
+                        )}
                       </p>
                     </div>
 

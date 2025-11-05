@@ -14,6 +14,7 @@ import { sqrtPriceX96ToPriceD18, getChainShortName } from '~/lib/utils/util';
 import { formatRelativeTime } from '~/lib/utils/timeUtils';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import EnsAvatar from '~/components/shared/EnsAvatar';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 // Helper function to check if a market is active
 function isMarketActive(market: any): boolean {
@@ -190,7 +191,12 @@ function attestationToComment(
     const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
     const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
     predictionPercent = Math.round(Number(percentageD2) / 100);
-    predictionText = `${predictionPercent}% Chance`;
+    {
+      const prob = Number.isFinite(predictionPercent)
+        ? Number(predictionPercent) / 100
+        : NaN;
+      predictionText = `${formatPercentChance(prob)} Chance`;
+    }
   } else if (marketClassification === '1') {
     // MULTIPLE_CHOICE - show percentage chance for yes/no within multiple choice
 
@@ -198,7 +204,12 @@ function attestationToComment(
     const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
     const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
     predictionPercent = Math.round(Number(percentageD2) / 100);
-    predictionText = `${predictionPercent}% Chance`;
+    {
+      const prob = Number.isFinite(predictionPercent)
+        ? Number(predictionPercent) / 100
+        : NaN;
+      predictionText = `${formatPercentChance(prob)} Chance`;
+    }
   } else if (marketClassification === '3') {
     // NUMERIC - show numeric value
     const hideQuote = (quoteTokenName || '').toUpperCase().includes('USD');
@@ -207,7 +218,11 @@ function attestationToComment(
     predictionText = `${numericValue?.toString()}${basePart}${quotePart}`;
   } else {
     // Fallback
-    predictionText = `${numericValue}% Chance`;
+    const prob =
+      typeof numericValue === 'number' && Number.isFinite(numericValue)
+        ? numericValue / 100
+        : NaN;
+    predictionText = `${formatPercentChance(prob)} Chance`;
   }
 
   return {
@@ -411,25 +426,25 @@ const Comments = ({
                       >
                         {/* Question and Prediction */}
                         <div className="space-y-3">
-                          <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em] flex items-center gap-2">
-                            {comment.marketAddress ? (
-                              <Link
-                                href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
-                                className="group"
-                              >
-                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                                  {comment.question}
-                                </span>
-                              </Link>
-                            ) : (
-                              comment.question
-                            )}
-                          </h2>
+                          {comment.marketAddress ? (
+                            <Link
+                              href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
+                              className="group"
+                            >
+                              <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80 break-words whitespace-normal">
+                                {comment.question}
+                              </div>
+                            </Link>
+                          ) : (
+                            <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors break-words whitespace-normal">
+                              {comment.question}
+                            </div>
+                          )}
                           {/* Meta row is rendered below content */}
                         </div>
                         {/* Comment content */}
                         {(comment.content || '').trim().length > 0 && (
-                          <div className="border border-muted-foreground/30 rounded shadow-md bg-card overflow-hidden p-4">
+                          <div className="border border-foreground/30 rounded shadow-md bg-background overflow-hidden p-4">
                             <div className="text-xl leading-[1.5] text-foreground/90 tracking-[-0.005em]">
                               {comment.content}
                             </div>
@@ -444,22 +459,28 @@ const Comments = ({
                               const isNumericMarket =
                                 comment.marketClassification === '3';
                               const percent = comment.predictionPercent;
-                              const shouldColor =
-                                !isNumericMarket &&
+                              const baseClasses =
+                                'px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 uppercase font-mono';
+
+                              let variant: 'default' | 'outline' = 'default';
+                              let className = baseClasses;
+
+                              if (isNumericMarket) {
+                                className =
+                                  baseClasses +
+                                  ' bg-secondary text-secondary-foreground';
+                              } else if (
                                 typeof percent === 'number' &&
-                                percent !== 50;
-                              const isGreen = shouldColor && percent > 50;
-                              const isRed = shouldColor && percent < 50;
-                              const variant = shouldColor
-                                ? 'outline'
-                                : 'default';
-                              const className = shouldColor
-                                ? isGreen
-                                  ? 'border-green-500/40 bg-green-500/10 text-green-600'
-                                  : isRed
-                                    ? 'border-red-500/40 bg-red-500/10 text-red-600'
-                                    : ''
-                                : '';
+                                percent !== 50
+                              ) {
+                                variant = 'outline';
+                                className =
+                                  baseClasses +
+                                  (percent > 50
+                                    ? ' border-yes/40 bg-yes/10 text-yes'
+                                    : ' border-no/40 bg-no/10 text-no');
+                              }
+
                               return (
                                 <Badge
                                   variant={variant as any}
@@ -469,21 +490,21 @@ const Comments = ({
                                 </Badge>
                               );
                             })()}
-                          <span className="text-sm text-muted-foreground/70 font-medium">
+                          <span className="text-sm text-muted-foreground/70 font-medium font-mono">
                             {formatRelativeTime(
                               new Date(comment.timestamp).getTime()
                             )}
                           </span>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                            <div className="relative">
+                            <div className="relative translate-y-[1px]">
                               <EnsAvatar
                                 address={comment.address}
-                                className="w-5 h-5 rounded-sm ring-1 ring-border/50"
-                                width={20}
-                                height={20}
+                                className="w-3.5 h-3.5 rounded-sm ring-1 ring-border/50"
+                                width={14}
+                                height={14}
                               />
                             </div>
-                            <div className="text-sm text-muted-foreground/80 font-medium">
+                            <div className="text-[12px] text-muted-foreground/80 font-medium">
                               <AddressDisplay
                                 address={comment.address}
                                 disableProfileLink={false}

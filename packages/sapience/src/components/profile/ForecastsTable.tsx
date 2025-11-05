@@ -32,6 +32,7 @@ import {
 import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
 import { MarketGroupClassification } from '~/lib/types';
 import ShareDialog from '~/components/shared/ShareDialog';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 // Helper function to extract market address from context or props
 // Since market address is not available in the attestation data directly,
@@ -177,7 +178,7 @@ const renderPredictionCell = ({
         variant={variant as any}
         className={`${className} whitespace-nowrap`}
       >
-        {`${percentage}% Chance`}
+        {`${formatPercentChance(percentage / 100)} Chance`}
       </Badge>
     );
   }
@@ -517,7 +518,7 @@ const ForecastsTable = ({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -555,7 +556,7 @@ const ForecastsTable = ({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -591,7 +592,7 @@ const ForecastsTable = ({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -658,7 +659,7 @@ const ForecastsTable = ({
             variant="ghost"
             size="sm"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+            className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
             aria-sort={
               column.getIsSorted() === false
                 ? 'none'
@@ -742,9 +743,9 @@ const ForecastsTable = ({
   };
 
   return (
-    <div className="rounded border">
+    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
       <Table>
-        <TableHeader className="hidden xl:table-header-group bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+        <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => {
@@ -779,7 +780,7 @@ const ForecastsTable = ({
               <TableRow
                 key={row.id}
                 data-state={row.getIsSelected() && 'selected'}
-                className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0"
+                className="xl:table-row block border-b space-y-3 xl:space-y-0 px-4 py-4 xl:py-0 hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => {
                   const content = flexRender(
@@ -796,7 +797,7 @@ const ForecastsTable = ({
                   return (
                     <TableCell
                       key={cell.id}
-                      className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 ${
+                      className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${
                         colId === 'actions'
                           ? 'text-left xl:text-right whitespace-nowrap xl:mt-0'
                           : ''

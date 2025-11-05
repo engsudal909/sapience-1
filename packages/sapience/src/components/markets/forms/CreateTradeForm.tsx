@@ -433,9 +433,7 @@ export function CreateTradeForm({
                 size="lg"
                 disabled={isSubmitDisabled}
               >
-                {buttonState.loading && (
-                  <LottieLoader className="invert" width={20} height={20} />
-                )}
+                {buttonState.loading && <LottieLoader width={20} height={20} />}
                 {buttonState.text}
               </Button>
             ) : (

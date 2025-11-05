@@ -79,7 +79,7 @@ const MarketHeader: React.FC<MarketHeaderProps> = ({
   const priceUnitDisplay = baseTokenName || 'USD';
 
   const links = (
-    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1.5 items-start leading-6 sm:leading-5 sm:gap-x-4">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1.5 items-start leading-6 sm:leading-5 sm:gap-x-4 text-brand-white">
       {totalVolume !== null && totalVolume !== undefined && (
         <div className="inline-flex items-center">
           <span className="inline-block mr-1.5">
@@ -156,13 +156,16 @@ const MarketHeader: React.FC<MarketHeaderProps> = ({
     <div className="w-full pb-8">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex flex-col gap-2 lg:gap-3">
-          <h1 className="text-2xl md:text-4xl font-normal mb-0 leading-tight flex items-center gap-2.5">
+          <h1 className="text-2xl md:text-3xl font-normal mb-0 leading-tight flex items-center gap-2.5 font-mono text-brand-white">
             {displayQuestion}
           </h1>
           <div className="flex flex-col lg:flex-row lg:items-center gap-3">
             {/* End Time Badge - Always on left/top */}
             <div className="flex-shrink-0">
-              <EndTimeDisplay endTime={marketData?.endTimestamp} />
+              <EndTimeDisplay
+                endTime={marketData?.endTimestamp}
+                appearance="brandWhite"
+              />
             </div>
 
             {/* Metadata Links - Right justified on large screens, stacked on mobile */}

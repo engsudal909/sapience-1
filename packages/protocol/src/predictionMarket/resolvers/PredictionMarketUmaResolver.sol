@@ -23,17 +23,12 @@ contract PredictionMarketUmaResolver is
     error MustHaveAtLeastOneMarket();
     error TooManyMarkets();
     error InvalidMarketId();
-    error MarketNotSettled();
-    error MarketAlreadyWrapped();
     error AssertionAlreadySubmitted();
     error InvalidAssertionId();
     error OnlyApprovedAssertersCanCall();
     error OnlyOptimisticOracleV3CanCall();
-    error InvalidCaller();
     error MarketAlreadySettled();
-    error MarketNotOpen();
     error MarketNotEnded();
-    error MarketNotDisputed();
     error NotEnoughBondAmount(
         address sender,
         address bondCurrency,
@@ -111,15 +106,12 @@ contract PredictionMarketUmaResolver is
 
     mapping(bytes32 => WrappedMarket) public wrappedMarkets;
 
-    // ============ Events ============
     struct UMASettlement {
         // Link to market
         bytes32 marketId;
         // Resolution Value
         bool resolvedToYes;
         uint256 submissionTime;
-        // Resolution Status
-        bool settled;
     }
 
     mapping(bytes32 => UMASettlement) public umaSettlements;
@@ -149,30 +141,31 @@ contract PredictionMarketUmaResolver is
         return (isValid, error);
     }
 
-    function resolvePrediction(
+    function getPredictionResolution(
         bytes calldata encodedPredictedOutcomes
-    ) external view returns (bool isValid, Error error, bool makerWon) {
+    ) external view returns (bool isResolved, Error error, bool parlaySuccess) {
         PredictedOutcome[] memory predictedOutcomes = decodePredictionOutcomes(
             encodedPredictedOutcomes
         );
-        makerWon = true;
-        isValid = true;
+        parlaySuccess = true;
+        isResolved = true;
         error = Error.NO_ERROR;
         bool hasUnsettledMarkets = false;
 
         for (uint256 i = 0; i < predictedOutcomes.length; i++) {
             bytes32 marketId = predictedOutcomes[i].marketId;
             if (marketId == bytes32(0)) {
-                isValid = false;
+                isResolved = false;
                 error = Error.INVALID_MARKET;
                 break;
             }
             WrappedMarket memory market = wrappedMarkets[marketId];
 
             if (market.marketId != marketId) {
-                isValid = false;
-                error = Error.INVALID_MARKET;
-                break;
+                // This means it wasn't wrapped yet, so we don't know if it's settled or not. (not even sent to UMA to verify)
+                // Do not immediately invalidate; record and continue.
+                hasUnsettledMarkets = true;
+                continue;
             }
 
             if (!market.settled) {
@@ -184,19 +177,19 @@ contract PredictionMarketUmaResolver is
             bool marketOutcome = market.resolvedToYes;
 
             if (predictedOutcomes[i].prediction != marketOutcome) {
-                makerWon = false;
+                parlaySuccess = false;
                 // Decisive loss on a settled market: return valid with no error
-                return (true, Error.NO_ERROR, makerWon);
+                return (true, Error.NO_ERROR, parlaySuccess);
             }
         }
 
-        if (isValid && hasUnsettledMarkets && makerWon) {
+        if (isResolved && hasUnsettledMarkets) {
             // No decisive loss found, but at least one market is unsettled
-            isValid = false;
+            isResolved = false;
             error = Error.MARKET_NOT_SETTLED;
         }
 
-        return (isValid, error, makerWon);
+        return (isResolved, error, parlaySuccess);
     }
 
     // ============ Prediction Outcomes Encoding and Decoding Functions ============
@@ -321,8 +314,7 @@ contract PredictionMarketUmaResolver is
         umaSettlements[assertionId] = UMASettlement({
             marketId: marketId,
             resolvedToYes: resolvedToYes,
-            submissionTime: block.timestamp,
-            settled: false
+            submissionTime: block.timestamp
         });
 
         emit AssertionSubmitted(
@@ -373,6 +365,9 @@ contract PredictionMarketUmaResolver is
     }
 
     function assertionDisputedCallback(bytes32 assertionId) external {
+        if (msg.sender != address(config.optimisticOracleV3)) {
+            revert OnlyOptimisticOracleV3CanCall();
+        }
         bytes32 marketId = umaSettlements[assertionId].marketId;
 
         // do nothing on disputes, just emit the event. We wait for the assertion to be resolved (truthfully or not) to close the loop.

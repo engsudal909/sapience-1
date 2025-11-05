@@ -88,7 +88,13 @@ function MaxPayoutCell({ position }: { position: PositionType }) {
 
     return (
       <>
-        <NumberDisplay value={displayAmount} /> {collateralSymbol}
+        <NumberDisplay
+          value={displayAmount}
+          className="tabular-nums text-brand-white font-mono"
+        />{' '}
+        <span className="tabular-nums text-brand-white font-mono">
+          {collateralSymbol}
+        </span>
       </>
     );
   }
@@ -182,19 +188,36 @@ function PositionValueCell({ position }: { position: PositionType }) {
 
   return (
     <div>
-      <div className="whitespace-nowrap">
-        <NumberDisplay value={currentPositionValue} /> {collateralSymbol}{' '}
+      <div className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+        <NumberDisplay
+          value={currentPositionValue}
+          className="tabular-nums text-brand-white font-mono"
+        />{' '}
+        <span className="tabular-nums text-brand-white font-mono">
+          {collateralSymbol}
+        </span>{' '}
         {/* A positive pnl means a gain (value > wager), so green. A negative pnl means a loss. */}
         {!shouldHideShareValue && (
-          <small className={pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
+          <small
+            className={`tabular-nums font-mono ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}
+          >
             ({pnlPercentage.toFixed(2)}%)
           </small>
         )}
       </div>
       {!shouldHideShareValue && (
         <div className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1 whitespace-nowrap">
-          Share Value: <NumberDisplay value={avgPricePerToken} /> →{' '}
-          <NumberDisplay value={currentPricePerToken} /> {collateralSymbol}
+          Share Value:{' '}
+          <NumberDisplay
+            value={avgPricePerToken}
+            className="tabular-nums font-mono"
+          />{' '}
+          →{' '}
+          <NumberDisplay
+            value={currentPricePerToken}
+            className="tabular-nums font-mono"
+          />{' '}
+          {collateralSymbol}
         </div>
       )}
     </div>
@@ -294,7 +317,7 @@ export default function TraderPositionsTable({
                 onClick={() =>
                   column.toggleSorting(column.getIsSorted() === 'asc')
                 }
-                className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
                 aria-sort={
                   column.getIsSorted() === false
                     ? 'none'
@@ -340,30 +363,33 @@ export default function TraderPositionsTable({
                       if (!marketAddr || marketId === undefined)
                         return (
                           <div className="space-y-2">
-                            <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em]">
+                            <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em]">
                               {question}
                             </h2>
-                            <div className="text-sm text-muted-foreground flex items-center gap-2">
-                              <span>
-                                {context === 'profile'
-                                  ? `#${position.positionId} created ${new Date(
-                                      position.createdAt
-                                    ).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      timeZoneName: 'short',
-                                    })}`
-                                  : `#${position.positionId}`}
+                            <div className="text-sm flex items-center gap-2">
+                              <span className="text-brand-white font-medium">
+                                {`Position #${position.positionId}`}
                               </span>
+                              {context === 'profile' ? (
+                                <span className="text-muted-foreground">
+                                  {`created ${new Date(
+                                    position.createdAt
+                                  ).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    timeZoneName: 'short',
+                                  })}`}
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         );
                       return (
                         <div className="space-y-2">
-                          <h2 className="text-[17px] font-medium text-foreground leading-[1.35] tracking-[-0.01em]">
+                          <h2 className="text-[17px] font-medium text-brand-white leading-[1.35] tracking-[-0.01em]">
                             <Link
                               href={`/markets/${chainShortName}:${marketAddr}/${marketId}`}
                               className="group"
@@ -373,21 +399,24 @@ export default function TraderPositionsTable({
                               </span>
                             </Link>
                           </h2>
-                          <div className="text-sm text-muted-foreground flex items-center gap-2">
-                            <span>
-                              {context === 'profile'
-                                ? `Position #${position.positionId} created ${new Date(
-                                    position.createdAt
-                                  ).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    timeZoneName: 'short',
-                                  })}`
-                                : `Position #${position.positionId}`}
+                          <div className="text-sm flex items-center gap-2">
+                            <span className="text-brand-white font-medium">
+                              {`Position #${position.positionId}`}
                             </span>
+                            {context === 'profile' ? (
+                              <span className="text-muted-foreground">
+                                {`created ${new Date(
+                                  position.createdAt
+                                ).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZoneName: 'short',
+                                })}`}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       );
@@ -409,7 +438,7 @@ export default function TraderPositionsTable({
               onClick={() =>
                 column.toggleSorting(column.getIsSorted() === 'asc')
               }
-              className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+              className="px-0 h-auto font-medium text-brand-white hover:opacity-80 transition-opacity inline-flex items-center"
               aria-sort={
                 column.getIsSorted() === false
                   ? 'none'
@@ -454,9 +483,14 @@ export default function TraderPositionsTable({
             return (
               <div>
                 <div className="flex flex-wrap items-center gap-1">
-                  <span className="whitespace-nowrap">
-                    <NumberDisplay value={collateralAmount} />{' '}
-                    {collateralSymbol}
+                  <span className="whitespace-nowrap tabular-nums text-brand-white font-mono">
+                    <NumberDisplay
+                      value={collateralAmount}
+                      className="tabular-nums text-brand-white font-mono"
+                    />{' '}
+                    <span className="tabular-nums text-brand-white font-mono">
+                      {collateralSymbol}
+                    </span>
                   </span>
                   {isYesNo ? (
                     <>
@@ -518,7 +552,7 @@ export default function TraderPositionsTable({
                 onClick={() =>
                   column.toggleSorting(column.getIsSorted() === 'asc')
                 }
-                className="px-0 h-auto font-medium text-foreground hover:opacity-80 transition-opacity inline-flex items-center"
+                className="px-0 h-auto font-medium text-brand-white hover:opacity-80 hover:bg-transparent transition-opacity inline-flex items-center"
                 aria-sort={
                   column.getIsSorted() === false
                     ? 'none'
@@ -549,7 +583,7 @@ export default function TraderPositionsTable({
                       height={20}
                     />
                   ) : null}
-                  <div className="[&_span.font-mono]:text-foreground">
+                  <div className="[&_span.font-mono]:text-brand-white">
                     <AddressDisplay address={position.owner || ''} />
                   </div>
                 </div>
@@ -727,9 +761,9 @@ export default function TraderPositionsTable({
 
   return (
     <div>
-      <div className="rounded border bg-card overflow-hidden">
+      <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
         <Table className="table-auto">
-          <TableHeader className="hidden xl:table-header-group bg-muted/30 text-sm font-medium text-muted-foreground border-b">
+          <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -754,7 +788,7 @@ export default function TraderPositionsTable({
             {table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="xl:table-row block border-b last:border-b-0 space-y-3 xl:space-y-0 px-4 py-4 xl:px-0 xl:py-0"
+                className="xl:table-row block border-b last:border-b-0 space-y-3 xl:space-y-0 px-4 py-4 xl:px-0 xl:py-0 hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => {
                   const isRowClosed = Number(row.original.collateral) === 0;
@@ -778,7 +812,7 @@ export default function TraderPositionsTable({
                         key={cell.id}
                         colSpan={2}
                         className={
-                          'block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 text-center'
+                          'block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 text-center text-brand-white'
                         }
                       >
                         {mobileLabel ? (
@@ -793,7 +827,7 @@ export default function TraderPositionsTable({
                   return (
                     <TableCell
                       key={cell.id}
-                      className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 ${
+                      className={`block xl:table-cell w-full xl:w-auto px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${
                         colId === 'position' ? 'max-w-[360px]' : ''
                       }`}
                     >

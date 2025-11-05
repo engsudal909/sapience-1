@@ -13,6 +13,7 @@ import {
   baseContainerStyle,
   contentContainerStyle,
   ForecastFooter,
+  SectionLabel,
 } from '../_shared';
 
 export const runtime = 'edge';
@@ -106,17 +107,7 @@ export async function GET(req: Request) {
                   gap: 16 * scale,
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    fontSize: 24 * scale,
-                    lineHeight: `${30 * scale}px`,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.64)',
-                  }}
-                >
-                  Question
-                </div>
+                <SectionLabel scale={scale}>Question</SectionLabel>
                 <div
                   style={{
                     display: 'flex',
@@ -131,7 +122,9 @@ export async function GET(req: Request) {
                       lineHeight: `${48 * scale}px`,
                       fontWeight: 700,
                       letterSpacing: -0.16 * scale,
-                      color: og.colors.foregroundLight,
+                      color: og.colors.brandWhite,
+                      fontFamily:
+                        'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                     }}
                   >
                     {question}

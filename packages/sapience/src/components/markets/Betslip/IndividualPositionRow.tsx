@@ -16,6 +16,7 @@ import {
   YES_SQRT_PRICE_X96,
   DEFAULT_WAGER_AMOUNT,
 } from '~/lib/utils/betslipUtils';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 interface IndividualPositionRowProps {
   positionId: string;
@@ -118,19 +119,22 @@ export default function IndividualPositionRow({
   });
 
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-brand-white/10 last:border-b-0">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <h3 className="text-md text-foreground pr-2 whitespace-normal break-words">
-            {question}
-            {'\u00A0'}
-            <span className="relative -top-[0.75px]">
-              <ReadOnlyPredictionBadge
-                positionId={positionId}
-                marketClassification={marketClassification}
-              />
-            </span>
-          </h3>
+        <div className="flex-1 min-w-0">
+          <div className="text-md text-foreground pr-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="min-w-0 flex-1">
+                <ConditionTitleLink title={question} clampLines={1} />
+              </div>
+              <span className="relative -top-[0.75px] shrink-0">
+                <ReadOnlyPredictionBadge
+                  positionId={positionId}
+                  marketClassification={marketClassification}
+                />
+              </span>
+            </div>
+          </div>
         </div>
         <button
           onClick={onRemove}
@@ -221,8 +225,8 @@ export function ReadOnlyPredictionBadge({
       variant="outline"
       className={
         isYes
-          ? 'px-1.5 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 dark:bg-emerald-500/70 dark:text-foreground shrink-0'
-          : 'px-1.5 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 dark:bg-rose-500/70 dark:text-foreground shrink-0'
+          ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono'
+          : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono'
       }
     >
       {label}

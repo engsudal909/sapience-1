@@ -56,7 +56,7 @@ const converge = {
 } as const satisfies Chain;
 
 const useWagmiConfig = () => {
-  const { arbitrumRpcUrl } = useSettings();
+  const { rpcURL: arbitrumRpcUrl } = useSettings();
 
   const config = useMemo(() => {
     const transports: Record<number, HttpTransport> = {
@@ -112,6 +112,16 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
         defaultChain: arbitrum,
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
+        },
+        appearance: {
+          walletChainType: 'ethereum-only',
+          walletList: [
+            'rabby_wallet',
+            'metamask',
+            'coinbase_wallet',
+            'rainbow',
+            'safe',
+          ],
         },
       }}
     >

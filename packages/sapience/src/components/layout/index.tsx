@@ -8,10 +8,13 @@ import type { ReactNode } from 'react';
 
 import Header from './Header';
 import Footer from './Footer';
+import RouteBackgroundOverlay from './RouteBackgroundOverlay';
 
 const ContentArea = ({ children }: { children: ReactNode }) => {
   return (
-    <SidebarInset className={`p-0 m-0 w-full max-w-none !bg-transparent`}>
+    <SidebarInset
+      className={`p-0 m-0 w-full max-w-none !bg-transparent h-full min-h-0 flex flex-col`}
+    >
       {children}
     </SidebarInset>
   );
@@ -23,7 +26,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
       defaultOpen
       style={{ '--sidebar-width': '12rem' } as React.CSSProperties}
     >
-      <div className="min-h-screen flex flex-col w-full relative z-10">
+      <RouteBackgroundOverlay />
+      <div className="min-h-[100dvh] flex flex-col w-full relative z-10">
         <Header />
         <div className="flex-1 flex w-full">
           <ContentArea>{children}</ContentArea>

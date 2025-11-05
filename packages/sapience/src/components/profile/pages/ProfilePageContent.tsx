@@ -30,12 +30,13 @@ import { SCHEMA_UID } from '~/lib/constants/eas';
 import LottieLoader from '~/components/shared/LottieLoader';
 import EmptyProfileState from '~/components/profile/EmptyProfileState';
 import EmptyTabState from '~/components/shared/EmptyTabState';
-import ProfileStats from '~/components/profile/ProfileStats';
 import ProfileQuickMetrics from '~/components/profile/ProfileQuickMetrics';
 import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
 
-const TAB_VALUES = ['trades', 'parlays', 'lp', 'forecasts'] as const;
+const TAB_VALUES = ['parlays', 'trades', 'lp', 'forecasts'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
+
+// (removed segmented tab background helper)
 
 const ProfilePageContent = () => {
   const params = useParams();
@@ -101,15 +102,15 @@ const ProfilePageContent = () => {
   }, [allLoaded, hasLoadedOnce]);
 
   const getHashValue = () => {
-    if (typeof window === 'undefined') return 'trades' as TabValue;
+    if (typeof window === 'undefined') return 'parlays' as TabValue;
     const rawHash = window.location.hash?.replace('#', '').toLowerCase();
     const desired = (TAB_VALUES as readonly string[]).includes(rawHash)
       ? (rawHash as TabValue)
-      : ('trades' as TabValue);
+      : ('parlays' as TabValue);
     return desired;
   };
 
-  const [tabValue, setTabValue] = useState<TabValue>('trades');
+  const [tabValue, setTabValue] = useState<TabValue>('parlays');
 
   useEffect(() => {
     setTabValue(getHashValue());
@@ -132,7 +133,7 @@ const ProfilePageContent = () => {
   const handleTabChange = (value: string) => {
     const nextValue = (TAB_VALUES as readonly string[]).includes(value)
       ? (value as TabValue)
-      : ('trades' as TabValue);
+      : ('parlays' as TabValue);
     setTabValue(nextValue);
     if (typeof window !== 'undefined') {
       const url = `${window.location.pathname}${window.location.search}#${nextValue}`;
@@ -169,10 +170,10 @@ const ProfilePageContent = () => {
       return;
     }
 
-    const firstWithContent: TabValue | null = hasTrades
-      ? 'trades'
-      : hasParlays
-        ? 'parlays'
+    const firstWithContent: TabValue | null = hasParlays
+      ? 'parlays'
+      : hasTrades
+        ? 'trades'
         : hasLp
           ? 'lp'
           : hasForecasts
@@ -187,10 +188,10 @@ const ProfilePageContent = () => {
   }, [hasLoadedOnce, hasTrades, hasLp, hasForecasts]);
 
   return (
-    <div className="mx-auto py-24 lg:py-32 px-3 md:px-6 lg:px-8 w-full">
+    <div className="mx-auto pt-24 lg:pt-24 pb-0 px-3 md:px-6 lg:px-8 w-full min-h-full flex flex-col">
       <ShareAfterRedirect address={address} />
-      <div className="mb-5 lg:mb-10">
-        <ProfileHeader address={address} />
+      <div className="mb-6">
+        <ProfileHeader address={address} className="mb-0" />
       </div>
 
       <div className="mb-5">
@@ -204,78 +205,114 @@ const ProfilePageContent = () => {
         ) : null}
       </div>
 
-      <div className="mb-5">
-        <ProfileStats address={address} />
-      </div>
-
       {hasLoadedOnce ? (
         !(hasTrades || hasParlays || hasLp || hasForecasts) ? (
           <EmptyProfileState />
         ) : (
-          <Tabs
-            value={tabValue}
-            onValueChange={handleTabChange}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4 h-auto gap-2 mb-5">
-              <TabsTrigger className="w-full" value="trades">
-                <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
-                Trades
-              </TabsTrigger>
-              <TabsTrigger className="w-full" value="parlays">
-                <SquareStackIcon className="h-4 w-4 mr-2" />
-                Parlays
-              </TabsTrigger>
-              <TabsTrigger className="w-full" value="lp">
-                <DropletsIcon className="h-4 w-4 mr-2" />
-                Liquidity
-              </TabsTrigger>
-              <TabsTrigger className="w-full" value="forecasts">
-                <Telescope className="h-4 w-4 mr-2" />
-                Forecasts
-              </TabsTrigger>
-            </TabsList>
+          <div className="-mx-3 md:-mx-6 lg:-mx-8 bg-brand-black pb-0 lg:flex-1 lg:flex lg:flex-col">
+            <Tabs
+              value={tabValue}
+              onValueChange={handleTabChange}
+              className="w-full flex-1 flex flex-col"
+            >
+              <TabsList className="!grid h-auto w-full grid-cols-1 lg:grid-cols-4 gap-2 mb-0 rounded-none px-2 md:px-3">
+                <TabsTrigger
+                  className="w-full justify-center transition-colors hover:text-brand-white/80 data-[state=active]:text-brand-white"
+                  value="parlays"
+                >
+                  <SquareStackIcon className="h-4 w-4 mr-2" />
+                  Parlays
+                </TabsTrigger>
+                <TabsTrigger
+                  className="w-full justify-center transition-colors hover:text-brand-white/80 data-[state=active]:text-brand-white"
+                  value="trades"
+                >
+                  <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
+                  Spot Trades
+                </TabsTrigger>
+                <TabsTrigger
+                  className="w-full justify-center transition-colors hover:text-brand-white/80 data-[state=active]:text-brand-white"
+                  value="lp"
+                >
+                  <DropletsIcon className="h-4 w-4 mr-2" />
+                  Spot Liquidity
+                </TabsTrigger>
+                <TabsTrigger
+                  className="w-full justify-center transition-colors hover:text-brand-white/80 data-[state=active]:text-brand-white"
+                  value="forecasts"
+                >
+                  <Telescope className="h-4 w-4 mr-2" />
+                  Forecasts
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="trades">
-              {traderPositionsOpen.length > 0 ? (
-                <div>
-                  <h3 className="font-medium text-sm text-muted-foreground mb-2">
-                    Active
-                  </h3>
-                  <TraderPositionsTable
-                    positions={traderPositionsOpen}
-                    context="profile"
-                  />
-                </div>
-              ) : null}
-              {traderPositionsClosed.length > 0 ? (
-                <div className="mt-6">
-                  <h3 className="font-medium text-sm text-muted-foreground mb-2">
-                    Closed
-                  </h3>
-                  <ClosedTraderPositionsTable
-                    positions={traderPositionsClosed}
-                  />
-                </div>
-              ) : null}
-              {traderPositionsOpen.length === 0 &&
-              traderPositionsClosed.length === 0 ? (
-                <EmptyTabState message="No trades found" />
-              ) : null}
-            </TabsContent>
+              <TabsContent
+                value="parlays"
+                className="mt-0 flex-1 flex flex-col"
+              >
+                {hasParlays ? (
+                  <UserParlaysTable account={address} showHeaderText={false} />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No parlays found" />
+                  </div>
+                )}
+              </TabsContent>
 
-            <TabsContent value="parlays">
-              <UserParlaysTable account={address} showHeaderText={false} />
-            </TabsContent>
+              <TabsContent value="trades" className="mt-0 flex-1 flex flex-col">
+                {traderPositionsOpen.length > 0 ? (
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground mb-2">
+                      Active
+                    </h3>
+                    <TraderPositionsTable
+                      positions={traderPositionsOpen}
+                      context="profile"
+                    />
+                  </div>
+                ) : null}
+                {traderPositionsClosed.length > 0 ? (
+                  <div className="mt-6">
+                    <h3 className="font-medium text-sm text-muted-foreground mb-2">
+                      Closed
+                    </h3>
+                    <ClosedTraderPositionsTable
+                      positions={traderPositionsClosed}
+                    />
+                  </div>
+                ) : null}
+                {traderPositionsOpen.length === 0 &&
+                traderPositionsClosed.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No trades found" />
+                  </div>
+                ) : null}
+              </TabsContent>
 
-            <TabsContent value="lp">
-              <LpPositionsTable positions={lpPositions} context="profile" />
-            </TabsContent>
+              <TabsContent value="lp" className="mt-0 flex-1 flex flex-col">
+                {hasLp ? (
+                  <LpPositionsTable positions={lpPositions} context="profile" />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No liquidity positions found" />
+                  </div>
+                )}
+              </TabsContent>
 
-            <TabsContent value="forecasts">
-              <ForecastsTable attestations={attestations} />
-            </TabsContent>
-          </Tabs>
+              <TabsContent
+                value="forecasts"
+                className="mt-0 flex-1 flex flex-col"
+              >
+                {hasForecasts ? (
+                  <ForecastsTable attestations={attestations} />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-16">
+                    <EmptyTabState message="No forecasts found" />
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
         )
       ) : (
         <div className="flex justify-center py-24">

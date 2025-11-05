@@ -16,7 +16,6 @@ import {
   Pill,
   PredictionsLabel,
   computePotentialReturn,
-  FooterLabel,
 } from '../_shared';
 
 export const runtime = 'edge';
@@ -124,12 +123,15 @@ export async function GET(req: Request) {
                                 <div
                                   style={{
                                     display: 'flex',
-                                    marginTop: -5 * scale,
+                                    fontSize: 20 * scale,
+                                    lineHeight: `${24 * scale}px`,
+                                    fontWeight: 600,
+                                    color: og.colors.mutedWhite64,
+                                    fontFamily:
+                                      'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                   }}
                                 >
-                                  <FooterLabel scale={scale}>
-                                    and more...
-                                  </FooterLabel>
+                                  and more...
                                 </div>
                               </div>
                             );
@@ -151,16 +153,25 @@ export async function GET(req: Request) {
                                   lineHeight: `${48 * scale}px`,
                                   fontWeight: 700,
                                   letterSpacing: -0.16 * scale,
-                                  color: og.colors.foregroundLight,
+                                  color: og.colors.brandWhite,
+                                  fontFamily:
+                                    'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                 }}
                               >
                                 {leg.text}
                               </div>
-                              <Pill
-                                text={leg.choice}
-                                tone={isYes ? 'success' : 'danger'}
-                                scale={scale}
-                              />
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Pill
+                                  text={leg.choice}
+                                  tone={isYes ? 'success' : 'danger'}
+                                  scale={scale}
+                                />
+                              </div>
                             </div>
                           );
                         })}

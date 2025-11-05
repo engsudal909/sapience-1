@@ -79,4 +79,14 @@ interface IPredictionMarket is
     function getUserCollateralDeposits(
         address user
     ) external view returns (uint256);
+
+    /**
+     * @notice Get the current nonce for a maker address
+     * @dev Nonces are used for replay protection in mint() signatures.
+     *      Each maker must use their current nonce when creating a new prediction.
+     *      The nonce is incremented after each successful mint() call.
+     * @param maker The maker address to query
+     * @return The current nonce value for the maker
+     */
+    function nonces(address maker) external view returns (uint256);
 }
