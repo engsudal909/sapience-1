@@ -19,7 +19,7 @@ export default function LoaderWithMessage({
 }: LoaderWithMessageProps) {
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
-      <LottieLoader width={width} height={height} className="opacity-90" />
+      <LottieLoader width={width} height={height} />
       <div className={`mt-3 text-sm text-muted-foreground ${textClassName}`}>
         {message}
       </div>

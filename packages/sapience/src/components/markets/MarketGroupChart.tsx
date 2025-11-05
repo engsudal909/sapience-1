@@ -37,6 +37,7 @@ import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
 import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/lib/types';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 interface MarketGroupChartProps {
   chainShortName: string;
@@ -242,7 +243,7 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
 
         return (
           <Badge variant={variant as any} className={className}>
-            {`${percentage}% Chance`}
+            {`${formatPercentChance(percentage / 100)} Chance`}
           </Badge>
         );
       } catch (_) {
@@ -379,7 +380,7 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
     return (
       <div className="w-full md:flex-1 h-full flex items-center justify-center text-muted-foreground border border-muted rounded bg-secondary/20">
         <div className="flex flex-col items-center justify-center gap-2">
-          <LottieLoader width={40} height={40} className="opacity-80" />
+          <LottieLoader width={40} height={40} />
           <span>No wagers yet...</span>
         </div>
       </div>
@@ -511,9 +512,8 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
               ticks={dailyTicks}
               axisLine={{ stroke: 'hsl(var(--border))' }}
               tickLine={false}
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
               tickFormatter={formatTimestampCompact}
-              fontSize={12}
               minTickGap={24}
               dy={10} // Adjust vertical position of ticks
               domain={
@@ -541,9 +541,8 @@ const MarketGroupChart: React.FC<MarketGroupChartProps> = ({
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
               tickFormatter={yAxisConfig.tickFormatter}
-              fontSize={12}
               dx={0}
               domain={yAxisConfig.domain}
               width={40}

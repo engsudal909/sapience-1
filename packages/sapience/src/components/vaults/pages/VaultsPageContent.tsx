@@ -7,19 +7,29 @@ import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import {
   Tabs,
-  TabsContent,
   TabsList,
+  TabsContent,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@sapience/sdk/ui/components/ui/tooltip';
+import { Vault } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
+import Link from 'next/link';
 import NumberDisplay from '~/components/shared/NumberDisplay';
+import { AddressDisplay } from '~/components/shared/AddressDisplay';
+import EnsAvatar from '~/components/shared/EnsAvatar';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
+import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
+import { PROTOCOL_VAULT_ADDRESS } from '~/lib/constants';
 
 const VaultsPageContent = () => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { isConnected } = useAccount();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   // Constants for vault integration
@@ -223,35 +233,6 @@ const VaultsPageContent = () => {
     }
   }, [withdrawSharesWei, userData]);
 
-  // Force light mode rendering for the iframe
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      const iframe = iframeRef.current;
-      // Guard already exists here, but keeping it doesn't hurt
-      if (typeof document === 'undefined') return;
-      if (iframe && iframe.contentDocument) {
-        try {
-          // Try to inject a style element to force light mode
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent =
-            'html { color-scheme: light !important; } * { filter: none !important; }';
-          iframe.contentDocument.head.appendChild(style);
-        } catch (e) {
-          // Security policy might prevent this
-          console.error('Could not inject styles into iframe:', e);
-        }
-      }
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      // Ensure load event listener is attached only once iframe exists
-      iframe.addEventListener('load', handleIframeLoad);
-      // Clean up listener on unmount
-      return () => iframe.removeEventListener('load', handleIframeLoad);
-    }
-  }, []); // Empty dependency array ensures this runs once client-side
-
   // Live cooldown countdown (HH:MM:SS)
   const [cooldownDisplay, setCooldownDisplay] = useState<string>('');
   useEffect(() => {
@@ -284,11 +265,31 @@ const VaultsPageContent = () => {
     return () => window.clearInterval(id);
   }, [isInteractionDelayActive, lastInteractionAt, interactionDelay]);
 
+  // Desktop-only top gradient bar across categories in filter order (match BetSlip)
+  const categoryGradient = useMemo(() => {
+    const colors = FOCUS_AREAS.map((fa) => fa.color);
+    if (colors.length === 0) return 'transparent';
+    if (colors.length === 1) return colors[0];
+    const step = 100 / (colors.length - 1);
+    const stops = colors.map((c, i) => `${c} ${i * step}%`);
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+  }, []);
+
   const renderVaultForm = () => (
     <Tabs defaultValue="deposit" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="deposit">Deposit</TabsTrigger>
-        <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2 mb-3">
+        <TabsTrigger
+          value="deposit"
+          className="data-[state=active]:text-brand-white"
+        >
+          Deposit
+        </TabsTrigger>
+        <TabsTrigger
+          value="withdraw"
+          className="data-[state=active]:text-brand-white"
+        >
+          Withdraw
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="deposit" className="space-y-2 mt-1">
@@ -310,7 +311,7 @@ const VaultsPageContent = () => {
         </div>
 
         {/* Balance and Requested row (outside input box) */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground py-0">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground py-0">
           <div className="flex items-center gap-2">
             <span>
               Balance: <NumberDisplay value={Number(shortWalletBalance)} />{' '}
@@ -328,12 +329,16 @@ const VaultsPageContent = () => {
           {depositAmount &&
           estDepositShares > 0n &&
           ((minDeposit ?? 0n) === 0n || depositWei >= (minDeposit ?? 0n)) ? (
-            <div className="text-right">
-              Requested Shares: {formatSharesAmount(estDepositShares)} sapLP
+            <div className="sm:text-right">
+              Requested Shares:{' '}
+              {formatDecimalWithCommasFixed2(
+                formatSharesAmount(estDepositShares)
+              )}{' '}
+              sapLP
             </div>
           ) : (
             (minDeposit ?? 0n) > 0n && (
-              <div className="text-right">
+              <div className="sm:text-right">
                 Minimum Deposit: {formatAssetAmount(minDeposit ?? 0n)} testUSDe
               </div>
             )
@@ -352,7 +357,7 @@ const VaultsPageContent = () => {
           {/* Deposit Button */}
           <Button
             size="lg"
-            className="w-full text-base"
+            className="w-full text-base bg-brand-white text-brand-black hover:bg-brand-white/90"
             disabled={
               !depositAmount ||
               isVaultPending ||
@@ -418,7 +423,7 @@ const VaultsPageContent = () => {
         </div>
 
         {/* Balance and Requested row (outside input box) */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground py-0">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground py-0">
           <div className="flex items-center gap-2">
             <span>
               Balance:{' '}
@@ -441,7 +446,7 @@ const VaultsPageContent = () => {
           {withdrawAmount &&
             estWithdrawAssets > 0n &&
             !withdrawExceedsShareBalance && (
-              <div className="text-right">
+              <div className="sm:text-right">
                 Requested Collateral: {formatAssetAmount(estWithdrawAssets)}{' '}
                 testUSDe
               </div>
@@ -460,7 +465,7 @@ const VaultsPageContent = () => {
           {/* Withdraw Button */}
           <Button
             size="lg"
-            className="w-full text-base"
+            className="w-full text-base bg-brand-white text-brand-black hover:bg-brand-white/90"
             disabled={
               !withdrawAmount ||
               isVaultPending ||
@@ -506,42 +511,6 @@ const VaultsPageContent = () => {
     </Tabs>
   );
 
-  // Number formatting helpers (no decimals, thousands separators)
-  const roundToIntString = (value: string): string => {
-    try {
-      const trimmed = value.trim();
-      if (!trimmed) return '0';
-      const neg = trimmed.startsWith('-');
-      const t = neg ? trimmed.slice(1) : trimmed;
-      const [intRaw, fracRaw = ''] = t.split('.');
-      const intPart = intRaw.replace(/^\D+/, '') || '0';
-      const frac = fracRaw.replace(/\D+/g, '');
-      const shouldRoundUp = frac.length > 0 && Number(frac[0]) >= 5;
-      if (!shouldRoundUp) {
-        return (neg ? '-' : '') + (intPart || '0');
-      }
-      // add 1 to intPart
-      let carry = 1;
-      let res = '';
-      for (let i = intPart.length - 1; i >= 0; i--) {
-        const code = intPart.charCodeAt(i);
-        const isDigit = code >= 48 && code <= 57;
-        const digit = (isDigit ? code - 48 : 0) + carry;
-        if (digit >= 10) {
-          res = String(digit - 10) + res;
-          carry = 1;
-        } else {
-          res = String(digit) + res;
-          carry = 0;
-        }
-      }
-      if (carry) res = '1' + res;
-      return (neg ? '-' : '') + res;
-    } catch {
-      return '0';
-    }
-  };
-
   const formatIntWithCommas = (intStr: string): string => {
     try {
       const neg = intStr.startsWith('-');
@@ -554,8 +523,54 @@ const VaultsPageContent = () => {
     }
   };
 
-  const formatWholeWithCommasFromAmount = (amountStr: string): string => {
-    return formatIntWithCommas(roundToIntString(amountStr));
+  const formatDecimalWithCommasFixed2 = (value: string): string => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return '0.00';
+      const neg = trimmed.startsWith('-');
+      const t = neg ? trimmed.slice(1) : trimmed;
+      const [intRaw, fracRaw = ''] = t.split('.');
+      const intPart = intRaw.replace(/\D+/g, '') || '0';
+      const frac = fracRaw.replace(/\D+/g, '') + '000';
+      const d1 = frac.charCodeAt(0) - 48;
+      const d2 = frac.charCodeAt(1) - 48;
+      const d3 = frac.charCodeAt(2) - 48;
+      let two = d1 * 10 + d2;
+      let carry = 0;
+      if (d3 >= 5) {
+        two += 1;
+        if (two >= 100) {
+          two -= 100;
+          carry = 1;
+        }
+      }
+      const twoStr = two.toString().padStart(2, '0');
+
+      let intOut = intPart;
+      if (carry) {
+        let c = 1;
+        let res = '';
+        for (let i = intPart.length - 1; i >= 0; i--) {
+          const code = intPart.charCodeAt(i);
+          const isDigit = code >= 48 && code <= 57;
+          const digit = (isDigit ? code - 48 : 0) + c;
+          if (digit >= 10) {
+            res = String(digit - 10) + res;
+            c = 1;
+          } else {
+            res = String(digit) + res;
+            c = 0;
+          }
+        }
+        if (c) res = '1' + res;
+        intOut = res;
+      }
+
+      const intWithCommas = formatIntWithCommas(intOut);
+      return (neg ? '-' : '') + intWithCommas + '.' + twoStr;
+    } catch {
+      return '0.00';
+    }
   };
 
   // Derived vault metrics for display
@@ -619,7 +634,7 @@ const VaultsPageContent = () => {
   // Preformatted display strings
   const tvlDisplay = useMemo(() => {
     try {
-      return formatWholeWithCommasFromAmount(formatAssetAmount(tvlWei));
+      return formatDecimalWithCommasFixed2(formatAssetAmount(tvlWei));
     } catch {
       return '0';
     }
@@ -627,7 +642,7 @@ const VaultsPageContent = () => {
 
   const deployedDisplay = useMemo(() => {
     try {
-      return formatWholeWithCommasFromAmount(formatAssetAmount(deployedWei));
+      return formatDecimalWithCommasFixed2(formatAssetAmount(deployedWei));
     } catch {
       return '0';
     }
@@ -642,56 +657,72 @@ const VaultsPageContent = () => {
   }, [utilizationPercent]);
 
   return (
-    <div className="relative min-h-screen">
-      {/* Spline Background - Full Width */}
-      <div className="absolute inset-0 pointer-events-none top-0 left-0 w-full h-100dvh -scale-y-100 -translate-y-1/4 opacity-50 dark:opacity-75">
-        <iframe
-          ref={iframeRef}
-          src="https://my.spline.design/particlesfutarchy-SDhuN0OYiCRHRPt2fFec4bCm/"
-          className="w-full h-full"
-          style={{
-            opacity: 0.5,
-            border: 'none',
-            colorScheme: 'light',
-            filter: 'none',
-          }}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        />
-        <div className="absolute top-0 left-0 h-full w-[100px] bg-gradient-to-r from-background to-transparent hidden md:block" />
-      </div>
-
+    <div className="relative">
       {/* Main Content */}
       <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
-        <div className="mb-5 md:mb-10 flex items-center justify-between">
-          <h1 className="text-3xl md:text-5xl font-heading font-normal">
+        <div className="mb-5 md:mb-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-3xl md:text-5xl font-sans font-normal text-foreground">
             Vaults
           </h1>
-          {/* Deploy Vault action hidden until implementation is available */}
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-not-allowed">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="inline-flex items-center gap-2"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <Vault className="h-4 w-4" />
+                    Deploy Vault
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8">
           {/* Vault */}
           <div>
-            <Card className="relative isolate overflow-hidden bg-card border border-border rounded-xl shadow-sm">
+            <Card className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm">
+              <div
+                className="hidden lg:block absolute top-0 left-0 right-0 h-px"
+                style={{ background: categoryGradient }}
+              />
               <CardContent className="p-6">
                 <div className="space-y-6">
                   {/* Vault Header */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="text-2xl font-medium mb-1">
                         Protocol Vault
                       </h3>
-                      <p className="text-muted-foreground text-lg">
-                        This vault bids on parlays.
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <EnsAvatar
+                          address={PROTOCOL_VAULT_ADDRESS}
+                          width={16}
+                          height={16}
+                          className="shrink-0"
+                        />
+                        <AddressDisplay
+                          address={PROTOCOL_VAULT_ADDRESS}
+                          compact
+                          className="text-xs text-muted-foreground"
+                          hideVaultIcon
+                        />
+                      </div>
                     </div>
-                    <div className="text-right">
+                    <div className="sm:text-right">
                       <div className="text-sm text-muted-foreground">
                         Total Value Locked
                       </div>
-                      <div className="text-2xl font-medium">
+                      <div className="text-xl font-normal font-mono">
                         {tvlDisplay} testUSDe
                       </div>
                     </div>
@@ -700,8 +731,8 @@ const VaultsPageContent = () => {
                   {/* Vault Stats */}
                   <div className="space-y-4">
                     {/* Utilization Block */}
-                    <div className="p-5 bg-muted/50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="p-5 pt-4 rounded-lg bg-[hsl(var(--primary)/_0.05)]">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-2 text-foreground">
                         <div className="text-sm font-normal">
                           Utilization Rate: {utilizationDisplay}
                         </div>
@@ -709,12 +740,20 @@ const VaultsPageContent = () => {
                           Deployed: {deployedDisplay} testUSDe
                         </div>
                       </div>
-                      <div className="w-full h-4 rounded-sm bg-muted/60 overflow-hidden shadow-inner">
+                      <div className="w-full h-2 rounded-sm bg-[hsl(var(--primary)/_0.09)] overflow-hidden shadow-inner">
                         <div
-                          className="h-4 bg-primary rounded-sm transition-all"
+                          className="h-2 bg-accent-gold rounded-sm transition-all gold-sheen"
                           style={{ width: `${utilizationPercent}%` }}
                         />
                       </div>
+                      <p className="mt-2 text-xs">
+                        <Link
+                          href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
+                          className="gold-link"
+                        >
+                          View Portfolio
+                        </Link>
+                      </p>
                     </div>
                     {/* APY Row intentionally omitted until calculation available */}
                   </div>
@@ -725,8 +764,8 @@ const VaultsPageContent = () => {
                   {/* Pending Requests (mapping-based) */}
                   {pendingRequest && !pendingRequest.processed && (
                     <div className="mt-4 space-y-2">
-                      <div className="p-3 bg-muted/30 border border-border rounded-md">
-                        <div className="flex items-start justify-between gap-3">
+                      <div className="p-3 bg-muted/30 border border-brand-white/10 rounded-md">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="text-sm text-muted-foreground">
                             <p className="font-medium">
                               {pendingRequest.isDeposit

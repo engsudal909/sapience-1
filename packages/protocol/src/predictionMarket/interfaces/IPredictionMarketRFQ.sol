@@ -11,13 +11,15 @@ interface IPredictionMarketRFQ {
     // ============ Prediction Functions ============
 
     /**
-     * @notice Mint a new prediction NFT directly with maker and taker signatures
-     * @dev it will:
-     *   1- do all the validations on the predictedOutcomes (markets are valid, taker and maker has enough funds)
-     *   2- execute the collateral aproval for both, taker and maker using the signatures
-     *   3- create the prediction -> maker and taker NFT ids, predictedOutcomes, amount of collateral used from each party, total collateral on the prediction. (winner takes all)
-     *   4- mint the taker and maker NFT
-     *   5- emit an event with the right information
+     * @notice Mint a new prediction NFT with RFQ (Request-for-Quote) mechanism
+     * @dev The taker must sign an EIP-712 approval for the specific prediction. It will:
+     *   1- Validate the taker's signature for this exact prediction
+     *   2- Verify maker nonce and increment it to prevent replay attacks
+     *   3- Validate the predicted outcomes (markets are valid, not settled)
+     *   4- Transfer collateral from both maker and taker (they must have approved the contract)
+     *   5- Create the prediction with maker and taker NFT IDs
+     *   6- Mint both NFTs to their respective parties
+     *   7- Emit a PredictionMinted event
      * @param mintPredictionRequestData Struct containing the mint prediction request data
      */
     function mint(

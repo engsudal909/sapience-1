@@ -25,11 +25,15 @@ const MarketGroupHeader: React.FC<MarketGroupHeaderProps> = ({
   return (
     <div className="w-full py-6 px-4 md:px-3 lg:px-6">
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl md:text-4xl font-normal mb-1 leading-tight flex items-center gap-2.5">
+        <h1 className="text-2xl md:text-3xl font-normal mb-1 leading-tight flex items-center gap-2.5 font-mono text-brand-white">
           {displayQuestion}
         </h1>
         <div className="flex items-center gap-3 md:gap-6">
-          <EndTimeDisplay endTime={activeMarket?.endTimestamp} size="large" />
+          <EndTimeDisplay
+            endTime={activeMarket?.endTimestamp}
+            size="large"
+            appearance="brandWhite"
+          />
         </div>
       </div>
     </div>

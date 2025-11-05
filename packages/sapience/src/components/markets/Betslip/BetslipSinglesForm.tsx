@@ -140,13 +140,16 @@ export default function BetslipSinglesForm({
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} className="p-4">
+      <form
+        onSubmit={methods.handleSubmit(onSubmit)}
+        className="px-4 pb-4 pt-0"
+      >
         {positionsWithMarketData.map((positionData, index) => {
           const isLast = index === positionsWithMarketData.length - 1;
           return (
             <div
               key={positionData.position.id}
-              className={`mb-4 ${!isLast ? 'border-b border-border pb-5' : ''}`}
+              className={`mb-4 -mx-4 px-4 first:border-t border-brand-white/10 ${!isLast ? 'border-b pb-2' : ''}`}
             >
               {positionData.error && (
                 <>

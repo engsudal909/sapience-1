@@ -152,10 +152,10 @@ const WagerForm = ({
   return (
     <div className="bg-card p-5 rounded shadow-sm border flex flex-col flex-1">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-2xl font-medium">Make a Prediction</h2>
+        <h2 className="eyebrow">Make a Prediction</h2>
         {marketClassification === MarketGroupClassification.MULTIPLE_CHOICE && (
           <Button variant="secondary" size="xs" onClick={toggle}>
-            <RefreshCw className="scale-75 -mr-1" />
+            <RefreshCw className="scale-75 -mr-1 text-accent-gold" />
             Flip
           </Button>
         )}

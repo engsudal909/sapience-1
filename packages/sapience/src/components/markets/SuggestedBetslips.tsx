@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { RefreshCw, SquareStackIcon } from 'lucide-react';
+import { SquareStackIcon } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -10,7 +10,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
+import RefreshIconButton from '~/components/shared/RefreshIconButton';
 import {
   useConditions,
   type ConditionType,
@@ -18,7 +18,7 @@ import {
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
-import ConditionDialog from '~/components/markets/ConditionDialog';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 type SuggestedBetslipsProps = {
   onRefresh?: () => void;
@@ -65,8 +65,9 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
     );
 
     const categorySlugs = Object.keys(byCategory);
-    const pickRandom = <T,>(arr: T[]): T =>
-      arr[Math.floor(Math.random() * arr.length)];
+    function pickRandom<T>(arr: T[]): T {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
 
     const makeOneCombo = (): Array<{
       condition: ConditionType;
@@ -107,24 +108,22 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
   }, [allConditions, nonce]);
 
   return (
-    <div className={'w-full ' + (className ?? '')}>
+    <div className={'w-full font-mono ' + (className ?? '')}>
       <div className="p-0">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium text-sm text-muted-foreground">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="eyebrow text-foreground font-sans">
             Featured Parlays
           </h3>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  type="button"
+                <RefreshIconButton
                   onClick={handleRefresh}
-                  aria-label="Randomize featured parlays"
-                  className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                  ariaLabel="Randomize featured parlays"
                   title="Randomize featured parlays"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                </button>
+                  className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                  iconClassName="w-3 h-3"
+                />
               </TooltipTrigger>
               <TooltipContent>Randomize featured parlays</TooltipContent>
             </Tooltip>
@@ -132,57 +131,54 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
         </div>
       </div>
 
-      <div className="mt-3 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+      <div className="mt-0 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
         {isLoading || combos.length === 0 ? (
           <>
-            <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 flex items-center justify-center text-muted-foreground/80">
+            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 flex items-center justify-center">
               Loading…
             </div>
-            <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 hidden lg:flex items-center justify-center text-muted-foreground/80">
+            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
               Loading…
             </div>
-            <div className="border border-border rounded bg-card overflow-hidden shadow-md h-20 hidden lg:flex items-center justify-center text-muted-foreground/80">
+            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
               Loading…
             </div>
           </>
         ) : (
-          combos.map((combo, idx) => (
-            <div
-              key={`combo-${idx}`}
-              className={`border border-border rounded bg-card overflow-hidden shadow-md p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
-            >
-              <div className="space-y-0 flex flex-col">
-                {combo.map((leg, i) => (
-                  <div
-                    key={leg.condition.id + '-' + i}
-                    className="border-b border-border last:border-b-0 flex-1"
-                  >
-                    <div className="flex items-stretch">
-                      <div
-                        className="w-1 self-stretch"
-                        style={{
-                          backgroundColor: getCategoryColor(
-                            leg.condition.category?.slug
-                          ),
-                          // Extend 1px to cover parent's border-b on non-last rows
-                          marginBottom: -1,
-                        }}
-                      />
-                      <div className="flex-1 min-w-0 px-3 py-2.5 flex items-center justify-between gap-3">
-                        <h3 className="text-sm text-foreground truncate">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <button
-                                type="button"
-                                className="text-left w-full"
-                              >
-                                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors hover:decoration-foreground/60">
-                                  {leg.condition.shortName ||
-                                    leg.condition.question}
-                                </span>
-                              </button>
-                            </DialogTrigger>
-                            <ConditionDialog
+          combos.map((combo, idx) => {
+            const colors = combo.map((leg) =>
+              getCategoryColor(leg.condition.category?.slug)
+            );
+            let stops: string[];
+            if (colors.length <= 1) {
+              stops = [colors[0] || 'transparent'];
+            } else {
+              const step = 100 / (colors.length - 1);
+              stops = colors.map((color, i) => `${color} ${i * step}%`);
+            }
+            const gradient = `linear-gradient(to right, ${stops.join(', ')})`;
+
+            return (
+              <div
+                key={`combo-${idx}`}
+                className={`relative bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
+              >
+                <div
+                  className="absolute top-0 left-0 right-0 h-px"
+                  style={{ background: gradient }}
+                />
+                <div className="space-y-0 flex flex-col">
+                  {combo.map((leg, i) => (
+                    <div
+                      key={leg.condition.id + '-' + i}
+                      className="border-b border-border/70 last:border-b-0 flex-1"
+                    >
+                      <div className="flex items-stretch">
+                        <div
+                          className={`flex-1 min-w-0 px-3 ${i === 0 ? 'pt-3 pb-2.5' : 'py-2.5'} flex items-center justify-between gap-3`}
+                        >
+                          <h3 className="text-sm leading-snug min-w-0 max-w-full">
+                            <ConditionTitleLink
                               conditionId={leg.condition.id}
                               title={
                                 leg.condition.shortName ||
@@ -190,64 +186,65 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                               }
                               endTime={leg.condition.endTime}
                               description={leg.condition.description}
+                              clampLines={1}
                             />
-                          </Dialog>
-                        </h3>
-                        <span className="relative -top-0.5 ml-2 shrink-0">
-                          <Badge
-                            variant="outline"
-                            className={`${leg.prediction ? 'px-2 py-0.5 text-xs font-medium border-green-500/40 bg-green-500/10 text-green-600 dark:bg-emerald-500/70 dark:text-foreground shrink-0' : 'px-2 py-0.5 text-xs font-medium border-red-500/40 bg-red-500/10 text-red-600 dark:bg-rose-500/70 dark:text-foreground shrink-0'}`}
-                          >
-                            {leg.prediction ? 'Yes' : 'No'}
-                          </Badge>
-                        </span>
+                          </h3>
+                          <span className="relative -top-0.5 ml-2 shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={`${leg.prediction ? 'px-2 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0' : 'px-2 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
+                            >
+                              {leg.prediction ? 'Yes' : 'No'}
+                            </Badge>
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                <div className="flex items-stretch">
-                  <div className="w-1 self-stretch bg-foreground" />
-                  <div className="flex-1 pl-3 pr-2 py-3">
-                    <div className="text-sm mb-2.5 px-0.5 flex items-center gap-1">
-                      <span className="text-muted-foreground">
-                        Market Prediction:
-                      </span>
-                      <MarketPredictionRequest
-                        key={`mpr-${nonce}-${combo
-                          .map(
-                            (leg) =>
-                              `${leg.condition.id}:${leg.prediction ? '1' : '0'}`
-                          )
-                          .join('|')}`}
-                        outcomes={combo.map((leg) => ({
-                          marketId: leg.condition.id,
-                          prediction: leg.prediction,
-                        }))}
-                      />
-                    </div>
-                    <Button
-                      className="w-full gap-2"
-                      variant="outline"
-                      type="button"
-                      onClick={() => {
-                        combo.forEach((leg) => {
-                          addParlaySelection({
-                            conditionId: leg.condition.id,
-                            question:
-                              leg.condition.shortName || leg.condition.question,
-                            prediction: leg.prediction,
+                  ))}
+                  <div className="flex items-stretch">
+                    <div className="flex-1 pl-3 pr-2 py-3">
+                      <div className="text-sm text-foreground/70 w-full mb-3">
+                        <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
+                          <span>Current Forecast:</span>
+                          <MarketPredictionRequest
+                            key={`mpr-${nonce}-${combo
+                              .map(
+                                (leg) =>
+                                  `${leg.condition.id}:${leg.prediction ? '1' : '0'}`
+                              )
+                              .join('|')}`}
+                            outcomes={combo.map((leg) => ({
+                              marketId: leg.condition.id,
+                              prediction: leg.prediction,
+                            }))}
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full gap-2 tracking-wider"
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          combo.forEach((leg) => {
+                            addParlaySelection({
+                              conditionId: leg.condition.id,
+                              question:
+                                leg.condition.shortName ||
+                                leg.condition.question,
+                              prediction: leg.prediction,
+                            });
                           });
-                        });
-                      }}
-                    >
-                      <SquareStackIcon className="h-4 w-4" />
-                      Pick Parlay
-                    </Button>
+                        }}
+                      >
+                        <SquareStackIcon className="h-4 w-4" />
+                        PICK PARLAY
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

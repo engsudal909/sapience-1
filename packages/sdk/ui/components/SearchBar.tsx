@@ -44,10 +44,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div className="relative flex items-center">
       <SearchIcon
-        className="absolute left-0 md:left-0 top-1/2 -translate-y-1/2 h-5 w-5 md:h-6 md:w-6 text-foreground/50 z-10 pointer-events-none"
+        className="absolute left-0 md:left-0 top-1/2 -translate-y-1/2 h-5 w-5 md:h-6 md:w-6 text-foreground md:text-muted-foreground opacity-50 z-10 pointer-events-none"
         strokeWidth={2}
       />
-      <div className="flex-1 relative border-b border-border/90">
+      <div className="flex-1 relative border-b border-foreground/30 md:border-muted-foreground/30">
         <Input
           ref={inputRef}
           type="text"

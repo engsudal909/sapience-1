@@ -28,6 +28,7 @@ import { Plus, RefreshCw, Loader2, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
+import { CHAIN_ID_ETHEREAL } from '../settings/pages/SettingsPageContent';
 import { DEFAULT_FACTORY_ADDRESS } from './constants';
 import RFQTab from './RFQTab';
 import CLCsvImportDialog from './CLCsvImportDialog';
@@ -457,11 +458,75 @@ const Admin = () => {
     adminBaseUrl ?? defaults.adminBaseUrl
   );
   const [adminError, setAdminError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'liquid' | 'rfq'>('liquid');
+  const [isEtherealChain, setIsEtherealChain] = useState(false);
+
+  // Determine initial tab based on chain ID
+  const getInitialTab = (): 'liquid' | 'rfq' => {
+    if (typeof window === 'undefined') return 'liquid';
+    try {
+      const chainId = window.localStorage.getItem('sapience.settings.chainId');
+      return chainId === CHAIN_ID_ETHEREAL ? 'rfq' : 'liquid';
+    } catch {
+      return 'liquid';
+    }
+  };
+
+  const [activeTab, setActiveTab] = useState<'liquid' | 'rfq'>(getInitialTab());
+
+  // Check if we're on Ethereal chain and update state
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkChainId = () => {
+      try {
+        const chainId = window.localStorage.getItem(
+          'sapience.settings.chainId'
+        );
+        const isEthereal = chainId === CHAIN_ID_ETHEREAL;
+        setIsEtherealChain(isEthereal);
+      } catch {
+        // no-op
+      }
+    };
+
+    // Check on mount
+    checkChainId();
+
+    // Listen for storage changes (e.g., when chain ID changes in settings from other tabs)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sapience.settings.chainId') {
+        checkChainId();
+      }
+    };
+
+    // Also check when window regains focus (handles same-tab changes)
+    const handleFocus = () => {
+      checkChainId();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // Force to rfq tab when on Ethereal chain
+  useEffect(() => {
+    if (isEtherealChain && activeTab !== 'rfq') {
+      setActiveTab('rfq');
+    }
+  }, [isEtherealChain, activeTab]);
 
   // Sync tabs with URL hash for direct linking and back/forward navigation
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // If on Ethereal, don't sync with hash
+    if (isEtherealChain) {
+      return;
+    }
 
     const hashToTab = (hash: string): 'liquid' | 'rfq' => {
       const h = (hash || '').toLowerCase();
@@ -497,7 +562,7 @@ const Admin = () => {
 
     window.addEventListener('hashchange', applyHashToTab);
     return () => window.removeEventListener('hashchange', applyHashToTab);
-  }, []);
+  }, [isEtherealChain]);
 
   const isHttpUrl = (value: string) => {
     try {
@@ -653,6 +718,10 @@ const Admin = () => {
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
+          // Prevent switching tabs when on Ethereal chain
+          if (isEtherealChain) {
+            return;
+          }
           const next = v as 'liquid' | 'rfq';
           setActiveTab(next);
           if (typeof window !== 'undefined') {
@@ -665,12 +734,14 @@ const Admin = () => {
         className="w-full"
       >
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <TabsList>
-            <TabsTrigger value="liquid">
-              Concentrated Liquidity Markets
-            </TabsTrigger>
-            <TabsTrigger value="rfq">Batch Auction Settlement</TabsTrigger>
-          </TabsList>
+          {!isEtherealChain && (
+            <TabsList>
+              <TabsTrigger value="liquid">
+                Concentrated Liquidity Markets
+              </TabsTrigger>
+              <TabsTrigger value="rfq">Batch Auction Settlement</TabsTrigger>
+            </TabsList>
+          )}
           {activeTab === 'liquid' ? (
             <div className="md:ml-auto flex items-center gap-2">
               <Button size="sm" asChild>
@@ -693,7 +764,7 @@ const Admin = () => {
               >
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
-                    <RefreshCw className="mr-1 h-4 w-4" />
+                    <RefreshCw className="mr-1 h-4 w-4 text-accent-gold" />
                     Reindex Factory
                   </Button>
                 </DialogTrigger>

@@ -20,6 +20,7 @@ import {
 import { useSapience } from '~/lib/context/SapienceProvider';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 function createForecastRow(attestation: FormattedAttestation) {
   const ForecastRow = ({
@@ -58,7 +59,7 @@ function createForecastRow(attestation: FormattedAttestation) {
           : '';
         actionBadge = (
           <Badge variant={variant} className={`${className} whitespace-nowrap`}>
-            {`${percentage}% Chance`}
+            {`${formatPercentChance(percentage / 100)} Chance`}
           </Badge>
         );
       }
@@ -68,12 +69,12 @@ function createForecastRow(attestation: FormattedAttestation) {
     return (
       <tr className="border-b align-middle">
         <td
-          className="px-4 py-3 border-l-[4px]"
+          className="px-4 py-3 border-l"
           style={
             leftColor
               ? {
                   borderLeftColor: leftColor,
-                  borderLeftWidth: 4,
+                  borderLeftWidth: 1,
                   borderLeftStyle: 'solid',
                 }
               : undefined

@@ -86,16 +86,20 @@ export default function ConditionDialog({
 
   return (
     <DialogContent
-      className={`w-[92vw] max-w-3xl break-words overflow-x-hidden ${className ?? ''}`}
+      className={`w-[92vw] max-w-3xl break-words overflow-x-hidden bg-brand-black text-brand-white rounded-lg border border-brand-white/10 ${className ?? ''}`}
     >
-      <DialogHeader>
-        <DialogTitle className="break-words whitespace-normal text-2xl font-medium">
+      <DialogHeader className="text-left">
+        <DialogTitle className="break-words whitespace-normal text-2xl font-medium font-mono text-brand-white">
           {displayTitle}
         </DialogTitle>
       </DialogHeader>
       <div>
         <div className="flex items-center mb-4">
-          <EndTimeDisplay endTime={displayEndTime} size="large" />
+          <EndTimeDisplay
+            endTime={displayEndTime}
+            size="large"
+            appearance="brandWhite"
+          />
         </div>
         {displayDescription ? (
           <div className="text-sm leading-relaxed break-words [&_a]:break-all">

@@ -408,9 +408,7 @@ export const ModifyLiquidityForm: React.FC<ModifyLiquidityFormProps> = ({
           disabled={isSubmitButtonDisabled()}
           onClick={handleSubmit(submitForm)}
         >
-          {buttonState.loading && (
-            <LottieLoader className="invert" width={20} height={20} />
-          )}
+          {buttonState.loading && <LottieLoader width={20} height={20} />}
           {buttonState.text}
         </Button>
 

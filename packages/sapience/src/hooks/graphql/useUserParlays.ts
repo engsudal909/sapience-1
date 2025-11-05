@@ -33,8 +33,20 @@ export type Parlay = {
 };
 
 const USER_PARLAYS_QUERY = /* GraphQL */ `
-  query UserParlays($address: String!, $take: Int, $skip: Int) {
-    userParlays(address: $address, take: $take, skip: $skip) {
+  query UserParlays(
+    $address: String!
+    $take: Int
+    $skip: Int
+    $orderBy: String
+    $orderDirection: String
+  ) {
+    userParlays(
+      address: $address
+      take: $take
+      skip: $skip
+      orderBy: $orderBy
+      orderDirection: $orderDirection
+    ) {
       id
       chainId
       marketAddress
@@ -64,15 +76,41 @@ const USER_PARLAYS_QUERY = /* GraphQL */ `
   }
 `;
 
+export function useUserParlaysCount(address?: string) {
+  const enabled = Boolean(address);
+  const { data } = useQuery({
+    queryKey: ['userParlaysCount', address],
+    enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => {
+      const resp = await graphqlRequest<{ userParlaysCount: number }>(
+        /* GraphQL */ `
+          query UserParlaysCount($address: String!) {
+            userParlaysCount(address: $address)
+          }
+        `,
+        { address }
+      );
+      return resp?.userParlaysCount ?? 0;
+    },
+  });
+  return data ?? 0;
+}
+
 export function useUserParlays(params: {
   address?: string;
   take?: number;
   skip?: number;
+  orderBy?: string;
+  orderDirection?: string;
 }) {
-  const { address, take = 50, skip = 0 } = params;
+  const { address, take = 50, skip = 0, orderBy, orderDirection } = params;
   const enabled = Boolean(address);
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['userParlays', address, take, skip],
+    queryKey: ['userParlays', address, take, skip, orderBy, orderDirection],
     enabled,
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
@@ -85,6 +123,8 @@ export function useUserParlays(params: {
           address,
           take,
           skip,
+          orderBy,
+          orderDirection,
         }
       );
       const base = resp?.userParlays ?? [];

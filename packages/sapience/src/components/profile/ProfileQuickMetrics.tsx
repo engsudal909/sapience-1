@@ -5,7 +5,13 @@ import * as React from 'react';
 import { erc20Abi, formatUnits } from 'viem';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { useReadContract } from 'wagmi';
-import { Calendar, TrendingUp, Telescope } from 'lucide-react';
+import {
+  Calendar,
+  TrendingUp,
+  Telescope,
+  BarChart2,
+  Target,
+} from 'lucide-react';
 
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import {
@@ -19,6 +25,8 @@ import type { PositionType } from '@sapience/sdk/types';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { formatFiveSigFigs, bigIntAbs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
+import { useUserProfitRank } from '~/hooks/graphql/useUserProfitRank';
+import { useForecasterRank } from '~/hooks/graphql/useForecasterRank';
 
 type MetricBadgeProps = {
   icon?: React.ReactNode;
@@ -29,6 +37,7 @@ type MetricBadgeProps = {
   tooltip?: string;
   size?: 'normal' | 'large';
   muted?: boolean;
+  highlighted?: boolean;
 };
 
 function MetricBadge({
@@ -40,18 +49,29 @@ function MetricBadge({
   tooltip,
   size = 'normal',
   muted = false,
+  highlighted = false,
 }: MetricBadgeProps) {
   const baseBadgeClasses = 'h-8 items-center px-3 text-xs leading-none';
   const desktopBase =
     size === 'large'
       ? 'h-9 items-center px-3.5 text-sm leading-none'
       : baseBadgeClasses;
-  const outlineExtras = 'bg-card border-border';
+  const outlineExtras = highlighted
+    ? 'bg-background text-foreground border-foreground/30'
+    : 'bg-card border-border';
 
   const variant = muted ? 'secondary' : 'outline';
   const smallClass = `${baseBadgeClasses} ${muted ? '' : outlineExtras}`.trim();
   const largeClass =
     `${desktopBase} inline-flex ${muted ? '' : outlineExtras}`.trim();
+
+  const textColor = highlighted ? 'text-foreground' : 'text-brand-white';
+  const sublabelColor = highlighted
+    ? 'text-foreground/70'
+    : 'text-muted-foreground';
+  const dividerColor = highlighted
+    ? 'bg-foreground/30'
+    : 'bg-muted-foreground/30';
 
   const left = (
     <>
@@ -70,7 +90,7 @@ function MetricBadge({
           {icon}
         </span>
       ) : null}
-      <span className="font-medium">{label}</span>
+      <span className={`font-medium ${textColor}`}>{label}</span>
     </>
   );
 
@@ -79,13 +99,11 @@ function MetricBadge({
       {left}
       <span
         aria-hidden="true"
-        className="hidden md:inline-block mx-2.5 h-4 w-px bg-muted-foreground/30"
+        className={`hidden md:inline-block mx-2.5 h-4 w-px ${dividerColor}`}
       />
-      <span className="tabular-nums">{value}</span>
+      <span className={`tabular-nums ${textColor}`}>{value}</span>
       {sublabel ? (
-        <span className="ml-1 text-muted-foreground font-normal">
-          {sublabel}
-        </span>
+        <span className={`ml-1 ${sublabelColor} font-normal`}>{sublabel}</span>
       ) : null}
     </>
   );
@@ -100,11 +118,11 @@ function MetricBadge({
                 {left}
                 <span
                   aria-hidden="true"
-                  className="mx-2 h-3.5 w-px bg-muted-foreground/30 inline-block"
+                  className={`mx-2 h-3.5 w-px ${dividerColor} inline-block`}
                 />
-                <span className="tabular-nums">{value}</span>
+                <span className={`tabular-nums ${textColor}`}>{value}</span>
                 {sublabel ? (
-                  <span className="ml-1 text-muted-foreground font-normal">
+                  <span className={`ml-1 ${sublabelColor} font-normal`}>
                     {sublabel}
                   </span>
                 ) : null}
@@ -317,8 +335,63 @@ export default function ProfileQuickMetrics({
       : 'forecasts'
     : undefined;
 
+  // Fetch profit and accuracy data
+  const { data: profit, isLoading: profitLoading } = useUserProfitRank(address);
+  const { data: accuracy, isLoading: accuracyLoading } =
+    useForecasterRank(address);
+
+  const pnlValue = profitLoading
+    ? '—'
+    : formatFiveSigFigs(Number(profit?.totalPnL || 0));
+
+  const pnlRank = profitLoading
+    ? undefined
+    : profit?.rank
+      ? `testUSDe (Rank #${profit.rank})`
+      : undefined;
+
+  const accValue = accuracyLoading
+    ? '—'
+    : Number.isFinite(accuracy?.accuracyScore || 0)
+      ? Math.round(accuracy?.accuracyScore || 0).toLocaleString('en-US')
+      : '—';
+
+  const accRank = accuracyLoading
+    ? undefined
+    : accuracy?.rank
+      ? `(Rank #${accuracy.rank})`
+      : undefined;
+
+  // Show P&L and Accuracy if they have rankings
+  const showPnl = !profitLoading && profit?.rank;
+  const showAccuracy = !accuracyLoading && accuracy?.rank;
+
   return (
     <ul className={`flex flex-wrap items-center gap-4 ${className ?? ''}`}>
+      {showPnl && (
+        <li>
+          <MetricBadge
+            icon={<BarChart2 className="h-4 w-4 opacity-70" />}
+            label="Realized PnL"
+            value={pnlValue}
+            sublabel={pnlRank}
+            size="normal"
+            highlighted
+          />
+        </li>
+      )}
+      {showAccuracy && (
+        <li>
+          <MetricBadge
+            icon={<Target className="h-4 w-4 opacity-70" />}
+            label="Accuracy Score"
+            value={accValue}
+            sublabel={accRank}
+            size="normal"
+            highlighted
+          />
+        </li>
+      )}
       <li>
         <MetricBadge
           imageSrc="/usde.svg"

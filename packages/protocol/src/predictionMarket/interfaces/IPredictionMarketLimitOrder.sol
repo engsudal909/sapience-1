@@ -11,46 +11,43 @@ interface IPredictionMarketLimitOrder {
     // ============ Limit Order ============
 
     /**
-     * @notice Place a new order
-     * @dev it will:
-     *   1- validate the order request data
-     *   1.1- check if the maker has enough collateral (and transfer it to the contract)
-     *   1.2- check if the order is valid
-     *   1.3- check if the maker already has an unfilled order
-     *   2- store the order request data (with the request id)
-     *   3- emit an event with the right information
-     * @param orderRequestData The order request data
+     * @notice Place a new limit order
+     * @dev The caller becomes the maker. It will:
+     *   1- Validate collateral amounts (maker collateral >= minCollateral, both > 0)
+     *   2- Transfer maker collateral to the contract (maker must have approved)
+     *   3- Generate a unique order ID and store the order
+     *   4- Add order to unfilled order tracking
+     *   5- Emit an OrderPlaced event
+     * @param orderRequestData The order request data including outcomes, collateral, deadline, etc.
+     * @return orderId The unique identifier for this order
      */
     function placeOrder(
         IPredictionStructs.OrderRequestData calldata orderRequestData
     ) external returns (uint256 orderId);
 
     /**
-     * @notice Fill an order
-     * @dev it will:
-     *   1- validate the request id and ref code
-     *   1.1- check if the order is unfilled
-     *   1.2- check if the order is valid
-     *   1.3- check if the order is expired
-     *   1.4- check if the taker has enough collateral (and transfer it to the contract)
-     *   2- fill the order
-     *   3- emit an event with the right information
-     * @param orderId The order id
-     * @param refCode The ref code
+     * @notice Fill an existing limit order
+     * @dev The caller becomes the taker. It will:
+     *   1- Validate the order exists and is not expired
+     *   2- Transfer taker collateral to the contract (taker must have approved)
+     *   3- Create a prediction using the order terms
+     *   4- Mint NFTs for both maker and taker
+     *   5- Mark the order as filled (removed from unfilled orders)
+     *   6- Emit an OrderFilled event
+     * @param orderId The order ID to fill
+     * @param refCode Reference code for tracking
      */
     function fillOrder(uint256 orderId, bytes32 refCode) external;
 
     /**
-     * @notice Cancel an order
-     * @dev it will:
-     *   1- validate the order id
-     *   1.1- check if the order is unfilled
-     *   1.2- check if the order is valid
-     *   1.3- check if the order is expired
-     *   1.4- transfer collateral back to the maker
-     *   2- cancel the order
-     *   3- emit an event with the right information
-     * @param orderId The order id
+     * @notice Cancel an unfilled limit order
+     * @dev Only the order maker can cancel. It will:
+     *   1- Validate the order exists
+     *   2- Verify the caller is the order maker
+     *   3- Return the maker's collateral
+     *   4- Mark the order as cancelled (removed from unfilled orders)
+     *   5- Emit an OrderCancelled event
+     * @param orderId The order ID to cancel
      */
     function cancelOrder(uint256 orderId) external;
 

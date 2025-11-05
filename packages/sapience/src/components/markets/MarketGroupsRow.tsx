@@ -17,6 +17,7 @@ import { useMarketGroupChartData } from '~/hooks/graphql/useMarketGroupChartData
 import { DEFAULT_WAGER_AMOUNT } from '~/lib/utils/betslipUtils';
 import type { MultiMarketChartDataPoint } from '~/lib/utils/chartUtils';
 import { useSettings } from '~/lib/context/SettingsContext';
+import PercentChance from '~/components/shared/PercentChance';
 
 export interface MarketGroupsRowProps {
   chainId: number;
@@ -105,14 +106,7 @@ const MarketGroupsRow = ({
     return prices;
   }, [chartData]);
 
-  // Helper function to format price as percentage
-  const formatPriceAsPercentage = (price: number) => {
-    if (price <= 0) return 'Price N/A';
-
-    // Convert to percentage (price is typically between 0 and 1)
-    const percentage = price * 100;
-    return `${Math.round(percentage)}% chance`;
-  };
+  // unified percent chance rendering via shared component
 
   // Helper function to handle adding market to bet slip
   const handleAddToBetSlip = (
@@ -195,9 +189,12 @@ const MarketGroupsRow = ({
         } else {
           // For YES/NO markets, show as percentage
           return (
-            <span className="font-medium text-foreground">
-              {formatPriceAsPercentage(currentPrice)}
-            </span>
+            <PercentChance
+              probability={currentPrice}
+              showLabel={true}
+              label="Chance"
+              className="font-medium text-foreground"
+            />
           );
         }
       }
@@ -220,9 +217,12 @@ const MarketGroupsRow = ({
 
     if (currentPrice > 0) {
       return (
-        <span className="font-medium text-foreground">
-          {formatPriceAsPercentage(currentPrice)}
-        </span>
+        <PercentChance
+          probability={currentPrice}
+          showLabel={true}
+          label="Chance"
+          className="font-medium text-foreground"
+        />
       );
     }
 
@@ -310,13 +310,11 @@ const MarketGroupsRow = ({
   return (
     <div className="w-full">
       {/* Main Row Container for Color Bar + Content */}
-      <div className="bg-card border-muted flex flex-row transition-colors items-stretch min-h-[88px] md:min-h-[72px] relative">
-        {/* Colored Bar (Full Height) */}
+      <div className="bg-brand-black text-brand-white/90 flex flex-row transition-colors items-stretch min-h-[88px] md:min-h-[72px] relative font-mono">
         <div
-          className="w-1 min-w-[4px] max-w-[4px]"
-          style={{ backgroundColor: color, margin: '-1px 0' }}
+          className="absolute top-0 bottom-0 left-0 w-px"
+          style={{ backgroundColor: color }}
         />
-
         {/* Content Container */}
         <div className="relative flex-grow flex flex-col md:flex-row md:items-center md:justify-between px-4 pt-4 pb-4 md:py-2 gap-3">
           {/* Left Side: Question + Prediction */}
@@ -326,20 +324,16 @@ const MarketGroupsRow = ({
                 href={`/markets/${chainShortName}:${marketAddress}`}
                 className="group"
               >
-                <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
+                <span className="font-mono text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors block overflow-hidden group-hover:decoration-brand-white/80">
                   {displayQuestion}
                 </span>
               </Link>
             </h3>
             {/* Prediction Section (conditionally rendered) */}
             {canShowPredictionElement && (
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">
-                    Market Prediction:{' '}
-                  </span>
-                  <MarketPrediction />
-                </div>
+              <div className="text-sm text-foreground/70 flex items-center gap-1">
+                <span>Current Forecast:</span>
+                <MarketPrediction />
               </div>
             )}
           </div>
@@ -391,7 +385,7 @@ const MarketGroupsRow = ({
                         className="group inline-flex items-center"
                       >
                         <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-                          Closed
+                          CLOSED
                         </span>
                       </Link>
                     </Button>
@@ -405,9 +399,9 @@ const MarketGroupsRow = ({
                     // Numeric markets keep single action
                     <Button
                       variant="default"
-                      size="lg"
+                      size="sm"
                       onClick={() => handleAddToBetSlip(activeMarket)}
-                      className="w-28 text-base"
+                      className="w-full md:min-w-[10rem] text-base"
                     >
                       <Image
                         src="/susde-icon.svg"
@@ -431,7 +425,9 @@ const MarketGroupsRow = ({
                           onYes={() => handleAddToBetSlip(yesMarket, true)}
                           onNo={() => handleAddToBetSlip(noMarket, false)}
                           className="w-full md:min-w-[10rem]"
-                          size="lg"
+                          size="sm"
+                          yesLabel="PREDICT YES"
+                          noLabel="PREDICT NO"
                           selectedYes={yesNoSelection.selectedYes}
                           selectedNo={yesNoSelection.selectedNo}
                           yesOddsText={
@@ -456,7 +452,7 @@ const MarketGroupsRow = ({
                     href={`/markets/${chainShortName}:${marketAddress}`}
                     className="group inline-flex items-center"
                   >
-                    Closed
+                    CLOSED
                   </Link>
                 </Button>
               )}
@@ -501,10 +497,8 @@ const MarketGroupsRow = ({
                                 </span>
                               </Link>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              <span className="text-muted-foreground">
-                                Market Prediction:{' '}
-                              </span>
+                            <div className="text-xs text-foreground/70 flex items-center gap-1">
+                              <span>Current Forecast:</span>
                               <IndividualMarketPrediction
                                 marketItem={marketItem}
                               />
@@ -544,6 +538,8 @@ const MarketGroupsRow = ({
                                   }
                                   className="w-full md:min-w-[10rem]"
                                   size="lg"
+                                  yesLabel="PREDICT YES"
+                                  noLabel="PREDICT NO"
                                   selectedYes={selectedYes}
                                   selectedNo={selectedNo}
                                 />
