@@ -237,12 +237,15 @@ export default function BetslipParlayForm({
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 p-4">
-        <div className="space-y-4">
+      <form
+        onSubmit={methods.handleSubmit(onSubmit)}
+        className="space-y-4 px-4 pb-4 pt-0"
+      >
+        <div>
           {parlaySelections.map((s) => (
             <div
               key={s.id}
-              className="pb-4 mb-4 border-b border-brand-white/10"
+              className="-mx-4 px-4 py-2.5 border-b border-brand-white/10 first:border-t"
             >
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -280,14 +283,16 @@ export default function BetslipParlayForm({
             </div>
           ))}
 
-          <WagerInput
-            minAmount={minWager}
-            collateralSymbol={collateralSymbol}
-            collateralAddress={collateralToken}
-            chainId={chainId}
-          />
+          <div className="mt-4">
+            <WagerInput
+              minAmount={minWager}
+              collateralSymbol={collateralSymbol}
+              collateralAddress={collateralToken}
+              chainId={chainId}
+            />
+          </div>
 
-          <div className="space-y-1">
+          <div className="mt-3 space-y-1">
             {bestBid ? (
               <div className="text-center">
                 {(() => {

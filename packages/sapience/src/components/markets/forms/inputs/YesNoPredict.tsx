@@ -3,6 +3,7 @@ import Slider from '@sapience/sdk/ui/components/ui/slider';
 import { useFormContext } from 'react-hook-form';
 import { useState, useEffect } from 'react';
 import { priceToSqrtPriceX96 } from '~/lib/utils/util';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 interface YesNoPredictProps {
   name?: string;
@@ -35,7 +36,7 @@ export default function YesNoPredict({
         {/* Slider for fine-tuning */}
         <div className="space-y-2.5">
           <Label className="text-base">
-            Forecast: {sliderValue[0]}% Chance
+            Forecast: {formatPercentChance(sliderValue[0] / 100)} Chance
           </Label>
           <Slider
             value={sliderValue}

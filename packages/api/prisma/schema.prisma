@@ -447,6 +447,7 @@ model Condition {
   claimStatement String    @db.VarChar
   description    String    @db.Text
   similarMarkets String[]  @default([])
+  chainId        Int       @default(42161)
 
   @@index([categoryId])
   @@index([endTime])
@@ -466,6 +467,8 @@ model Parlay {
   makerNftTokenId  String    @db.VarChar
   takerNftTokenId  String    @db.VarChar
   totalCollateral  String    @db.VarChar
+  makerCollateral  String?   @db.VarChar
+  takerCollateral  String?   @db.VarChar
   refCode          String?   @db.VarChar
 
   // Status

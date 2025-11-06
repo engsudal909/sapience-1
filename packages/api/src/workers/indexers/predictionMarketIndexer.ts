@@ -495,6 +495,8 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           makerNftTokenId: eventData.makerNftTokenId,
           takerNftTokenId: eventData.takerNftTokenId,
           totalCollateral: eventData.totalCollateral,
+          makerCollateral: eventData.makerCollateral,
+          takerCollateral: eventData.takerCollateral,
           refCode: eventData.refCode,
           status: 'active',
           makerWon: null,

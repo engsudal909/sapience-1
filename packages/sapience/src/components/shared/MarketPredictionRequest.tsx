@@ -11,7 +11,8 @@ import {
   buildAuctionStartPayload,
   type PredictedOutcomeInputStub,
 } from '~/lib/auction/buildAuctionPayload';
-import { DEFAULT_WAGER_AMOUNT } from '~/lib/utils/betslipUtils';
+import PercentChance from '~/components/shared/PercentChance';
+// Use one as the default wager for prediction requests
 
 export interface MarketPredictionRequestProps {
   conditionId?: string;
@@ -42,6 +43,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   const { address: makerAddress } = useAccount();
   const { requestQuotes, bids } = useAuctionStart();
   const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  const ZERO_ADDRESS =
+    '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
   const eagerlyRequestedRef = React.useRef<boolean>(false);
   const eagerJitterMsRef = React.useRef<number>(
@@ -78,50 +81,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     return () => observer?.disconnect();
   }, [eager]);
 
-  // Generate or retrieve a stable guest maker address for logged-out users
-  const guestMakerAddress = React.useMemo<`0x${string}` | null>(() => {
-    if (typeof window === 'undefined') return null;
-    // Try to read a persisted guest address, but don't fail hard if storage isn't available
-    let stored: string | null = null;
-    try {
-      stored = window.localStorage.getItem('sapience_guest_maker_address');
-    } catch {
-      /* storage unavailable */
-    }
-    if (stored) return stored as `0x${string}`;
-
-    // Generate an ephemeral address for this session
-    let addr: `0x${string}` | null = null;
-    try {
-      const bytes = new Uint8Array(20);
-      (window.crypto || ({} as Crypto)).getRandomValues?.(bytes);
-      if (bytes[0] === undefined) throw new Error('no-crypto');
-      addr = ('0x' +
-        Array.from(bytes)
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('')) as `0x${string}`;
-    } catch {
-      // Fallback to Math.random-based generation (less strong, but fine for a UI nonce)
-      const rand = Array.from({ length: 20 }, () =>
-        Math.floor(Math.random() * 256)
-      );
-      addr = ('0x' +
-        rand
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('')) as `0x${string}`;
-    }
-
-    // Best-effort persist for future visits
-    try {
-      window.localStorage.setItem('sapience_guest_maker_address', addr);
-    } catch {
-      /* storage unavailable */
-    }
-    return addr;
-  }, []);
-
-  // Prefer connected wallet address; fall back to guest address
-  const selectedMakerAddress = makerAddress ?? guestMakerAddress ?? undefined;
+  // Prefer connected wallet address; fall back to zero address
+  const selectedMakerAddress = makerAddress || ZERO_ADDRESS;
 
   const { data: makerNonce } = useReadContract({
     address: PREDICTION_MARKET_ADDRESS,
@@ -132,12 +93,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     query: { enabled: !!selectedMakerAddress && !!PREDICTION_MARKET_ADDRESS },
   });
 
-  const formatPriceAsPercentage = React.useCallback((price: number) => {
-    if (!Number.isFinite(price)) return 'Price N/A';
-    const percentage = Math.max(0, Math.min(100, price * 100));
-    if (percentage < 1) return '<1% chance';
-    return `${Math.round(percentage)}% chance`;
-  }, []);
+  // unified via PercentChance component
 
   React.useEffect(() => {
     if (!isRequesting) return;
@@ -199,7 +155,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     if (!isRequesting) return;
     if (effectiveOutcomes.length === 0 || !selectedMakerAddress) return;
     try {
-      const wagerWei = parseUnits(DEFAULT_WAGER_AMOUNT, 18).toString();
+      const wagerWei = parseUnits('1', 18).toString();
       setLastMakerWagerWei(wagerWei);
       const payload = buildAuctionStartPayload(effectiveOutcomes);
       const send = () => {
@@ -237,7 +193,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       if (effectiveOutcomes.length === 0 || !selectedMakerAddress) {
         setQueuedRequest(true);
       } else {
-        const wagerWei = parseUnits(DEFAULT_WAGER_AMOUNT, 18).toString();
+        const wagerWei = parseUnits('1', 18).toString();
         setLastMakerWagerWei(wagerWei);
         const payload = buildAuctionStartPayload(effectiveOutcomes);
         const send = () => {
@@ -306,9 +262,12 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           </button>
         )
       ) : (
-        <span className="text-foreground font-medium">
-          {formatPriceAsPercentage(requestedPrediction)}
-        </span>
+        <PercentChance
+          probability={requestedPrediction}
+          showLabel={true}
+          label="Chance"
+          className="text-foreground font-medium"
+        />
       )}
     </div>
   );

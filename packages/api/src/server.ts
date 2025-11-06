@@ -8,9 +8,6 @@ import { createAuctionWebSocketServer } from './auction/ws';
 import { createChatWebSocketServer } from './websocket/chat';
 import type { IncomingMessage } from 'http';
 import type { Socket } from 'net';
-import dotenv from 'dotenv';
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { initSentry } from './instrument';
 import { initializeApolloServer } from './graphql/startApolloServer';
 import Sentry from './instrument';
@@ -18,22 +15,16 @@ import { NextFunction, Request, Response } from 'express';
 import { initializeFixtures } from './fixtures';
 import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
-const PORT = 3001;
+import { config } from './config';
 
-// Load environment variables
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+const PORT = 3001;
 
 initSentry();
 
 const startServer = async () => {
   await initializeDataSource();
 
-  if (
-    process.env.NODE_ENV === 'development' &&
-    process.env.DATABASE_URL?.includes('render')
-  ) {
+  if (config.isDev && process.env.DATABASE_URL?.includes('render')) {
     console.log(
       'Skipping fixtures initialization since we are in development mode and using production database'
     );
@@ -69,10 +60,10 @@ const startServer = async () => {
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
       try {
         const url = request.url || '/';
-        // Origin validation for staging/prod if configured
+        // Origin validation for prod if configured
         if (
           url.startsWith('/chat') &&
-          process.env.NODE_ENV !== 'development' &&
+          !config.isDev &&
           process.env.CHAT_ALLOWED_ORIGINS
         ) {
           const origin = request.headers['origin'] as string | undefined;
@@ -121,7 +112,7 @@ const startServer = async () => {
   });
 
   // Only set up Sentry error handling in production
-  if (process.env.NODE_ENV === 'production') {
+  if (config.isProd) {
     Sentry.setupExpressErrorHandler(app);
   }
 
