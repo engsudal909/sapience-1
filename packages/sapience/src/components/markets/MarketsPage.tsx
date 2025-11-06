@@ -7,14 +7,17 @@ import { FrownIcon } from 'lucide-react';
 import dynamic from 'next/dynamic'; // Import dynamic
 import { useSearchParams, useRouter } from 'next/navigation';
 import * as React from 'react';
-
+import { Tabs, TabsTrigger } from '@sapience/sdk/ui/components/ui/tabs';
 import { type Market as GraphQLMarketType } from '@sapience/sdk/types/graphql';
 import { SearchBar } from '@sapience/sdk/ui';
+import { useEffect } from 'react';
 import ParlayConditionCard from './ParlayConditionCard';
+
 import MarketCard from './MarketCard';
 import MarketGroupsRow from './MarketGroupsRow';
 import ConditionRow from './ConditionRow';
 import FocusAreaFilter from './FocusAreaFilter';
+import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import {
   useEnrichedMarketGroups,
   useCategories,
@@ -29,6 +32,7 @@ import type { MarketGroupClassification } from '~/lib/types'; // Added import
 import { getYAxisConfig, getMarketHeaderQuestion } from '~/lib/utils/util';
 import Betslip from '~/components/markets/Betslip';
 import SuggestedBetslips from '~/components/markets/SuggestedBetslips';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 // Custom hook for debouncing values
 function useDebounce<T>(value: T, delay: number): T {
@@ -97,8 +101,11 @@ const formatEndDate = (timestamp: number): string => {
 
 const MarketsPage = () => {
   // Use the new hook and update variable names
-  const { data: enrichedMarketGroups, isLoading: isLoadingMarketGroups } =
-    useEnrichedMarketGroups();
+  const {
+    data: enrichedMarketGroups,
+    isLoading: isLoadingMarketGroups,
+    refetch: refetchMarketGroups,
+  } = useEnrichedMarketGroups();
   const { data: categories, isLoading: isLoadingCategories } = useCategories();
 
   const searchParams = useSearchParams();
@@ -165,9 +172,19 @@ const MarketsPage = () => {
     }
   };
 
+  // Read chainId from localStorage with event monitoring
+  const chainId = useChainIdFromLocalStorage();
+
   // RFQ Conditions via GraphQL
   const { data: allConditions = [], isLoading: isLoadingConditions } =
-    useConditions({ take: 200 });
+    useConditions({ take: 200, chainId });
+
+  // Refetch data when chainId changes
+  useEffect(() => {
+    // useConditions will automatically refetch when chainId changes (it's in the queryKey)
+    // But we need to manually refetch marketGroups since chainId is not in its queryKey
+    refetchMarketGroups();
+  }, [chainId, refetchMarketGroups]);
 
   // State for text filter
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -651,12 +668,39 @@ const MarketsPage = () => {
       <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-16 lg:pb-0">
         {/* Top controls section (not sticky) */}
         <div>
-          <div className="mt-4 md:mt-0 mb-4 md:mb-0">
-            <SearchBar
-              isMobile={isMobile}
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
+          <div className="mt-4 md:mt-0 mb-3 md:mb-0">
+            {isMobile ? (
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <SearchBar
+                    isMobile={isMobile}
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                  />
+                </div>
+                <Tabs
+                  value={statusFilter}
+                  onValueChange={(v) =>
+                    handleStatusFilterClick((v as 'active' | 'all') || 'active')
+                  }
+                  className="ml-2"
+                >
+                  <SegmentedTabsList
+                    containerRadiusClassName="rounded-md"
+                    triggerRadiusClassName="rounded-sm"
+                  >
+                    <TabsTrigger value="active">Active</TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                  </SegmentedTabsList>
+                </Tabs>
+              </div>
+            ) : (
+              <SearchBar
+                isMobile={isMobile}
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+            )}
           </div>
           <motion.div
             className="mt-0 md:mt-3"
@@ -678,13 +722,15 @@ const MarketsPage = () => {
               viewMode={effectiveViewMode}
               onToggleViewMode={toggleViewMode}
               showViewToggle={!isMobile}
+              showParlayToggle={false}
+              hideStatusTabsOnMobile
             />
           </motion.div>
         </div>
         {parlayMode &&
         selectedCategorySlug === null &&
         searchTerm.trim() === '' ? (
-          <SuggestedBetslips className="mb-2 md:mb-3" />
+          <SuggestedBetslips className="mb-1 md:mb-2" />
         ) : null}
 
         {/* Results area */}
