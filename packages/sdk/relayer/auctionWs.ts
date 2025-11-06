@@ -9,11 +9,22 @@ export function createAuctionWs(
     onError?: (err: unknown) => void;
     onClose?: (code: number, reason: Buffer) => void;
   } = {},
+  options: { maxRetries?: number } = {},
 ) {
   let ws: WebSocket | null = null;
   let retries = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+
+  function scheduleReconnect() {
+    if (stopped) return;
+    if (options.maxRetries !== undefined && retries >= options.maxRetries) return;
+    const delay = Math.min(30000, 1000 * 2 ** Math.min(6, retries++));
+    reconnectTimer = setTimeout(connect, delay);
+  }
 
   function connect() {
+    if (stopped) return;
     ws = new WebSocket(url);
 
     ws.on('open', () => {
@@ -36,8 +47,7 @@ export function createAuctionWs(
 
     ws.on('close', (code: number, reason: Buffer) => {
       handlers.onClose?.(code, reason);
-      const delay = Math.min(30000, 1000 * 2 ** Math.min(6, retries++));
-      setTimeout(connect, delay);
+      scheduleReconnect();
     });
   }
 
@@ -46,6 +56,26 @@ export function createAuctionWs(
   return {
     get socket() {
       return ws;
+    },
+    send(data: string | Buffer) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      ws.send(data);
+      return true;
+    },
+    close(code?: number, reason?: string) {
+      stopped = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (ws) {
+        try {
+          ws.close(code, reason);
+        } catch {
+          // noop
+        }
+        ws = null;
+      }
     },
   };
 }

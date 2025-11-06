@@ -55,6 +55,10 @@ const CHAIN_ID = Number(process.env.CHAIN_ID || '42161');
 
 const chainsById: Record<number, any> = {
   [arbitrum.id]: arbitrum,
+  [base.id]: base,
+  [optimism.id]: optimism,
+  [mainnet.id]: mainnet,
+  [polygon.id]: polygon,
 };
 const CHAIN_NAME: string = chainsById[CHAIN_ID]?.name || String(CHAIN_ID);
 const DEFAULT_RPC = chainsById[CHAIN_ID]?.rpcUrls?.public?.http?.[0] || chainsById[CHAIN_ID]?.rpcUrls?.default?.http?.[0];
@@ -142,8 +146,9 @@ async function approveOnInit() {
       fmt.bullet(fmt.field('spender', fmt.value(formatAddress(VERIFYING_CONTRACT)))),
       fmt.bullet(fmt.field('chain', fmt.value(`${CHAIN_NAME} (${CHAIN_ID})`))),
     ].join('\n'));
-    const publicClient = createPublicClient({ transport: http(RPC_URL) });
-    const walletClient = createWalletClient({ account, transport: http(RPC_URL) });
+    const chain = chainsById[CHAIN_ID];
+    const publicClient = createPublicClient({ transport: http(RPC_URL), chain });
+    const walletClient = createWalletClient({ account, transport: http(RPC_URL), chain });
 
     const current = (await publicClient.readContract({
       address: COLLATERAL_TOKEN,
@@ -163,7 +168,7 @@ async function approveOnInit() {
       abi: erc20Abi,
       functionName: 'approve',
       args: [VERIFYING_CONTRACT, MAX],
-      chain: undefined,
+      chain,
     })) as Hex;
     await publicClient.waitForTransactionReceipt({ hash });
     logger.success(`Approval tx: ${hash}`);

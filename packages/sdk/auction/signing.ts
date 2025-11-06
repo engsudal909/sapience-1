@@ -10,7 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 export interface AuctionStartLike {
   wager: string; // wei string
-  predictedOutcomes: string[]; // bytes[]
+  predictedOutcomes: Hex[]; // bytes[] (non-empty expected)
   resolver: Address;
   maker: Address;
 }
@@ -24,12 +24,18 @@ export function buildTakerBidTypedData(args: {
   taker: Address;
 }): {
   domain: TypedDataDomain;
-  types: Record<string, Array<{ name: string; type: string }>>;
+  types: { Approve: readonly [
+    { name: 'messageHash'; type: 'bytes32' },
+    { name: 'owner'; type: 'address' },
+  ] };
   primaryType: 'Approve';
   message: { messageHash: Hex; owner: Address };
 } {
-  const encodedPredictedOutcomes = args.auction
-    .predictedOutcomes[0] as Hex;
+  if (args.auction.predictedOutcomes.length === 0) {
+    throw new Error('predictedOutcomes must be non-empty');
+  }
+
+  const encodedPredictedOutcomes = args.auction.predictedOutcomes[0];
 
   const inner = encodeAbiParameters(
     [
@@ -63,8 +69,11 @@ export function buildTakerBidTypedData(args: {
     Approve: [
       { name: 'messageHash', type: 'bytes32' },
       { name: 'owner', type: 'address' },
-    ],
-  } as const;
+    ] as const,
+  } as const satisfies { Approve: readonly [
+    { name: 'messageHash'; type: 'bytes32' },
+    { name: 'owner'; type: 'address' },
+  ] };
 
   const message = {
     messageHash,
@@ -73,7 +82,7 @@ export function buildTakerBidTypedData(args: {
 
   return {
     domain,
-    types: types as unknown as Record<string, Array<{ name: string; type: string }>>,
+    types,
     primaryType: 'Approve',
     message,
   };
@@ -82,16 +91,19 @@ export function buildTakerBidTypedData(args: {
 export async function signTakerBid(args: {
   privateKey: Hex;
   domain: TypedDataDomain;
-  types: Record<string, Array<{ name: string; type: string }>>;
+  types: { Approve: readonly [
+    { name: 'messageHash'; type: 'bytes32' },
+    { name: 'owner'; type: 'address' },
+  ] };
   primaryType: 'Approve';
   message: { messageHash: Hex; owner: Address };
 }): Promise<Hex> {
   const account = privateKeyToAccount(args.privateKey);
   const signature = (await account.signTypedData({
     domain: args.domain,
-    types: args.types as any,
+    types: args.types,
     primaryType: args.primaryType,
-    message: args.message as any,
+    message: args.message,
   })) as Hex;
   return signature;
 }

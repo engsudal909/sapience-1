@@ -12,7 +12,11 @@ export async function loadSdk(): Promise<SdkModule> {
         : path.resolve(process.cwd(), override);
       const url = pathToFileURL(resolved).href;
       return await import(url);
-    } catch {}
+    } catch (e) {
+      // Surface override import failures to aid debugging, then fall back to published SDK
+      // eslint-disable-next-line no-console
+      console.warn(`[sdk] Failed to import SAPIENCE_SDK_PATH: ${override}\n`, e);
+    }
   }
   return await import('@sapience/sdk');
 }
