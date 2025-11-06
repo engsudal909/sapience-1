@@ -38,12 +38,12 @@ Alternatively, copy `env.example` to `.env` and fill in values.
 
 ```bash
 pnpm dev
+```
 
 Or, to test against the published SDK instead of local:
 
 ```bash
 pnpm dev:published
-```
 ```
 
 ## Notes

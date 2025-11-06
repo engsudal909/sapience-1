@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import WebSocket from 'ws';
+import type { RawData } from 'ws';
 import { loadSdk } from './sdk.js';
-import { parseEther, decodeAbiParameters, createPublicClient, createWalletClient, erc20Abi, http, getAddress, type Address, type Hex } from 'viem';
+import { parseEther, decodeAbiParameters, createPublicClient, createWalletClient, erc20Abi, http, getAddress, type Address, type Hex, type Chain } from 'viem';
 import { graphqlRequest } from '@sapience/sdk/queries';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arbitrum, base, optimism, mainnet, polygon } from 'viem/chains';
@@ -53,7 +54,7 @@ const RELAYER_WS_URL = process.env.RELAYER_WS_URL || 'wss://api.sapience.xyz/auc
 // Default chain is Arbitrum One (42161)
 const CHAIN_ID = Number(process.env.CHAIN_ID || '42161');
 
-const chainsById: Record<number, any> = {
+const chainsById: Record<number, Chain> = {
   [arbitrum.id]: arbitrum,
   [base.id]: base,
   [optimism.id]: optimism,
@@ -69,9 +70,12 @@ const PRIVATE_KEY_HEX = PRIVATE_KEY
   : undefined;
 
 const sdk = await loadSdk();
-const addressBook = sdk.contracts as Record<string, any>;
-const buildTakerBidTypedData = sdk.buildTakerBidTypedData as Function;
-const signTakerBid = sdk.signTakerBid as Function;
+type ContractsMap = typeof import('@sapience/sdk/contracts').contracts;
+type BuildTakerBidTypedData = typeof import('@sapience/sdk/auction/signing').buildTakerBidTypedData;
+type SignTakerBid = typeof import('@sapience/sdk/auction/signing').signTakerBid;
+const addressBook = sdk.contracts as ContractsMap;
+const buildTakerBidTypedData = sdk.buildTakerBidTypedData as BuildTakerBidTypedData;
+const signTakerBid = sdk.signTakerBid as SignTakerBid;
 
 const VERIFYING_CONTRACT = (process.env.VERIFYING_CONTRACT || (addressBook.predictionMarket as any)[CHAIN_ID]?.address) as Address;
 const COLLATERAL_TOKEN = (process.env.COLLATERAL_TOKEN || (addressBook.collateralToken as any)[CHAIN_ID]?.address) as Address;
@@ -186,7 +190,7 @@ function start() {
     logger.success('🔌 Connected to relayer');
   });
 
-  ws.on('message', async (data) => {
+  ws.on('message', async (data: RawData) => {
     try {
       const msg = JSON.parse(String(data));
       const type = msg?.type as string | undefined;
@@ -284,7 +288,7 @@ function start() {
         };
 
         logger.info(`📤 Sending bid ${fmt.value(BID_AMOUNT_DEC)} on ${fmt.id(auctionId)}`);
-        ws.send(JSON.stringify(bid), (err) => {
+        ws.send(JSON.stringify(bid), (err?: Error) => {
           if (err) logger.error('⛔️ Bid send failed:', err);
           else logger.success('📨 Bid sent');
         });
@@ -302,11 +306,11 @@ function start() {
     }
   });
 
-  ws.on('error', (err) => {
+  ws.on('error', (err: Error) => {
     logger.error('💥 WebSocket error:', err);
   });
 
-  ws.on('close', (code, reason) => {
+  ws.on('close', (code: number, reason: Buffer) => {
     logger.warn('🔌 WebSocket closed:', code, reason.toString());
     setTimeout(start, 3000);
   });

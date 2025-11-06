@@ -8,6 +8,8 @@ export function createAuctionWs(
     onMessage?: (msg: any) => void;
     onError?: (err: unknown) => void;
     onClose?: (code: number, reason: Buffer) => void;
+    // Optional parse-error hook with raw data for easier debugging
+    onParseError?: (err: unknown, rawData: RawData) => void;
   } = {},
   options: { maxRetries?: number } = {},
 ) {
@@ -37,6 +39,7 @@ export function createAuctionWs(
         const msg = JSON.parse(String(data));
         handlers.onMessage?.(msg);
       } catch (e) {
+        handlers.onParseError?.(e, data);
         handlers.onError?.(e);
       }
     });

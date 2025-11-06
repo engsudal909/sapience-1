@@ -9,7 +9,10 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 export interface AuctionStartLike {
-  wager: string; // wei string
+  // On-chain quantity in wei; accepts bigint for safety, or string for convenience
+  wager: bigint | string;
+  // Pre-encoded outcomes bytes. Only the first element is used because the relayer
+  // provides a single aggregated blob containing all legs. Additional elements are ignored.
   predictedOutcomes: Hex[]; // bytes[] (non-empty expected)
   resolver: Address;
   maker: Address;
@@ -18,7 +21,8 @@ export interface AuctionStartLike {
 export function buildTakerBidTypedData(args: {
   auction: AuctionStartLike;
   takerWager: bigint;
-  takerDeadline: number;
+  // Accept bigint for timestamp to avoid precision issues; number remains supported
+  takerDeadline: bigint | number;
   chainId: number;
   verifyingContract: Address;
   taker: Address;
@@ -35,6 +39,8 @@ export function buildTakerBidTypedData(args: {
     throw new Error('predictedOutcomes must be non-empty');
   }
 
+  // NOTE: Only the first element is used intentionally. The relayer encodes all legs
+  // into a single bytes blob at index 0 for compatibility with the on-chain verifier.
   const encodedPredictedOutcomes = args.auction.predictedOutcomes[0];
 
   const inner = encodeAbiParameters(
@@ -49,10 +55,10 @@ export function buildTakerBidTypedData(args: {
     [
       encodedPredictedOutcomes,
       args.takerWager,
-      BigInt(args.auction.wager),
+      typeof args.auction.wager === 'bigint' ? args.auction.wager : BigInt(args.auction.wager),
       args.auction.resolver,
       args.auction.maker,
-      BigInt(args.takerDeadline),
+      typeof args.takerDeadline === 'bigint' ? args.takerDeadline : BigInt(args.takerDeadline),
     ],
   );
 
@@ -80,6 +86,8 @@ export function buildTakerBidTypedData(args: {
     owner: getAddress(args.taker),
   } as const;
 
+  // NOTE: The primaryType 'Approve' is required for compatibility with the on-chain
+  // SignatureProcessor. Renaming this will change the struct hash and invalidate signatures.
   return {
     domain,
     types,
