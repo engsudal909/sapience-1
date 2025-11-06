@@ -8,6 +8,7 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
 import responseCachePlugin from '@apollo/server-plugin-response-cache';
 import depthLimit from 'graphql-depth-limit';
 import { createComplexityLimitRule } from 'graphql-validation-complexity';
+import { config } from '../config';
 import Sentry from '../instrument';
 
 // Import only the query (read-only) resolvers from generated TypeGraphQL
@@ -251,7 +252,7 @@ export const initializeApolloServer = async () => {
         objectCost: 0, // Cost per object (we count fields instead)
         listFactor: 10, // Multiply cost by 10 for lists
         onCost: (cost: number) => {
-          if (process.env.NODE_ENV === 'development') {
+          if (config.isDev) {
             console.log(`Query complexity: ${cost}`);
           }
         },

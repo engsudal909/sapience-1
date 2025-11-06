@@ -93,8 +93,12 @@ const AddressDisplay = ({
       ? XS_ICON_SIZE
       : SMALL_ICON_SIZE;
 
-  // Make the vault icon slightly larger than the other action icons for visibility
-  const vaultIconSizeClass = isLarge ? 'h-6 w-6' : 'h-5 w-5';
+  // Make the vault icon slightly larger for large, smaller for compact
+  const vaultIconSizeClass = isLarge
+    ? 'h-6 w-6'
+    : isCompact
+      ? 'h-3.5 w-3.5'
+      : 'h-5 w-5';
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -154,10 +158,10 @@ const AddressDisplay = ({
             <Button
               variant="ghost"
               size="icon"
-              className={`${buttonSizeClass} ${buttonSvgOverrideClass} group bg-transparent hover:bg-transparent focus:bg-transparent focus-visible:bg-transparent active:bg-transparent`}
+              className={`${buttonSizeClass} ${buttonSvgOverrideClass} group/address bg-transparent hover:bg-transparent focus:bg-transparent focus-visible:bg-transparent active:bg-transparent`}
             >
               <User
-                className={`${iconSizeClass} text-muted-foreground opacity-80 group-hover:text-accent-gold group-hover:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
+                className={`${iconSizeClass} text-muted-foreground opacity-80 group-hover/address:text-accent-gold group-hover/address:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
               />
             </Button>
           </Link>
@@ -169,10 +173,10 @@ const AddressDisplay = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`${buttonSizeClass} ${buttonSvgOverrideClass} group bg-transparent hover:bg-transparent focus:bg-transparent focus-visible:bg-transparent active:bg-transparent data-[state=open]:bg-transparent`}
+                className={`${buttonSizeClass} ${buttonSvgOverrideClass} group/address bg-transparent hover:bg-transparent focus:bg-transparent focus-visible:bg-transparent active:bg-transparent data-[state=open]:bg-transparent`}
               >
                 <ExternalLink
-                  className={`${iconSizeClass} text-muted-foreground opacity-80 group-hover:text-accent-gold group-hover:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
+                  className={`${iconSizeClass} text-muted-foreground opacity-80 group-hover/address:text-accent-gold group-hover/address:opacity-100 transition-colors transition-opacity duration-200 ease-in-out`}
                 />
               </Button>
             </PopoverTrigger>
@@ -180,23 +184,23 @@ const AddressDisplay = ({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="group flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
+                className="group/address-action flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
               >
-                <Copy className="h-3 w-3 text-muted-foreground opacity-80 group-hover:text-accent-gold group-hover:opacity-100" />
+                <Copy className="h-3 w-3 text-muted-foreground opacity-80 group-hover/address-action:text-accent-gold group-hover/address-action:opacity-100" />
                 <span className="font-medium">Copy Address</span>
               </button>
               <a
                 href={`https://app.zerion.io/${address}/history`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
+                className="group/address-action flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
               >
                 <Image
                   src="/zerion.svg"
                   alt="Zerion"
                   width={12}
                   height={12}
-                  className="opacity-70 group-hover:opacity-100 transition-all duration-200 ease-in-out dark:invert dark:brightness-90 group-hover:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
+                  className="opacity-70 group-hover/address-action:opacity-100 transition-all duration-200 ease-in-out dark:invert dark:brightness-90 group-hover/address-action:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
                 />
                 <span className="font-medium">Zerion</span>
               </a>
@@ -204,14 +208,14 @@ const AddressDisplay = ({
                 href={`https://debank.com/profile/${address}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
+                className="group/address-action flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
               >
                 <Image
                   src="/debank.svg"
                   alt="DeBank"
                   width={12}
                   height={12}
-                  className="opacity-70 group-hover:opacity-100 transition-all duration-200 ease-in-out grayscale brightness-50 dark:invert dark:brightness-90 group-hover:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
+                  className="opacity-70 group-hover/address-action:opacity-100 transition-all duration-200 ease-in-out grayscale brightness-50 dark:invert dark:brightness-90 group-hover/address-action:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
                 />
                 <span className="font-medium">DeBank</span>
               </a>
@@ -219,14 +223,14 @@ const AddressDisplay = ({
                 href={`https://intel.arkm.com/explorer/address/${address}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
+                className="group/address-action flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
               >
                 <Image
                   src="/arkm.svg"
                   alt="Arkm Explorer"
                   width={12}
                   height={12}
-                  className="opacity-70 group-hover:opacity-100 transition-all duration-200 ease-in-out dark:invert dark:brightness-90 group-hover:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
+                  className="opacity-70 group-hover/address-action:opacity-100 transition-all duration-200 ease-in-out dark:invert dark:brightness-90 group-hover/address-action:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
                 />
                 <span className="font-medium">Arkham Intel</span>
               </a>
@@ -234,14 +238,14 @@ const AddressDisplay = ({
                 href={`https://blockscan.com/address/${address}#transactions`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
+                className="group/address-action flex items-center gap-2 p-1 rounded hover:bg-transparent focus:bg-transparent hover:text-accent-gold focus-visible:text-accent-gold transition-all opacity-80 hover:opacity-100 text-xs"
               >
                 <Image
                   src="/blockscan.svg"
                   alt="Blockscan"
                   width={12}
                   height={12}
-                  className="opacity-70 group-hover:opacity-100 transition-all duration-200 ease-in-out dark:invert dark:brightness-90 group-hover:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
+                  className="opacity-70 group-hover/address-action:opacity-100 transition-all duration-200 ease-in-out dark:invert dark:brightness-90 group-hover/address-action:[filter:brightness(0)_saturate(100%)_invert(77%)_sepia(33%)_saturate(592%)_hue-rotate(9deg)_brightness(103%)_contrast(94%)]"
                 />
                 <span className="font-medium">Blockscan</span>
               </a>

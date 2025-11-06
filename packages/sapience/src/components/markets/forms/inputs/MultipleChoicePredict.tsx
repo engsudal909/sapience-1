@@ -5,6 +5,7 @@ import { useFormContext } from 'react-hook-form';
 import { useState, useEffect } from 'react';
 import { priceToSqrtPriceX96 } from '~/lib/utils/util';
 import { getSeriesColorByIndex, withAlpha } from '~/lib/theme/chartColors';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 interface MultipleChoicePredictProps {
   name?: string;
@@ -138,7 +139,7 @@ export default function MultipleChoicePredict({
         {selectedMarketId !== null && (
           <div className="space-y-2.5">
             <Label className="text-base">
-              Forecast: {sliderValue[0]}% Chance
+              Forecast: {formatPercentChance(sliderValue[0] / 100)} Chance
             </Label>
             <Slider
               value={sliderValue}

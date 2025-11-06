@@ -311,7 +311,7 @@ const VaultsPageContent = () => {
         </div>
 
         {/* Balance and Requested row (outside input box) */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground py-0">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground py-0">
           <div className="flex items-center gap-2">
             <span>
               Balance: <NumberDisplay value={Number(shortWalletBalance)} />{' '}
@@ -329,7 +329,7 @@ const VaultsPageContent = () => {
           {depositAmount &&
           estDepositShares > 0n &&
           ((minDeposit ?? 0n) === 0n || depositWei >= (minDeposit ?? 0n)) ? (
-            <div className="text-right">
+            <div className="sm:text-right">
               Requested Shares:{' '}
               {formatDecimalWithCommasFixed2(
                 formatSharesAmount(estDepositShares)
@@ -338,7 +338,7 @@ const VaultsPageContent = () => {
             </div>
           ) : (
             (minDeposit ?? 0n) > 0n && (
-              <div className="text-right">
+              <div className="sm:text-right">
                 Minimum Deposit: {formatAssetAmount(minDeposit ?? 0n)} testUSDe
               </div>
             )
@@ -423,7 +423,7 @@ const VaultsPageContent = () => {
         </div>
 
         {/* Balance and Requested row (outside input box) */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground py-0">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground py-0">
           <div className="flex items-center gap-2">
             <span>
               Balance:{' '}
@@ -446,7 +446,7 @@ const VaultsPageContent = () => {
           {withdrawAmount &&
             estWithdrawAssets > 0n &&
             !withdrawExceedsShareBalance && (
-              <div className="text-right">
+              <div className="sm:text-right">
                 Requested Collateral: {formatAssetAmount(estWithdrawAssets)}{' '}
                 testUSDe
               </div>
@@ -660,7 +660,7 @@ const VaultsPageContent = () => {
     <div className="relative">
       {/* Main Content */}
       <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
-        <div className="mb-5 md:mb-10 flex items-center justify-between">
+        <div className="mb-5 md:mb-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl md:text-5xl font-sans font-normal text-foreground">
             Vaults
           </h1>
@@ -698,7 +698,7 @@ const VaultsPageContent = () => {
               <CardContent className="p-6">
                 <div className="space-y-6">
                   {/* Vault Header */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="text-2xl font-medium mb-1">
                         Protocol Vault
@@ -718,7 +718,7 @@ const VaultsPageContent = () => {
                         />
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="sm:text-right">
                       <div className="text-sm text-muted-foreground">
                         Total Value Locked
                       </div>
@@ -732,7 +732,7 @@ const VaultsPageContent = () => {
                   <div className="space-y-4">
                     {/* Utilization Block */}
                     <div className="p-5 pt-4 rounded-lg bg-[hsl(var(--primary)/_0.05)]">
-                      <div className="flex items-center justify-between mb-2 text-foreground">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-2 text-foreground">
                         <div className="text-sm font-normal">
                           Utilization Rate: {utilizationDisplay}
                         </div>
@@ -765,7 +765,7 @@ const VaultsPageContent = () => {
                   {pendingRequest && !pendingRequest.processed && (
                     <div className="mt-4 space-y-2">
                       <div className="p-3 bg-muted/30 border border-brand-white/10 rounded-md">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="text-sm text-muted-foreground">
                             <p className="font-medium">
                               {pendingRequest.isDeposit

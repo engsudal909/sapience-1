@@ -1,6 +1,7 @@
 import express, { Request } from 'express';
 import cors from 'cors';
 import { router } from './routes';
+import { config } from './config';
 
 const corsOptions: cors.CorsOptions = {
   origin: (
@@ -8,16 +9,13 @@ const corsOptions: cors.CorsOptions = {
     callback: (error: Error | null, allow?: boolean) => void,
     request?: Request
   ) => {
-    // Allow all requests unless in production or staging
-    if (
-      process.env.NODE_ENV !== 'production' &&
-      process.env.NODE_ENV !== 'staging'
-    ) {
+    // Allow all requests unless in production
+    if (!config.isProd) {
       callback(null, true);
       return;
     }
 
-    // Check for API token in production/staging
+    // Check for API token in production
     const authHeader = request?.headers?.authorization;
     const apiToken = process.env.API_ACCESS_TOKEN;
 

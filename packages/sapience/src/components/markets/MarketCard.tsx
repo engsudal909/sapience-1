@@ -14,6 +14,7 @@ import { useMarketGroupChartData } from '~/hooks/graphql/useMarketGroupChartData
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { DEFAULT_WAGER_AMOUNT } from '~/lib/utils/betslipUtils';
 import { useSettings } from '~/lib/context/SettingsContext';
+import PercentChance from '~/components/shared/PercentChance';
 
 export interface MarketCardProps {
   chainId: number;
@@ -77,12 +78,7 @@ const MarketCard = ({
     return prices;
   }, [chartData]);
 
-  const formatPriceAsPercentage = (price: number) => {
-    if (!Number.isFinite(price)) return 'Price N/A';
-    const percentage = Math.max(0, Math.min(100, price * 100));
-    if (percentage < 1) return '<1% chance';
-    return `${Math.round(percentage)}% chance`;
-  };
+  // unified percent chance rendering via shared component
 
   // Helper function to handle adding market to bet slip
   const handleAddToBetSlip = (
@@ -143,9 +139,12 @@ const MarketCard = ({
         );
       } else {
         return (
-          <span className="font-medium text-foreground">
-            {formatPriceAsPercentage(currentPrice)}
-          </span>
+          <PercentChance
+            probability={currentPrice}
+            showLabel={true}
+            label="Chance"
+            className="font-medium text-foreground"
+          />
         );
       }
     }

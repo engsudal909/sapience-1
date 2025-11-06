@@ -32,6 +32,7 @@ import {
 import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
 import { MarketGroupClassification } from '~/lib/types';
 import ShareDialog from '~/components/shared/ShareDialog';
+import { formatPercentChance } from '~/lib/format/percentChance';
 
 // Helper function to extract market address from context or props
 // Since market address is not available in the attestation data directly,
@@ -177,7 +178,7 @@ const renderPredictionCell = ({
         variant={variant as any}
         className={`${className} whitespace-nowrap`}
       >
-        {`${percentage}% Chance`}
+        {`${formatPercentChance(percentage / 100)} Chance`}
       </Badge>
     );
   }
@@ -717,7 +718,7 @@ const ForecastsTable = ({
 
   // Empty state
   if (!attestations || attestations.length === 0) {
-    return <EmptyTabState message="No forecasts found" />;
+    return <EmptyTabState centered message="No forecasts found" />;
   }
 
   const renderContent = (
