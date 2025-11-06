@@ -19,10 +19,6 @@ import type {
 // TODO: Move all of this code to the existsing event processing pipeline
 const BLOCK_BATCH_SIZE = 100;
 import { predictionMarket } from '@sapience/sdk';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
-export const PREDICTION_MARKET_CONTRACT_ADDRESS = predictionMarket[
-  DEFAULT_CHAIN_ID
-]?.address as `0x${string}`;
 
 // PredictionMarket contract ABI for the events we want to index
 const PREDICTION_MARKET_ABI = [
@@ -104,10 +100,20 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
   public client: PublicClient;
   private isWatching: boolean = false;
   private chainId: number;
+  private contractAddress: `0x${string}`;
 
   constructor(chainId: number) {
     this.chainId = chainId;
     this.client = getProviderForChain(chainId);
+    
+    // Get the contract address for this specific chain
+    const contractEntry = predictionMarket[chainId];
+    if (!contractEntry?.address) {
+      throw new Error(
+        `PredictionMarket contract not deployed on chain ${chainId}. Available chains: ${Object.keys(predictionMarket).join(', ')}`
+      );
+    }
+    this.contractAddress = contractEntry.address;
   }
 
   async indexBlockPriceFromTimestamp(
@@ -117,7 +123,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
   ): Promise<boolean> {
     try {
       console.log(
-        `[PredictionMarketIndexer] Indexing blocks from timestamp ${startTimestamp} to ${endTimestamp || 'latest'}`
+        `[PredictionMarketIndexer:${this.chainId}] Indexing blocks from timestamp ${startTimestamp} to ${endTimestamp || 'latest'} on contract ${this.contractAddress}`
       );
 
       // Use binary search to find the exact blocks for the timestamps
@@ -216,7 +222,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         try {
           // Single efficient query for the entire chunk
           const logs = await this.client.getLogs({
-            address: PREDICTION_MARKET_CONTRACT_ADDRESS as `0x${string}`,
+            address: this.contractAddress,
             fromBlock: BigInt(fromBlock),
             toBlock: BigInt(toBlock),
           });
@@ -286,7 +292,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
       // Get logs for the PredictionMarket contract
       const logs = await this.client.getLogs({
-        address: PREDICTION_MARKET_CONTRACT_ADDRESS as `0x${string}`,
+        address: this.contractAddress,
         fromBlock: BigInt(blockNumber),
         toBlock: BigInt(blockNumber),
       });
@@ -318,7 +324,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       // Check if this is a PredictionMarket event
       if (
         log.address.toLowerCase() !==
-        PREDICTION_MARKET_CONTRACT_ADDRESS.toLowerCase()
+        this.contractAddress.toLowerCase()
       ) {
         console.log(
           `[PredictionMarketIndexer] Skipping log: ${log.address} is not the PredictionMarket contract`
@@ -717,19 +723,19 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
   async watchBlocksForResource(resource: Resource): Promise<void> {
     if (this.isWatching) {
-      console.log('[PredictionMarketIndexer] Already watching events');
+      console.log(`[PredictionMarketIndexer:${this.chainId}] Already watching events`);
       return;
     }
 
     this.isWatching = true;
     console.log(
-      `[PredictionMarketIndexer] Starting to watch events for resource: ${resource.slug}`
+      `[PredictionMarketIndexer:${this.chainId}] Starting to watch events for resource: ${resource.slug} on contract ${this.contractAddress}`
     );
 
     try {
       // Watch for all PredictionMarket events in a single watcher
       const unwatch = this.client.watchContractEvent({
-        address: PREDICTION_MARKET_CONTRACT_ADDRESS as `0x${string}`,
+        address: this.contractAddress,
         abi: PREDICTION_MARKET_ABI,
         onLogs: async (logs) => {
           for (const log of logs) {
