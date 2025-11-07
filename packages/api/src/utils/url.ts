@@ -1,12 +1,16 @@
 import { IncomingMessage } from 'node:http';
 
-export function parseUrl(input: any) {
+class ErrorWithCode extends Error {
+  code: string;
+}
+
+export function parseUrl(input: unknown) {
   if (typeof input !== 'string' || !input) return null;
 
   try {
     return new URL(input);
-  } catch (err: any) {
-    if (err.code === 'ERR_INVALID_URL') {
+  } catch (err: unknown) {
+    if ((err as ErrorWithCode).code === 'ERR_INVALID_URL') {
       return null;
     }
 
