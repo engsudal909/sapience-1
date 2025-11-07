@@ -70,7 +70,7 @@ async function startResourceIndexers(): Promise<
         const chainName = resourceSlug.replace('prediction-market-events-', '');
         description = `Prediction market events on ${chainName}`;
       }
-      
+
       resource = {
         id: 0,
         slug: resourceSlug,

@@ -170,7 +170,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
   constructor(chainId: number) {
     this.chainId = chainId;
     this.client = getProviderForChain(chainId);
-    
+
     // Get the contract address for this specific chain
     const contractEntry = predictionMarket[chainId];
     if (!contractEntry?.address) {
@@ -387,10 +387,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     try {
       console.log(`[PredictionMarketIndexer] Processing log: ${log.address}`);
       // Check if this is a PredictionMarket event
-      if (
-        log.address.toLowerCase() !==
-        this.contractAddress.toLowerCase()
-      ) {
+      if (log.address.toLowerCase() !== this.contractAddress.toLowerCase()) {
         console.log(
           `[PredictionMarketIndexer] Skipping log: ${log.address} is not the PredictionMarket contract`
         );
@@ -1127,7 +1124,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
   async watchBlocksForResource(resource: Resource): Promise<void> {
     if (this.isWatching) {
-      console.log(`[PredictionMarketIndexer:${this.chainId}] Already watching events`);
+      console.log(
+        `[PredictionMarketIndexer:${this.chainId}] Already watching events`
+      );
       return;
     }
 

@@ -41,7 +41,9 @@ export const etherealChain: viem.Chain = {
     decimals: 18,
   },
   rpcUrls: {
-    default: { http: [process.env.CHAIN_5064014_RPC_URL || 'https://rpc.ethereal.trade'] },
+    default: {
+      http: [process.env.CHAIN_5064014_RPC_URL || 'https://rpc.ethereal.trade'],
+    },
     public: { http: ['https://rpc.ethereal.trade'] },
   },
 };
@@ -99,9 +101,10 @@ const createChainClient = (
       },
     });
   }
-  
+
   if (chain.id === 5064014) {
-    const rpcUrl = process.env.CHAIN_5064014_RPC_URL || 'https://rpc.ethereal.trade';
+    const rpcUrl =
+      process.env.CHAIN_5064014_RPC_URL || 'https://rpc.ethereal.trade';
     return createPublicClient({
       chain,
       transport: http(rpcUrl),
