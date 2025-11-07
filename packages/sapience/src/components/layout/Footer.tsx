@@ -66,7 +66,7 @@ const Footer = () => {
             </Button>
             <Button size="icon" className="h-4 w-4 rounded-full" asChild>
               <a
-                href="https://x.com/sapiencehq"
+                href="https://x.com/sapiencemarkets"
                 target="_blank"
                 rel="noopener noreferrer"
               >
