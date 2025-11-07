@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { IResourcePriceIndexer } from '../../interfaces';
 import prisma from '../../db';
 import WeatherService from './weatherService';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 
 dotenv.config();
 

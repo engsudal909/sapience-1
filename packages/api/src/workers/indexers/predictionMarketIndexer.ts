@@ -9,7 +9,7 @@ import {
   keccak256,
   toHex,
 } from 'viem';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 import { IResourcePriceIndexer } from '../../interfaces';
 import type {
   Resource,

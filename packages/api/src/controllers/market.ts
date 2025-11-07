@@ -1,4 +1,4 @@
-import '../../init-sentry';
+import { Sentry } from '../sentry';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import 'tsconfig-paths/register';

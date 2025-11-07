@@ -6,5 +6,8 @@ if (config.SENTRY_DSN) {
     dsn: config.SENTRY_DSN,
     tracesSampleRate: 1.0,
   });
+
   console.log('Sentry initialized');
 }
+
+export { Sentry };

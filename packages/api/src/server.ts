@@ -1,9 +1,8 @@
-import './init-sentry';
+import { Sentry } from './sentry';
 
 import 'reflect-metadata';
 import { createServer } from 'node:http';
 import { expressMiddleware } from '@apollo/server/express4';
-import * as Sentry from '@sentry/node';
 import { NextFunction, Request, Response } from 'express';
 import { initializeDataSource } from './db';
 import { createLoaders } from './graphql/loaders';

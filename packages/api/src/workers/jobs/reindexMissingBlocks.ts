@@ -1,7 +1,7 @@
 import prisma from '../../db';
 import { initializeMarket } from '../../controllers/market';
 import { getMarketStartEndBlock } from '../../controllers/marketHelpers';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 import { INDEXERS } from '../../fixtures';
 import type { Resource } from '../../../generated/prisma';
 

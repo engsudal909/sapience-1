@@ -1,3 +1,4 @@
+import { Sentry } from '../../sentry';
 import prisma from '../../db';
 import { getProviderForChain } from '../../utils/utils';
 import { Log, decodeEventLog, PublicClient, Abi } from 'viem';

@@ -1,7 +1,7 @@
 import prisma from '../../db';
 import { getBlockByTimestamp, getProviderForChain } from '../../utils/utils';
 import { Block, type PublicClient } from 'viem';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 import { IResourcePriceIndexer } from '../../interfaces';
 import type { Resource } from '../../../generated/prisma';
 

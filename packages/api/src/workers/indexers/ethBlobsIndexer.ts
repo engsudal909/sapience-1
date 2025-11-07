@@ -1,5 +1,5 @@
 import prisma from '../../db';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 import { IResourcePriceIndexer } from '../../interfaces';
 import type { Resource } from '../../../generated/prisma';
 import axios from 'axios';
