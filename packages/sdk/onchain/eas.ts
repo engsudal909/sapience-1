@@ -65,6 +65,7 @@ export async function buildAttestationCalldata(
   market: { marketId: number; address: Address; question: string },
   prediction: { probability: number; reasoning: string; confidence: number },
   chainId: number = DEFAULT_CHAIN_ID,
+  conditionId?: Hex,
 ): Promise<AttestationCalldata | null> {
   const encodedData = encodeAbiParameters(
     parseAbiParameters(
@@ -73,7 +74,7 @@ export async function buildAttestationCalldata(
     [
       market.address,
       BigInt(market.marketId),
-      '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      (conditionId || ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)) as Hex,
       (() => {
         const price = prediction.probability / 100;
         const sqrtPrice = BigInt(Math.floor(Math.sqrt(price) * 10 ** 18));

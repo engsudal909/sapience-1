@@ -73,6 +73,7 @@ export async function buildAttestationCalldata(
   market: Market,
   prediction: Prediction,
   chainId: number = 42161, // Default to Arbitrum
+  conditionId?: `0x${string}`,
 ): Promise<AttestationCalldata | null> {
   try {
     // Use Viem to encode the attestation data directly
@@ -84,7 +85,7 @@ export async function buildAttestationCalldata(
       [
         market.address as `0x${string}`,
         BigInt(market.marketId),
-        "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`, // questionId placeholder
+        (conditionId || ("0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`)) as `0x${string}`,
         (() => {
           // Convert probability (0-100) to price (0-1)
           const price = prediction.probability / 100;

@@ -21,6 +21,8 @@ import { useSapience } from '~/lib/context/SapienceProvider';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import { formatPercentChance } from '~/lib/format/percentChance';
+import { useQuery } from '@tanstack/react-query';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 function createForecastRow(attestation: FormattedAttestation) {
   const ForecastRow = ({
@@ -132,6 +134,64 @@ export default function CombinedFeedTable({
   const { data: forecastsHook = [] } = useForecasts({});
   const forecasts = forecastsProp ?? forecastsHook;
 
+  // Batch fetch condition details for any condition-based forecasts present
+  const conditionIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of forecasts || []) {
+      if (
+        f.questionId &&
+        typeof f.questionId === 'string' &&
+        f.questionId.startsWith('0x')
+      ) {
+        set.add(f.questionId.toLowerCase());
+      }
+    }
+    return Array.from(set);
+  }, [forecasts]);
+
+  const { data: conditionsMap } = useQuery<{
+    [id: string]: {
+      id: string;
+      question: string;
+      shortName?: string | null;
+      endTime: number;
+    };
+  }>({
+    queryKey: ['conditionsByIds', conditionIds.sort().join(',')],
+    enabled: conditionIds.length > 0,
+    queryFn: async () => {
+      type Result = {
+        conditions: {
+          id: string;
+          question: string;
+          shortName?: string | null;
+          endTime: number;
+        }[];
+      };
+      const query = /* GraphQL */ `
+        query ConditionsByIds($ids: [String!]) {
+          conditions(where: { id: { in: $ids } }) {
+            id
+            question
+            shortName
+            endTime
+          }
+        }
+      `;
+      const res = await graphqlRequest<Result>(query, { ids: conditionIds });
+      const map: {
+        [id: string]: {
+          id: string;
+          question: string;
+          shortName?: string | null;
+          endTime: number;
+        };
+      } = {};
+      for (const c of res.conditions || []) map[c.id.toLowerCase()] = c;
+      return map;
+    },
+  });
+
   const forecastRows: FeedRow[] = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return [];
 
@@ -148,7 +208,43 @@ export default function CombinedFeedTable({
       const group = marketGroups.find(
         (g) => (g.address || '').toLowerCase() === marketAddress
       );
-      if (!group) return null;
+      // If not a market-based forecast, try condition-based rendering
+      if (!group) {
+        const qid = (att.questionId || '').toLowerCase();
+        if (!qid) return null;
+        const c = conditionsMap?.[qid];
+        if (!c) return null;
+        const createdAtIso = new Date(Number(att.rawTime) * 1000).toISOString();
+        const tx: UiTransaction = {
+          id: Number(att.id) || Date.now(),
+          type: 'FORECAST',
+          createdAt: createdAtIso,
+          collateral: '0',
+          position: {
+            owner: att.attester,
+            positionId: null,
+            isLP: false,
+            market: {
+              optionName: null,
+              marketId: null,
+              marketGroup: {
+                chainId: null,
+                address: null,
+                question: c.shortName || c.question,
+                markets: [],
+              },
+            },
+          },
+        } as UiTransaction;
+        const Comp = createForecastRow(att);
+        return {
+          Comp,
+          key: `forecast-condition-${att.id}`,
+          tx,
+          collateralAssetTicker: null,
+          sortedMarketsForColors: [],
+        } as FeedRow;
+      }
 
       let optionName: string | null = null;
       let marketIdForTx: string | number | null = att.marketId || null;

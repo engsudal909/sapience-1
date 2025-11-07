@@ -18,6 +18,8 @@ interface UseSubmitPredictionProps {
   marketId: number; // Specific market ID for the attestation (for MCQ, this is the ID of the chosen option)
   comment?: string; // Optional comment field
   onSuccess?: () => void; // Callback for successful submission
+  /** Optional condition id hex (bytes32). When provided, encoded as questionId */
+  conditionIdHex?: `0x${string}`;
 }
 
 export function useSubmitPrediction({
@@ -27,6 +29,7 @@ export function useSubmitPrediction({
   marketId,
   comment = '',
   onSuccess,
+  conditionIdHex,
 }: UseSubmitPredictionProps) {
   const { address } = useAccount();
 
@@ -69,7 +72,8 @@ export function useSubmitPrediction({
       _marketId: string,
       predictionInput: string,
       classification: MarketGroupClassification,
-      _comment: string
+      _comment: string,
+      _questionIdHex?: `0x${string}`
     ) => {
       try {
         let finalPredictionBigInt: bigint;
@@ -114,7 +118,8 @@ export function useSubmitPrediction({
           [
             _marketAddress as `0x${string}`,
             BigInt(_marketId),
-            `0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`, // TODO: fix this, it is a stub!
+            _questionIdHex ||
+              (`0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`),
             finalPredictionBigInt,
             _comment,
           ]
@@ -148,7 +153,8 @@ export function useSubmitPrediction({
         marketId.toString(),
         submissionValue,
         marketClassification,
-        comment
+        comment,
+        conditionIdHex
       );
       await writeContract({
         chainId: ARBITRUM_CHAIN_ID,
