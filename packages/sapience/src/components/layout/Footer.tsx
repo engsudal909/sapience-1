@@ -4,7 +4,6 @@ import { Button } from '@sapience/sdk/ui/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
 import { SiSubstack } from 'react-icons/si';
-import { BookOpen } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -103,18 +102,6 @@ const Footer = () => {
                 <SiSubstack
                   className="h-0.5 w-0.5 scale-[60%]"
                   aria-label="Substack"
-                />
-              </a>
-            </Button>
-            <Button size="icon" className="h-4 w-4 rounded-full" asChild>
-              <a
-                href="https://docs.sapience.xyz"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <BookOpen
-                  className="h-0.5 w-0.5 scale-[60%]"
-                  strokeWidth={1.25}
                 />
               </a>
             </Button>
