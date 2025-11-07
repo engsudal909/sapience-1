@@ -52,6 +52,8 @@ import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
 import ResolveConditionCell from './ResolveConditionCell';
+import { CHAIN_ID_ARBITRUM, CHAIN_ID_ETHEREAL } from './constants';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { parseCsv, mapCsv } from '~/lib/utils/csv';
 import { useAdminApi } from '~/hooks/useAdminApi';
 import { useCategories } from '~/hooks/graphql/useMarketGroups';
@@ -110,20 +112,12 @@ const RFQTab = ({
   const { postJson, putJson } = useAdminApi();
   const { data: categories } = useCategories();
 
-  // Read chainId from localStorage
-  const getChainIdFromLocalStorage = (): number => {
-    if (typeof window === 'undefined') return 42161;
-    try {
-      const stored = window.localStorage.getItem('sapience.settings.chainId');
-      return stored ? parseInt(stored, 10) : 42161;
-    } catch {
-      return 42161;
-    }
-  };
-
-  const currentChainId = getChainIdFromLocalStorage();
-  const currentChainName = currentChainId === 5064014 ? 'Ethereal' : 'Arbitrum';
-
+  // Read chainId from localStorage with event monitoring
+  const currentChainId = useChainIdFromLocalStorage();
+  
+  const currentChainName =
+    currentChainId === CHAIN_ID_ETHEREAL ? 'Ethereal' : 'Arbitrum';
+  
   const {
     data: conditions,
     isLoading,
@@ -343,6 +337,7 @@ const RFQTab = ({
               claimStatement: row.claimStatement.trim(),
               description: row.description.trim(),
               similarMarkets: row.parsedSimilarMarkets || [],
+              chainId: currentChainId,
             };
 
             await postJson<RFQRow>('/conditions', body);
@@ -569,7 +564,8 @@ const RFQTab = ({
         size: 100,
         cell: ({ getValue }) => {
           const chainId = getValue() as number;
-          const chainName = chainId === 5064014 ? 'Ethereal' : 'Arbitrum';
+          const chainName =
+            chainId === CHAIN_ID_ETHEREAL ? 'Ethereal' : 'Arbitrum';
           return (
             <Badge variant="outline" className="whitespace-nowrap">
               {chainName}
@@ -658,7 +654,7 @@ const RFQTab = ({
                 size="sm"
                 onClick={() => {
                   setEditingId(id);
-                  setEditingChainId(original.chainId ?? 42161);
+                  setEditingChainId(original.chainId ?? CHAIN_ID_ARBITRUM);
                   setQuestion(original.question || '');
                   setShortName(original.shortName || '');
                   setCategorySlug(original.category?.slug || '');
@@ -1064,7 +1060,7 @@ const RFQTab = ({
               <Input
                 value={
                   editingId
-                    ? editingChainId === 5064014
+                    ? editingChainId === CHAIN_ID_ETHEREAL
                       ? 'Ethereal'
                       : 'Arbitrum'
                     : currentChainName
