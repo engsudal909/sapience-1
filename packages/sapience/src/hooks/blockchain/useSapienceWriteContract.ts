@@ -6,9 +6,10 @@ import {
   useSendCalls,
   useConnectorClient,
   useAccount,
+  useReadContract,
 } from 'wagmi';
 import type { Hash } from 'viem';
-import { encodeFunctionData } from 'viem';
+import { encodeFunctionData, parseAbi } from 'viem';
 import { useWallets, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
@@ -17,6 +18,17 @@ import { waitForCallsStatus } from 'viem/actions';
 import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
+
+// Ethereal chain configuration
+const CHAIN_ID_ETHEREAL = 5064014;
+const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
+
+// WUSDe ABI for wrapping/unwrapping operations
+const WUSDE_ABI = parseAbi([
+  'function deposit() payable',
+  'function withdraw(uint256 amount)',
+  'function balanceOf(address account) view returns (uint256)',
+]);
 
 interface ShareIntentOg {
   imagePath: string;
@@ -74,6 +86,180 @@ export function useSapienceWriteContract({
     return match;
   }, [wallets]);
   const isEmbeddedWallet = Boolean(embeddedWallet);
+
+  // Helper to check if we're on Ethereal chain
+  const isEtherealChain = useCallback((chainId: number) => {
+    return chainId === CHAIN_ID_ETHEREAL;
+  }, []);
+
+  // Helper to create WUSDe wrap transaction for Ethereal chain
+  const createWrapTransaction = useCallback((amount: bigint) => {
+    return {
+      to: WUSDE_ADDRESS,
+      data: encodeFunctionData({
+        abi: WUSDE_ABI,
+        functionName: 'deposit',
+      }),
+      value: amount,
+    };
+  }, []);
+
+  // Helper to create WUSDe unwrap transaction for Ethereal chain
+  const createUnwrapTransaction = useCallback((amount: bigint) => {
+    return {
+      to: WUSDE_ADDRESS,
+      data: encodeFunctionData({
+        abi: WUSDE_ABI,
+        functionName: 'withdraw',
+        args: [amount],
+      }),
+      value: '0x0',
+    };
+  }, []);
+
+  // Helper to get user's WUSDe balance
+  const getUserWUSDEBalance = useCallback(async () => {
+    if (!client || !wagmiAddress || !isEtherealChain(chainId || 0)) {
+      return 0n;
+    }
+    
+    try {
+      const balance = await client.readContract({
+        address: WUSDE_ADDRESS,
+        abi: WUSDE_ABI,
+        functionName: 'balanceOf',
+        args: [wagmiAddress],
+      });
+      return balance as bigint;
+    } catch (error) {
+      console.error('Failed to get WUSDe balance:', error);
+      return 0n;
+    }
+  }, [client, wagmiAddress, chainId]);
+
+  // Helper to detect if this is a withdrawal operation that should trigger unwrapping
+  const shouldAutoUnwrap = useCallback((functionName: string, contractAddress: string) => {
+    if (!isEtherealChain(chainId || 0)) {
+      return false;
+    }
+    
+    // Common withdrawal/redeem function names that should trigger unwrapping
+    const withdrawalFunctions = [
+      'withdraw',
+      'redeem', 
+      'redeemCollateral',
+      'exitPosition',
+      'closeTrade',
+      'removeLP',
+      'removeLiquidity',
+      'unstake',
+      'claimRewards',
+      // Additional patterns found in codebase
+      'settlePosition',  // Settling/closing positions
+      'decreaseLiquidity',  // Reducing LP positions
+      'cancelWithdrawal',  // Canceling withdrawals (funds return to user)
+      'cancelDeposit',  // Canceling deposits (funds return to user)
+      'burn',  // Burning prediction NFTs for payout
+      'processWithdrawals'  // Processing withdrawal queue
+    ];
+    
+    // Special case: modifyTraderPosition with size 0 is a full close
+    // (we can't detect this here without args, but it's worth noting)
+    
+    return withdrawalFunctions.some(fn => 
+      functionName.toLowerCase().includes(fn.toLowerCase())
+    );
+  }, [chainId]);
+
+  // Helper to execute auto-unwrap after main transaction
+  const executeAutoUnwrap = useCallback(async (balanceBefore: bigint) => {
+    // Get the current balance after transaction
+    const balanceAfter = await getUserWUSDEBalance();
+    
+    // Calculate how much WUSDe was received
+    const received = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0n;
+    
+    if (received <= 0n) {
+      return null; // No new WUSDe to unwrap
+    }
+
+    // Only unwrap the amount received from this transaction
+    const unwrapTx = createUnwrapTransaction(received);
+    return unwrapTx;
+  }, [getUserWUSDEBalance, createUnwrapTransaction]);
+
+  // Common success handler
+  const handleTransactionSuccess = useCallback((hash?: Hash) => {
+    if (hash) {
+      writeShareIntent(hash);
+      onTxHash?.(hash);
+      setTxHash(hash);
+    } else {
+      writeShareIntent(undefined);
+      onSuccess?.(undefined as any);
+    }
+    
+    maybeRedirectToProfile();
+    
+    try {
+      toast({
+        title: successTitle,
+        description: formatSuccessDescription(successMessage),
+        duration: 5000,
+      });
+      didShowSuccessToastRef.current = true;
+    } catch (e) {
+      console.error(e);
+    }
+    
+    setIsSubmitting(false);
+  }, [writeShareIntent, onTxHash, setTxHash, onSuccess, maybeRedirectToProfile, toast, successMessage]);
+
+  // Execute unwrap for embedded wallets
+  const executeEmbeddedUnwrap = useCallback(async (walletId: string, chainId: number, balanceBefore: bigint) => {
+    try {
+      const unwrapTx = await executeAutoUnwrap(balanceBefore);
+      if (unwrapTx) {
+        const response = await fetch('/api/privy/send-calls', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            walletId,
+            chainId,
+            to: unwrapTx.to,
+            data: unwrapTx.data,
+            value: unwrapTx.value,
+            sponsor: true,
+          }),
+        });
+        if (response.ok) {
+          console.log('Auto-unwrap completed successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Auto-unwrap failed:', error);
+    }
+  }, [executeAutoUnwrap]);
+
+  // Execute unwrap for non-embedded wallets
+  const executeNonEmbeddedUnwrap = useCallback(async (chainId: number, balanceBefore: bigint) => {
+    setTimeout(async () => {
+      try {
+        const unwrapTx = await executeAutoUnwrap(balanceBefore);
+        if (unwrapTx) {
+          await sendCallsAsync({
+            chainId,
+            calls: [unwrapTx],
+            experimental_fallback: true,
+          });
+          console.log('Auto-unwrap completed successfully');
+        }
+      } catch (error) {
+        console.error('Auto-unwrap failed:', error);
+      }
+    }, 2000);
+  }, [executeAutoUnwrap, sendCallsAsync]);
   const ensureEmbeddedAuth = useCallback(async () => {
     if (!isEmbeddedWallet) return true;
     if (user?.wallet?.id) return true;
@@ -244,105 +430,170 @@ export function useSapienceWriteContract({
             args: fnArgs,
             value,
           } = params as any;
+
+          // Handle WUSDe wrapping on Ethereal chain
+          let callsToExecute: Array<{
+            to: string;
+            data: string;
+            value: string;
+          }> = [];
+
+          if (isEtherealChain(_chainId)) {
+            if (value && BigInt(value) > 0n) {
+              // On Ethereal, if there's a value (USDe), we need to wrap it first
+              const wrapTx = createWrapTransaction(BigInt(value));
+              callsToExecute.push({
+                to: wrapTx.to,
+                data: wrapTx.data,
+                value: wrapTx.value.toString(),
+              });
+            }
+          }
+
+          // Add the main transaction
           const calldata = encodeFunctionData({
             abi,
             functionName,
             args: fnArgs,
           });
+          callsToExecute.push({
+            to: address,
+            data: calldata,
+            value: isEtherealChain(_chainId) ? '0x0' : (value ?? '0x0'), // No value on Ethereal since we wrapped
+          });
+
+          // Check if we need to add unwrapping based on the function being called
+          const needsUnwrap = shouldAutoUnwrap(functionName, address);
+          
+          // Get balance before transaction if unwrapping might be needed
+          let balanceBeforeTransaction = 0n;
+          if (needsUnwrap && isEtherealChain(_chainId)) {
+            balanceBeforeTransaction = await getUserWUSDEBalance();
+          }
+
           const ok = await ensureEmbeddedAuth();
           const walletId = user?.wallet?.id;
           if (!ok || !walletId) {
             throw new Error('Authentication required. Please try again.');
           }
-          const response = await fetch('/api/privy/send-calls', {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              walletId,
-              chainId: Number(_chainId),
-              to: address,
-              data: calldata,
-              value: value ?? '0x0',
-              sponsor: true,
-            }),
-          });
-          if (!response.ok) {
-            const errText = await response.text();
-            // Minimal debug info to help diagnose missing fields during development
-            if (
-              typeof console !== 'undefined' &&
-              typeof console.warn === 'function'
-            ) {
-              console.warn('[Privy send-calls] request body', {
+          // Execute calls sequentially (wrapping first, then main tx)
+          let lastResult: any = undefined;
+          for (const call of callsToExecute) {
+            const response = await fetch('/api/privy/send-calls', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
                 walletId,
-                chainId: _chainId,
-                to: address,
-                hasData: Boolean(calldata),
-              });
+                chainId: Number(_chainId),
+                to: call.to,
+                data: call.data,
+                value: call.value,
+                sponsor: true,
+              }),
+            });
+            if (!response.ok) {
+              const errText = await response.text();
+              // Minimal debug info to help diagnose missing fields during development
+              if (
+                typeof console !== 'undefined' &&
+                typeof console.warn === 'function'
+              ) {
+                console.warn('[Privy send-calls] request body', {
+                  walletId,
+                  chainId: _chainId,
+                  to: call.to,
+                  hasData: Boolean(call.data),
+                });
+              }
+              throw new Error(errText || 'Sponsored transaction request failed');
             }
-            throw new Error(errText || 'Sponsored transaction request failed');
+            lastResult = await response.json();
           }
-          const data = await response.json();
+          const data = lastResult;
           const maybeHash: string | undefined =
             data?.receipts?.[0]?.transactionHash ||
             data?.transactionHash ||
             data?.txHash;
-          if (maybeHash) {
-            // Persist share intent before redirect
-            writeShareIntent(maybeHash);
-            // Redirect as soon as a tx hash is known
-            maybeRedirectToProfile();
-            // Show success toast after navigation so it appears on profile
-            try {
-              toast({
-                title: successTitle,
-                description: formatSuccessDescription(successMessage),
-                duration: 5000,
-              });
-              didShowSuccessToastRef.current = true;
-            } catch (e) {
-              console.error(e);
-            }
-            onTxHash?.(maybeHash as Hash);
-            setTxHash(maybeHash as Hash);
-            setIsSubmitting(false);
-          } else {
-            // No hash available; persist minimal intent then redirect
-            writeShareIntent(undefined);
-            // Redirect before showing success toast
-            maybeRedirectToProfile();
-            toast({
-              title: successTitle,
-              description: formatSuccessDescription(successMessage),
-              duration: 5000,
-            });
-            onSuccess?.(undefined as any);
-            didShowSuccessToastRef.current = true;
-            setIsSubmitting(false);
+          
+          handleTransactionSuccess(maybeHash as Hash);
+          
+          // Execute auto-unwrap if this was a withdrawal operation
+          if (needsUnwrap) {
+            await executeEmbeddedUnwrap(walletId, Number(_chainId), balanceBeforeTransaction);
           }
         } else {
-          // Execute the transaction and set hash when resolved
-          const hash = await writeContractAsync(...args);
-          // Persist share intent before redirect
-          writeShareIntent(hash);
-          // Redirect as soon as a tx hash is known
-          maybeRedirectToProfile();
-          // Show success toast after navigation so it appears on profile
-          try {
-            toast({
-              title: successTitle,
-              description: formatSuccessDescription(successMessage),
-              duration: 5000,
-            });
-            didShowSuccessToastRef.current = true;
-          } catch (e) {
-            console.error(e);
+          // For non-embedded wallets, use sendCalls if on Ethereal and wrapping is needed
+          if (isEtherealChain(_chainId)) {
+            const params = args[0];
+            const { value } = params as any;
+            
+            if (value && BigInt(value) > 0n) {
+              // Check if we need unwrapping for this operation
+              const needsUnwrap = shouldAutoUnwrap((params as any).functionName, (params as any).address);
+              
+              // Get balance before transaction if unwrapping might be needed
+              let balanceBeforeTransaction = 0n;
+              if (needsUnwrap) {
+                balanceBeforeTransaction = await getUserWUSDEBalance();
+              }
+              
+              // Need to wrap USDe first, then execute main transaction
+              const wrapTx = createWrapTransaction(BigInt(value));
+              const mainCalldata = encodeFunctionData({
+                abi: (params as any).abi,
+                functionName: (params as any).functionName,
+                args: (params as any).args,
+              });
+              
+              const calls = [
+                wrapTx,
+                {
+                  to: (params as any).address,
+                  data: mainCalldata,
+                  value: '0x0', // No value for main tx since we wrapped
+                },
+              ];
+
+              const result = await sendCallsAsync({
+                chainId: _chainId,
+                calls,
+                experimental_fallback: true,
+              });
+              
+              const transactionHash = result?.receipts?.[0]?.transactionHash || result?.transactionHash;
+              handleTransactionSuccess(transactionHash);
+              
+              // Execute auto-unwrap if this is a withdrawal operation
+              if (needsUnwrap) {
+                await executeNonEmbeddedUnwrap(_chainId, balanceBeforeTransaction);
+              }
+            } else {
+              // No wrapping needed, check if unwrapping is needed
+              const needsUnwrap = shouldAutoUnwrap((args[0] as any).functionName, (args[0] as any).address);
+              
+              // Get balance before transaction if unwrapping might be needed
+              let balanceBeforeTransaction = 0n;
+              if (needsUnwrap) {
+                balanceBeforeTransaction = await getUserWUSDEBalance();
+              }
+              
+              // Execute main transaction
+              const hash = await writeContractAsync(...args);
+              handleTransactionSuccess(hash);
+              
+              // Execute auto-unwrap if this is a withdrawal operation
+              if (needsUnwrap) {
+                await executeNonEmbeddedUnwrap(_chainId, balanceBeforeTransaction);
+              }
+            }
+          } else {
+            // Execute the transaction normally for non-Ethereal chains
+            const hash = await writeContractAsync(...args);
+            handleTransactionSuccess(hash);
           }
-          onTxHash?.(hash);
-          setTxHash(hash);
         }
       } catch (error) {
         setIsSubmitting(false);
@@ -360,14 +611,15 @@ export function useSapienceWriteContract({
       validateAndSwitchChain,
       writeContractAsync,
       isEmbeddedWallet,
-      embeddedWallet,
       toast,
       fallbackErrorMessage,
       onError,
-      onTxHash,
       user,
-      maybeRedirectToProfile,
-      writeShareIntent,
+      shouldAutoUnwrap,
+      executeEmbeddedUnwrap,
+      executeNonEmbeddedUnwrap,
+      handleTransactionSuccess,
+      ensureEmbeddedAuth,
     ]
   );
 
@@ -563,6 +815,10 @@ export function useSapienceWriteContract({
       isEmbeddedWallet,
       user,
       maybeRedirectToProfile,
+      writeShareIntent,
+      shouldAutoUnwrap,
+      executeAutoUnwrap,
+      ensureEmbeddedAuth,
     ]
   );
 
