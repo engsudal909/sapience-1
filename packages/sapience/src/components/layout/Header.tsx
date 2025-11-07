@@ -520,7 +520,7 @@ const Header = () => {
             </Button>
             <Button size="icon" className="h-6 w-6 rounded-full" asChild>
               <a
-                href="https://x.com/sapiencehq"
+                href="https://x.com/sapiencemarkets"
                 target="_blank"
                 rel="noopener noreferrer"
               >
