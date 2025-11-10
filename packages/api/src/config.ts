@@ -24,4 +24,5 @@ export const config = cleanEnv(process.env, {
     desc: 'Sentry endpoint that should be used. E.g.: https://<sentry-public-key>.ingest.us.sentry.io/<sentry-project>',
   }),
   SENTRY_ENABLE_METRICS: bool({ default: true }),
+  SENTRY_DEBUG: bool({ default: false }),
 });
