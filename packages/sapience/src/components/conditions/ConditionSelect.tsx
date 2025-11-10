@@ -21,6 +21,7 @@ import {
   useConditions,
   type ConditionType,
 } from '~/hooks/graphql/useConditions';
+import { CHAIN_ID_ARBITRUM } from '~/components/admin/constants';
 
 export interface ConditionSelectProps {
   selectedConditionId?: string | null;
@@ -32,7 +33,9 @@ const ConditionSelect: React.FC<ConditionSelectProps> = ({
   onSelect,
   className,
 }) => {
-  const { data: conditions = [], isLoading } = useConditions();
+  const { data: conditions = [], isLoading } = useConditions({
+    chainId: CHAIN_ID_ARBITRUM,
+  });
   const [search, setSearch] = useState<string>('');
   const [open, setOpen] = useState<boolean>(false);
   const inputRef = React.useRef<HTMLInputElement>(null);

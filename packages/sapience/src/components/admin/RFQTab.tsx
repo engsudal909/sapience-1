@@ -114,10 +114,10 @@ const RFQTab = ({
 
   // Read chainId from localStorage with event monitoring
   const currentChainId = useChainIdFromLocalStorage();
-  
+
   const currentChainName =
     currentChainId === CHAIN_ID_ETHEREAL ? 'Ethereal' : 'Arbitrum';
-  
+
   const {
     data: conditions,
     isLoading,
