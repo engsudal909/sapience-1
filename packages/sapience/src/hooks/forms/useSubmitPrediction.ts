@@ -190,6 +190,7 @@ export function useSubmitPrediction({
     submissionValue,
     marketId,
     comment,
+    conditionIdHex,
     encodeSchemaData,
     writeContract,
     reset,

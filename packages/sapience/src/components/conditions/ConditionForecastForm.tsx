@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { useAccount } from 'wagmi';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -32,6 +33,7 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   disabled = false,
   categorySlug,
 }) => {
+  const { address } = useAccount();
   const formSchema: z.ZodType<FormValues> = useMemo(() => {
     return z.object({
       predictionValue: z
@@ -127,7 +129,9 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
         <div>
           <Button
             type="submit"
-            disabled={!methods.formState.isValid || disabled || isAttesting}
+            disabled={
+              !methods.formState.isValid || disabled || isAttesting || !address
+            }
             className="w-full py-6 px-5 rounded text-lg font-normal"
           >
             {isAttesting ? 'Forecasting…' : 'Submit Forecast'}

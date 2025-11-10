@@ -9,6 +9,7 @@ import {
 } from "@elizaos/core";
 import type { SapienceService } from "../services/sapienceService.js";
 import { loadSdk } from "../utils/sdk.js";
+import { getApiEndpoints } from "../utils/blockchain.js";
 
 export const attestMarketAction: Action = {
   name: "ATTEST_MARKET",
@@ -48,6 +49,123 @@ export const attestMarketAction: Action = {
   ): Promise<void> => {
     try {
       const text = message.content?.text || "";
+
+      // Condition-first: detect a bytes32 condition id in the message
+      const conditionMatch = text.match(/0x[a-fA-F0-9]{64}/);
+      if (conditionMatch) {
+        const conditionId = conditionMatch[0] as `0x${string}`;
+        elizaLogger.info(
+          `Condition-based attestation requested for ${conditionId}`,
+        );
+
+        // Fetch condition details (optional, for nicer question text)
+        let condition:
+          | { id: string; question: string; shortName?: string | null }
+          | null = null;
+        try {
+          const { sapienceGraphql } = getApiEndpoints();
+          const query = /* GraphQL */ `
+            query ConditionById($id: String!) {
+              conditions(where: { id: { equals: $id } }, take: 1) {
+                id
+                question
+                shortName
+              }
+            }
+          `;
+          const res = await fetch(sapienceGraphql, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query, variables: { id: conditionId } }),
+          });
+          const json = await res.json().catch(() => ({}));
+          condition = json?.data?.conditions?.[0] || null;
+        } catch {}
+
+        // Generate prediction using the agent
+        const prompt = `Analyze this condition and respond with ONLY valid JSON:
+Question: ${condition?.shortName || condition?.question || "Unknown"}
+{
+  "probability": <number 0-100>,
+  "reasoning": "<analysis under 180 chars, lowercase>",
+  "confidence": <number 0.0-1.0>
+}`;
+        const response = await runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt,
+        });
+        let prediction: {
+          probability: number;
+          reasoning: string;
+          confidence: number;
+        };
+        try {
+          prediction = JSON.parse(response);
+        } catch {
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (!jsonMatch)
+            throw new Error("Model did not return JSON format for prediction");
+          prediction = JSON.parse(jsonMatch[0]);
+        }
+        if (
+          !prediction.probability ||
+          !prediction.reasoning ||
+          prediction.confidence === undefined
+        ) {
+          elizaLogger.error("Invalid prediction format:", prediction);
+          throw new Error("Model returned incomplete prediction data");
+        }
+
+        const { buildAttestationCalldata } = await loadSdk();
+        const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
+        const zero = "0x0000000000000000000000000000000000000000" as const;
+        const attestationData = await buildAttestationCalldata(
+          {
+            marketId: 0,
+            address: zero,
+            question:
+              condition?.shortName || condition?.question || "Condition",
+          },
+          prediction,
+          chainId,
+          conditionId,
+        );
+        if (!attestationData) throw new Error("Failed to build attestation");
+
+        const transactionData = {
+          to: attestationData.to,
+          data: attestationData.data,
+          value: attestationData.value || "0",
+        };
+        const transactionMessage: Memory = {
+          entityId: message.entityId,
+          agentId: message.agentId,
+          roomId: message.roomId,
+          content: {
+            text: `Submit this transaction: ${JSON.stringify(transactionData)}`,
+            action: "SUBMIT_TRANSACTION",
+          },
+          createdAt: Date.now(),
+        };
+        const actions = runtime.actions || [];
+        const submitAction = actions.find(
+          (a) => a.name === "SUBMIT_TRANSACTION",
+        );
+        if (submitAction) {
+          await submitAction.handler(
+            runtime,
+            transactionMessage,
+            state,
+            options,
+            callback,
+          );
+        } else {
+          await callback?.({
+            text: "Transaction prepared, but SUBMIT_TRANSACTION action is unavailable.",
+            content: { transactionData },
+          });
+        }
+        return;
+      }
 
       // Extract market ID from message
       const marketIdMatch = text.match(/market\s*#?(\d+)/i);
@@ -170,7 +288,7 @@ export const attestMarketAction: Action = {
           question: marketInfo.question,
         },
         prediction,
-        42161, // Arbitrum chain ID
+        parseInt(process.env.SAPIENCE_CHAIN_ID || "42161"), // Chain ID
       );
 
       if (!attestationData) {

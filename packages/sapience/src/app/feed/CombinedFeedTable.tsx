@@ -310,7 +310,7 @@ export default function CombinedFeedTable({
     };
 
     return forecasts.map(mapAttestation).filter(Boolean) as FeedRow[];
-  }, [forecasts, marketGroups]);
+  }, [forecasts, marketGroups, conditionsMap]);
 
   const combinedRows = useMemo(() => {
     // Merge forecasts after transactions; both sorted in FeedTable anyway
