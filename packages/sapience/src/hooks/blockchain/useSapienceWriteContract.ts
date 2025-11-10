@@ -6,7 +6,6 @@ import {
   useSendCalls,
   useConnectorClient,
   useAccount,
-  useReadContract,
 } from 'wagmi';
 import type { Hash } from 'viem';
 import { encodeFunctionData, parseAbi } from 'viem';
@@ -18,6 +17,7 @@ import { waitForCallsStatus } from 'viem/actions';
 import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
+import { getPublicClientForChainId } from '~/lib/utils/util';
 
 // Ethereal chain configuration
 const CHAIN_ID_ETHEREAL = 5064014;
@@ -119,13 +119,14 @@ export function useSapienceWriteContract({
 
   // Helper to get user's WUSDe balance
   const getUserWUSDEBalance = useCallback(async () => {
-    if (!client || !wagmiAddress || !isEtherealChain(chainId || 0)) {
+    if (!wagmiAddress || !chainId || !isEtherealChain(chainId)) {
       return 0n;
     }
     
     try {
-      const balance = await client.readContract({
-        address: WUSDE_ADDRESS,
+      const publicClient = getPublicClientForChainId(chainId);
+      const balance = await publicClient.readContract({
+        address: WUSDE_ADDRESS as `0x${string}`,
         abi: WUSDE_ABI,
         functionName: 'balanceOf',
         args: [wagmiAddress],
@@ -135,7 +136,7 @@ export function useSapienceWriteContract({
       console.error('Failed to get WUSDe balance:', error);
       return 0n;
     }
-  }, [client, wagmiAddress, chainId]);
+  }, [wagmiAddress, chainId, isEtherealChain]);
 
   // Write durable share intent to sessionStorage
   const writeShareIntent = useCallback(
@@ -243,7 +244,7 @@ export function useSapienceWriteContract({
     return withdrawalFunctions.some(fn => 
       functionName.toLowerCase().includes(fn.toLowerCase())
     );
-  }, [chainId]);
+  }, [chainId, isEtherealChain]);
 
   // Helper to execute auto-unwrap after main transaction
   const executeAutoUnwrap = useCallback(async (balanceBefore: bigint) => {
@@ -534,7 +535,7 @@ export function useSapienceWriteContract({
             
             if (value && BigInt(value) > 0n) {
               // Check if we need unwrapping for this operation
-              const needsUnwrap = shouldAutoUnwrap((params as any).functionName, (params as any).address);
+              const needsUnwrap = shouldAutoUnwrap((params as any).functionName);
               
               // Get balance before transaction if unwrapping might be needed
               let balanceBeforeTransaction = 0n;
@@ -565,8 +566,11 @@ export function useSapienceWriteContract({
                 experimental_fallback: true,
               });
               
-              const transactionHash = result?.receipts?.[0]?.transactionHash || result?.transactionHash;
-              handleTransactionSuccess(transactionHash);
+              // Type assertion needed because sendCallsAsync can return different shapes
+              // depending on EIP-5792 support vs fallback mode
+              const resultWithHash = result as { receipts?: Array<{ transactionHash?: string }>; transactionHash?: string; txHash?: string } | undefined;
+              const transactionHash = resultWithHash?.receipts?.[0]?.transactionHash || resultWithHash?.transactionHash || resultWithHash?.txHash;
+              handleTransactionSuccess(transactionHash as Hash | undefined);
               
               // Execute auto-unwrap if this is a withdrawal operation
               if (needsUnwrap) {
@@ -588,7 +592,7 @@ export function useSapienceWriteContract({
               
               // Execute auto-unwrap if this is a withdrawal operation
               if (needsUnwrap) {
-                await executeNonEmbeddedUnwrap(_chainId, balanceBeforeTransaction);
+                executeNonEmbeddedUnwrap(_chainId, balanceBeforeTransaction);
               }
             }
           } else {
@@ -622,6 +626,10 @@ export function useSapienceWriteContract({
       executeNonEmbeddedUnwrap,
       handleTransactionSuccess,
       ensureEmbeddedAuth,
+      createWrapTransaction,
+      getUserWUSDEBalance,
+      isEtherealChain,
+      sendCallsAsync,
     ]
   );
 
