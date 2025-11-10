@@ -1,8 +1,6 @@
 import * as Sentry from '@sentry/node';
 import { config } from './config';
 
-import type { WebSocketServer } from 'ws';
-
 if (config.SENTRY_DSN) {
   Sentry.init({
     dsn: config.SENTRY_DSN,
