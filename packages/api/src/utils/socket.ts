@@ -36,7 +36,9 @@ export function setupConnectionMetrics(
     ws.on('close', () => {
       const duration = Date.now() - startedAt;
       connectionsCount.decrement();
-      Sentry.metrics.distribution(`websocket.${namespace}.duration`, duration);
+      Sentry.metrics.distribution(`websocket.${namespace}.duration`, duration, {
+        unit: 'millisecond',
+      });
     });
   });
 }
