@@ -8,7 +8,7 @@ import {
 import { getStringParam, setStringParam } from '../candle-cache/dbUtils';
 import { getProviderForChain, getBlockByTimestamp } from '../utils/utils';
 import PredictionMarketIndexer from '../workers/indexers/predictionMarketIndexer';
-import { PREDICTION_MARKET_CONTRACT_ADDRESS } from '../workers/indexers/predictionMarketIndexer';
+import { predictionMarket } from '@sapience/sdk';
 import type { Block } from 'viem';
 
 export class ParlayReconciler {
@@ -98,10 +98,19 @@ export class ParlayReconciler {
 
         if (parlayCount === 0) continue;
 
+        // Get contract address for this chain
+        const contractEntry = predictionMarket[chainId];
+        if (!contractEntry?.address) {
+          console.warn(
+            `${PARLAY_RECONCILE_CONFIG.logPrefix} No PredictionMarket contract found for chain ${chainId}, skipping`
+          );
+          continue;
+        }
+
         try {
           // Use efficient single getLogs call like MarketEventReconciler
           const logs = await client.getLogs({
-            address: PREDICTION_MARKET_CONTRACT_ADDRESS as `0x${string}`,
+            address: contractEntry.address,
             fromBlock,
             toBlock,
           });
