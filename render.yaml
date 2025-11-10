@@ -3,6 +3,12 @@ databases:
     databaseName: foil
     plan: pro-4gb
 
+envVarGroups:
+  - name: SapienceAPIEnvGroup
+    envVars:
+      - key: SENTRY_DSN
+        sync: false
+
 services:
   - name: web-service
     type: web
@@ -18,6 +24,7 @@ services:
         fromDatabase:
           name: database
           property: connectionString
+      - fromGroup: SapienceAPIEnvGroup
 
   - name: background-worker
     type: worker
@@ -32,6 +39,7 @@ services:
         fromDatabase:
           name: database
           property: connectionString
+      - fromGroup: SapienceAPIEnvGroup
 
   - name: candle-cache-builder
     type: worker
@@ -47,3 +55,4 @@ services:
         fromDatabase:
           name: database
           property: connectionString
+      - fromGroup: SapienceAPIEnvGroup
