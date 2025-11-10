@@ -15,7 +15,7 @@ import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
 import { config } from './config';
 import { validateOrigin } from './utils/url';
-import { closeSocket } from './utils/socket';
+import { closeSocket, setupConnectionMetrics } from './utils/socket';
 
 import type { IncomingMessage } from 'node:http';
 import type { Socket } from 'node:net';
@@ -53,6 +53,11 @@ const startServer = async () => {
   const auctionWsEnabled = process.env.ENABLE_AUCTION_WS !== 'false';
   const auctionWss = auctionWsEnabled ? createAuctionWebSocketServer() : null;
   const chatWss = createChatWebSocketServer();
+
+  setupConnectionMetrics('chat', chatWss);
+  if (auctionWss) {
+    setupConnectionMetrics('auction', auctionWss);
+  }
 
   httpServer.on(
     'upgrade',

@@ -1,4 +1,4 @@
-import { cleanEnv, str, num } from 'envalid';
+import { cleanEnv, str, num, bool } from 'envalid';
 import { config as dotEnvConfig } from 'dotenv';
 import { fromRoot } from './utils/fromRoot';
 import { originsArray } from './utils/configTypes';
@@ -23,4 +23,5 @@ export const config = cleanEnv(process.env, {
     default: '',
     desc: 'Sentry endpoint that should be used. E.g.: https://<sentry-public-key>.ingest.us.sentry.io/<sentry-project>',
   }),
+  SENTRY_ENABLE_METRICS: bool({ default: true }),
 });
