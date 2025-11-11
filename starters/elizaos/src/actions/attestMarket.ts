@@ -111,7 +111,7 @@ Question: ${condition?.shortName || condition?.question || "Unknown"}
           !prediction.reasoning ||
           prediction.confidence === undefined
         ) {
-          elizaLogger.error("Invalid prediction format:", prediction);
+          elizaLogger.error("Invalid prediction format:", JSON.stringify(prediction));
           throw new Error("Model returned incomplete prediction data");
         }
 
@@ -274,7 +274,7 @@ Question: ${condition?.shortName || condition?.question || "Unknown"}
         !prediction.reasoning ||
         prediction.confidence === undefined
       ) {
-        elizaLogger.error("Invalid prediction format:", prediction);
+        elizaLogger.error("Invalid prediction format:", JSON.stringify(prediction));
         throw new Error("Model returned incomplete prediction data");
       }
       const { buildAttestationCalldata } = await loadSdk();
