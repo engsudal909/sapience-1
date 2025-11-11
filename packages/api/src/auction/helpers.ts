@@ -7,6 +7,64 @@ import {
 } from 'viem';
 
 /**
+ * Normalizes an auction payload to canonical prediction set and computes an order‑invariant hash.
+ */
+export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
+  predictions: {
+    verifierContract: string;
+    resolverContract: string;
+    predictedOutcomes: string;
+  }[];
+  uniqueVerifierContracts: Set<string>;
+  uniqueResolverContracts: Set<string>;
+  predictionsHash: `0x${string}`;
+} {
+  const predictions = (auction?.predictions ?? []).map((p) => ({
+    verifierContract: (p?.verifierContract ?? '').toLowerCase(),
+    resolverContract: (p?.resolverContract ?? '').toLowerCase(),
+    predictedOutcomes: String(p?.predictedOutcomes ?? ''),
+  }));
+  // Canonical order: (verifier, resolver, predictedOutcomes)
+  const sorted = [...predictions].sort((a, b) => {
+    if (a.verifierContract !== b.verifierContract)
+      return a.verifierContract < b.verifierContract ? -1 : 1;
+    if (a.resolverContract !== b.resolverContract)
+      return a.resolverContract < b.resolverContract ? -1 : 1;
+    if (a.predictedOutcomes !== b.predictedOutcomes)
+      return a.predictedOutcomes < b.predictedOutcomes ? -1 : 1;
+    return 0;
+  });
+  const encoded = encodeAbiParameters(
+    [
+      {
+        type: 'tuple[]',
+        components: [
+          { name: 'verifierContract', type: 'address' },
+          { name: 'resolverContract', type: 'address' },
+          { name: 'predictedOutcomes', type: 'bytes' },
+        ],
+      },
+    ],
+    [
+      sorted.map((p) => [
+        p.verifierContract as `0x${string}`,
+        p.resolverContract as `0x${string}`,
+        p.predictedOutcomes as `0x${string}`,
+      ]),
+    ]
+  );
+  const predictionsHash = keccak256(encoded);
+  const uniqueVerifierContracts = new Set(predictions.map((p) => p.verifierContract));
+  const uniqueResolverContracts = new Set(predictions.map((p) => p.resolverContract));
+  return {
+    predictions,
+    uniqueVerifierContracts,
+    uniqueResolverContracts,
+    predictionsHash,
+  };
+}
+
+/**
  * Helper function to create MintParlayRequestData for the ParlayPool.mint() function
  * This matches the struct defined in the Solidity contract
  */
@@ -27,14 +85,13 @@ export function createMintParlayRequestData(
   taker: string,
   takerCollateral: string
 ): MintParlayRequestData {
-  if (!auction.resolver) {
-    throw new Error('Auction must have a resolver address');
-  }
+  const { predictions } = normalizeAuctionPayload(auction);
+  if (!predictions.length) throw new Error('Auction must contain at least one prediction');
 
   return {
     taker: taker,
-    predictedOutcomes: auction.predictedOutcomes,
-    resolver: auction.resolver,
+    predictedOutcomes: [predictions[0].predictedOutcomes],
+    resolver: predictions[0].resolverContract,
     wager: auction.wager,
     takerCollateral: takerCollateral,
   };
@@ -50,32 +107,26 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
   if (!auction.wager || BigInt(auction.wager) <= 0n) {
     return { valid: false, error: 'Invalid wager' };
   }
-  if (!auction.predictedOutcomes || auction.predictedOutcomes.length === 0) {
-    return { valid: false, error: 'No predicted outcomes' };
-  }
-  if (!auction.resolver) {
-    return { valid: false, error: 'Missing resolver address' };
-  }
-  if (!auction.maker) {
-    return { valid: false, error: 'Missing maker address' };
-  }
-
-  // Basic maker address validation (0x-prefixed 40-hex)
-  if (
-    typeof auction.maker !== 'string' ||
-    !/^0x[a-fA-F0-9]{40}$/.test(auction.maker)
-  ) {
-    return { valid: false, error: 'Invalid maker address' };
-  }
-
-  // Validate predicted outcomes are non-empty bytes strings
-  for (const outcome of auction.predictedOutcomes) {
-    if (!outcome || typeof outcome !== 'string' || outcome.length === 0) {
-      return {
-        valid: false,
-        error: 'Invalid predicted outcome: must be non-empty bytes string',
-      };
+  const { predictions } = normalizeAuctionPayload(auction);
+  if (!predictions.length) return { valid: false, error: 'No predictions' };
+  // Ensure resolver + verifier present and outcomes non-empty
+  for (const p of predictions) {
+    if (!p.verifierContract) return { valid: false, error: 'Missing verifierContract' };
+    if (!p.resolverContract) return { valid: false, error: 'Missing resolverContract' };
+    if (!p.predictedOutcomes || typeof p.predictedOutcomes !== 'string') {
+      return { valid: false, error: 'Invalid predictedOutcomes' };
     }
+  }
+  if (!auction.taker) {
+    return { valid: false, error: 'Missing taker address' };
+  }
+
+  // Basic taker address validation (0x-prefixed 40-hex)
+  if (
+    typeof auction.taker !== 'string' ||
+    !/^0x[a-fA-F0-9]{40}$/.test(auction.taker)
+  ) {
+    return { valid: false, error: 'Invalid taker address' };
   }
 
   return { valid: true };
@@ -146,38 +197,38 @@ export function extractTakerWagerFromSignature(): string | null {
  * Verifies a taker bid using a typed payload scheme (e.g., EIP-712 or personal_sign preimage).
  * This function currently does structural checks only; wire in real signature recovery for production.
  */
-export function verifyTakerBid(params: {
+export function verifyMakerBid(params: {
   auctionId: string;
-  taker: string;
-  takerWager: string;
-  takerDeadline: number;
-  takerSignature: string;
+  maker: string;
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
 }): { ok: boolean; reason?: string } {
   try {
-    const { auctionId, taker, takerWager, takerDeadline, takerSignature } =
+    const { auctionId, maker, makerWager, makerDeadline, makerSignature } =
       params;
     if (!auctionId || typeof auctionId !== 'string') {
       return { ok: false, reason: 'invalid_auction_id' };
     }
-    if (typeof taker !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(taker)) {
-      return { ok: false, reason: 'invalid_taker' };
+    if (typeof maker !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(maker)) {
+      return { ok: false, reason: 'invalid_maker' };
     }
-    if (!takerWager || BigInt(takerWager) <= 0n) {
-      return { ok: false, reason: 'invalid_taker_wager' };
+    if (!makerWager || BigInt(makerWager) <= 0n) {
+      return { ok: false, reason: 'invalid_maker_wager' };
     }
     if (
-      typeof takerDeadline !== 'number' ||
-      !Number.isFinite(takerDeadline) ||
-      takerDeadline <= Math.floor(Date.now() / 1000)
+      typeof makerDeadline !== 'number' ||
+      !Number.isFinite(makerDeadline) ||
+      makerDeadline <= Math.floor(Date.now() / 1000)
     ) {
       return { ok: false, reason: 'quote_expired' };
     }
     if (
-      typeof takerSignature !== 'string' ||
-      !takerSignature.startsWith('0x') ||
-      takerSignature.length < 10
+      typeof makerSignature !== 'string' ||
+      !makerSignature.startsWith('0x') ||
+      makerSignature.length < 10
     ) {
-      return { ok: false, reason: 'invalid_taker_bid_signature_format' };
+      return { ok: false, reason: 'invalid_maker_bid_signature_format' };
     }
 
     // TODO: Implement real signature verification (EIP-712) against the exact typed payload
@@ -188,41 +239,31 @@ export function verifyTakerBid(params: {
   }
 }
 
-export async function verifyTakerBidStrict(params: {
+export async function verifyMakerBidStrict(params: {
   auction: AuctionRequestPayload;
   bid: BidPayload;
-  chainId: number;
-  verifyingContract: `0x${string}`;
+  // chainId + verifying contract come from auction payload
 }): Promise<{ ok: boolean; reason?: string }> {
   try {
-    const { auction, bid, chainId, verifyingContract } = params;
+    const { auction, bid } = params;
 
     // Basic guards
     if (!auction || !bid) return { ok: false, reason: 'invalid_payload' };
-    if (!auction.predictedOutcomes?.length)
-      return { ok: false, reason: 'invalid_auction_outcomes' };
+    const { predictions, uniqueVerifierContracts, uniqueResolverContracts, predictionsHash } =
+      normalizeAuctionPayload(auction);
+    if (!predictions.length) return { ok: false, reason: 'invalid_auction_predictions' };
+    if (uniqueVerifierContracts.size !== 1 || uniqueResolverContracts.size !== 1) {
+      return { ok: false, reason: 'CROSS_VERIFIER_UNSUPPORTED' };
+    }
 
-    const encodedPredictedOutcomes = auction
-      .predictedOutcomes[0] as `0x${string}`;
-
-    // Hash the inner message per contract
+    // Hash the inner message: predictionsHash + makerWager + makerDeadline
     const inner = encodeAbiParameters(
       [
-        { type: 'bytes' },
-        { type: 'uint256' },
-        { type: 'uint256' },
-        { type: 'address' },
-        { type: 'address' },
-        { type: 'uint256' },
+        { type: 'bytes32' }, // predictionsHash
+        { type: 'uint256' }, // makerWager
+        { type: 'uint256' }, // makerDeadline
       ],
-      [
-        encodedPredictedOutcomes,
-        BigInt(bid.takerWager),
-        BigInt(auction.wager),
-        auction.resolver as `0x${string}`,
-        auction.maker as `0x${string}`,
-        BigInt(bid.takerDeadline),
-      ]
+      [predictionsHash, BigInt(bid.makerWager), BigInt(bid.makerDeadline)]
     );
 
     const messageHash = keccak256(inner);
@@ -231,8 +272,8 @@ export async function verifyTakerBidStrict(params: {
     const domain = {
       name: 'SignatureProcessor',
       version: '1',
-      chainId,
-      verifyingContract,
+      chainId: auction.chainId,
+      verifyingContract: Array.from(uniqueVerifierContracts)[0] as `0x${string}`,
     } as const;
 
     const types = {
@@ -244,16 +285,16 @@ export async function verifyTakerBidStrict(params: {
 
     const message = {
       messageHash,
-      owner: getAddress(bid.taker),
+      owner: getAddress(bid.maker),
     } as const;
 
     const ok = await verifyTypedData({
-      address: getAddress(bid.taker),
+      address: getAddress(bid.maker),
       domain,
       primaryType: 'Approve',
       types,
       message,
-      signature: bid.takerSignature as `0x${string}`,
+      signature: bid.makerSignature as `0x${string}`,
     });
 
     return ok ? { ok: true } : { ok: false, reason: 'invalid_signature' };

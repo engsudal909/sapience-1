@@ -1,12 +1,16 @@
 export type HexString = `0x${string}`;
 
 export interface AuctionRequestPayload {
-  wager: string; // wei string
-  predictedOutcomes: string[]; // Array of bytes strings that the resolver validates/understands
-  resolver: string; // contract address for market validation
-  maker: string; // EOA address of the maker initiating the auction
-  makerNonce: number; // nonce for the maker
+  wager: string; // wei string (single total wager across all predictions)
+  predictions: {
+    verifierContract: string; // verifying contract that checks signatures for this prediction
+    resolverContract: string; // resolver contract for market validation
+    predictedOutcomes: string; // encoded outcomes blob this resolver understands
+  }[]; // canonical shape (array of length >= 1; single-prediction is an array of one)
+  taker: string; // EOA address of the taker initiating the auction
+  takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
+  marketContract: string; // primary market entrypoint for this auction flow
 }
 
 export interface BidQuote {
@@ -43,11 +47,11 @@ export type BidFill = BidFillRawTx | BidFillCallData | MintParlayData;
 
 export interface BidPayload {
   auctionId: string;
-  taker: string; // Taker's EOA address (0x...)
-  takerWager: string; // wei string
-  takerDeadline: number; // unix seconds
-  takerSignature: string; // Taker's signature authorizing this specific bid over the typed payload
-  makerNonce: number; // nonce for the maker (same as makerNonce in AuctionRequestPayload)
+  maker: string; // Maker's EOA address (0x...) - the bidding party
+  makerWager: string; // wei string
+  makerDeadline: number; // unix seconds
+  makerSignature: string; // Maker's signature authorizing this specific bid over the typed payload
+  makerNonce: number; // nonce for the maker (bidding party)
 }
 
 export type ValidatedBid = BidPayload;

@@ -37,8 +37,8 @@ Use our minimal starter to listen for auction requests and submit signed bids as
 
 - Connects to the Auction Relayer WebSocket
 - Performs a one‑time MAX ERC‑20 approval for the `PredictionMarket` contract
-- Filters auctions by maker wager and sends a fixed‑amount bid
-- Signs bids with EIP‑712 using your private key
+- Filters auctions by taker wager and sends a fixed‑amount maker bid
+- Signs maker bids with EIP‑712 using your private key
 
 ## Quickstart
 
@@ -62,51 +62,50 @@ pnpm dev:published
 ## How it works
 
 1. Connect to the relayer WebSocket
-2. Listen for `auction.started { auctionId, maker, wager, resolver, predictedOutcomes[] }`
-3. Filter out small auctions via `MIN_MAKER_WAGER`
+2. Listen for `auction.started { auctionId, taker, wager, predictions[], chainId, marketContract }`
+3. Filter out small auctions via `MIN_TAKER_WAGER`
 4. Ensure ERC‑20 approval (one‑time MAX) for the `PredictionMarket` contract
-5. Build EIP‑712 typed data and sign with `PRIVATE_KEY`
-6. Send `bid.submit { auctionId, taker, takerWager, takerDeadline, takerSignature, makerNonce }`
+5. Build EIP‑712 typed data (maker bid) and sign with `PRIVATE_KEY`
+6. Send `bid.submit { auctionId, maker, makerWager, makerDeadline, makerSignature, makerNonce }`
 7. Handle `bid.ack { error? }` and optionally observe `auction.bids`
 8. Auto‑reconnect on close/error
 
 ## Code walkthrough (starter highlights)
 
-- Configuration & defaults: resolves `RELAYER_WS_URL`, `CHAIN_ID`, `RPC_URL`, and contract addresses from the SDK
+- Configuration & defaults: resolves `RELAYER_WS_URL`, `RPC_URL`, and contract addresses from the SDK
 - One‑time approval: checks allowance and sends `approve(MAX)` if needed
 - WebSocket handlers: reacts to `auction.started`, `bid.ack`, and `auction.bids`
-- Market metadata: decodes `predictedOutcomes` and fetches condition titles via GraphQL for readable logs
-- Signing: uses SDK helpers to build and sign the EIP‑712 `TakerBid` payload
-- Strategy knobs: `BID_AMOUNT`, `MIN_MAKER_WAGER`, `DEADLINE_SECONDS`
+- Market metadata: decodes `auction.predictions[0].predictedOutcomes` and fetches condition titles via GraphQL for readable logs
+- Signing: uses helpers to build and sign the EIP‑712 maker bid payload with domain `{ chainId: auction.chainId, verifyingContract: uniqueVerifierFromPredictions }` and inner hash `{ predictionsHash, makerWager, makerDeadline }`
+- Strategy knobs: `BID_AMOUNT`, `MIN_TAKER_WAGER`, `DEADLINE_SECONDS`
 
 Minimal bid submission (excerpt):
 
 ```ts
-const { domain, types, primaryType, message } = buildTakerBidTypedData({
+const { domain, types, primaryType, message } = buildMakerBidTypedData({
   auction: {
-    maker: auction.maker,
-    resolver: auction.resolver,
-    predictedOutcomes: auction.predictedOutcomes,
+    taker: auction.taker,
+    predictions: auction.predictions,
     wager: auction.wager,
+    chainId: auction.chainId,
+    marketContract: auction.marketContract,
   },
-  takerWager,
-  takerDeadline,
-  chainId: CHAIN_ID,
-  verifyingContract: VERIFYING_CONTRACT,
-  taker: TAKER,
+  makerWager,
+  makerDeadline,
+  maker: MAKER,
 });
 
-const takerSignature = await signTakerBid({ privateKey: PRIVATE_KEY_HEX, domain, types, primaryType, message });
+const makerSignature = await signMakerBid({ privateKey: PRIVATE_KEY_HEX, domain, types, primaryType, message });
 
 ws.send(JSON.stringify({
   type: 'bid.submit',
-  payload: { auctionId, taker: TAKER, takerWager: String(takerWager), takerDeadline, takerSignature, makerNonce },
+  payload: { auctionId, maker: MAKER, makerWager: String(makerWager), makerDeadline, makerSignature, makerNonce },
 }));
 ```
 
 ## Customize your strategy
 
-- Adjust `MIN_MAKER_WAGER` to target larger auctions only
+- Adjust `MIN_TAKER_WAGER` to target larger auctions only
 - Change `BID_AMOUNT` sizing or derive it from `auction.wager`
 - Filter by topic or condition group by inspecting decoded `predictedOutcomes`
 - Add risk checks: time windows, max exposure, per‑maker rate limits

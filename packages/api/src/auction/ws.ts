@@ -4,11 +4,7 @@ import { verifyMessage, type Abi } from 'viem';
 import { getProviderForChain } from '../utils/utils';
 import { addBid, getBids, upsertAuction, getAuction } from './registry';
 import { basicValidateBid } from './sim';
-import { verifyTakerBidStrict } from './helpers';
-import {
-  PREDICTION_MARKET_ADDRESS_ARB1,
-  PREDICTION_MARKET_CHAIN_ID_ARB1,
-} from '../constants';
+import { verifyMakerBidStrict, normalizeAuctionPayload } from './helpers';
 import Sentry from '../instrument';
 import type {
   BotToServerMessage,
@@ -661,6 +657,29 @@ export function createAuctionWebSocketServer() {
           );
           return;
         }
+        // Enforce current limitation: single verifierContract and single resolverContract
+        try {
+          const norm = normalizeAuctionPayload(rec.auction);
+          if (
+            norm.uniqueVerifierContracts.size !== 1 ||
+            norm.uniqueResolverContracts.size !== 1
+          ) {
+            send(ws, {
+              type: 'bid.ack',
+              payload: { error: 'CROSS_VERIFIER_UNSUPPORTED' },
+            });
+            console.warn(
+              `[Auction-WS] bid.submit rejected auctionId=${bid.auctionId} reason=CROSS_VERIFIER_UNSUPPORTED`
+            );
+            return;
+          }
+        } catch (err) {
+          send(ws, { type: 'bid.ack', payload: { error: 'invalid_auction' } });
+          console.warn(
+            `[Auction-WS] bid.submit rejected auctionId=${bid.auctionId} reason=invalid_auction err=${(err as Error).message}`
+          );
+          return;
+        }
         const sim = basicValidateBid(rec.auction, bid);
         if (!sim.ok) {
           send(ws, {
@@ -675,11 +694,9 @@ export function createAuctionWebSocketServer() {
         // Optional strict EIP-712 verification when address is configured
         (async () => {
           try {
-            const strict = await verifyTakerBidStrict({
+            const strict = await verifyMakerBidStrict({
               auction: rec.auction,
               bid,
-              chainId: PREDICTION_MARKET_CHAIN_ID_ARB1,
-              verifyingContract: PREDICTION_MARKET_ADDRESS_ARB1,
             });
             if (!strict.ok) {
               console.warn(
