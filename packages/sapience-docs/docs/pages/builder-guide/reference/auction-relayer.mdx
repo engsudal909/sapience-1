@@ -33,7 +33,6 @@ Client → Relayer
     taker: string,                 // 0x... EOA (starts the auction)
     wager: string,                 // wei string (> 0)
     predictions: Array<{
-      verifierContract: string,    // 0x... verifier contract
       resolverContract: string,    // 0x... resolver contract
       predictedOutcomes: string    // bytes (non-empty)
     }>,
@@ -56,7 +55,6 @@ Broadcast to all clients
     taker: string,
     wager: string,
     predictions: Array<{
-      verifierContract: string,
       resolverContract: string,
       predictedOutcomes: string
     }>,
@@ -128,8 +126,8 @@ Server-side checks (summarized from `packages/api/src/auction/sim.ts`, `helpers.
 ### Auction payload
 - `wager` must parse to BigInt and be > 0
 - `predictions` must be an array with ≥1 item
-- each prediction must include `verifierContract`, `resolverContract`, and non-empty `predictedOutcomes`
-- a single unique verifier/resolver across all predictions is required today; otherwise `CROSS_VERIFIER_UNSUPPORTED`
+- each prediction must include `resolverContract` and non-empty `predictedOutcomes`
+- a single unique resolver across all predictions is required today; otherwise `CROSS_VERIFIER_UNSUPPORTED`
 - `taker` must be a valid `0x` address (40 hex)
 - `takerNonce` must be a number
 - `chainId` must be a number
@@ -168,7 +166,7 @@ Typed inner message hash (Solidity-compatible):
 
 EIP-712 domain:
 ```ts
-{ name: 'SignatureProcessor', version: '1', chainId: auction.chainId, verifyingContract: uniqueVerifierFromPredictions }
+{ name: 'SignatureProcessor', version: '1', chainId: auction.chainId, verifyingContract: auction.marketContract }
 ```
 
 Types and primary type:
@@ -216,11 +214,13 @@ Both parties must set ERC-20 approvals to allow the contract to pull their colla
   payload: {
     taker: '0xTaker123...',
     wager: '1000000000000000000',
-    resolver: '0xResolver456...',
-    predictedOutcomes: ['0xabc123'],
+    predictions: [{
+      resolverContract: '0xResolver456...',
+      predictedOutcomes: '0xabc123',
+    }],
     takerNonce: 1,
     chainId: 42161,
-    verifierContract: '0xPredictionMarket...'
+    marketContract: '0xPredictionMarket...'
   }
 }
 ```

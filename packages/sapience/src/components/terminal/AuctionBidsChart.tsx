@@ -74,12 +74,12 @@ const AuctionBidsChart: React.FC<Props> = ({
         .map((b) => {
           let amount = 0;
           try {
-            amount = Number(formatEther(BigInt(String(b?.takerWager ?? '0'))));
+            amount = Number(formatEther(BigInt(String(b?.makerWager ?? '0'))));
           } catch {
             amount = 0;
           }
           const start = Number(b?.receivedAtMs || 0);
-          const end = Number(b?.takerDeadline || 0) * 1000;
+          const end = Number(b?.makerDeadline || 0) * 1000;
           if (
             !Number.isFinite(amount) ||
             amount <= 0 ||
@@ -94,8 +94,8 @@ const AuctionBidsChart: React.FC<Props> = ({
               data: {
                 time: number;
                 amount: number;
-                takerAddress?: string;
-                takerAmountEth?: number;
+                makerAddress?: string;
+                makerAmountEth?: number;
                 endMs?: number;
               }[];
             };
@@ -109,15 +109,15 @@ const AuctionBidsChart: React.FC<Props> = ({
               {
                 time: start,
                 amount,
-                takerAddress: (b as any)?.taker || '',
-                takerAmountEth: amount,
+                makerAddress: (b as any)?.maker || '',
+                makerAmountEth: amount,
                 endMs: end,
               },
               {
                 time: end,
                 amount,
-                takerAddress: (b as any)?.taker || '',
-                takerAmountEth: amount,
+                makerAddress: (b as any)?.maker || '',
+                makerAmountEth: amount,
                 endMs: end,
               },
             ],
@@ -130,8 +130,8 @@ const AuctionBidsChart: React.FC<Props> = ({
         data: {
           time: number;
           amount: number;
-          takerAddress?: string;
-          takerAmountEth?: number;
+          makerAddress?: string;
+          makerAmountEth?: number;
           endMs?: number;
         }[];
       }[],
@@ -242,15 +242,15 @@ const AuctionBidsChart: React.FC<Props> = ({
             content={({ active, payload }) => {
               if (!active || !payload || payload.length === 0) return null;
               const p: any = payload[0]?.payload || {};
-              const takerAmount = Number(p?.takerAmountEth || p?.amount || 0);
-              const total = Number.isFinite(takerAmount)
-                ? takerAmount + (Number.isFinite(makerEth) ? makerEth : 0)
+              const makerAmount = Number(p?.makerAmountEth || p?.amount || 0);
+              const total = Number.isFinite(makerAmount)
+                ? makerAmount + (Number.isFinite(makerEth) ? makerEth : 0)
                 : 0;
               const pct =
-                Number.isFinite(takerAmount) &&
+                Number.isFinite(makerAmount) &&
                 Number.isFinite(total) &&
                 total > 0
-                  ? Math.round((takerAmount / total) * 100)
+                  ? Math.round((makerAmount / total) * 100)
                   : undefined;
               const endMs = Number(p?.endMs || 0);
               const timeNode =
@@ -260,9 +260,9 @@ const AuctionBidsChart: React.FC<Props> = ({
               return (
                 <div className="rounded-md bg-background border border-border px-3 py-2.5">
                   <TradePopoverContent
-                    leftAddress={String(p?.takerAddress || '')}
+                    leftAddress={String(p?.makerAddress || '')}
                     rightAddress={String(maker || '')}
-                    takerAmountEth={takerAmount}
+                    takerAmountEth={makerAmount}
                     totalAmountEth={total}
                     percent={pct}
                     ticker={collateralAssetTicker}

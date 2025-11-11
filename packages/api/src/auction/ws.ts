@@ -611,10 +611,7 @@ export function createAuctionWebSocketServer() {
             }
             // Enforce single verifier/resolver early
             const norm = normalizeAuctionPayload(payload);
-            if (
-              norm.uniqueVerifierContracts.size !== 1 ||
-              norm.uniqueResolverContracts.size !== 1
-            ) {
+            if (norm.uniqueResolverContracts.size !== 1) {
               send(ws, {
                 type: 'auction.ack',
                 payload: { error: 'CROSS_VERIFIER_UNSUPPORTED' },
@@ -697,13 +694,10 @@ export function createAuctionWebSocketServer() {
           );
           return;
         }
-        // Enforce current limitation: single verifierContract and single resolverContract
+        // Enforce current limitation: single resolverContract
         try {
           const norm = normalizeAuctionPayload(rec.auction);
-          if (
-            norm.uniqueVerifierContracts.size !== 1 ||
-            norm.uniqueResolverContracts.size !== 1
-          ) {
+          if (norm.uniqueResolverContracts.size !== 1) {
             send(ws, {
               type: 'bid.ack',
               payload: { error: 'CROSS_VERIFIER_UNSUPPORTED' },

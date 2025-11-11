@@ -72,7 +72,7 @@ const BestBid: React.FC<BestBidProps> = ({
   const topUnexpiredBid = useMemo(() => {
     try {
       for (const b of sortedBids || []) {
-        const deadlineSec = Number(b?.takerDeadline || 0);
+        const deadlineSec = Number(b?.makerDeadline || 0);
         const ms =
           Number.isFinite(deadlineSec) && deadlineSec > 0
             ? deadlineSec * 1000
@@ -133,7 +133,7 @@ const BestBid: React.FC<BestBidProps> = ({
             {topUnexpiredBid ? (
               (() => {
                 const b = topUnexpiredBid;
-                const deadlineSec = Number(b?.takerDeadline || 0);
+                const deadlineSec = Number(b?.makerDeadline || 0);
                 const secondsRemaining = (() => {
                   if (!Number.isFinite(deadlineSec) || deadlineSec <= 0)
                     return null;
@@ -144,40 +144,40 @@ const BestBid: React.FC<BestBidProps> = ({
                 const toWinStr = (() => {
                   try {
                     const maker = BigInt(String(makerWager ?? '0'));
-                    const taker = BigInt(String(b?.takerWager ?? '0'));
-                    return (maker + taker).toString();
+                    const makerBid = BigInt(String(b?.makerWager ?? '0'));
+                    return (maker + makerBid).toString();
                   } catch {
-                    return String(b?.takerWager || '0');
+                    return String(b?.makerWager || '0');
                   }
                 })();
                 let toWinNumber = 0;
-                let takerNumber = 0;
+                let makerNumber = 0;
                 try {
                   toWinNumber = Number(formatEther(BigInt(toWinStr)));
                 } catch {
                   toWinNumber = Number(toWinStr) || 0;
                 }
                 try {
-                  takerNumber = Number(
-                    formatEther(BigInt(String(b?.takerWager ?? '0')))
+                  makerNumber = Number(
+                    formatEther(BigInt(String(b?.makerWager ?? '0')))
                   );
                 } catch {
-                  takerNumber = 0;
+                  makerNumber = 0;
                 }
                 let pct: number | null = null;
                 try {
                   const maker = BigInt(String(makerWager ?? '0'));
-                  const taker = BigInt(String(b?.takerWager ?? '0'));
-                  const total = maker + taker;
+                  const makerBid = BigInt(String(b?.makerWager ?? '0'));
+                  const total = maker + makerBid;
                   if (total > 0n) {
-                    const pctTimes100 = Number((taker * 10000n) / total);
+                    const pctTimes100 = Number((makerBid * 10000n) / total);
                     pct = Math.round(pctTimes100 / 100);
                   }
                 } catch {
                   /* noop */
                 }
-                const takerStr = Number.isFinite(takerNumber)
-                  ? takerNumber.toLocaleString(undefined, {
+                const makerStr = Number.isFinite(makerNumber)
+                  ? makerNumber.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })
@@ -195,7 +195,7 @@ const BestBid: React.FC<BestBidProps> = ({
                         <div className="flex items-baseline justify-between">
                           <span className="align-baseline">
                             <span className="font-mono text-brand-white">
-                              {takerStr} {collateralAssetTicker}
+                              {makerStr} {collateralAssetTicker}
                             </span>{' '}
                             <br className="sm:hidden" />
                             <span className="text-muted-foreground">
@@ -220,14 +220,14 @@ const BestBid: React.FC<BestBidProps> = ({
                           <div className="flex items-center gap-2 min-w-0 text-muted-foreground">
                             <div className="inline-flex items-center gap-1 min-w-0">
                               <EnsAvatar
-                                address={b?.taker || ''}
+                                address={b?.maker || ''}
                                 className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
                                 width={16}
                                 height={16}
                               />
                               <div className="min-w-0">
                                 <AddressDisplay
-                                  address={b?.taker || ''}
+                                  address={b?.maker || ''}
                                   compact
                                 />
                               </div>
@@ -293,7 +293,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
       if (!Array.isArray(bids) || bids.length === 0) return 0;
       const maxWei = bids.reduce((m, b) => {
         try {
-          const v = BigInt(String(b?.takerWager ?? '0'));
+          const v = BigInt(String(b?.makerWager ?? '0'));
           return v > m ? v : m;
         } catch {
           return m;
@@ -435,15 +435,15 @@ const AuctionRequestInfo: React.FC<Props> = ({
     try {
       if (!Array.isArray(bids) || bids.length === 0) return null as any;
       const candidates = bids.filter((b) => {
-        const deadlineSec = Number(b?.takerDeadline || 0);
+        const deadlineSec = Number(b?.makerDeadline || 0);
         if (!Number.isFinite(deadlineSec) || deadlineSec <= 0) return true;
         return deadlineSec * 1000 > now;
       });
       if (candidates.length === 0) return null as any;
       return candidates.reduce((best, b) => {
         try {
-          const cur = BigInt(String(b?.takerWager ?? '0'));
-          const bestVal = BigInt(String(best?.takerWager ?? '0'));
+          const cur = BigInt(String(b?.makerWager ?? '0'));
+          const bestVal = BigInt(String(best?.makerWager ?? '0'));
           return cur > bestVal ? b : best;
         } catch {
           return best;
@@ -461,7 +461,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
     const withSortKey = list.map((b) => {
       let wager = 0n;
       try {
-        wager = BigInt(String(b?.takerWager ?? '0'));
+        wager = BigInt(String(b?.makerWager ?? '0'));
       } catch {
         wager = 0n;
       }

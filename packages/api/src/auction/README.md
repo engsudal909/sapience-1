@@ -18,7 +18,6 @@ Starts a new auction to receive bids from makers.
     wager: string,                    // Taker's wager amount (wei)
     predictions: [                    // Canonical predictions array (array of one for single-prediction)
       {
-        verifierContract: string,     // Verifier for this prediction (0x...)
         resolverContract: string,     // Resolver for this prediction (0x...)
         predictedOutcomes: string     // Encoded bytes understood by resolver
       }
@@ -56,7 +55,6 @@ Broadcasts new Auction starts to all connected makers.
     wager: string,                    // Taker's wager amount (wei)
     predictions: [                    // Canonical predictions array
       {
-        verifierContract: string,
         resolverContract: string,
         predictedOutcomes: string
       }
@@ -144,9 +142,10 @@ The UI presents the best available bid that hasn't expired yet. The best bid is 
 
 - Wager must be positive
 - At least one prediction required (array length ≥ 1)
-- Each prediction must include verifierContract, resolverContract, and non-empty predictedOutcomes
+- Each prediction must include resolverContract and non-empty predictedOutcomes
 - Taker address must be provided and a valid `0x` address
-- A single verifierContract and single resolverContract across all predictions are required today; otherwise `CROSS_VERIFIER_UNSUPPORTED` is returned.
+- A single resolverContract across all predictions is required today; otherwise `CROSS_VERIFIER_UNSUPPORTED` is returned.
+  - EIP-712 verifyingContract for maker bids is the `marketContract` address
 
 ### Bid Validation
 
@@ -180,14 +179,15 @@ ws.send(
     payload: {
       taker: '0xYourTakerAddressHere',
       wager: '1000000000000000000', // 1 ETH
-      predictedOutcomes: [
-        '0x...', // Bytes string representing market prediction
-        '0x...', // Additional prediction bytes strings...
+      predictions: [
+        {
+          resolverContract: '0xResolver...',
+          predictedOutcomes: '0xabc...',
+        },
       ],
-      resolver: '0x...',
       takerNonce: 1,
       chainId: 42161,
-      verifierContract: '0x...',
+      marketContract: '0xPredictionMarket...',
     },
   })
 );

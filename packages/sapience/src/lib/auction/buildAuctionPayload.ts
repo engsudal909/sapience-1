@@ -1,5 +1,5 @@
 import { encodeAbiParameters } from 'viem';
-import { umaResolver, predictionMarket } from '@sapience/sdk/contracts';
+import { umaResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 
 export interface PredictedOutcomeInputStub {
@@ -42,7 +42,6 @@ export function buildAuctionStartPayload(
   resolverOverride?: string
 ): {
   predictions: {
-    verifierContract: `0x${string}`;
     resolverContract: `0x${string}`;
     predictedOutcomes: `0x${string}`;
   }[];
@@ -50,7 +49,6 @@ export function buildAuctionStartPayload(
   // Resolve contracts
   const cid =
     Number.isFinite(chainId) && chainId > 0 ? chainId : DEFAULT_CHAIN_ID;
-  const verifierContract = predictionMarket[cid]?.address;
   const UMA_RESOLVER_ADDRESS = umaResolver[cid]?.address;
   const resolverContract: `0x${string}` = isHexAddress(resolverOverride)
     ? resolverOverride
@@ -59,7 +57,6 @@ export function buildAuctionStartPayload(
   const encoded = encodePredictedOutcomes(outcomes);
   const predictions = [
     {
-      verifierContract,
       resolverContract,
       predictedOutcomes: encoded,
     },

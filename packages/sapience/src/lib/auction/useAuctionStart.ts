@@ -13,7 +13,6 @@ export interface PredictedOutcomeInput {
 export interface AuctionParams {
   wager: string; // wei string (total taker wager)
   predictions: {
-    verifierContract: `0x${string}`;
     resolverContract: `0x${string}`;
     predictedOutcomes: `0x${string}`;
   }[];

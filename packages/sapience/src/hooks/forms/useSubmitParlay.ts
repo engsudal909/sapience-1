@@ -1,8 +1,14 @@
 import { useCallback, useState } from 'react';
-import { encodeFunctionData, erc20Abi } from 'viem';
+import {
+  encodeFunctionData,
+  erc20Abi,
+  encodeAbiParameters,
+  keccak256,
+  getAddress,
+} from 'viem';
 
 import { predictionMarketAbi } from '@sapience/sdk';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount, useReadContract, useSignTypedData } from 'wagmi';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 import type { MintPredictionRequestData } from '~/lib/auction/useAuctionStart';
 
@@ -27,6 +33,7 @@ export function useSubmitParlay({
   enabled = true,
 }: UseSubmitParlayProps) {
   const { address } = useAccount();
+  const { signTypedDataAsync } = useSignTypedData();
 
   // Read maker nonce from PredictionMarket
   const { data: makerNonce, refetch: refetchMakerNonce } = useReadContract({
@@ -171,10 +178,62 @@ export function useSubmitParlay({
           throw new Error('Unable to read maker nonce');
         }
 
-        const filled: MintPredictionRequestData = {
+        let filled: MintPredictionRequestData = {
           ...mintData,
           makerNonce: nonceValue as unknown as bigint,
         };
+
+        // Create taker approval signature if missing
+        const missingSig =
+          !filled.takerSignature ||
+          typeof filled.takerSignature !== 'string' ||
+          filled.takerSignature.length < 10;
+        if (missingSig) {
+          const inner = encodeAbiParameters(
+            [
+              { type: 'bytes' }, // encodedPredictedOutcomes
+              { type: 'uint256' }, // takerCollateral
+              { type: 'uint256' }, // makerCollateral
+              { type: 'address' }, // resolver
+              { type: 'address' }, // maker
+              { type: 'uint256' }, // takerDeadline
+              { type: 'uint256' }, // makerNonce
+            ],
+            [
+              filled.encodedPredictedOutcomes,
+              BigInt(filled.takerCollateral),
+              BigInt(filled.makerCollateral),
+              getAddress(filled.resolver),
+              getAddress(filled.maker),
+              BigInt(filled.takerDeadline),
+              BigInt(filled.makerNonce || 0),
+            ]
+          );
+          const messageHash = keccak256(inner);
+          const domain = {
+            name: 'SignatureProcessor',
+            version: '1',
+            chainId,
+            verifyingContract: predictionMarketAddress,
+          } as const;
+          const types = {
+            Approve: [
+              { name: 'messageHash', type: 'bytes32' },
+              { name: 'owner', type: 'address' },
+            ],
+          } as const;
+          const message = {
+            messageHash,
+            owner: getAddress(address),
+          } as const;
+          const signature = await signTypedDataAsync({
+            domain,
+            types,
+            primaryType: 'Approve',
+            message,
+          });
+          filled = { ...filled, takerSignature: signature };
+        }
 
         const calls = prepareCalls(filled);
         if (calls.length === 0) {

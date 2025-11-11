@@ -142,9 +142,6 @@ ws.on('message', async (data: RawData) => {
                   wager: String(auction.wager || '0'),
                   predictions: predictions.map(
                     (p: AuctionRequestPayload['predictions'][number]) => ({
-                      verifierContract: getAddress(
-                        p.verifierContract as `0x${string}`
-                      ),
                       resolverContract: getAddress(
                         p.resolverContract as `0x${string}`
                       ),

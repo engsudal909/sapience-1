@@ -11,23 +11,18 @@ import {
  */
 export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
   predictions: {
-    verifierContract: string;
     resolverContract: string;
     predictedOutcomes: string;
   }[];
-  uniqueVerifierContracts: Set<string>;
   uniqueResolverContracts: Set<string>;
   predictionsHash: `0x${string}`;
 } {
   const predictions = (auction?.predictions ?? []).map((p) => ({
-    verifierContract: (p?.verifierContract ?? '').toLowerCase(),
     resolverContract: (p?.resolverContract ?? '').toLowerCase(),
     predictedOutcomes: String(p?.predictedOutcomes ?? ''),
   }));
-  // Canonical order: (verifier, resolver, predictedOutcomes)
+  // Canonical order: (resolver, predictedOutcomes)
   const sorted = [...predictions].sort((a, b) => {
-    if (a.verifierContract !== b.verifierContract)
-      return a.verifierContract < b.verifierContract ? -1 : 1;
     if (a.resolverContract !== b.resolverContract)
       return a.resolverContract < b.resolverContract ? -1 : 1;
     if (a.predictedOutcomes !== b.predictedOutcomes)
@@ -39,7 +34,6 @@ export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
       {
         type: 'tuple[]',
         components: [
-          { name: 'verifierContract', type: 'address' },
           { name: 'resolverContract', type: 'address' },
           { name: 'predictedOutcomes', type: 'bytes' },
         ],
@@ -47,22 +41,17 @@ export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
     ],
     [
       sorted.map((p) => ({
-        verifierContract: p.verifierContract as `0x${string}`,
         resolverContract: p.resolverContract as `0x${string}`,
         predictedOutcomes: p.predictedOutcomes as `0x${string}`,
       })),
     ]
   );
   const predictionsHash = keccak256(encoded);
-  const uniqueVerifierContracts = new Set(
-    predictions.map((p) => p.verifierContract)
-  );
   const uniqueResolverContracts = new Set(
     predictions.map((p) => p.resolverContract)
   );
   return {
     predictions,
-    uniqueVerifierContracts,
     uniqueResolverContracts,
     predictionsHash,
   };
@@ -129,19 +118,14 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
   }
   const { predictions } = normalizeAuctionPayload(auction);
   if (!predictions.length) return { valid: false, error: 'No predictions' };
-  // Ensure resolver + verifier present and outcomes non-empty
+  // Ensure resolver present and outcomes non-empty
   for (const p of predictions) {
-    if (!p.verifierContract)
-      return { valid: false, error: 'Missing verifierContract' };
     if (!p.resolverContract)
       return { valid: false, error: 'Missing resolverContract' };
     if (!p.predictedOutcomes || typeof p.predictedOutcomes !== 'string') {
       return { valid: false, error: 'Invalid predictedOutcomes' };
     }
     // Address format checks
-    if (!/^0x[a-fA-F0-9]{40}$/.test(p.verifierContract)) {
-      return { valid: false, error: 'Invalid verifierContract address' };
-    }
     if (!/^0x[a-fA-F0-9]{40}$/.test(p.resolverContract)) {
       return { valid: false, error: 'Invalid resolverContract address' };
     }
@@ -286,18 +270,11 @@ export async function verifyMakerBidStrict(params: {
 
     // Basic guards
     if (!auction || !bid) return { ok: false, reason: 'invalid_payload' };
-    const {
-      predictions,
-      uniqueVerifierContracts,
-      uniqueResolverContracts,
-      predictionsHash,
-    } = normalizeAuctionPayload(auction);
+    const { predictions, uniqueResolverContracts, predictionsHash } =
+      normalizeAuctionPayload(auction);
     if (!predictions.length)
       return { ok: false, reason: 'invalid_auction_predictions' };
-    if (
-      uniqueVerifierContracts.size !== 1 ||
-      uniqueResolverContracts.size !== 1
-    ) {
+    if (uniqueResolverContracts.size !== 1) {
       return { ok: false, reason: 'CROSS_VERIFIER_UNSUPPORTED' };
     }
 
@@ -318,9 +295,7 @@ export async function verifyMakerBidStrict(params: {
       name: 'SignatureProcessor',
       version: '1',
       chainId: auction.chainId,
-      verifyingContract: Array.from(
-        uniqueVerifierContracts
-      )[0] as `0x${string}`,
+      verifyingContract: getAddress(auction.marketContract),
     } as const;
 
     const types = {

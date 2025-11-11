@@ -91,7 +91,7 @@ const AuctionBidsDialog: React.FC<Props> = ({
               </thead>
               <tbody>
                 {bids.map((b, i) => {
-                  const deadlineSec = Number(b?.takerDeadline || 0);
+                  const deadlineSec = Number(b?.makerDeadline || 0);
                   const { label: expiresLabel, isExpired } = (() => {
                     if (!Number.isFinite(deadlineSec) || deadlineSec <= 0)
                       return { label: '—', isExpired: false } as const;
@@ -109,18 +109,18 @@ const AuctionBidsDialog: React.FC<Props> = ({
                   const toWinStr = (() => {
                     try {
                       const maker = BigInt(String(makerWager ?? '0'));
-                      const taker = BigInt(String(b?.takerWager ?? '0'));
-                      return (maker + taker).toString();
+                      const makerBid = BigInt(String(b?.makerWager ?? '0'));
+                      return (maker + makerBid).toString();
                     } catch {
-                      return String(b?.takerWager || '0');
+                      return String(b?.makerWager || '0');
                     }
                   })();
                   const uiTxAmount = {
                     id: i,
                     type: 'FORECAST',
                     createdAt: new Date().toISOString(),
-                    collateral: String(b?.takerWager || '0'),
-                    position: { owner: b?.taker || '' },
+                    collateral: String(b?.makerWager || '0'),
+                    position: { owner: b?.maker || '' },
                   } as any;
                   const uiTxToWin = {
                     ...uiTxAmount,
@@ -138,13 +138,13 @@ const AuctionBidsDialog: React.FC<Props> = ({
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-2 min-w-0">
                           <EnsAvatar
-                            address={b?.taker || ''}
+                            address={b?.maker || ''}
                             className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
                             width={16}
                             height={16}
                           />
                           <div className="[&_span.font-mono]:text-foreground min-w-0">
-                            <AddressDisplay address={b?.taker || ''} compact />
+                            <AddressDisplay address={b?.maker || ''} compact />
                           </div>
                         </div>
                       </td>

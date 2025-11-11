@@ -204,7 +204,7 @@ async function startParlayAuction({
         const contractNonce = await getCurrentMakerNonce(walletAddress as `0x${string}`, rpcUrl);
         elizaLogger.info(`[ParlayTrading] Using taker nonce: ${contractNonce}`);
 
-        const { UMA_RESOLVER, VERIFIER_CONTRACT, MARKET_CONTRACT } = getContractAddresses();
+        const { UMA_RESOLVER, MARKET_CONTRACT } = getContractAddresses();
         const predictedOutcomesArr = await encodeParlayOutcomes(markets, predictions);
         const predictedOutcomes = predictedOutcomesArr[0] || "0x";
 
@@ -216,7 +216,6 @@ async function startParlayAuction({
             taker: walletAddress,
             wager: wagerAmount,
             predictions: [{
-              verifierContract: VERIFIER_CONTRACT,
               resolverContract: UMA_RESOLVER,
               predictedOutcomes,
             }],
@@ -284,7 +283,7 @@ async function startParlayAuction({
                 encodedPredictedOutcomes: predictedOutcomes,
                 resolver: UMA_RESOLVER,
                 chainId,
-                verifierContract: VERIFIER_CONTRACT,
+                marketContract: MARKET_CONTRACT,
                 rpcUrl,
               });
 
@@ -331,7 +330,7 @@ async function acceptBid({
   encodedPredictedOutcomes,
   resolver,
   chainId,
-  verifierContract,
+  marketContract,
   rpcUrl,
 }: {
   bid: Bid;
@@ -339,7 +338,7 @@ async function acceptBid({
   encodedPredictedOutcomes: `0x${string}`;
   resolver: `0x${string}`;
   chainId: number;
-  verifierContract: `0x${string}`;
+  marketContract: `0x${string}`;
   rpcUrl: string;
 }): Promise<string> {
   try {
@@ -355,7 +354,7 @@ async function acceptBid({
       encodedPredictedOutcomes,
       resolver,
       chainId,
-      verifierContract,
+      marketContract,
     });
 
     const { PREDICTION_MARKET } = getContractAddresses();

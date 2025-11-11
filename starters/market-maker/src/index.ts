@@ -269,7 +269,6 @@ function start() {
             marketContract: auction.marketContract as Address,
             wager: auction.wager as string,
             predictions: (auction.predictions as any[] || []).map((p: any) => ({
-              verifierContract: p.verifierContract as Address,
               resolverContract: p.resolverContract as Address,
               predictedOutcomes: p.predictedOutcomes as `0x${string}`,
             })),

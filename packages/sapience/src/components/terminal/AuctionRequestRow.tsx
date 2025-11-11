@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   parseUnits,
   encodeAbiParameters,
-  parseAbiParameters,
   keccak256,
   getAddress,
   decodeAbiParameters,
@@ -272,11 +271,11 @@ const AuctionRequestRow: React.FC<Props> = ({
         const decimalsToUse = Number.isFinite(tokenDecimals)
           ? tokenDecimals
           : 18;
-        const takerWagerWei = parseUnits(
+        const makerWagerWei = parseUnits(
           String(data.amount || '0'),
           decimalsToUse
         );
-        if (takerWagerWei <= 0n) {
+        if (makerWagerWei <= 0n) {
           toast({
             title: 'Invalid amount',
             description: 'Enter a valid bid amount greater than 0.',
@@ -288,7 +287,7 @@ const AuctionRequestRow: React.FC<Props> = ({
         try {
           const fresh = await Promise.resolve(refetchAllowance?.());
           const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
-          if (currentAllowance < takerWagerWei) {
+          if (currentAllowance < makerWagerWei) {
             openApproval(String(data.amount || ''));
             return;
           }
@@ -306,13 +305,6 @@ const AuctionRequestRow: React.FC<Props> = ({
         const makerAddr = typeof maker === 'string' ? maker : undefined;
         const resolverAddr =
           typeof resolver === 'string' ? resolver : undefined;
-        const makerWagerWei = (() => {
-          try {
-            return BigInt(String(makerWager ?? '0'));
-          } catch {
-            return 0n;
-          }
-        })();
         // Resolve maker nonce: prefer feed-provided, fall back to on-chain
         let makerNonceVal: number | undefined =
           typeof makerNonce === 'number' ? makerNonce : undefined;
@@ -360,24 +352,37 @@ const AuctionRequestRow: React.FC<Props> = ({
         })();
         const takerDeadline = nowSec + clampedExpiry;
 
-        // Build inner message hash (bytes, uint256, uint256, address, address, uint256)
+        // Compute predictionsHash for maker bid typed data
+        const predictionsEncoded = encodeAbiParameters(
+          [
+            {
+              type: 'tuple[]',
+              components: [
+                { name: 'resolverContract', type: 'address' },
+                { name: 'predictedOutcomes', type: 'bytes' },
+              ],
+            },
+          ] as const,
+          [
+            [
+              {
+                resolverContract: getAddress(resolverAddr as `0x${string}`),
+                predictedOutcomes: encodedPredicted,
+              },
+            ],
+          ]
+        );
+        const predictionsHash = keccak256(predictionsEncoded);
+
+        // Build inner message hash for maker bid: (bytes32 predictionsHash, uint256 makerWager, uint256 makerDeadline)
         const innerMessageHash = keccak256(
           encodeAbiParameters(
-            parseAbiParameters(
-              'bytes, uint256, uint256, address, address, uint256'
-            ),
-            [
-              encodedPredicted,
-              takerWagerWei,
-              makerWagerWei,
-              getAddress(resolverAddr as `0x${string}`),
-              getAddress(makerAddr as `0x${string}`),
-              BigInt(takerDeadline),
-            ]
+            [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'uint256' }],
+            [predictionsHash, makerWagerWei, BigInt(takerDeadline)]
           )
         );
 
-        // EIP-712 domain and types per SignatureProcessor
+        // EIP-712 domain and types per SignatureProcessor (verifying contract = PredictionMarket)
         if (!verifyingContract) {
           toast({
             title: 'Signing failed',
@@ -431,10 +436,10 @@ const AuctionRequestRow: React.FC<Props> = ({
         // Build bid payload
         const payload = {
           auctionId,
-          taker,
-          takerWager: takerWagerWei.toString(),
-          takerDeadline,
-          takerSignature,
+          maker: getAddress(taker),
+          makerWager: makerWagerWei.toString(),
+          makerDeadline: takerDeadline,
+          makerSignature: takerSignature,
           makerNonce: makerNonceVal,
         };
 

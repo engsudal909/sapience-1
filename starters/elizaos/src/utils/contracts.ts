@@ -107,7 +107,7 @@ export async function buildMintCalldata({
   encodedPredictedOutcomes,
   resolver,
   chainId,
-  verifierContract,
+  marketContract,
 }: {
   bid: Bid;
   maker: string;
@@ -115,7 +115,7 @@ export async function buildMintCalldata({
   encodedPredictedOutcomes: `0x${string}`;
   resolver: `0x${string}`;
   chainId: number;
-  verifierContract: `0x${string}`;
+  marketContract: `0x${string}`;
 }): Promise<`0x${string}`> {
   const {
     encodeFunctionData,
@@ -165,7 +165,7 @@ export async function buildMintCalldata({
     name: "SignatureProcessor",
     version: "1",
     chainId,
-    verifyingContract: getAddress(verifierContract),
+    verifyingContract: getAddress(marketContract),
   } as const;
   const types = {
     Approve: [

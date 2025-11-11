@@ -29,7 +29,6 @@ ws.on('open', () => {
       taker: '0xTaker123...',
       wager: '1000000000000000000',
       predictions: [{
-        verifierContract: '0xVerifier...',
         resolverContract: '0xResolver456...',
         predictedOutcomes: '0xdeadbeef',
       }],
@@ -92,9 +91,9 @@ ws.onmessage = (ev) => {
 
 ## Validation (high level)
 
-- **Auction**: positive `wager`, ≥1 `predictions`, each with `verifierContract`, `resolverContract`, non-empty `predictedOutcomes`; valid `taker` address and `chainId`, valid `marketContract`. Today only a single unique verifier/resolver is supported; cross-verifier combos return `CROSS_VERIFIER_UNSUPPORTED`.
+- **Auction**: positive `wager`, ≥1 `predictions`, each with `resolverContract` and non-empty `predictedOutcomes`; valid `taker` address and `chainId`, valid `marketContract`. Today only a single unique resolver is supported; otherwise `CROSS_VERIFIER_UNSUPPORTED`.
 - **Bid**: `makerDeadline` in the future, positive `makerWager`, valid hex `makerSignature` format
-- Optional strict signature verification uses EIP-712 with domain `{ chainId: auction.chainId, verifyingContract: uniqueVerifierFromPredictions }` and inner hash over `predictionsHash`, `makerWager`, `makerDeadline` (see Reference).
+- Optional strict signature verification uses EIP-712 with domain `{ chainId: auction.chainId, verifyingContract: auction.marketContract }` and inner hash over `predictionsHash`, `makerWager`, `makerDeadline` (see Reference).
 
 ## Limits and closes
 

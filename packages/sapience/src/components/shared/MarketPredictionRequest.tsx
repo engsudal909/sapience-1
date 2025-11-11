@@ -204,15 +204,18 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       } else {
         const wagerWei = parseUnits('1', 18).toString();
         setLastMakerWagerWei(wagerWei);
-        const payload = buildAuctionStartPayload(effectiveOutcomes);
+        const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
         const send = () => {
+          const marketContract =
+            predictionMarket[chainId]?.address ||
+            predictionMarket[DEFAULT_CHAIN_ID]?.address;
           requestQuotes({
             wager: wagerWei,
-            resolver: payload.resolver,
-            predictedOutcomes: payload.predictedOutcomes,
-            maker: selectedMakerAddress,
-            makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+            predictions: payload.predictions,
+            taker: selectedMakerAddress,
+            takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
             chainId: chainId,
+            marketContract: marketContract,
           });
         };
         // Jitter send to avoid concurrency clobbering

@@ -29,7 +29,6 @@ export interface AuctionRequestLike {
   chainId: number;
   marketContract: Address;
   predictions: {
-    verifierContract: Address;
     resolverContract: Address;
     predictedOutcomes: Hex;
   }[];
@@ -141,23 +140,19 @@ export async function signTakerBid(args: {
  */
 export function normalizeAuctionPayload(auction: AuctionRequestLike): {
   predictions: {
-    verifierContract: Address;
     resolverContract: Address;
     predictedOutcomes: Hex;
   }[];
-  uniqueVerifierContracts: Set<Address>;
   uniqueResolverContracts: Set<Address>;
   predictionsHash: Hex;
 } {
   const predictions = (auction?.predictions ?? []).map((p) => ({
-    verifierContract: getAddress(p?.verifierContract as Address),
     resolverContract: getAddress(p?.resolverContract as Address),
     predictedOutcomes: (p?.predictedOutcomes || '0x') as Hex,
   }));
 
-  // Canonical order: (verifier, resolver, predictedOutcomes)
+  // Canonical order: (resolver, predictedOutcomes)
   const sorted = [...predictions].sort((a, b) => {
-    if (a.verifierContract !== b.verifierContract) return a.verifierContract < b.verifierContract ? -1 : 1;
     if (a.resolverContract !== b.resolverContract) return a.resolverContract < b.resolverContract ? -1 : 1;
     if (a.predictedOutcomes !== b.predictedOutcomes) return a.predictedOutcomes < b.predictedOutcomes ? -1 : 1;
     return 0;
@@ -168,7 +163,6 @@ export function normalizeAuctionPayload(auction: AuctionRequestLike): {
       {
         type: 'tuple[]',
         components: [
-          { name: 'verifierContract', type: 'address' },
           { name: 'resolverContract', type: 'address' },
           { name: 'predictedOutcomes', type: 'bytes' },
         ],
@@ -176,7 +170,6 @@ export function normalizeAuctionPayload(auction: AuctionRequestLike): {
     ],
     [
       sorted.map((p) => ({
-        verifierContract: p.verifierContract,
         resolverContract: p.resolverContract,
         predictedOutcomes: p.predictedOutcomes,
       })),
@@ -184,11 +177,9 @@ export function normalizeAuctionPayload(auction: AuctionRequestLike): {
   );
 
   const predictionsHash = keccak256(encoded) as Hex;
-  const uniqueVerifierContracts = new Set(sorted.map((p) => p.verifierContract));
   const uniqueResolverContracts = new Set(sorted.map((p) => p.resolverContract));
   return {
     predictions,
-    uniqueVerifierContracts,
     uniqueResolverContracts,
     predictionsHash,
   };
@@ -213,11 +204,13 @@ export function buildMakerBidTypedData(args: {
   primaryType: 'Approve';
   message: { messageHash: Hex; owner: Address };
 } {
-  const { uniqueVerifierContracts, uniqueResolverContracts, predictionsHash } = normalizeAuctionPayload(args.auction);
-  if (uniqueVerifierContracts.size !== 1 || uniqueResolverContracts.size !== 1) {
+  const { uniqueResolverContracts, predictionsHash } = normalizeAuctionPayload(args.auction);
+  // Enforce single resolver across predictions for now
+  if (uniqueResolverContracts.size !== 1) {
     throw new Error('CROSS_VERIFIER_UNSUPPORTED');
   }
-  const verifierContract = Array.from(uniqueVerifierContracts)[0];
+  // Use the market contract as the EIP-712 verifying contract
+  const verifierContract = getAddress(args.auction.marketContract);
 
   const inner = encodeAbiParameters(
     [

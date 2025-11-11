@@ -3,7 +3,6 @@ export type HexString = `0x${string}`;
 export interface AuctionRequestPayload {
   wager: string; // wei string (single total wager across all predictions)
   predictions: {
-    verifierContract: string; // verifying contract that checks signatures for this prediction
     resolverContract: string; // resolver contract for market validation
     predictedOutcomes: string; // encoded outcomes blob this resolver understands
   }[]; // canonical shape (array of length >= 1; single-prediction is an array of one)
