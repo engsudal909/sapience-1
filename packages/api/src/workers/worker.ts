@@ -52,7 +52,7 @@ async function startResourceIndexers(): Promise<
     let resource: Resource | null = null;
     if (
       resourceSlug === 'attestation-prediction-market' ||
-      resourceSlug === 'prediction-market-events'
+      resourceSlug.startsWith('prediction-market-events')
     ) {
       useEmptyResourceForIndexer = true;
     }
@@ -63,14 +63,19 @@ async function startResourceIndexers(): Promise<
     });
 
     if (!resource && useEmptyResourceForIndexer) {
+      let description = resourceSlug;
+      if (resourceSlug === 'attestation-prediction-market') {
+        description = 'Attestation prediction market';
+      } else if (resourceSlug.startsWith('prediction-market-events')) {
+        const chainName = resourceSlug.replace('prediction-market-events-', '');
+        description = `Prediction market events on ${chainName}`;
+      }
+
       resource = {
         id: 0,
         slug: resourceSlug,
         name: resourceSlug,
-        description:
-          resourceSlug === 'attestation-prediction-market'
-            ? 'Attestation prediction market'
-            : 'Prediction market events',
+        description,
         createdAt: new Date(),
         categoryId: 1,
       } as Resource;

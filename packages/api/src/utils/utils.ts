@@ -32,9 +32,26 @@ export const convergeChain: viem.Chain = {
   },
 };
 
+export const etherealChain: viem.Chain = {
+  id: 5064014,
+  name: 'Ethereal',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.CHAIN_5064014_RPC_URL || 'https://rpc.ethereal.trade'],
+    },
+    public: { http: ['https://rpc.ethereal.trade'] },
+  },
+};
+
 export const chains: viem.Chain[] = [
   ...Object.values(viemChains),
   convergeChain,
+  etherealChain,
 ];
 
 export function getChainById(id: number): viem.Chain | undefined {
@@ -79,6 +96,18 @@ const createChainClient = (
     return createPublicClient({
       chain,
       transport: http(process.env.RPC_URL),
+      batch: {
+        multicall: true,
+      },
+    });
+  }
+
+  if (chain.id === 5064014) {
+    const rpcUrl =
+      process.env.CHAIN_5064014_RPC_URL || 'https://rpc.ethereal.trade';
+    return createPublicClient({
+      chain,
+      transport: http(rpcUrl),
       batch: {
         multicall: true,
       },
@@ -131,6 +160,9 @@ export function getProviderForChain(chainId: number): PublicClient {
       break;
     case 432:
       newClient = createChainClient(convergeChain, 'converge');
+      break;
+    case 5064014:
+      newClient = createChainClient(etherealChain, 'ethereal');
       break;
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
