@@ -46,16 +46,20 @@ export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
       },
     ],
     [
-      sorted.map((p) => [
-        p.verifierContract as `0x${string}`,
-        p.resolverContract as `0x${string}`,
-        p.predictedOutcomes as `0x${string}`,
-      ]),
+      sorted.map((p) => ({
+        verifierContract: p.verifierContract as `0x${string}`,
+        resolverContract: p.resolverContract as `0x${string}`,
+        predictedOutcomes: p.predictedOutcomes as `0x${string}`,
+      })),
     ]
   );
   const predictionsHash = keccak256(encoded);
-  const uniqueVerifierContracts = new Set(predictions.map((p) => p.verifierContract));
-  const uniqueResolverContracts = new Set(predictions.map((p) => p.resolverContract));
+  const uniqueVerifierContracts = new Set(
+    predictions.map((p) => p.verifierContract)
+  );
+  const uniqueResolverContracts = new Set(
+    predictions.map((p) => p.resolverContract)
+  );
   return {
     predictions,
     uniqueVerifierContracts,
@@ -86,7 +90,8 @@ export function createMintParlayRequestData(
   takerCollateral: string
 ): MintParlayRequestData {
   const { predictions } = normalizeAuctionPayload(auction);
-  if (!predictions.length) throw new Error('Auction must contain at least one prediction');
+  if (!predictions.length)
+    throw new Error('Auction must contain at least one prediction');
 
   return {
     taker: taker,
@@ -281,10 +286,18 @@ export async function verifyMakerBidStrict(params: {
 
     // Basic guards
     if (!auction || !bid) return { ok: false, reason: 'invalid_payload' };
-    const { predictions, uniqueVerifierContracts, uniqueResolverContracts, predictionsHash } =
-      normalizeAuctionPayload(auction);
-    if (!predictions.length) return { ok: false, reason: 'invalid_auction_predictions' };
-    if (uniqueVerifierContracts.size !== 1 || uniqueResolverContracts.size !== 1) {
+    const {
+      predictions,
+      uniqueVerifierContracts,
+      uniqueResolverContracts,
+      predictionsHash,
+    } = normalizeAuctionPayload(auction);
+    if (!predictions.length)
+      return { ok: false, reason: 'invalid_auction_predictions' };
+    if (
+      uniqueVerifierContracts.size !== 1 ||
+      uniqueResolverContracts.size !== 1
+    ) {
       return { ok: false, reason: 'CROSS_VERIFIER_UNSUPPORTED' };
     }
 
@@ -305,7 +318,9 @@ export async function verifyMakerBidStrict(params: {
       name: 'SignatureProcessor',
       version: '1',
       chainId: auction.chainId,
-      verifyingContract: Array.from(uniqueVerifierContracts)[0] as `0x${string}`,
+      verifyingContract: Array.from(
+        uniqueVerifierContracts
+      )[0] as `0x${string}`,
     } as const;
 
     const types = {

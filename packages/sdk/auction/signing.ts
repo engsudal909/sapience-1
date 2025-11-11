@@ -41,7 +41,7 @@ export function buildTakerBidTypedData(args: {
   // Accept bigint for timestamp to avoid precision issues; number remains supported
   takerDeadline: bigint | number;
   chainId: number;
-  verifyingContract: Address;
+  verifierContract: Address;
   taker: Address;
 }): {
   domain: TypedDataDomain;
@@ -86,7 +86,7 @@ export function buildTakerBidTypedData(args: {
     name: 'SignatureProcessor',
     version: '1',
     chainId: args.chainId,
-    verifyingContract: args.verifyingContract,
+    verifyingContract: args.verifierContract,
   } as const;
 
   const types = {
@@ -175,11 +175,11 @@ export function normalizeAuctionPayload(auction: AuctionRequestLike): {
       },
     ],
     [
-      sorted.map((p) => [
-        p.verifierContract,
-        p.resolverContract,
-        p.predictedOutcomes,
-      ]),
+      sorted.map((p) => ({
+        verifierContract: p.verifierContract,
+        resolverContract: p.resolverContract,
+        predictedOutcomes: p.predictedOutcomes,
+      })),
     ]
   );
 
@@ -217,7 +217,7 @@ export function buildMakerBidTypedData(args: {
   if (uniqueVerifierContracts.size !== 1 || uniqueResolverContracts.size !== 1) {
     throw new Error('CROSS_VERIFIER_UNSUPPORTED');
   }
-  const verifyingContract = Array.from(uniqueVerifierContracts)[0];
+  const verifierContract = Array.from(uniqueVerifierContracts)[0];
 
   const inner = encodeAbiParameters(
     [
@@ -238,7 +238,7 @@ export function buildMakerBidTypedData(args: {
     name: 'SignatureProcessor',
     version: '1',
     chainId: args.auction.chainId,
-    verifyingContract,
+    verifyingContract: verifierContract,
   } as const;
 
   const types = {

@@ -69,7 +69,7 @@ export type ClientToServerMessage =
 export type BotToServerMessage = { type: 'bid.submit'; payload: BidPayload };
 
 export type ServerToClientMessage =
-  | { type: 'auction.ack'; payload: { auctionId: string } }
+  | { type: 'auction.ack'; payload: { auctionId?: string; error?: string } }
   | { type: 'bid.ack'; payload: { error?: string } }
   | {
       type: 'auction.bids';

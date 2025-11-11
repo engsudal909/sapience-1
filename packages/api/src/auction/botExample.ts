@@ -5,8 +5,15 @@ import {
   http,
   erc20Abi,
   getAddress,
+  type Address,
+  type Hex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import {
+  buildMakerBidTypedData,
+  signMakerBid,
+} from '@sapience/sdk/auction/signing';
+import type { AuctionRequestPayload } from './types';
 
 const API_BASE = process.env.FOIL_API_BASE || 'http://localhost:3001';
 const WS_URL =
@@ -84,43 +91,102 @@ async function ensureApprovalIfConfigured(amount: bigint) {
   }
 }
 
-ws.on('message', (data: RawData) => {
+ws.on('message', async (data: RawData) => {
   try {
     const msg = JSON.parse(String(data));
     const type = msg?.type as string | undefined;
     switch (type) {
       case 'auction.started': {
         const auction = msg.payload || {};
+        const auctionId = String(auction.auctionId || '');
+        const taker = auction.taker as Address | undefined;
+        const predictions: AuctionRequestPayload['predictions'] = Array.isArray(
+          auction.predictions
+        )
+          ? (auction.predictions as AuctionRequestPayload['predictions'])
+          : [];
+        const wager = BigInt(String(auction.wager || '0'));
         console.log(
-          `[BOT] auction.started auctionId=${auction.auctionId} maker=${auction.maker} wager=${auction.wager} outcomes=${auction.predictedOutcomes?.length ?? 0}`
+          `[BOT] auction.started auctionId=${auctionId} taker=${taker} wager=${wager.toString()} preds=${predictions.length}`
         );
 
-        // For the new mint flow, we need to provide taker collateral and signature
-        const wager = BigInt(auction.wager || '0');
+        // Maker bid: offer 50% of taker wager
+        const makerWager = wager / 2n;
+        const makerDeadline = Math.floor(Date.now() / 1000) + 60;
+        const makerNonce = 1;
 
-        // Taker offers 50% of what the maker is offering
-        // If maker offers 100, taker offers 50, total payout = 150
-        const takerWager = wager / 2n; // 50% of wager
-        const totalPayout = wager + takerWager;
+        // Ensure ERC-20 approval is set up for the maker (optional)
+        void ensureApprovalIfConfigured(makerWager);
 
-        // Ensure ERC-20 approval is set up for the taker (optional, requires env vars)
-        void ensureApprovalIfConfigured(takerWager);
+        // Sign maker bid if PRIVATE KEY is set
+        const pkHex = process.env.BOT_PRIVATE_KEY
+          ? (`0x${String(process.env.BOT_PRIVATE_KEY).replace(/^0x/, '')}` as Hex)
+          : undefined;
+        let maker: Address | undefined = undefined;
+        let makerSignature: Hex = ('0x' +
+          '11'.repeat(32) +
+          '22'.repeat(32)) as Hex; // fallback demo sig
+        try {
+          if (pkHex) {
+            const account = privateKeyToAccount(pkHex);
+            maker = getAddress(account.address);
+            const { domain, types, primaryType, message } =
+              buildMakerBidTypedData({
+                auction: {
+                  taker: taker as Address,
+                  takerNonce: Number(auction.takerNonce || 0),
+                  chainId: Number(auction.chainId || 0),
+                  marketContract: getAddress(
+                    auction.marketContract as `0x${string}`
+                  ),
+                  wager: String(auction.wager || '0'),
+                  predictions: predictions.map(
+                    (p: AuctionRequestPayload['predictions'][number]) => ({
+                      verifierContract: getAddress(
+                        p.verifierContract as `0x${string}`
+                      ),
+                      resolverContract: getAddress(
+                        p.resolverContract as `0x${string}`
+                      ),
+                      predictedOutcomes: p.predictedOutcomes as Hex,
+                    })
+                  ),
+                },
+                makerWager,
+                makerDeadline,
+                maker,
+              });
+            makerSignature = await signMakerBid({
+              privateKey: pkHex,
+              domain,
+              types,
+              primaryType,
+              message,
+            });
+          } else {
+            console.log(
+              '[BOT] BOT_PRIVATE_KEY not set; sending demo signature'
+            );
+            maker = getAddress('0x0000000000000000000000000000000000000001');
+          }
+        } catch (e) {
+          console.error('[BOT] Maker signing failed:', e);
+          return;
+        }
 
-        // Collateral transfers use ERC-20 approvals (not permit).
-        // This example demonstrates submitting a bid with explicit fields and an off-chain signature over them.
-        const nowSec = Math.floor(Date.now() / 1000);
         const bid = {
           type: 'bid.submit',
           payload: {
-            auctionId: auction.auctionId,
-            taker: '0x0000000000000000000000000000000000000001',
-            takerWager: takerWager.toString(),
-            takerDeadline: nowSec + 60,
-            takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
+            auctionId,
+            maker,
+            makerWager: makerWager.toString(),
+            makerDeadline,
+            makerSignature,
+            makerNonce,
           },
         };
         console.log(
-          `[BOT] Sending bid auctionId=${auction.auctionId} wager=${wager.toString()} takerWager=${takerWager.toString()} totalPayout=${totalPayout.toString()}`
+          `[BOT] Sending maker bid on ${auctionId} amount=${makerWager.toString()} deadline=${makerDeadline}`
         );
         ws.send(JSON.stringify(bid));
         break;
@@ -143,7 +209,7 @@ ws.on('message', (data: RawData) => {
         if (bids.length > 0) {
           const top = bids[0];
           console.log(
-            `[BOT] top bid takerWager=${top?.takerWager} takerDeadline=${top?.takerDeadline}`
+            `[BOT] top bid makerWager=${top?.makerWager} makerDeadline=${top?.makerDeadline}`
           );
         }
         break;

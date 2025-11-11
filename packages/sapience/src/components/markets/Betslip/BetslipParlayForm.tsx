@@ -14,6 +14,8 @@ import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
+import { predictionMarket } from '@sapience/sdk/contracts';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { WagerInput } from '~/components/markets/forms';
 import WagerDisclaimer from '~/components/markets/forms/shared/WagerDisclaimer';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
@@ -21,6 +23,7 @@ import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { formatNumber } from '~/lib/utils/util';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 interface BetslipParlayFormProps {
   methods: UseFormReturn<{
@@ -51,7 +54,7 @@ export default function BetslipParlayForm({
   onSubmit,
   isSubmitting,
   error,
-  chainId = 42161,
+  chainId,
   bids = [],
   requestQuotes,
   collateralToken,
@@ -91,13 +94,17 @@ export default function BetslipParlayForm({
   // Prefer connected wallet address; fall back to guest address
   const selectedMakerAddress = makerAddress ?? guestMakerAddress ?? undefined;
 
+  // Use selected chain from settings/localStorage when prop not provided
+  const selectedChainId = useChainIdFromLocalStorage();
+  const effectiveChainId = chainId ?? selectedChainId;
+
   // Fetch maker nonce from PredictionMarket contract
   const { data: makerNonce } = useReadContract({
     address: predictionMarketAddress,
     abi: predictionMarketAbi,
     functionName: 'nonces',
     args: selectedMakerAddress ? [selectedMakerAddress] : undefined,
-    chainId,
+    chainId: effectiveChainId,
     query: {
       enabled: !!selectedMakerAddress && !!predictionMarketAddress,
     },
@@ -111,7 +118,7 @@ export default function BetslipParlayForm({
 
   const bestBid = useMemo(() => {
     if (!bids || bids.length === 0) return null;
-    const validBids = bids.filter((bid) => bid.takerDeadline * 1000 > nowMs);
+    const validBids = bids.filter((bid) => bid.makerDeadline * 1000 > nowMs);
     if (validBids.length === 0) return null;
     const makerWagerStr = parlayWagerAmount || '0';
     let makerWager: bigint;
@@ -123,14 +130,14 @@ export default function BetslipParlayForm({
     return validBids.reduce((best, current) => {
       const bestPayout = (() => {
         try {
-          return makerWager + BigInt(best.takerWager);
+          return makerWager + BigInt(best.makerWager);
         } catch {
           return 0n;
         }
       })();
       const currentPayout = (() => {
         try {
-          return makerWager + BigInt(current.takerWager);
+          return makerWager + BigInt(current.makerWager);
         } catch {
           return 0n;
         }
@@ -212,14 +219,17 @@ export default function BetslipParlayForm({
         marketId: s.conditionId || '0',
         prediction: !!s.prediction,
       }));
-      const payload = buildAuctionStartPayload(outcomes);
+      const payload = buildAuctionStartPayload(outcomes, effectiveChainId);
+      const marketContract =
+        predictionMarket[effectiveChainId]?.address ||
+        predictionMarket[DEFAULT_CHAIN_ID]?.address;
       const params: AuctionParams = {
         wager: wagerWei,
-        resolver: payload.resolver,
-        predictedOutcomes: payload.predictedOutcomes,
-        maker: selectedMakerAddress,
-        makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
-        chainId: chainId,
+        predictions: payload.predictions,
+        taker: selectedMakerAddress,
+        takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+        chainId: effectiveChainId,
+        marketContract: marketContract,
       };
       requestQuotes(params);
       setLastQuoteRequestMs(Date.now());
@@ -310,7 +320,7 @@ export default function BetslipParlayForm({
                   }
                   const totalWei = (() => {
                     try {
-                      return makerWagerWei + BigInt(bestBid.takerWager);
+                      return makerWagerWei + BigInt(bestBid.makerWager);
                     } catch {
                       return 0n;
                     }
@@ -324,7 +334,7 @@ export default function BetslipParlayForm({
                       return '0.00';
                     }
                   })();
-                  const remainingMs = bestBid.takerDeadline * 1000 - nowMs;
+                  const remainingMs = bestBid.makerDeadline * 1000 - nowMs;
                   const secs = Math.max(0, Math.ceil(remainingMs / 1000));
                   const suffix = secs === 1 ? 'second' : 'seconds';
 
@@ -360,7 +370,7 @@ export default function BetslipParlayForm({
                 <Button
                   className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={
-                    isSubmitting || bestBid.takerDeadline * 1000 - nowMs <= 0
+                    isSubmitting || bestBid.makerDeadline * 1000 - nowMs <= 0
                   }
                   type="submit"
                   size="lg"

@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import erc20ABI from '@sapience/sdk/queries/abis/erc20abi.json';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -97,7 +98,8 @@ const Betslip = ({
   // Removed repetitive debug log
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const parlayChainId = betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+  const selectedChainId = useChainIdFromLocalStorage();
+  const parlayChainId = betSlipPositions[0]?.chainId || selectedChainId;
   const {
     auctionId,
     bids,
@@ -106,8 +108,10 @@ const Betslip = ({
     buildMintRequestDataFromBid,
   } = useAuctionStart();
 
-  // PredictionMarket address via centralized mapping (arb1 tag default)
-  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  // PredictionMarket address based on selected chain
+  const PREDICTION_MARKET_ADDRESS =
+    predictionMarket[parlayChainId]?.address ||
+    predictionMarket[DEFAULT_CHAIN_ID]?.address;
 
   // Fetch PredictionMarket configuration
   const predictionMarketConfigRead = useReadContracts({
@@ -493,7 +497,7 @@ const Betslip = ({
     isSubmitting: isParlaySubmitting,
     error: parlayError,
   } = useSubmitParlay({
-    chainId: betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID, // Use first position's chainId or default
+    chainId: parlayChainId, // use first position's chainId or selected settings chain
     predictionMarketAddress: PREDICTION_MARKET_ADDRESS,
     collateralTokenAddress:
       collateralToken || '0x0000000000000000000000000000000000000000',
@@ -791,7 +795,7 @@ const Betslip = ({
     // Find the best bid and submit via PredictionMarket.mint
     try {
       const nowSec = Math.floor(Date.now() / 1000);
-      const validBids = bids.filter((b) => b.takerDeadline > nowSec);
+      const validBids = bids.filter((b) => b.makerDeadline > nowSec);
 
       if (validBids.length === 0) {
         toast({
@@ -804,10 +808,10 @@ const Betslip = ({
         return;
       }
 
-      // Pick highest takerWager (best payout for maker)
+      // Pick highest makerWager (best payout for taker)
       const bestBid = validBids.reduce((best, cur) => {
         try {
-          return BigInt(cur.takerWager) > BigInt(best.takerWager) ? cur : best;
+          return BigInt(cur.makerWager) > BigInt(best.makerWager) ? cur : best;
         } catch {
           return best;
         }

@@ -8,10 +8,10 @@ import * as Sentry from '@sentry/nextjs';
 
 export type AuctionBid = {
   auctionId: string;
-  taker: string;
-  takerWager: string;
-  takerDeadline: number;
-  takerSignature: string;
+  maker: string;
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
   receivedAtMs: number;
 };
 
@@ -73,17 +73,17 @@ class AuctionBidsHub {
       try {
         const auctionId = String(b?.auctionId || '');
         if (!auctionId) continue;
-        const signature = String(b?.takerSignature || '0x');
+        const signature = String(b?.makerSignature || '0x');
         const existingTs = this.receivedAtRef.get(signature);
         const receivedAtMs = existingTs ?? Date.now();
         if (existingTs === undefined)
           this.receivedAtRef.set(signature, receivedAtMs);
         const obj: AuctionBid = {
           auctionId,
-          taker: String(b?.taker || ''),
-          takerWager: String(b?.takerWager || '0'),
-          takerDeadline: Number(b?.takerDeadline || 0),
-          takerSignature: signature,
+          maker: String(b?.maker || ''),
+          makerWager: String(b?.makerWager || '0'),
+          makerDeadline: Number(b?.makerDeadline || 0),
+          makerSignature: signature,
           receivedAtMs,
         };
         if (!updates.has(auctionId)) updates.set(auctionId, []);

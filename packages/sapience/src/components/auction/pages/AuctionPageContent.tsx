@@ -158,35 +158,35 @@ const AuctionPageContent: React.FC = () => {
   function toUiTx(m: { time: number; type: string; data: any }): UiTransaction {
     const createdAt = new Date(m.time).toISOString();
     if (m.type === 'auction.started') {
-      const maker = m.data?.maker || '';
+      const taker = m.data?.taker || '';
       const wager = m.data?.wager || '0';
       return {
         id: m.time,
         type: 'FORECAST',
         createdAt,
         collateral: String(wager || '0'),
-        position: { owner: maker },
+        position: { owner: taker },
       } as UiTransaction;
     }
     if (m.type === 'auction.bids') {
       const bids = Array.isArray(m.data?.bids) ? (m.data.bids as any[]) : [];
       const top = bids.reduce((best, b) => {
         try {
-          const cur = BigInt(String(b?.takerWager ?? '0'));
-          const bestVal = BigInt(String(best?.takerWager ?? '0'));
+          const cur = BigInt(String(b?.makerWager ?? '0'));
+          const bestVal = BigInt(String(best?.makerWager ?? '0'));
           return cur > bestVal ? b : best;
         } catch {
           return best;
         }
       }, bids[0] || null);
-      const taker = top?.taker || '';
-      const takerWager = top?.takerWager || '0';
+      const maker = top?.maker || '';
+      const makerWager = top?.makerWager || '0';
       return {
         id: m.time,
         type: 'FORECAST',
         createdAt,
-        collateral: String(takerWager || '0'),
-        position: { owner: taker },
+        collateral: String(makerWager || '0'),
+        position: { owner: maker },
       } as UiTransaction;
     }
     return {

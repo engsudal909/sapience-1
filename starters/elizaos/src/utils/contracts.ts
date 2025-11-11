@@ -103,30 +103,104 @@ export async function ensureTokenApproval({
 export async function buildMintCalldata({
   bid,
   maker,
+  takerPrivateKey,
+  encodedPredictedOutcomes,
+  resolver,
+  chainId,
+  verifierContract,
 }: {
   bid: Bid;
   maker: string;
+  takerPrivateKey: `0x${string}`;
+  encodedPredictedOutcomes: `0x${string}`;
+  resolver: `0x${string}`;
+  chainId: number;
+  verifierContract: `0x${string}`;
 }): Promise<`0x${string}`> {
-  const { encodeFunctionData } = await import("viem");
-  const { UMA_RESOLVER } = getContractAddresses();
-  
+  const {
+    encodeFunctionData,
+    encodeAbiParameters,
+    keccak256,
+    getAddress,
+  } = await import("viem");
+  const { privateKeyToAccount } = await import("viem/accounts");
+
+  // Resolve amounts and parties
+  const makerCollateral = BigInt(bid.makerWager || bid.wager || '0');
+  const takerCollateral = BigInt(bid.takerCollateral || bid.wager || '0');
+  const makerAddress = getAddress((bid.maker || maker) as `0x${string}`);
+  const takerAccount = privateKeyToAccount(takerPrivateKey);
+  const takerAddress = getAddress(takerAccount.address);
+
+  // Use maker-provided deadline/nonce as part of taker approval preimage (contract enforces these)
+  const takerDeadline = BigInt(bid.makerDeadline || 0);
+  const makerNonce = BigInt(bid.makerNonce || 0);
+
+  // Inner message per PredictionMarket.sol
+  const messageHash = keccak256(
+    encodeAbiParameters(
+      [
+        { type: "bytes" },      // encodedPredictedOutcomes
+        { type: "uint256" },    // takerCollateral
+        { type: "uint256" },    // makerCollateral
+        { type: "address" },    // resolver
+        { type: "address" },    // maker
+        { type: "uint256" },    // takerDeadline
+        { type: "uint256" },    // makerNonce
+      ],
+      [
+        encodedPredictedOutcomes,
+        takerCollateral,
+        makerCollateral,
+        getAddress(resolver),
+        makerAddress,
+        takerDeadline,
+        makerNonce,
+      ]
+    )
+  );
+
+  // EIP-712 Approve typed data per SignatureProcessor
+  const domain = {
+    name: "SignatureProcessor",
+    version: "1",
+    chainId,
+    verifyingContract: getAddress(verifierContract),
+  } as const;
+  const types = {
+    Approve: [
+      { name: "messageHash", type: "bytes32" },
+      { name: "owner", type: "address" },
+    ] as const,
+  } as const;
+  const typedMessage = {
+    messageHash,
+    owner: takerAddress,
+  } as const;
+  const takerSignature = await takerAccount.signTypedData({
+    domain,
+    types,
+    primaryType: "Approve",
+    message: typedMessage,
+  });
+
   const mintRequest = {
-    encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
-    resolver: bid.resolver || UMA_RESOLVER,
-    makerCollateral: BigInt(bid.makerWager || bid.wager || '0'),
-    takerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'),
-    maker: bid.maker || maker,
-    taker: bid.taker,
-    makerNonce: BigInt(bid.makerNonce || 0),
-    takerSignature: bid.makerSignature || "0x",
-    takerDeadline: BigInt(bid.makerDeadline || 0),
-    refCode: "0x0000000000000000000000000000000000000000000000000000000000000000"
+    encodedPredictedOutcomes,
+    resolver,
+    makerCollateral,
+    takerCollateral,
+    maker: makerAddress,
+    taker: takerAddress,
+    makerNonce,
+    takerSignature,
+    takerDeadline,
+    refCode: "0x0000000000000000000000000000000000000000000000000000000000000000",
   };
-  
+
   return encodeFunctionData({
     abi: [{
       name: "mint",
-      type: "function", 
+      type: "function",
       inputs: [
         { name: "mintPredictionRequestData", type: "tuple", components: [
           { name: "encodedPredictedOutcomes", type: "bytes" },

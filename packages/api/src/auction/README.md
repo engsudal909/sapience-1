@@ -187,7 +187,7 @@ ws.send(
       resolver: '0x...',
       takerNonce: 1,
       chainId: 42161,
-      verifierContract: '0x...'
+      verifierContract: '0x...',
     },
   })
 );
@@ -205,7 +205,7 @@ ws.send(
       makerWager: '500000000000000000', // 0.5 ETH
       makerDeadline: Math.floor(Date.now() / 1000) + 60,
       makerSignature: '0x...', // Signature over the typed payload
-      makerNonce: 1
+      makerNonce: 1,
     },
   })
 );

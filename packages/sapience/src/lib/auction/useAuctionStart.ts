@@ -11,21 +11,25 @@ export interface PredictedOutcomeInput {
 }
 
 export interface AuctionParams {
-  wager: string; // wei string - maker's wager amount
-  resolver: string; // contract address for market validation
-  predictedOutcomes: string[]; // Array of bytes strings that the resolver validates/understands
-  maker: `0x${string}`; // maker EOA address
-  makerNonce: number; // nonce for the maker
+  wager: string; // wei string (total taker wager)
+  predictions: {
+    verifierContract: `0x${string}`;
+    resolverContract: `0x${string}`;
+    predictedOutcomes: `0x${string}`;
+  }[];
+  taker: `0x${string}`; // taker EOA address (auction starter)
+  takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
+  marketContract: `0x${string}`; // primary market entrypoint
 }
 
 export interface QuoteBid {
   auctionId: string;
-  taker: string;
-  takerWager: string; // wei
-  takerDeadline: number; // unix seconds
-  takerSignature: string; // Taker's bid signature
-  makerNonce: number; // nonce for the maker
+  maker: string; // maker address (bidding party)
+  makerWager: string; // wei
+  makerDeadline: number; // unix seconds
+  makerSignature: string; // maker's signature over typed payload
+  makerNonce: number; // maker's nonce
 }
 
 // Struct shape expected by PredictionMarket.mint()
@@ -116,17 +120,17 @@ export function useAuctionStart() {
               try {
                 const auctionIdVal: string =
                   b.auctionId || latestAuctionIdRef.current || '';
-                const taker: string =
-                  b.taker || '0x0000000000000000000000000000000000000000';
-                const takerWager: string = b.takerWager || '0';
-                const takerDeadline: number = b.takerDeadline || 0;
+                const maker: string =
+                  b.maker || '0x0000000000000000000000000000000000000000';
+                const makerWager: string = b.makerWager || '0';
+                const makerDeadline: number = b.makerDeadline || 0;
 
                 return {
                   auctionId: auctionIdVal,
-                  taker,
-                  takerWager,
-                  takerDeadline,
-                  takerSignature: b.takerSignature || '0x',
+                  maker,
+                  makerWager,
+                  makerDeadline,
+                  makerSignature: b.makerSignature || '0x',
                   makerNonce: b.makerNonce || 0,
                 } as QuoteBid;
               } catch {
@@ -158,11 +162,11 @@ export function useAuctionStart() {
         type: 'auction.start',
         payload: {
           wager: params.wager,
-          resolver: params.resolver,
-          predictedOutcomes: params.predictedOutcomes,
-          maker: params.maker,
-          makerNonce: params.makerNonce,
+          predictions: params.predictions,
+          taker: params.taker,
+          takerNonce: params.takerNonce,
           chainId: params.chainId,
+          marketContract: params.marketContract,
         },
       };
 
@@ -251,19 +255,24 @@ export function useAuctionStart() {
       if (!auction) return null;
       try {
         const zeroBytes32 = `0x${'0'.repeat(64)}`;
-        const resolver = auction.resolver as `0x${string}`;
-        const predictedOutcomes = auction.predictedOutcomes as `0x${string}`[];
-        if (!resolver || predictedOutcomes.length === 0) return null;
+        const first = Array.isArray(auction.predictions)
+          ? auction.predictions[0]
+          : undefined;
+        const resolver = first?.resolverContract || '0x';
+        const predictedOutcomes = first?.predictedOutcomes || '0x';
+        if (!resolver || predictedOutcomes === '0x') return null;
 
         return {
-          encodedPredictedOutcomes: predictedOutcomes[0],
+          encodedPredictedOutcomes: predictedOutcomes,
           resolver,
-          makerCollateral: auction.wager,
-          takerCollateral: args.selectedBid.takerWager,
+          makerCollateral: args.selectedBid.makerWager,
+          takerCollateral: auction.wager,
           maker: args.maker,
-          taker: args.selectedBid.taker as `0x${string}`,
-          takerSignature: args.selectedBid.takerSignature as `0x${string}`,
-          takerDeadline: String(args.selectedBid.takerDeadline),
+          taker: auction.taker,
+          // Note: takerSignature should be created at mint-time by the taker wallet.
+          takerSignature: '0x',
+          // Reuse makerDeadline as takerDeadline placeholder until signing
+          takerDeadline: String(args.selectedBid.makerDeadline),
           refCode: args.refCode || (zeroBytes32 as `0x${string}`),
           makerNonce: String(args.selectedBid.makerNonce),
         };
@@ -304,8 +313,9 @@ export function buildMintPredictionRequestData(args: {
     const makerCollateral = args.makerCollateral || '0';
     if (!makerCollateral || BigInt(makerCollateral) === 0n) return null;
 
-    const taker = args.selectedBid.taker as `0x${string}`;
-    const takerCollateral = args.selectedBid.takerWager;
+    // In v2, taker is the auction starter and should be provided by caller context
+    const taker = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+    const takerCollateral = '0'; // unknown here; provided by auction payload during on-chain mint
 
     const out: MintPredictionRequestData = {
       encodedPredictedOutcomes: predictedOutcomes[0],
@@ -314,8 +324,8 @@ export function buildMintPredictionRequestData(args: {
       takerCollateral,
       maker: args.maker,
       taker,
-      takerSignature: args.selectedBid.takerSignature as `0x${string}`,
-      takerDeadline: String(args.selectedBid.takerDeadline),
+      takerSignature: '0x',
+      takerDeadline: String(args.selectedBid.makerDeadline),
       refCode: args.refCode || (zeroBytes32 as `0x${string}`),
       makerNonce: String(args.selectedBid.makerNonce),
     };

@@ -1,5 +1,5 @@
 import { encodeAbiParameters } from 'viem';
-import { umaResolver } from '@sapience/sdk/contracts';
+import { umaResolver, predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 
 export interface PredictedOutcomeInputStub {
@@ -38,17 +38,32 @@ function encodePredictedOutcomes(
 
 export function buildAuctionStartPayload(
   outcomes: PredictedOutcomeInputStub[],
+  chainId: number,
   resolverOverride?: string
-): { resolver: `0x${string}`; predictedOutcomes: `0x${string}`[] } {
-  // Use the deployed UMA resolver address
-  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
-  const resolver: `0x${string}` = isHexAddress(resolverOverride)
+): {
+  predictions: {
+    verifierContract: `0x${string}`;
+    resolverContract: `0x${string}`;
+    predictedOutcomes: `0x${string}`;
+  }[];
+} {
+  // Resolve contracts
+  const cid =
+    Number.isFinite(chainId) && chainId > 0 ? chainId : DEFAULT_CHAIN_ID;
+  const verifierContract = predictionMarket[cid]?.address;
+  const UMA_RESOLVER_ADDRESS = umaResolver[cid]?.address;
+  const resolverContract: `0x${string}` = isHexAddress(resolverOverride)
     ? resolverOverride
     : UMA_RESOLVER_ADDRESS;
 
-  // Resolver expects a single bytes blob with abi.encode(PredictedOutcome[])
   const encoded = encodePredictedOutcomes(outcomes);
-  const predictedOutcomes = [encoded];
+  const predictions = [
+    {
+      verifierContract,
+      resolverContract,
+      predictedOutcomes: encoded,
+    },
+  ];
 
-  return { resolver, predictedOutcomes };
+  return { predictions };
 }

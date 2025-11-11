@@ -281,6 +281,10 @@ async function startParlayAuction({
               const txHash = await acceptBid({
                 bid: bestBid,
                 privateKey,
+                encodedPredictedOutcomes: predictedOutcomes,
+                resolver: UMA_RESOLVER,
+                chainId,
+                verifierContract: VERIFIER_CONTRACT,
                 rpcUrl,
               });
 
@@ -324,10 +328,18 @@ async function startParlayAuction({
 async function acceptBid({
   bid,
   privateKey,
+  encodedPredictedOutcomes,
+  resolver,
+  chainId,
+  verifierContract,
   rpcUrl,
 }: {
   bid: Bid;
   privateKey: string;
+  encodedPredictedOutcomes: `0x${string}`;
+  resolver: `0x${string}`;
+  chainId: number;
+  verifierContract: `0x${string}`;
   rpcUrl: string;
 }): Promise<string> {
   try {
@@ -339,6 +351,11 @@ async function acceptBid({
     const mintCalldata = await buildMintCalldata({
       bid,
       maker: makerAddress,
+      takerPrivateKey: privateKey as `0x${string}`,
+      encodedPredictedOutcomes,
+      resolver,
+      chainId,
+      verifierContract,
     });
 
     const { PREDICTION_MARKET } = getContractAddresses();

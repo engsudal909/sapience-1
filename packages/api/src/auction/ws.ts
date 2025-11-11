@@ -600,7 +600,7 @@ export function createAuctionWebSocketServer() {
           try {
             // Basic validation using sim helpers
             // Inline import to avoid cycle; using normalizeAuctionPayload already imported
-            const v = require('./helpers') as typeof import('./helpers');
+            const v = await import('./helpers');
             const check = v.validateAuctionForMint(payload);
             if (!check.valid) {
               send(ws, {
@@ -621,7 +621,7 @@ export function createAuctionWebSocketServer() {
               });
               return;
             }
-          } catch (err) {
+          } catch {
             send(ws, {
               type: 'auction.ack',
               payload: { error: 'invalid_auction' },
@@ -656,7 +656,7 @@ export function createAuctionWebSocketServer() {
                 payload: { auctionId, bids },
               });
             }
-          } catch (err) {
+          } catch {
             send(ws, {
               type: 'auction.ack',
               payload: { error: 'invalid_auction' },
