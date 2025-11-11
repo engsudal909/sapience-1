@@ -26,12 +26,13 @@ import { useReadContracts } from 'wagmi';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { predictionMarketAbi } from '@sapience/sdk';
 import bidsHub from '~/lib/auction/useAuctionBidsHub';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { COLLATERAL_SYMBOLS, CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const collateralAssetTicker = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);

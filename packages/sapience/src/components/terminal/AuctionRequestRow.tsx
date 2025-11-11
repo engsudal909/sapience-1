@@ -26,8 +26,8 @@ import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { predictionMarket } from '@sapience/sdk/contracts';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { predictionMarketAbi } from '@sapience/sdk';
+import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
@@ -66,9 +66,9 @@ const AuctionRequestRow: React.FC<Props> = ({
   const { address } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
-  const { apiBaseUrl } = useSettings();
+  const { apiBaseUrl, chainId: settingsChainId } = useSettings();
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
-  const chainId = useChainIdFromLocalStorage();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const verifyingContract = predictionMarket[chainId]?.address as
     | `0x${string}`
     | undefined;

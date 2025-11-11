@@ -19,8 +19,8 @@ import {
 
 import { useForecasts } from '~/hooks/graphql/useForecasts';
 import AddressFilter from '~/components/shared/AddressFilter';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { COLLATERAL_SYMBOLS, CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 type FeedTransaction = Pick<
   TransactionType,
@@ -111,7 +111,8 @@ type PredictedOutcome = {
 };
 
 export default function FeedPage() {
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const defaultCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const [rows, setRows] = useState<FeedRow[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

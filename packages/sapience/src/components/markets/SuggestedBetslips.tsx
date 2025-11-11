@@ -19,7 +19,8 @@ import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 type SuggestedBetslipsProps = {
   onRefresh?: () => void;
@@ -31,9 +32,11 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
   className,
 }) => {
   const [nonce, setNonce] = React.useState(0);
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const { data: allConditions = [], isLoading } = useConditions({
     take: 200,
-    chainId: useChainIdFromLocalStorage(),
+    chainId,
   });
   const { addParlaySelection } = useBetSlipContext();
 

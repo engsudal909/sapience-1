@@ -165,6 +165,7 @@ const SettingsPageContent = () => {
     quoterBaseUrl,
     chatBaseUrl,
     rpcURL,
+    chainId: contextChainId,
     openrouterApiKey,
     researchAgentSystemMessage,
     researchAgentModel,
@@ -175,6 +176,7 @@ const SettingsPageContent = () => {
     setQuoterBaseUrl,
     setChatBaseUrl,
     setRpcUrl,
+    setChainId: setContextChainId,
     setOpenrouterApiKey,
     setResearchAgentSystemMessage,
     setResearchAgentModel,
@@ -248,27 +250,15 @@ const SettingsPageContent = () => {
     try {
       if (selectedChain === 'ethereal') {
         setRpcInput(ETHEREAL_RPC);
-        window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_RPC);
-        window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ETHEREAL
-        );
+        setRpcUrl(ETHEREAL_RPC);
+        setContextChainId(parseInt(CHAIN_ID_ETHEREAL, 10));
       } else {
         console.log(defaults.rpcURL);
-        if (
-          window.localStorage.getItem('sapience.settings.rpcURL') !==
-          defaults.rpcURL
-        ) {
+        if (rpcURL !== defaults.rpcURL) {
           setRpcInput(defaults.rpcURL);
-          window.localStorage.setItem(
-            'sapience.settings.rpcURL',
-            defaults.rpcURL
-          );
+          setRpcUrl(defaults.rpcURL);
         }
-        window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ARBITRUM
-        );
+        setContextChainId(parseInt(CHAIN_ID_ARBITRUM, 10));
       }
     } catch (e) {
       console.log('error', e);

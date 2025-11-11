@@ -53,7 +53,7 @@ import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
 import ResolveConditionCell from './ResolveConditionCell';
 import { CHAIN_ID_ARBITRUM, CHAIN_ID_ETHEREAL } from './constants';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
 import { parseCsv, mapCsv } from '~/lib/utils/csv';
 import { useAdminApi } from '~/hooks/useAdminApi';
 import { useCategories } from '~/hooks/graphql/useMarketGroups';
@@ -112,8 +112,9 @@ const RFQTab = ({
   const { postJson, putJson } = useAdminApi();
   const { data: categories } = useCategories();
 
-  // Read chainId from localStorage with event monitoring
-  const currentChainId = useChainIdFromLocalStorage();
+  // Read chainId from SettingsContext
+  const { chainId: settingsChainId } = useSettings();
+  const currentChainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
 
   const currentChainName =
     currentChainId === CHAIN_ID_ETHEREAL ? 'Ethereal' : 'Arbitrum';

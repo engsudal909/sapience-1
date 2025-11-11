@@ -15,8 +15,8 @@ import {
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { COLLATERAL_SYMBOLS, CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 interface CollateralBalanceButtonProps {
   onClick?: () => void;
@@ -31,7 +31,8 @@ export default function CollateralBalanceButton({
 }: CollateralBalanceButtonProps) {
   const { wallets } = useWallets();
   const connectedWallet = wallets[0];
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
 
   const accountAddress = connectedWallet?.address as `0x${string}` | undefined;

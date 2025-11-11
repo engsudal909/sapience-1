@@ -4,8 +4,9 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { predictionMarket } from '@sapience/sdk/contracts';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
+import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import {
   Dialog,
@@ -21,7 +22,8 @@ import { useApprovalDialog } from './ApprovalDialogContext';
 
 const ApprovalDialog: React.FC = () => {
   const { isOpen, setOpen, requiredAmount } = useApprovalDialog();
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
 
   const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
     | `0x${string}`

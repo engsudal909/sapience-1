@@ -12,7 +12,8 @@ import {
   type PredictedOutcomeInputStub,
 } from '~/lib/auction/buildAuctionPayload';
 import PercentChance from '~/components/shared/PercentChance';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 // Use one as the default wager for prediction requests
 
 export interface MarketPredictionRequestProps {
@@ -43,7 +44,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
 
   const { address: makerAddress } = useAccount();
   const { requestQuotes, bids } = useAuctionStart();
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const PREDICTION_MARKET_ADDRESS =
     predictionMarket[chainId]?.address ||
     predictionMarket[DEFAULT_CHAIN_ID]?.address;

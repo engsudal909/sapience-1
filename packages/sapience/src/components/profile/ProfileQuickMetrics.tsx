@@ -27,8 +27,8 @@ import { formatFiveSigFigs, bigIntAbs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
 import { useUserProfitRank } from '~/hooks/graphql/useUserProfitRank';
 import { useForecasterRank } from '~/hooks/graphql/useForecasterRank';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { COLLATERAL_SYMBOLS, CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 type MetricBadgeProps = {
   icon?: React.ReactNode;
@@ -329,7 +329,8 @@ export default function ProfileQuickMetrics({
   parlays,
   className,
 }: ProfileQuickMetricsProps) {
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const balance = useProfileBalance(address, chainId, collateralSymbol);
   const volume = useProfileVolume(positions, parlays, address);

@@ -6,18 +6,19 @@ import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Pencil } from 'lucide-react';
 import { predictionMarket } from '@sapience/sdk/contracts';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 // removed dialog imports
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { COLLATERAL_SYMBOLS, CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 const AutoBid: React.FC = () => {
   const { address } = useAccount();
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
 
   const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as

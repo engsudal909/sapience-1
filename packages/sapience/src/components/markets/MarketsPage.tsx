@@ -32,7 +32,8 @@ import type { MarketGroupClassification } from '~/lib/types'; // Added import
 import { getYAxisConfig, getMarketHeaderQuestion } from '~/lib/utils/util';
 import Betslip from '~/components/markets/Betslip';
 import SuggestedBetslips from '~/components/markets/SuggestedBetslips';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 // Custom hook for debouncing values
 function useDebounce<T>(value: T, delay: number): T {
@@ -172,8 +173,9 @@ const MarketsPage = () => {
     }
   };
 
-  // Read chainId from localStorage with event monitoring
-  const chainId = useChainIdFromLocalStorage();
+  // Read chainId from SettingsContext
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
 
   // RFQ Conditions via GraphQL
   const { data: allConditions = [], isLoading: isLoadingConditions } =

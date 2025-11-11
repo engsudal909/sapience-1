@@ -27,8 +27,8 @@ import EmptyProfileState from '~/components/profile/EmptyProfileState';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import ProfileQuickMetrics from '~/components/profile/ProfileQuickMetrics';
 import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { CHAIN_ID_ETHEREAL, CHAIN_ID_ARBITRUM } from '~/components/admin/constants';
 
 const TAB_VALUES = ['parlays', 'trades', 'lp', 'forecasts'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
@@ -38,7 +38,8 @@ type TabValue = (typeof TAB_VALUES)[number];
 const ProfilePageContent = () => {
   const params = useParams();
   const address = (params.address as string).toLowerCase() as Address;
-  const chainId = useChainIdFromLocalStorage();
+  const { chainId: settingsChainId } = useSettings();
+  const chainId = settingsChainId ?? CHAIN_ID_ARBITRUM;
   const isEtherealChain = chainId === CHAIN_ID_ETHEREAL;
 
   // Remove parlay feature flag; Parlays tab is always available
