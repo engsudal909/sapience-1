@@ -575,33 +575,16 @@ const VaultsPageContent = () => {
   };
 
   // Derived vault metrics for display
+  // TVL = availableAssets + totalDeployed (direct on-chain reads)
   const tvlWei = useMemo(() => {
     try {
-      const totalAssetsWei = vaultData?.totalAssets ?? 0n;
-      if (totalAssetsWei > 0n) return totalAssetsWei;
-
-      // Fallback: derive TVL from totalSupply * pricePerShare when assets aren't populated
-      if (
-        vaultData?.totalSupply &&
-        pricePerShare &&
-        pricePerShare !== '0' &&
-        assetDecimals !== undefined
-      ) {
-        try {
-          const ppsScaled = parseUnits(pricePerShare, assetDecimals);
-          return (
-            (vaultData.totalSupply * ppsScaled) / 10n ** BigInt(assetDecimals)
-          );
-        } catch {
-          // ignore fallback errors and return 0n below
-        }
-      }
-
-      return 0n;
+      const available = vaultData?.availableAssets ?? 0n;
+      const deployed = vaultData?.totalDeployed ?? 0n;
+      return available + deployed;
     } catch {
       return 0n;
     }
-  }, [vaultData, pricePerShare, assetDecimals]);
+  }, [vaultData]);
 
   const deployedWei = useMemo(() => {
     try {
