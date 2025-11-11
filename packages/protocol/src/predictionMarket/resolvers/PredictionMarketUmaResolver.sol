@@ -152,6 +152,18 @@ contract PredictionMarketUmaResolver is
         error = Error.NO_ERROR;
         bool hasUnsettledMarkets = false;
 
+        if (predictedOutcomes.length == 0) {
+            isResolved = false;
+            error = Error.MUST_HAVE_AT_LEAST_ONE_MARKET;
+            return (isResolved, error, parlaySuccess);
+        }
+        if (predictedOutcomes.length > config.maxPredictionMarkets)
+        {
+            isResolved = false;
+            error = Error.TOO_MANY_MARKETS;
+            return (isResolved, error, parlaySuccess);
+        }
+
         for (uint256 i = 0; i < predictedOutcomes.length; i++) {
             bytes32 marketId = predictedOutcomes[i].marketId;
             if (marketId == bytes32(0)) {
