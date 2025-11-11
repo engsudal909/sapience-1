@@ -107,14 +107,38 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
   if (!auction.wager || BigInt(auction.wager) <= 0n) {
     return { valid: false, error: 'Invalid wager' };
   }
+  // chainId must be a finite positive number
+  if (
+    typeof auction.chainId !== 'number' ||
+    !Number.isFinite(auction.chainId) ||
+    auction.chainId <= 0
+  ) {
+    return { valid: false, error: 'Invalid chainId' };
+  }
+  // marketContract must be a 0x address
+  if (
+    typeof auction.marketContract !== 'string' ||
+    !/^0x[a-fA-F0-9]{40}$/.test(auction.marketContract)
+  ) {
+    return { valid: false, error: 'Invalid marketContract' };
+  }
   const { predictions } = normalizeAuctionPayload(auction);
   if (!predictions.length) return { valid: false, error: 'No predictions' };
   // Ensure resolver + verifier present and outcomes non-empty
   for (const p of predictions) {
-    if (!p.verifierContract) return { valid: false, error: 'Missing verifierContract' };
-    if (!p.resolverContract) return { valid: false, error: 'Missing resolverContract' };
+    if (!p.verifierContract)
+      return { valid: false, error: 'Missing verifierContract' };
+    if (!p.resolverContract)
+      return { valid: false, error: 'Missing resolverContract' };
     if (!p.predictedOutcomes || typeof p.predictedOutcomes !== 'string') {
       return { valid: false, error: 'Invalid predictedOutcomes' };
+    }
+    // Address format checks
+    if (!/^0x[a-fA-F0-9]{40}$/.test(p.verifierContract)) {
+      return { valid: false, error: 'Invalid verifierContract address' };
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(p.resolverContract)) {
+      return { valid: false, error: 'Invalid resolverContract address' };
     }
   }
   if (!auction.taker) {
@@ -127,6 +151,14 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
     !/^0x[a-fA-F0-9]{40}$/.test(auction.taker)
   ) {
     return { valid: false, error: 'Invalid taker address' };
+  }
+  // takerNonce must be a finite number
+  if (
+    typeof auction.takerNonce !== 'number' ||
+    !Number.isFinite(auction.takerNonce) ||
+    auction.takerNonce < 0
+  ) {
+    return { valid: false, error: 'Invalid takerNonce' };
   }
 
   return { valid: true };

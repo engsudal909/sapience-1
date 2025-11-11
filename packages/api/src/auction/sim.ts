@@ -27,7 +27,7 @@ export function basicValidateBid(
     };
   }
 
-  // Validate taker fields in payload
+  // Validate maker fields in payload
   if (!bid.maker || typeof bid.maker !== 'string') {
     return { ok: false, reason: 'invalid_maker' };
   }
@@ -38,7 +38,7 @@ export function basicValidateBid(
   try {
     const makerWagerBigInt = BigInt(bid.makerWager);
 
-    // Basic validation: taker wager should be positive
+    // Basic validation: maker wager should be positive
     if (makerWagerBigInt <= 0n) {
       return { ok: false, reason: 'invalid_maker_wager' };
     }
@@ -46,7 +46,7 @@ export function basicValidateBid(
     return { ok: false, reason: 'invalid_wager_values' };
   }
 
-  // Validate taker signature payload and deadline (format + expiry)
+  // Validate maker signature payload and deadline (format + expiry)
   const sigCheck = verifyMakerBid({
     auctionId: bid.auctionId,
     maker: bid.maker,

@@ -3,16 +3,16 @@ import { createArbitrumPublicClient, createArbitrumWalletClient, getContractAddr
 
 interface Bid {
   auctionId: string;
-  taker: string;
-  takerWager: string;
-  takerDeadline: number;
-  takerSignature: string;
   maker: string;
-  makerCollateral: string;
-  wager?: string; // fallback for legacy compatibility
-  resolver: string;
-  encodedPredictedOutcomes: string;
-  predictedOutcomes: string[];
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
+  taker: string;
+  takerCollateral?: string;
+  wager?: string; // legacy fallback for takerCollateral
+  resolver?: string;
+  encodedPredictedOutcomes?: string;
+  predictedOutcomes?: string[];
   makerNonce: number;
 }
 
@@ -113,13 +113,13 @@ export async function buildMintCalldata({
   const mintRequest = {
     encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
     resolver: bid.resolver || UMA_RESOLVER,
-    makerCollateral: BigInt(bid.makerCollateral || bid.wager || '0'),
-    takerCollateral: BigInt(bid.takerWager || '0'),
+    makerCollateral: BigInt(bid.makerWager || bid.wager || '0'),
+    takerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'),
     maker: bid.maker || maker,
     taker: bid.taker,
     makerNonce: BigInt(bid.makerNonce || 0),
-    takerSignature: bid.takerSignature || "0x",
-    takerDeadline: BigInt(bid.takerDeadline || 0),
+    takerSignature: bid.makerSignature || "0x",
+    takerDeadline: BigInt(bid.makerDeadline || 0),
     refCode: "0x0000000000000000000000000000000000000000000000000000000000000000"
   };
   

@@ -28,16 +28,16 @@ import {
 
 interface Bid {
   auctionId: string;
-  taker: string;
-  takerWager: string;
-  takerDeadline: number;
-  takerSignature: string;
   maker: string;
-  makerCollateral: string;
-  wager?: string; // fallback for legacy compatibility
-  resolver: string;
-  encodedPredictedOutcomes: string;
-  predictedOutcomes: string[];
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
+  taker: string;
+  takerCollateral?: string;
+  wager?: string; // legacy fallback for takerCollateral
+  resolver?: string;
+  encodedPredictedOutcomes?: string;
+  predictedOutcomes?: string[];
   makerNonce: number;
 }
 
@@ -107,7 +107,7 @@ export const parlayTradingAction: Action = {
 
       elizaLogger.info(`[ParlayTrading] Starting parlay auction with ${markets.length} legs`);
 
-      // Start auction as maker
+      // Start auction as taker
       const auctionResult = await startParlayAuction({
         markets,
         predictions,
@@ -157,7 +157,7 @@ async function startParlayAuction({
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   return new Promise((resolve) => {
     try {
-      // Connect to Sapience WebSocket as a maker
+      // Connect to Sapience WebSocket as a taker
       const { sapienceWs } = getApiEndpoints();
       const socket = new WebSocket(sapienceWs);
 
@@ -197,26 +197,32 @@ async function startParlayAuction({
       };
 
       socket.onopen = async () => {
-        elizaLogger.info("[ParlayTrading] Connected to auction WebSocket as MAKER");
+        elizaLogger.info("[ParlayTrading] Connected to auction WebSocket as TAKER");
         startKeepAlive();
 
+        // Use current on-chain nonce as takerNonce surrogate
         const contractNonce = await getCurrentMakerNonce(walletAddress as `0x${string}`, rpcUrl);
-        elizaLogger.info(`[ParlayTrading] Using contract maker nonce: ${contractNonce}`);
+        elizaLogger.info(`[ParlayTrading] Using taker nonce: ${contractNonce}`);
 
-        const { UMA_RESOLVER } = getContractAddresses();
-        const predictedOutcomes = await encodeParlayOutcomes(markets, predictions);
+        const { UMA_RESOLVER, VERIFIER_CONTRACT, MARKET_CONTRACT } = getContractAddresses();
+        const predictedOutcomesArr = await encodeParlayOutcomes(markets, predictions);
+        const predictedOutcomes = predictedOutcomesArr[0] || "0x";
 
         const chainId = parseInt(process.env.CHAIN_ID || "42161");
 
         const auctionMessage = {
           type: "auction.start",
           payload: {
-            maker: walletAddress,
+            taker: walletAddress,
             wager: wagerAmount,
-            resolver: UMA_RESOLVER,
-            predictedOutcomes,
-            makerNonce: contractNonce,
+            predictions: [{
+              verifierContract: VERIFIER_CONTRACT,
+              resolverContract: UMA_RESOLVER,
+              predictedOutcomes,
+            }],
+            takerNonce: contractNonce,
             chainId: chainId,
+            marketContract: MARKET_CONTRACT,
           },
         };
 
@@ -343,12 +349,12 @@ async function acceptBid({
     await ensureTokenApproval({
       privateKey: privateKey as `0x${string}`,
       rpcUrl,
-      amount: bid.makerCollateral || bid.wager || '0',
+      amount: bid.makerWager || bid.makerCollateral || '0',
     });
 
     elizaLogger.info("[ParlayTrading] Executing parlay mint transaction...");
     elizaLogger.info(`[ParlayTrading] Mint details - Maker: ${bid.maker}, Taker: ${bid.taker}`);
-    elizaLogger.info(`[ParlayTrading] Collateral - Maker: ${bid.makerCollateral}, Taker: ${bid.takerWager}`);
+    elizaLogger.info(`[ParlayTrading] Collateral - Maker: ${bid.makerWager || bid.makerCollateral}, Taker: ${bid.takerCollateral || bid.wager}`);
     elizaLogger.info(`[ParlayTrading] Maker nonce: ${bid.makerNonce}`);
     
     const mintTx = await submitTransaction({

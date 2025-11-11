@@ -596,30 +596,70 @@ export function createAuctionWebSocketServer() {
       if (isClientMessage(msg)) {
         if (msg.type === 'auction.start') {
           const payload = msg.payload as AuctionRequestPayload;
-          const auctionId = upsertAuction(payload);
-          // Subscribe this client to the auction channel
-          subscribeToAuction(auctionId, ws, auctionSubscriptions);
-
-          send(ws, {
-            type: 'auction.ack',
-            payload: { auctionId },
-          });
-
-          // Broadcast the auction.started to bots/listeners (all clients for now)
-          const requested = JSON.stringify({
-            type: 'auction.started',
-            payload: { ...payload, auctionId },
-          });
-          wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) client.send(requested);
-          });
-
-          // Immediately stream current bids for this auction if any
-          const bids = getBids(auctionId);
-          if (bids.length > 0) {
+          // Validate and guard against malformed payloads
+          try {
+            // Basic validation using sim helpers
+            // Inline import to avoid cycle; using normalizeAuctionPayload already imported
+            const v = require('./helpers') as typeof import('./helpers');
+            const check = v.validateAuctionForMint(payload);
+            if (!check.valid) {
+              send(ws, {
+                type: 'auction.ack',
+                payload: { error: 'invalid_auction' },
+              });
+              return;
+            }
+            // Enforce single verifier/resolver early
+            const norm = normalizeAuctionPayload(payload);
+            if (
+              norm.uniqueVerifierContracts.size !== 1 ||
+              norm.uniqueResolverContracts.size !== 1
+            ) {
+              send(ws, {
+                type: 'auction.ack',
+                payload: { error: 'CROSS_VERIFIER_UNSUPPORTED' },
+              });
+              return;
+            }
+          } catch (err) {
             send(ws, {
-              type: 'auction.bids',
-              payload: { auctionId, bids },
+              type: 'auction.ack',
+              payload: { error: 'invalid_auction' },
+            });
+            return;
+          }
+          // Compute/insert auction; protect against throws
+          try {
+            const auctionId = upsertAuction(payload);
+            // Subscribe this client to the auction channel
+            subscribeToAuction(auctionId, ws, auctionSubscriptions);
+
+            send(ws, {
+              type: 'auction.ack',
+              payload: { auctionId },
+            });
+
+            // Broadcast the auction.started to bots/listeners (all clients for now)
+            const requested = JSON.stringify({
+              type: 'auction.started',
+              payload: { ...payload, auctionId },
+            });
+            wss.clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) client.send(requested);
+            });
+
+            // Immediately stream current bids for this auction if any
+            const bids = getBids(auctionId);
+            if (bids.length > 0) {
+              send(ws, {
+                type: 'auction.bids',
+                payload: { auctionId, bids },
+              });
+            }
+          } catch (err) {
+            send(ws, {
+              type: 'auction.ack',
+              payload: { error: 'invalid_auction' },
             });
           }
           return;

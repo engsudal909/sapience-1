@@ -38,6 +38,13 @@ export function upsertAuction(auction: AuctionRequestPayload): string {
   const auctionId = idHash;
   const ttl = 60_000; // default 60s
   const deadlineMs = Date.now() + Math.max(5_000, Math.min(ttl, 5 * 60_000));
+  const existing = auctions.get(auctionId);
+  if (existing) {
+    // Do not overwrite existing bids or payload; just refresh deadline (extend)
+    existing.deadlineMs = Math.max(existing.deadlineMs, deadlineMs);
+    auctions.set(auctionId, existing);
+    return auctionId;
+  }
   auctions.set(auctionId, { auction, bids: [], deadlineMs });
   return auctionId;
 }
