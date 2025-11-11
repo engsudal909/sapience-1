@@ -65,6 +65,7 @@ function jsonStableStringify(value: unknown) {
 export function useAuctionStart() {
   const [auctionId, setAuctionId] = useState<string | null>(null);
   const [bids, setBids] = useState<QuoteBid[]>([]);
+  const [auctionError, setAuctionError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inflightRef = useRef<string>('');
   const { apiBaseUrl } = useSettings();
@@ -99,9 +100,17 @@ export function useAuctionStart() {
       try {
         const msg = JSON.parse(evt.data as string);
         if (msg?.type === 'auction.ack') {
-          const newId = msg.payload?.auctionId || null;
-          latestAuctionIdRef.current = newId;
-          setAuctionId(newId);
+          const err: string | undefined = msg.payload?.error;
+          if (err) {
+            latestAuctionIdRef.current = null;
+            setAuctionId(null);
+            setAuctionError(String(err));
+          } else {
+            const newId = msg.payload?.auctionId || null;
+            latestAuctionIdRef.current = newId;
+            setAuctionId(newId);
+            setAuctionError(null);
+          }
           isAwaitingAckRef.current = false;
         } else if (msg?.type === 'auction.bids') {
           const rawBids = Array.isArray(msg.payload?.bids)
@@ -182,6 +191,7 @@ export function useAuctionStart() {
             inflightRef.current = key;
             ws.send(JSON.stringify(payload));
             setAuctionId(null); // Will be set when we receive auction.ack
+            setAuctionError(null);
             setBids([]);
             lastAuctionRef.current = params;
             setCurrentAuctionParams(params);
@@ -285,6 +295,7 @@ export function useAuctionStart() {
   return {
     auctionId,
     bids,
+    auctionError,
     requestQuotes,
     acceptBid,
     notifyOrderCreated,

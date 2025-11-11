@@ -217,7 +217,7 @@ function start() {
         // Decode first prediction blob to extract conditionIds and yes/no
         try {
           const arr = Array.isArray(auction.predictions) ? (auction.predictions as any[]) : [];
-          if (arr.length > 0 && arr[0]?.predictedOutcomes) {
+          if (arr.length > 0 && arr[0]?.predictedOutcome) {
             const decodedUnknown = decodeAbiParameters(
               [
                 {
@@ -228,7 +228,7 @@ function start() {
                   ],
                 },
               ] as const,
-              arr[0].predictedOutcomes as `0x${string}`
+              arr[0].predictedOutcome as `0x${string}`
             ) as unknown;
             const decodedArr = Array.isArray(decodedUnknown) ? (decodedUnknown as any)[0] : [];
             const legs = (decodedArr || []) as { marketId: `0x${string}`; prediction: boolean }[];
@@ -270,7 +270,7 @@ function start() {
             wager: auction.wager as string,
             predictions: (auction.predictions as any[] || []).map((p: any) => ({
               resolverContract: p.resolverContract as Address,
-              predictedOutcomes: p.predictedOutcomes as `0x${string}`,
+              predictedOutcome: p.predictedOutcome as `0x${string}`,
             })),
           },
           makerWager,

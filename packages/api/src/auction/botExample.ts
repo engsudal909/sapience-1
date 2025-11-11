@@ -145,7 +145,7 @@ ws.on('message', async (data: RawData) => {
                       resolverContract: getAddress(
                         p.resolverContract as `0x${string}`
                       ),
-                      predictedOutcomes: p.predictedOutcomes as Hex,
+                      predictedOutcome: p.predictedOutcome as Hex,
                     })
                   ),
                 },

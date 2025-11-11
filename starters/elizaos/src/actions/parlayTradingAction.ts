@@ -206,7 +206,7 @@ async function startParlayAuction({
 
         const { UMA_RESOLVER, MARKET_CONTRACT } = getContractAddresses();
         const predictedOutcomesArr = await encodeParlayOutcomes(markets, predictions);
-        const predictedOutcomes = predictedOutcomesArr[0] || "0x";
+        const predictedOutcome = predictedOutcomesArr[0] || "0x";
 
         const chainId = parseInt(process.env.CHAIN_ID || "42161");
 
@@ -217,7 +217,7 @@ async function startParlayAuction({
             wager: wagerAmount,
             predictions: [{
               resolverContract: UMA_RESOLVER,
-              predictedOutcomes,
+              predictedOutcome,
             }],
             takerNonce: contractNonce,
             chainId: chainId,
@@ -241,6 +241,12 @@ async function startParlayAuction({
           }
 
           if (message.type === "auction.ack") {
+            const ackError: string | undefined = message?.payload?.error;
+            if (ackError) {
+              elizaLogger.error(`[ParlayTrading] Auction start rejected: ${ackError}`);
+              resolveOnce({ success: false, error: ackError });
+              return;
+            }
             auctionId = message.payload?.auctionId;
             elizaLogger.info(`[ParlayTrading] Auction acknowledged with ID: ${auctionId}`);
             

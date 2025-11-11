@@ -43,7 +43,7 @@ export function buildAuctionStartPayload(
 ): {
   predictions: {
     resolverContract: `0x${string}`;
-    predictedOutcomes: `0x${string}`;
+    predictedOutcome: `0x${string}`;
   }[];
 } {
   // Resolve contracts
@@ -58,7 +58,7 @@ export function buildAuctionStartPayload(
   const predictions = [
     {
       resolverContract,
-      predictedOutcomes: encoded,
+      predictedOutcome: encoded,
     },
   ];
 

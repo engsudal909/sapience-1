@@ -12,21 +12,21 @@ import {
 export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
   predictions: {
     resolverContract: string;
-    predictedOutcomes: string;
+    predictedOutcome: string;
   }[];
   uniqueResolverContracts: Set<string>;
   predictionsHash: `0x${string}`;
 } {
   const predictions = (auction?.predictions ?? []).map((p) => ({
     resolverContract: (p?.resolverContract ?? '').toLowerCase(),
-    predictedOutcomes: String(p?.predictedOutcomes ?? ''),
+    predictedOutcome: String(p?.predictedOutcome ?? ''),
   }));
-  // Canonical order: (resolver, predictedOutcomes)
+  // Canonical order: (resolver, predictedOutcome)
   const sorted = [...predictions].sort((a, b) => {
     if (a.resolverContract !== b.resolverContract)
       return a.resolverContract < b.resolverContract ? -1 : 1;
-    if (a.predictedOutcomes !== b.predictedOutcomes)
-      return a.predictedOutcomes < b.predictedOutcomes ? -1 : 1;
+    if (a.predictedOutcome !== b.predictedOutcome)
+      return a.predictedOutcome < b.predictedOutcome ? -1 : 1;
     return 0;
   });
   const encoded = encodeAbiParameters(
@@ -35,14 +35,14 @@ export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
         type: 'tuple[]',
         components: [
           { name: 'resolverContract', type: 'address' },
-          { name: 'predictedOutcomes', type: 'bytes' },
+          { name: 'predictedOutcome', type: 'bytes' },
         ],
       },
     ],
     [
       sorted.map((p) => ({
         resolverContract: p.resolverContract as `0x${string}`,
-        predictedOutcomes: p.predictedOutcomes as `0x${string}`,
+        predictedOutcome: p.predictedOutcome as `0x${string}`,
       })),
     ]
   );
@@ -84,7 +84,7 @@ export function createMintParlayRequestData(
 
   return {
     taker: taker,
-    predictedOutcomes: [predictions[0].predictedOutcomes],
+    predictedOutcomes: [predictions[0].predictedOutcome],
     resolver: predictions[0].resolverContract,
     wager: auction.wager,
     takerCollateral: takerCollateral,
@@ -122,8 +122,8 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
   for (const p of predictions) {
     if (!p.resolverContract)
       return { valid: false, error: 'Missing resolverContract' };
-    if (!p.predictedOutcomes || typeof p.predictedOutcomes !== 'string') {
-      return { valid: false, error: 'Invalid predictedOutcomes' };
+    if (!p.predictedOutcome || typeof p.predictedOutcome !== 'string') {
+      return { valid: false, error: 'Invalid predictedOutcome' };
     }
     // Address format checks
     if (!/^0x[a-fA-F0-9]{40}$/.test(p.resolverContract)) {

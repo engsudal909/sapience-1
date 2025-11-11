@@ -4,7 +4,7 @@ export interface AuctionRequestPayload {
   wager: string; // wei string (single total wager across all predictions)
   predictions: {
     resolverContract: string; // resolver contract for market validation
-    predictedOutcomes: string; // encoded outcomes blob this resolver understands
+    predictedOutcome: string; // encoded outcomes blob this resolver understands
   }[]; // canonical shape (array of length >= 1; single-prediction is an array of one)
   taker: string; // EOA address of the taker initiating the auction
   takerNonce: number; // nonce for the taker

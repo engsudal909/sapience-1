@@ -19,7 +19,7 @@ Starts a new auction to receive bids from makers.
     predictions: [                    // Canonical predictions array (array of one for single-prediction)
       {
         resolverContract: string,     // Resolver for this prediction (0x...)
-        predictedOutcomes: string     // Encoded bytes understood by resolver
+        predictedOutcome: string      // Encoded bytes understood by resolver
       }
     ],
     takerNonce: number,               // Nonce for taker-side binding/deduplication
@@ -37,10 +37,15 @@ Confirms receipt of an Auction start and automatically subscribes the maker to a
 {
   type: 'auction.ack',
   payload: {
-    auctionId: string
+    auctionId?: string,
+    error?: string
   }
 }
 ```
+
+Note: The `auctionId` is a deterministic hash derived from
+`chainId`, `marketContract`, `wager`, `taker`, `takerNonce`, and an
+order‑invariant `predictionsHash`.
 
 ### 3. auction.started (Broadcast)
 
@@ -56,7 +61,7 @@ Broadcasts new Auction starts to all connected makers.
     predictions: [                    // Canonical predictions array
       {
         resolverContract: string,
-        predictedOutcomes: string
+        predictedOutcome: string
       }
     ],
     takerNonce: number,
@@ -142,7 +147,7 @@ The UI presents the best available bid that hasn't expired yet. The best bid is 
 
 - Wager must be positive
 - At least one prediction required (array length ≥ 1)
-- Each prediction must include resolverContract and non-empty predictedOutcomes
+- Each prediction must include resolverContract and non-empty predictedOutcome
 - Taker address must be provided and a valid `0x` address
 - A single resolverContract across all predictions is required today; otherwise `CROSS_VERIFIER_UNSUPPORTED` is returned.
   - EIP-712 verifyingContract for maker bids is the `marketContract` address
@@ -182,7 +187,7 @@ ws.send(
       predictions: [
         {
           resolverContract: '0xResolver...',
-          predictedOutcomes: '0xabc...',
+          predictedOutcome: '0xabc...',
         },
       ],
       takerNonce: 1,
@@ -215,7 +220,7 @@ ws.send(
 
 After receiving and selecting a bid, the maker constructs the `MintParlayRequestData` struct using:
 
-- The Auction data (predictedOutcomes, resolver, makerCollateral from wager)
+- The Auction data (predictedOutcome, resolver, makerCollateral from wager)
 - The bid data (maker, makerWager, makerSignature)
 - Their own maker signature and refCode
 

@@ -40,9 +40,8 @@ type Props = {
   auctionId: string | null;
   makerWager: string | null;
   maker: string | null;
-  resolver: string | null;
-  predictedOutcomes: string[];
-  makerNonce: number | null;
+  resolverContract: string | null;
+  encodedPredictedOutcomes?: string | null;
   collateralAssetTicker: string;
   onTogglePin?: (auctionId: string | null) => void;
   isPinned?: boolean;
@@ -54,9 +53,8 @@ const AuctionRequestRow: React.FC<Props> = ({
   auctionId,
   makerWager,
   maker,
-  resolver,
-  predictedOutcomes,
-  makerNonce,
+  resolverContract,
+  encodedPredictedOutcomes,
   collateralAssetTicker,
   onTogglePin,
   isPinned,
@@ -138,10 +136,10 @@ const AuctionRequestRow: React.FC<Props> = ({
       address: PREDICTION_MARKET_ADDRESS,
       abi: predictionMarketAbi,
       functionName: 'nonces',
-      args: typeof maker === 'string' ? [maker as `0x${string}`] : undefined,
+      args: typeof address === 'string' ? [address] : undefined,
       chainId: chainId,
       query: {
-        enabled: Boolean(PREDICTION_MARKET_ADDRESS && maker),
+        enabled: Boolean(PREDICTION_MARKET_ADDRESS && address),
       },
     });
   const [isExpanded, setIsExpanded] = useState(false);
@@ -192,10 +190,8 @@ const AuctionRequestRow: React.FC<Props> = ({
   // Decode predicted outcomes to extract condition IDs
   const conditionIds = useMemo(() => {
     try {
-      const arr = Array.isArray(predictedOutcomes)
-        ? (predictedOutcomes as `0x${string}`[])
-        : [];
-      if (arr.length === 0) return [] as string[];
+      const encoded = encodedPredictedOutcomes as `0x${string}` | undefined;
+      if (!encoded) return [] as string[];
       const decodedUnknown = decodeAbiParameters(
         [
           {
@@ -206,7 +202,7 @@ const AuctionRequestRow: React.FC<Props> = ({
             ],
           },
         ] as const,
-        arr[0]
+        encoded
       ) as unknown;
       const decodedArr = Array.isArray(decodedUnknown)
         ? (decodedUnknown as any)[0]
@@ -220,7 +216,7 @@ const AuctionRequestRow: React.FC<Props> = ({
     } catch {
       return [] as string[];
     }
-  }, [predictedOutcomes]);
+  }, [encodedPredictedOutcomes]);
 
   // Fetch conditions by IDs to get endTime values
   const { list: conditionEnds = [] } = useConditionsByIds(conditionIds);
@@ -299,35 +295,27 @@ const AuctionRequestRow: React.FC<Props> = ({
 
         // Ensure essential auction context (after allowance handling)
         const encodedPredicted =
-          Array.isArray(predictedOutcomes) && predictedOutcomes[0]
-            ? (predictedOutcomes[0] as `0x${string}`)
-            : undefined;
-        const makerAddr = typeof maker === 'string' ? maker : undefined;
+          (encodedPredictedOutcomes as `0x${string}` | undefined) || undefined;
         const resolverAddr =
-          typeof resolver === 'string' ? resolver : undefined;
+          typeof resolverContract === 'string' ? resolverContract : undefined;
         // Resolve maker nonce: prefer feed-provided, fall back to on-chain
-        let makerNonceVal: number | undefined =
-          typeof makerNonce === 'number' ? makerNonce : undefined;
-        if (makerNonceVal === undefined) {
-          try {
-            const fresh = await Promise.resolve(refetchMakerNonce?.());
-            const raw = fresh?.data ?? makerNonceOnChain;
-            const n = Number(raw);
-            if (Number.isFinite(n)) makerNonceVal = n;
-          } catch {
-            /* noop */
-          }
+        let makerNonceVal: number | undefined = undefined;
+        try {
+          const fresh = await Promise.resolve(refetchMakerNonce?.());
+          const raw = fresh?.data ?? makerNonceOnChain;
+          const n = Number(raw);
+          if (Number.isFinite(n)) makerNonceVal = n;
+        } catch {
+          /* noop */
         }
         if (
           !encodedPredicted ||
-          !makerAddr ||
           !resolverAddr ||
           makerNonceVal === undefined ||
           makerWagerWei <= 0n
         ) {
           const missing: string[] = [];
           if (!encodedPredicted) missing.push('predicted outcomes');
-          if (!makerAddr) missing.push('maker');
           if (!resolverAddr) missing.push('resolver');
           if (makerNonceVal === undefined) missing.push('maker nonce');
           if (makerWagerWei <= 0n) missing.push('maker wager');
@@ -481,11 +469,10 @@ const AuctionRequestRow: React.FC<Props> = ({
     },
     [
       auctionId,
-      predictedOutcomes,
+      encodedPredictedOutcomes,
       maker,
-      resolver,
+      resolverContract,
       makerWager,
-      makerNonce,
       address,
       connectOrCreateWallet,
       wsUrl,
@@ -594,7 +581,11 @@ const AuctionRequestRow: React.FC<Props> = ({
               maxEndTimeSec={maxEndTimeSec ?? undefined}
               onSubmit={submitBid}
               maker={maker}
-              predictedOutcomes={predictedOutcomes}
+              predictedOutcomes={
+                [encodedPredictedOutcomes || undefined].filter(
+                  Boolean
+                ) as string[]
+              }
             />
           </motion.div>
         ) : null}

@@ -87,10 +87,9 @@ const TerminalPageContent: React.FC = () => {
         )}`;
         const cached = decodeCacheRef.current.get(cacheKey);
         if (cached) return cached;
-        const arr = Array.isArray(m?.data?.predictedOutcomes)
-          ? (m.data.predictedOutcomes as string[])
-          : [];
-        const encoded = arr[0] as `0x${string}` | undefined;
+        const encoded =
+          (m?.data?.predictions?.[0]?.predictedOutcome as `0x${string}`) ||
+          undefined;
         if (!encoded) return [];
         const decodedUnknown = decodeAbiParameters(
           [
@@ -152,10 +151,10 @@ const TerminalPageContent: React.FC = () => {
     try {
       for (const m of auctionAndBidMessages) {
         if (m.type !== 'auction.started') continue;
-        const arr = Array.isArray((m as any)?.data?.predictedOutcomes)
-          ? ((m as any).data.predictedOutcomes as unknown as string[])
-          : [];
-        if (arr.length === 0) continue;
+        const encoded =
+          ((m as any)?.data?.predictions?.[0]
+            ?.predictedOutcome as `0x${string}`) || undefined;
+        if (!encoded) continue;
         try {
           const decodedUnknown = decodeAbiParameters(
             [
@@ -167,7 +166,7 @@ const TerminalPageContent: React.FC = () => {
                 ],
               },
             ] as const,
-            arr[0] as `0x${string}`
+            encoded
           ) as unknown;
           const decodedArr = Array.isArray(decodedUnknown)
             ? ((decodedUnknown as any)[0] as Array<{ marketId: string }>)
@@ -321,12 +320,9 @@ const TerminalPageContent: React.FC = () => {
 
       // If we can't decode any legs, show bytecode payload only if request errored or completed
       if (!decoded || decoded.length === 0) {
-        const encodedArr: string[] = Array.isArray(
-          (m as any)?.data?.predictedOutcomes
-        )
-          ? ((m as any).data.predictedOutcomes as string[])
-          : [];
-        const encoded = encodedArr[0];
+        const encoded =
+          ((m as any)?.data?.predictions?.[0]
+            ?.predictedOutcome as `0x${string}`) || undefined;
         if (encoded && (conditionsError || !areConditionsLoading)) {
           return (
             <span className="text-xs font-mono text-brand-white/80 break-all">
@@ -343,12 +339,9 @@ const TerminalPageContent: React.FC = () => {
       );
       if (!allResolved) {
         // If the query errored, fallback to bytecode to at least show something
-        const encodedArr: string[] = Array.isArray(
-          (m as any)?.data?.predictedOutcomes
-        )
-          ? ((m as any).data.predictedOutcomes as string[])
-          : [];
-        const encoded = encodedArr[0];
+        const encoded =
+          ((m as any)?.data?.predictions?.[0]
+            ?.predictedOutcome as `0x${string}`) || undefined;
         if (conditionsError && encoded) {
           return (
             <span className="text-xs font-mono text-brand-white/80 break-all">
@@ -818,18 +811,16 @@ const TerminalPageContent: React.FC = () => {
                                 predictionsContent={renderPredictionsCell(m)}
                                 auctionId={auctionId}
                                 makerWager={String(m?.data?.wager ?? '0')}
-                                maker={m?.data?.maker || null}
-                                resolver={m?.data?.resolver || null}
-                                predictedOutcomes={
-                                  Array.isArray(m?.data?.predictedOutcomes)
-                                    ? (m?.data?.predictedOutcomes as string[])
-                                    : []
+                                maker={m?.data?.taker || null}
+                                resolverContract={
+                                  m?.data?.predictions?.[0]?.resolverContract ||
+                                  null
                                 }
-                                makerNonce={(() => {
-                                  const raw = m?.data?.makerNonce;
-                                  const n = Number(raw);
-                                  return Number.isFinite(n) ? n : null;
-                                })()}
+                                encodedPredictedOutcomes={
+                                  (m?.data?.predictions?.[0]
+                                    ?.predictedOutcome as `0x${string}`) ||
+                                  undefined
+                                }
                                 collateralAssetTicker={collateralAssetTicker}
                                 onTogglePin={togglePin}
                                 isPinned={true}
@@ -870,18 +861,16 @@ const TerminalPageContent: React.FC = () => {
                                   predictionsContent={renderPredictionsCell(m)}
                                   auctionId={auctionId}
                                   makerWager={String(m?.data?.wager ?? '0')}
-                                  maker={m?.data?.maker || null}
-                                  resolver={m?.data?.resolver || null}
-                                  predictedOutcomes={
-                                    Array.isArray(m?.data?.predictedOutcomes)
-                                      ? (m?.data?.predictedOutcomes as string[])
-                                      : []
+                                  maker={m?.data?.taker || null}
+                                  resolverContract={
+                                    m?.data?.predictions?.[0]
+                                      ?.resolverContract || null
                                   }
-                                  makerNonce={(() => {
-                                    const raw = m?.data?.makerNonce;
-                                    const n = Number(raw);
-                                    return Number.isFinite(n) ? n : null;
-                                  })()}
+                                  encodedPredictedOutcomes={
+                                    (m?.data?.predictions?.[0]
+                                      ?.predictedOutcome as `0x${string}`) ||
+                                    undefined
+                                  }
                                   collateralAssetTicker={collateralAssetTicker}
                                   onTogglePin={togglePin}
                                   isPinned={false}

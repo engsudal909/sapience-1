@@ -75,7 +75,7 @@ pnpm dev:published
 - Configuration & defaults: resolves `RELAYER_WS_URL`, `RPC_URL`, and contract addresses from the SDK
 - One‑time approval: checks allowance and sends `approve(MAX)` if needed
 - WebSocket handlers: reacts to `auction.started`, `bid.ack`, and `auction.bids`
-- Market metadata: decodes `auction.predictions[0].predictedOutcomes` and fetches condition titles via GraphQL for readable logs
+- Market metadata: decodes `auction.predictions[0].predictedOutcome` and fetches condition titles via GraphQL for readable logs
 - Signing: uses helpers to build and sign the EIP‑712 maker bid payload with domain `{ chainId: auction.chainId, verifyingContract: uniqueVerifierFromPredictions }` and inner hash `{ predictionsHash, makerWager, makerDeadline }`
 - Strategy knobs: `BID_AMOUNT`, `MIN_TAKER_WAGER`, `DEADLINE_SECONDS`
 
@@ -107,7 +107,7 @@ ws.send(JSON.stringify({
 
 - Adjust `MIN_TAKER_WAGER` to target larger auctions only
 - Change `BID_AMOUNT` sizing or derive it from `auction.wager`
-- Filter by topic or condition group by inspecting decoded `predictedOutcomes`
+- Filter by topic or condition group by inspecting decoded `predictedOutcome`
 - Add risk checks: time windows, max exposure, per‑maker rate limits
 
 ## Safety and risks
