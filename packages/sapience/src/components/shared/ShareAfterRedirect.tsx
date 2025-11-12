@@ -5,6 +5,7 @@ import type { Address } from 'viem';
 import { formatUnits } from 'viem';
 
 import type { Position as PositionType } from '@sapience/sdk/types/graphql';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 import OgShareDialogBase from '~/components/shared/OgShareDialog';
 import { usePositions } from '~/hooks/graphql/usePositions';
 import {
@@ -13,6 +14,7 @@ import {
 } from '~/hooks/graphql/useForecasts';
 import { useUserParlays, type Parlay } from '~/hooks/graphql/useUserParlays';
 import { SCHEMA_UID } from '~/lib/constants/eas';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 type Anchor = 'trades' | 'lp' | 'forecasts' | 'parlays';
 
@@ -53,6 +55,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
   const [open, setOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const clearedRef = useRef(false);
+  const chainId = useChainIdFromLocalStorage();
 
   const lowerAddress = String(address).toLowerCase();
 
@@ -198,7 +201,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
           }
 
           const collateralDecimals = 18;
-          const collateralSymbol = 'testUSDe';
+          const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
           if (parlay?.makerCollateral) {
             const wager = parseFloat(
               formatUnits(BigInt(parlay.makerCollateral), collateralDecimals)
@@ -223,7 +226,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
       }
       return null;
     },
-    [lowerAddress]
+    [lowerAddress, chainId]
   );
 
   // Main effect: attempt to resolve and show
