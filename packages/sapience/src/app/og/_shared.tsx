@@ -321,6 +321,7 @@ export function StatsRow({
   scale = 1,
   showReturn = true,
   forceToWinGreen = false,
+  settledWon = false,
 }: {
   wager?: string;
   payout?: string;
@@ -329,6 +330,7 @@ export function StatsRow({
   scale?: number;
   showReturn?: boolean;
   forceToWinGreen?: boolean;
+  settledWon?: boolean;
 }) {
   const parseNumber = (val?: string | null): number => {
     if (!val) return 0;
@@ -418,7 +420,7 @@ export function StatsRow({
         </div>
         <div style={colStyle}>
           <div style={labelWrapperStyle}>
-            <FooterLabel scale={scale}>To Win</FooterLabel>
+            <FooterLabel scale={scale}>{settledWon ? 'Won' : 'To Win'}</FooterLabel>
           </div>
           <div
             style={{
@@ -513,6 +515,7 @@ export function Footer({
   scale = 1,
   showReturn = true,
   forceToWinGreen = false,
+  settledWon = false,
 }: {
   addr: string;
   avatarUrl?: string | null;
@@ -523,6 +526,7 @@ export function Footer({
   scale?: number;
   showReturn?: boolean;
   forceToWinGreen?: boolean;
+  settledWon?: boolean;
 }) {
   return (
     <div
@@ -556,6 +560,7 @@ export function Footer({
           scale={scale}
           showReturn={showReturn}
           forceToWinGreen={forceToWinGreen}
+          settledWon={settledWon}
         />
       </div>
     </div>

@@ -41,6 +41,9 @@ export async function GET(req: Request) {
     const isAntiParlay = ['1', 'true', 'yes', 'anti', 'against'].includes(
       antiParam
     );
+    // SettledWon flag to show "Won" instead of "To Win" (parlay has been settled and won)
+    const settledWonParam = normalizeText(searchParams.get('settledWon'), 16).toLowerCase();
+    const isSettledWon = ['1', 'true', 'yes', 'settledwon'].includes(settledWonParam);
 
     // Validate and normalize Ethereum address (optional)
     const rawAddr = (searchParams.get('addr') || '').toString();
@@ -190,6 +193,7 @@ export async function GET(req: Request) {
               scale={scale}
               showReturn={false}
               forceToWinGreen={true}
+              settledWon={isSettledWon}
             />
           </div>
         </div>

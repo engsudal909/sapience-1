@@ -219,6 +219,18 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
 
           qp.set('symbol', collateralSymbol);
 
+          // Check if parlay is settled and won: status is settled/consolidated and user won
+          const isActive = parlay.status === 'active';
+          const userIsMaker = parlay.maker?.toLowerCase() === lowerAddress;
+          const userIsTaker = parlay.taker?.toLowerCase() === lowerAddress;
+          const userWon =
+            !isActive &&
+            ((userIsMaker && parlay.makerWon === true) ||
+              (userIsTaker && parlay.makerWon === false));
+          if (userWon) {
+            qp.set('settledWon', '1');
+          }
+
           return `/og/parlay?${qp.toString()}`;
         }
       } catch {
