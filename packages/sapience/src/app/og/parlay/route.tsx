@@ -35,7 +35,12 @@ export async function GET(req: Request) {
     const payoutRaw = normalizeText(searchParams.get('payout'), 32);
     const wager = addThousandsSeparators(wagerRaw);
     const payout = addThousandsSeparators(payoutRaw);
-    const symbol = normalizeText(searchParams.get('symbol'), 16);
+    const symbolRaw = searchParams.get('symbol');
+    const symbol = normalizeText(symbolRaw, 16);
+    console.log('[OG Parlay Route] Received params:');
+    console.log('  - symbol from query params (raw):', symbolRaw);
+    console.log('  - normalized symbol:', symbol);
+    console.log('  - all query params:', Object.fromEntries(searchParams.entries()));
     // Anti-parlay flag to change label to "Prediction Against"
     const antiParam = normalizeText(searchParams.get('anti'), 16).toLowerCase();
     const isAntiParlay = ['1', 'true', 'yes', 'anti', 'against'].includes(

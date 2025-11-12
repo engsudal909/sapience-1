@@ -14,7 +14,7 @@ import {
 } from '~/hooks/graphql/useForecasts';
 import { useUserParlays, type Parlay } from '~/hooks/graphql/useUserParlays';
 import { SCHEMA_UID } from '~/lib/constants/eas';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { getChainIdFromLocalStorage } from '~/components/admin/utils';
 
 type Anchor = 'trades' | 'lp' | 'forecasts' | 'parlays';
 
@@ -55,7 +55,6 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
   const [open, setOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const clearedRef = useRef(false);
-  const chainId = useChainIdFromLocalStorage();
 
   const lowerAddress = String(address).toLowerCase();
 
@@ -201,7 +200,15 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
           }
 
           const collateralDecimals = 18;
-          const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
+          // Read chainId directly from localStorage - the timer re-executes every second,
+          // so it will pick up changes without needing reactive updates
+          const currentChainId = getChainIdFromLocalStorage();
+          console.log('[ShareAfterRedirect] Building parlay OG URL:');
+          console.log('  - currentChainId from localStorage:', currentChainId);
+          console.log('  - COLLATERAL_SYMBOLS:', COLLATERAL_SYMBOLS);
+          console.log('  - COLLATERAL_SYMBOLS[currentChainId]:', COLLATERAL_SYMBOLS[currentChainId]);
+          const collateralSymbol = COLLATERAL_SYMBOLS[currentChainId] || 'testUSDe';
+          console.log('  - final collateralSymbol:', collateralSymbol);
           if (parlay?.makerCollateral) {
             const wager = parseFloat(
               formatUnits(BigInt(parlay.makerCollateral), collateralDecimals)
@@ -231,14 +238,16 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
             qp.set('settledWon', '1');
           }
 
-          return `/og/parlay?${qp.toString()}`;
+          const finalUrl = `/og/parlay?${qp.toString()}`;
+          console.log('  - final OG URL:', finalUrl);
+          return finalUrl;
         }
-      } catch {
+      } catch (_error) {
         // ignore
       }
       return null;
     },
-    [lowerAddress, chainId]
+    [lowerAddress]
   );
 
   // Main effect: attempt to resolve and show
@@ -418,9 +427,12 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
       }
 
       if (resolved) {
+        console.log('[ShareAfterRedirect] Timer found resolved entity:', intent.anchor);
         const src = toOgUrl(intent.anchor, resolved);
+        console.log('[ShareAfterRedirect] toOgUrl returned:', src);
         if (src) {
           clearInterval(timer);
+          console.log('[ShareAfterRedirect] Setting image source and opening dialog');
           setImageSrc(src);
           setOpen(true);
           clearIntent();

@@ -1347,7 +1347,7 @@ export default function UserParlaysTable({
             )
           )}
           payout={Number(formatEther(selectedParlay.totalPayoutWei || 0n))}
-          symbol="USDe"
+          symbol={collateralSymbol}
           owner={String(account)}
           imagePath="/og/parlay"
           extraParams={{

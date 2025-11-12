@@ -134,6 +134,7 @@ export function formatMoney(numStr: string): string {
 
 // Normalize currency symbols used on OG cards. If empty or USDe, fallback to testUSDe.
 export function normalizeSymbol(symbol?: string | null): string {
+  console.log('[normalizeSymbol] Symbol:', symbol);
   const s = (symbol || '').trim();
   if (!s) return 'testUSDe';
   if (s.toLowerCase() === 'usde') return 'testUSDe';
@@ -368,6 +369,12 @@ export function StatsRow({
     flex: 1,
   };
   const symbolText = normalizeSymbol(_symbol);
+  if (typeof window !== 'undefined') {
+    console.log('[StatsRow] Symbol processing:', { 
+      _symbol, 
+      symbolText
+    });
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div
@@ -528,6 +535,9 @@ export function Footer({
   forceToWinGreen?: boolean;
   settledWon?: boolean;
 }) {
+  if (typeof window !== 'undefined') {
+    console.log('[Footer] Passing to StatsRow:', { symbol, wager, payout, settledWon });
+  }
   return (
     <div
       style={{
