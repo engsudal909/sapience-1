@@ -148,7 +148,11 @@ function MetricBadge({
   );
 }
 
-function useProfileBalance(address?: string, chainId?: number, collateralSymbol?: string) {
+function useProfileBalance(
+  address?: string,
+  chainId?: number,
+  collateralSymbol?: string
+) {
   const collateralAssetAddress = DEFAULT_COLLATERAL_ASSET;
   const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
   const effectiveSymbol = collateralSymbol ?? 'testUSDe';
@@ -178,7 +182,8 @@ function useProfileBalance(address?: string, chainId?: number, collateralSymbol?
         return { display: '0', tooltip: `0 ${effectiveSymbol}` };
       const human = formatUnits(balance as unknown as bigint, dec);
       const num = Number(human);
-      if (Number.isNaN(num)) return { display: '0', tooltip: `0 ${effectiveSymbol}` };
+      if (Number.isNaN(num))
+        return { display: '0', tooltip: `0 ${effectiveSymbol}` };
       return {
         display: `${formatFiveSigFigs(num)}`,
         tooltip: `${num.toLocaleString()} ${effectiveSymbol}`,

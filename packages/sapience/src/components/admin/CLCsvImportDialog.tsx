@@ -86,7 +86,8 @@ const CLCsvImportDialog = ({ open, onOpenChange }: Props) => {
   const { postJson } = useAdminApi();
   const { address: connectedAddress } = useAccount();
   const currentChainId = useChainId();
-  const defaultQuoteTokenName = COLLATERAL_SYMBOLS[currentChainId] || 'testUSDe';
+  const defaultQuoteTokenName =
+    COLLATERAL_SYMBOLS[currentChainId] || 'testUSDe';
 
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
   const [rows, setRows] = useState<CsvRow[]>([]);

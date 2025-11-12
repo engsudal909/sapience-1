@@ -110,7 +110,10 @@ export function useVaultShareQuoteWs(
               raw: p,
             };
             // Store as last valid quote if it's not '0'
-            if (p.vaultCollateralPerShare && p.vaultCollateralPerShare !== '0') {
+            if (
+              p.vaultCollateralPerShare &&
+              p.vaultCollateralPerShare !== '0'
+            ) {
               lastValidQuoteRef.current = newQuote;
             }
             setQuote(newQuote);

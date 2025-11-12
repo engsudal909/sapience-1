@@ -260,7 +260,8 @@ const createMarketFromPrevious = (
 const CreateMarketGroupForm = () => {
   const { address: connectedAddress } = useAccount();
   const currentChainId = useChainId();
-  const defaultQuoteTokenName = COLLATERAL_SYMBOLS[currentChainId] || 'testUSDe';
+  const defaultQuoteTokenName =
+    COLLATERAL_SYMBOLS[currentChainId] || 'testUSDe';
   const { toast } = useToast();
   // Remove unused queryClient
   const { data: resources } = useResources();

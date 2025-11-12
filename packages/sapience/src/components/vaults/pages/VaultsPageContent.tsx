@@ -305,7 +305,9 @@ const VaultsPageContent = () => {
                 className="text-lg bg-transparent border-none p-0 h-auto font-normal placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <div className="flex items-center gap-2">
-                <span className="text-lg text-muted-foreground">{collateralSymbol}</span>
+                <span className="text-lg text-muted-foreground">
+                  {collateralSymbol}
+                </span>
               </div>
             </div>
           </div>
@@ -340,7 +342,8 @@ const VaultsPageContent = () => {
           ) : (
             (minDeposit ?? 0n) > 0n && (
               <div className="sm:text-right">
-                Minimum Deposit: {formatAssetAmount(minDeposit ?? 0n)} {collateralSymbol}
+                Minimum Deposit: {formatAssetAmount(minDeposit ?? 0n)}{' '}
+                {collateralSymbol}
               </div>
             )
           )}
