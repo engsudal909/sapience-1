@@ -22,8 +22,6 @@ import { getPublicClientForChainId } from '~/lib/utils/util';
 // Ethereal chain configuration
 const CHAIN_ID_ETHEREAL = 5064014;
 const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
-
-// WUSDe ABI for wrapping/unwrapping operations
 const WUSDE_ABI = parseAbi([
   'function deposit() payable',
   'function withdraw(uint256 amount)',
@@ -214,7 +212,7 @@ export function useSapienceWriteContract({
 
   // Helper to detect if this is a withdrawal operation that should trigger unwrapping
   const shouldAutoUnwrap = useCallback((functionName: string) => {
-    if (!isEtherealChain(chainId || 0)) {
+    if (!chainId || !isEtherealChain(chainId)) {
       return false;
     }
     
@@ -459,6 +457,7 @@ export function useSapienceWriteContract({
             functionName,
             args: fnArgs,
           });
+          const mainTxValue = isEtherealChain(_chainId) ? '0x0' as any : (value ?? '0x0');
           callsToExecute.push({
             to: address,
             data: calldata,
@@ -545,6 +544,7 @@ export function useSapienceWriteContract({
               
               // Need to wrap USDe first, then execute main transaction
               const wrapTx = createWrapTransaction(BigInt(value));
+              
               const mainCalldata = encodeFunctionData({
                 abi: (params as any).abi,
                 functionName: (params as any).functionName,
@@ -552,7 +552,7 @@ export function useSapienceWriteContract({
               });
               
               const calls = [
-                wrapTx,
+                wrapTx!,
                 {
                   to: (params as any).address as `0x${string}`,
                   data: mainCalldata,

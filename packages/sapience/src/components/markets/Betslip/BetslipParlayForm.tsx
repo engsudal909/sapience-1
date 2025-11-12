@@ -215,7 +215,7 @@ export default function BetslipParlayForm({
         marketId: s.conditionId || '0',
         prediction: !!s.prediction,
       }));
-      const payload = buildAuctionStartPayload(outcomes);
+      const payload = buildAuctionStartPayload(outcomes, chainId);
       const params: AuctionParams = {
         wager: wagerWei,
         resolver: payload.resolver,

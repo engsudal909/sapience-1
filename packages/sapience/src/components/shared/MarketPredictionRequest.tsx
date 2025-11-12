@@ -161,7 +161,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     try {
       const wagerWei = parseUnits('1', 18).toString();
       setLastMakerWagerWei(wagerWei);
-      const payload = buildAuctionStartPayload(effectiveOutcomes);
+      const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
       const send = () => {
         requestQuotes({
           wager: wagerWei,
@@ -201,7 +201,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       } else {
         const wagerWei = parseUnits('1', 18).toString();
         setLastMakerWagerWei(wagerWei);
-        const payload = buildAuctionStartPayload(effectiveOutcomes);
+        const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
         const send = () => {
           requestQuotes({
             wager: wagerWei,
