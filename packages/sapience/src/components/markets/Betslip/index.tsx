@@ -99,8 +99,9 @@ const Betslip = ({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const chainId = useChainIdFromLocalStorage();
-  const parlayChainId = chainId || betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
-  
+  const parlayChainId =
+    chainId || betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+
   const {
     auctionId,
     bids,

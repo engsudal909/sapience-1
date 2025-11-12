@@ -96,7 +96,11 @@ export function useSubmitParlay({
   // Prepare calls for sendCalls
   const prepareCalls = useCallback(
     (mintData: MintPredictionRequestData) => {
-      const callsArray: { to: `0x${string}`; data: `0x${string}`; value?: bigint }[] = [];
+      const callsArray: {
+        to: `0x${string}`;
+        data: `0x${string}`;
+        value?: bigint;
+      }[] = [];
 
       // Parse collateral amounts
       const makerCollateralWei = BigInt(mintData.makerCollateral);
@@ -107,17 +111,16 @@ export function useSubmitParlay({
         throw new Error('Invalid collateral amounts');
       }
 
-   
       if (chainId === CHAIN_ID_ETHEREAL) {
         const wrapCalldata = encodeFunctionData({
           abi: WUSDE_ABI,
           functionName: 'deposit',
         });
-        
+
         callsArray.push({
           to: WUSDE_ADDRESS as `0x${string}`,
           data: wrapCalldata,
-          value: makerCollateralWei, 
+          value: makerCollateralWei,
         });
       }
 

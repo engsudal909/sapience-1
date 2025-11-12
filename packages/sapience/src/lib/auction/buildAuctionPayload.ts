@@ -47,7 +47,8 @@ export function buildAuctionStartPayload(
   }
 
   const resolver: `0x${string}` =
-    resolverAddress || ('0x0000000000000000000000000000000000000000' as `0x${string}`);
+    resolverAddress ||
+    ('0x0000000000000000000000000000000000000000' as `0x${string}`);
 
   // Resolver expects a single bytes blob with abi.encode(PredictedOutcome[])
   const encoded = encodePredictedOutcomes(outcomes);
