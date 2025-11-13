@@ -49,7 +49,6 @@ contract PredictionMarketLZResolverUmaSide is
     mapping(bytes32 => bytes32) private marketIdToAssertionId; // marketId => UMA assertionId
     mapping(bytes32 => bytes32) private assertionIdToMarketId; // UMA assertionId => marketId
     mapping(bytes32 => bool) private marketResolvedToYes; // marketId => resolvedToYes
-    mapping(bytes32 => address) private marketAsserter; // marketId => asserter
 
     // No internal bond accounting; this contract expects bond tokens to be pre-funded via ERC20 transfers
 
@@ -168,7 +167,6 @@ contract PredictionMarketLZResolverUmaSide is
         marketIdToAssertionId[marketId] = umaAssertionId;
         assertionIdToMarketId[umaAssertionId] = marketId;
         marketResolvedToYes[marketId] = resolvedToYes;
-        marketAsserter[marketId] = msg.sender;
 
         emit MarketSubmittedToUMA(
             marketId,
@@ -216,7 +214,6 @@ contract PredictionMarketLZResolverUmaSide is
         delete marketIdToAssertionId[marketId];
         delete assertionIdToMarketId[assertionId];
         delete marketResolvedToYes[marketId];
-        delete marketAsserter[marketId];
     }
 
     function assertionDisputedCallback(bytes32 assertionId) external override {

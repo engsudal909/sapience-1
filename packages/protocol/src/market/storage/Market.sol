@@ -11,7 +11,7 @@ import "../libraries/Quote.sol";
 import "../external/univ3/LiquidityAmounts.sol";
 import { INonfungiblePositionManager } from "../interfaces/external/INonfungiblePositionManager.sol";
 import "./Debt.sol";
-import "./Errors.sol";
+import {Errors} from "./Errors.sol";
 import "./MarketGroup.sol";
 import { SafeCastI256, SafeCastU256 } from "@synthetixio/core-contracts/contracts/utils/SafeCast.sol";
 import { ISapienceStructs } from "../interfaces/ISapienceStructs.sol";

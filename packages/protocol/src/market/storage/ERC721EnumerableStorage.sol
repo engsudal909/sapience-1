@@ -3,7 +3,7 @@ pragma solidity >=0.8.11 <0.9.0;
 
 import "../interfaces/IERC721Enumerable.sol";
 import "./ERC721Storage.sol";
-import "./Errors.sol";
+import {Errors} from "./Errors.sol";
 
 library ERC721EnumerableStorage {
     using ERC721Storage for ERC721Storage.Data;
