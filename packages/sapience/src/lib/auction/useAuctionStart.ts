@@ -12,10 +12,8 @@ export interface PredictedOutcomeInput {
 
 export interface AuctionParams {
   wager: string; // wei string (total taker wager)
-  predictions: {
-    resolverContract: `0x${string}`;
-    predictedOutcomes: `0x${string}`;
-  }[];
+  predictedOutcomes: `0x${string}`[]; // Array of bytes strings that the resolver validates/understands
+  resolver: `0x${string}`; // contract address for market validation
   taker: `0x${string}`; // taker EOA address (auction starter)
   takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
@@ -170,7 +168,8 @@ export function useAuctionStart() {
         type: 'auction.start',
         payload: {
           wager: params.wager,
-          predictions: params.predictions,
+          predictedOutcomes: params.predictedOutcomes,
+          resolver: params.resolver,
           taker: params.taker,
           takerNonce: params.takerNonce,
           chainId: params.chainId,
@@ -264,15 +263,14 @@ export function useAuctionStart() {
       if (!auction) return null;
       try {
         const zeroBytes32 = `0x${'0'.repeat(64)}`;
-        const first = Array.isArray(auction.predictions)
-          ? auction.predictions[0]
-          : undefined;
-        const resolver = first?.resolverContract || '0x';
-        const predictedOutcomes = first?.predictedOutcomes || '0x';
-        if (!resolver || predictedOutcomes === '0x') return null;
+        const predictedOutcomes = Array.isArray(auction.predictedOutcomes)
+          ? auction.predictedOutcomes
+          : [];
+        const resolver = auction.resolver || '0x';
+        if (!resolver || predictedOutcomes.length === 0) return null;
 
         return {
-          encodedPredictedOutcomes: predictedOutcomes,
+          encodedPredictedOutcomes: predictedOutcomes[0],
           resolver,
           makerCollateral: args.selectedBid.makerWager,
           takerCollateral: auction.wager,

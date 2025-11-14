@@ -2,10 +2,8 @@ export type HexString = `0x${string}`;
 
 export interface AuctionRequestPayload {
   wager: string; // wei string (single total wager across all predictions)
-  predictions: {
-    resolverContract: string; // resolver contract for market validation
-    predictedOutcome: string; // encoded outcomes blob this resolver understands
-  }[]; // canonical shape (array of length >= 1; single-prediction is an array of one)
+  predictedOutcomes: string[]; // Array of bytes strings that the resolver validates/understands
+  resolver: string; // contract address for market validation
   taker: string; // EOA address of the taker initiating the auction
   takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
@@ -13,7 +11,7 @@ export interface AuctionRequestPayload {
 }
 
 export interface BidQuote {
-  takerDeadline: number; // unix seconds
+  makerDeadline: number; // unix seconds
 }
 
 export interface BidFillRawTx {

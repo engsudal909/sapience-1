@@ -16,12 +16,8 @@ Starts a new auction to receive bids from makers.
   payload: {
     taker: string,                    // Taker's EOA address (starts the auction)
     wager: string,                    // Taker's wager amount (wei)
-    predictions: [                    // Canonical predictions array (array of one for single-prediction)
-      {
-        resolverContract: string,     // Resolver for this prediction (0x...)
-        predictedOutcome: string      // Encoded bytes understood by resolver
-      }
-    ],
+    predictedOutcomes: string[],      // Array of bytes strings that the resolver validates/understands
+    resolver: string,                  // Contract address for market validation (0x...)
     takerNonce: number,               // Nonce for taker-side binding/deduplication
     chainId: number,                  // Chain ID where the market executes
     marketContract: string            // Primary market entrypoint for execution
@@ -58,12 +54,8 @@ Broadcasts new Auction starts to all connected makers.
     auctionId: string,                // Server-generated unique identifier for this Auction
     taker: string,                    // Taker's EOA address
     wager: string,                    // Taker's wager amount (wei)
-    predictions: [                    // Canonical predictions array
-      {
-        resolverContract: string,
-        predictedOutcome: string
-      }
-    ],
+    predictedOutcomes: string[],      // Array of bytes strings that the resolver validates/understands
+    resolver: string,                  // Contract address for market validation (0x...)
     takerNonce: number,
     chainId: number,
     marketContract: string
@@ -139,18 +131,18 @@ Broadcasts current bids for an Auction to subscribed takers only. Takers are aut
 
 ## Bid Selection
 
-The UI presents the best available bid that hasn't expired yet. The best bid is determined by the highest taker wager amount among all valid (non-expired) bids.
+The UI presents the best available bid that hasn't expired yet. The best bid is determined by the highest maker wager amount among all valid (non-expired) bids.
 
 ## Validation Rules
 
 ### Auction Validation
 
 - Wager must be positive
-- At least one prediction required (array length ≥ 1)
-- Each prediction must include resolverContract and non-empty predictedOutcome
+- At least one predicted outcome required (array length ≥ 1)
+- Each predicted outcome must be a non-empty string
+- Resolver address must be provided and a valid `0x` address
 - Taker address must be provided and a valid `0x` address
-- A single resolverContract across all predictions is required today; otherwise `CROSS_VERIFIER_UNSUPPORTED` is returned.
-  - EIP-712 verifyingContract for maker bids is the `marketContract` address
+- EIP-712 verifyingContract for maker bids is the `marketContract` address
 
 ### Bid Validation
 
@@ -171,7 +163,7 @@ Both parties must perform standard ERC-20 approvals in their own wallets:
 - `quote_expired`: Quote has expired
 - `invalid_maker_wager`: Maker wager is invalid
 - `invalid_maker_bid_signature_format`: Maker bid signature format is invalid
-- `CROSS_VERIFIER_UNSUPPORTED`: Multiple verifier/resolver combinations not yet supported
+- `invalid_resolver_address`: Resolver address is invalid or missing
 
 ## Example Flow
 
@@ -184,12 +176,8 @@ ws.send(
     payload: {
       taker: '0xYourTakerAddressHere',
       wager: '1000000000000000000', // 1 ETH
-      predictions: [
-        {
-          resolverContract: '0xResolver...',
-          predictedOutcome: '0xabc...',
-        },
-      ],
+      predictedOutcomes: ['0xabc...'], // Array of encoded bytes strings
+      resolver: '0xResolver...', // Resolver contract address
       takerNonce: 1,
       chainId: 42161,
       marketContract: '0xPredictionMarket...',
@@ -218,13 +206,13 @@ ws.send(
 
 ### 3. Taker Executes Transaction
 
-After receiving and selecting a bid, the maker constructs the `MintParlayRequestData` struct using:
+After receiving and selecting a bid, the taker constructs the `MintParlayRequestData` struct using:
 
-- The Auction data (predictedOutcome, resolver, makerCollateral from wager)
+- The Auction data (predictedOutcomes, resolver, makerCollateral from wager)
 - The bid data (maker, makerWager, makerSignature)
-- Their own maker signature and refCode
+- Their own taker signature and refCode
 
-The maker then calls the `mint()` function on the ParlayPool contract. The system will automatically detect the minting through blockchain event listeners.
+The taker then calls the `mint()` function on the ParlayPool contract. The system will automatically detect the minting through blockchain event listeners.
 
 ## Maker Example
 
@@ -232,7 +220,7 @@ The system includes a reference maker implementation (`botExample.ts`) that:
 
 - Connects to the WebSocket endpoint
 - Listens for `auction.started` messages
-- Automatically calculates taker collateral as 50% of maker collateral
+- Automatically calculates maker wager as 50% of taker wager
 - Submits bids with proper mint data structure
 - Handles bid acknowledgments and bid updates
 

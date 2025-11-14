@@ -225,11 +225,12 @@ export default function BetslipParlayForm({
       const payload = buildAuctionStartPayload(outcomes, chainId);
       const params: AuctionParams = {
         wager: wagerWei,
-        predictions: payload.predictions,
+        predictedOutcomes: payload.predictedOutcomes,
+        resolver: payload.resolver,
         taker: selectedMakerAddress,
         takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
         chainId: effectiveChainId,
-        marketContract: marketContract,
+        marketContract: predictionMarketAddress || ('0x0000000000000000000000000000000000000000' as `0x${string}`),
       };
       requestQuotes(params);
       setLastQuoteRequestMs(Date.now());

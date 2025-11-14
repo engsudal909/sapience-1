@@ -609,15 +609,8 @@ export function createAuctionWebSocketServer() {
               });
               return;
             }
-            // Enforce single verifier/resolver early
-            const norm = normalizeAuctionPayload(payload);
-            if (norm.uniqueResolverContracts.size !== 1) {
-              send(ws, {
-                type: 'auction.ack',
-                payload: { error: 'CROSS_VERIFIER_UNSUPPORTED' },
-              });
-              return;
-            }
+            // Validate payload structure (resolver is already validated in validateAuctionForMint)
+            normalizeAuctionPayload(payload);
           } catch {
             send(ws, {
               type: 'auction.ack',
@@ -694,19 +687,9 @@ export function createAuctionWebSocketServer() {
           );
           return;
         }
-        // Enforce current limitation: single resolverContract
+        // Validate auction payload structure (resolver is already validated)
         try {
-          const norm = normalizeAuctionPayload(rec.auction);
-          if (norm.uniqueResolverContracts.size !== 1) {
-            send(ws, {
-              type: 'bid.ack',
-              payload: { error: 'CROSS_VERIFIER_UNSUPPORTED' },
-            });
-            console.warn(
-              `[Auction-WS] bid.submit rejected auctionId=${bid.auctionId} reason=CROSS_VERIFIER_UNSUPPORTED`
-            );
-            return;
-          }
+          normalizeAuctionPayload(rec.auction);
         } catch (err) {
           send(ws, { type: 'bid.ack', payload: { error: 'invalid_auction' } });
           console.warn(

@@ -168,7 +168,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           predictionMarket[DEFAULT_CHAIN_ID]?.address;
         requestQuotes({
           wager: wagerWei,
-          predictions: payload.predictions,
+          predictedOutcomes: payload.predictedOutcomes,
+          resolver: payload.resolver,
           taker: selectedMakerAddress,
           takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
           chainId: chainId,
@@ -211,7 +212,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
             predictionMarket[DEFAULT_CHAIN_ID]?.address;
           requestQuotes({
             wager: wagerWei,
-            predictions: payload.predictions,
+            predictedOutcomes: payload.predictedOutcomes,
+            resolver: payload.resolver,
             taker: selectedMakerAddress,
             takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
             chainId: chainId,

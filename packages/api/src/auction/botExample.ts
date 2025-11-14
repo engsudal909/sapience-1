@@ -100,14 +100,15 @@ ws.on('message', async (data: RawData) => {
         const auction = msg.payload || {};
         const auctionId = String(auction.auctionId || '');
         const taker = auction.taker as Address | undefined;
-        const predictions: AuctionRequestPayload['predictions'] = Array.isArray(
-          auction.predictions
+        const predictedOutcomes: string[] = Array.isArray(
+          auction.predictedOutcomes
         )
-          ? (auction.predictions as AuctionRequestPayload['predictions'])
+          ? (auction.predictedOutcomes as string[])
           : [];
+        const resolver = auction.resolver as Address | undefined;
         const wager = BigInt(String(auction.wager || '0'));
         console.log(
-          `[BOT] auction.started auctionId=${auctionId} taker=${taker} wager=${wager.toString()} preds=${predictions.length}`
+          `[BOT] auction.started auctionId=${auctionId} taker=${taker} wager=${wager.toString()} preds=${predictedOutcomes.length}`
         );
 
         // Maker bid: offer 50% of taker wager
@@ -140,14 +141,10 @@ ws.on('message', async (data: RawData) => {
                     auction.marketContract as `0x${string}`
                   ),
                   wager: String(auction.wager || '0'),
-                  predictions: predictions.map(
-                    (p: AuctionRequestPayload['predictions'][number]) => ({
-                      resolverContract: getAddress(
-                        p.resolverContract as `0x${string}`
-                      ),
-                      predictedOutcome: p.predictedOutcome as Hex,
-                    })
-                  ),
+                  predictions: predictedOutcomes.map((outcome) => ({
+                    resolverContract: getAddress(resolver as `0x${string}`),
+                    predictedOutcome: outcome as Hex,
+                  })),
                 },
                 makerWager,
                 makerDeadline,

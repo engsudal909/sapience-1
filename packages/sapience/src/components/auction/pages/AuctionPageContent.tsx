@@ -88,9 +88,11 @@ const AuctionPageContent: React.FC = () => {
     try {
       for (const m of messages) {
         if (m.type !== 'auction.started') continue;
-        const encoded = (m.data as any)?.predictions?.[0]?.predictedOutcome as
-          | `0x${string}`
+        const predictedOutcomes = (m.data as any)?.predictedOutcomes as
+          | string[]
           | undefined;
+        if (!predictedOutcomes || predictedOutcomes.length === 0) continue;
+        const encoded = predictedOutcomes[0] as `0x${string}` | undefined;
         if (!encoded) continue;
         try {
           const decodedUnknown = decodeAbiParameters(
@@ -244,9 +246,10 @@ const AuctionPageContent: React.FC = () => {
     try {
       if (m.type !== 'auction.started')
         return <span className="text-muted-foreground">—</span>;
-      const encoded =
-        (m.data?.predictions?.[0]?.predictedOutcome as `0x${string}`) ||
-        undefined;
+      const predictedOutcomes = m.data?.predictedOutcomes as string[] | undefined;
+      if (!predictedOutcomes || predictedOutcomes.length === 0)
+        return <span className="text-muted-foreground">—</span>;
+      const encoded = predictedOutcomes[0] as `0x${string}` | undefined;
       if (!encoded) return <span className="text-muted-foreground">—</span>;
       // Decode first encoded blob: tuple(bytes32 marketId, bool prediction)[]
       const decodedUnknown = decodeAbiParameters(

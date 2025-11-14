@@ -51,12 +51,7 @@ export function buildAuctionStartPayload(
     ('0x0000000000000000000000000000000000000000' as `0x${string}`);
 
   const encoded = encodePredictedOutcomes(outcomes);
-  const predictions = [
-    {
-      resolverContract,
-      predictedOutcome: encoded,
-    },
-  ];
+  const predictedOutcomes = [encoded];
 
-  return { predictions };
+  return { resolver, predictedOutcomes };
 }

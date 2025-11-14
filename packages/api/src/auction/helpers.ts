@@ -10,49 +10,24 @@ import {
  * Normalizes an auction payload to canonical prediction set and computes an order‑invariant hash.
  */
 export function normalizeAuctionPayload(auction: AuctionRequestPayload): {
-  predictions: {
-    resolverContract: string;
-    predictedOutcome: string;
-  }[];
-  uniqueResolverContracts: Set<string>;
+  predictedOutcomes: string[];
   predictionsHash: `0x${string}`;
 } {
-  const predictions = (auction?.predictions ?? []).map((p) => ({
-    resolverContract: (p?.resolverContract ?? '').toLowerCase(),
-    predictedOutcome: String(p?.predictedOutcome ?? ''),
-  }));
-  // Canonical order: (resolver, predictedOutcome)
-  const sorted = [...predictions].sort((a, b) => {
-    if (a.resolverContract !== b.resolverContract)
-      return a.resolverContract < b.resolverContract ? -1 : 1;
-    if (a.predictedOutcome !== b.predictedOutcome)
-      return a.predictedOutcome < b.predictedOutcome ? -1 : 1;
+  const predictedOutcomes = (auction?.predictedOutcomes ?? []).map((p) =>
+    String(p ?? '')
+  );
+  // Canonical order: sort predicted outcomes
+  const sorted = [...predictedOutcomes].sort((a, b) => {
+    if (a !== b) return a < b ? -1 : 1;
     return 0;
   });
   const encoded = encodeAbiParameters(
-    [
-      {
-        type: 'tuple[]',
-        components: [
-          { name: 'resolverContract', type: 'address' },
-          { name: 'predictedOutcome', type: 'bytes' },
-        ],
-      },
-    ],
-    [
-      sorted.map((p) => ({
-        resolverContract: p.resolverContract as `0x${string}`,
-        predictedOutcome: p.predictedOutcome as `0x${string}`,
-      })),
-    ]
+    [{ type: 'bytes[]' }],
+    [sorted.map((p) => p as `0x${string}`)]
   );
   const predictionsHash = keccak256(encoded);
-  const uniqueResolverContracts = new Set(
-    predictions.map((p) => p.resolverContract)
-  );
   return {
-    predictions,
-    uniqueResolverContracts,
+    predictedOutcomes: sorted,
     predictionsHash,
   };
 }
@@ -78,14 +53,14 @@ export function createMintParlayRequestData(
   taker: string,
   takerCollateral: string
 ): MintParlayRequestData {
-  const { predictions } = normalizeAuctionPayload(auction);
-  if (!predictions.length)
+  const { predictedOutcomes } = normalizeAuctionPayload(auction);
+  if (!predictedOutcomes.length)
     throw new Error('Auction must contain at least one prediction');
 
   return {
     taker: taker,
-    predictedOutcomes: [predictions[0].predictedOutcome],
-    resolver: predictions[0].resolverContract,
+    predictedOutcomes: predictedOutcomes,
+    resolver: auction.resolver,
     wager: auction.wager,
     takerCollateral: takerCollateral,
   };
@@ -116,18 +91,20 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
   ) {
     return { valid: false, error: 'Invalid marketContract' };
   }
-  const { predictions } = normalizeAuctionPayload(auction);
-  if (!predictions.length) return { valid: false, error: 'No predictions' };
-  // Ensure resolver present and outcomes non-empty
-  for (const p of predictions) {
-    if (!p.resolverContract)
-      return { valid: false, error: 'Missing resolverContract' };
-    if (!p.predictedOutcome || typeof p.predictedOutcome !== 'string') {
+  // resolver must be a 0x address
+  if (
+    typeof auction.resolver !== 'string' ||
+    !/^0x[a-fA-F0-9]{40}$/.test(auction.resolver)
+  ) {
+    return { valid: false, error: 'Invalid resolver address' };
+  }
+  const { predictedOutcomes } = normalizeAuctionPayload(auction);
+  if (!predictedOutcomes.length)
+    return { valid: false, error: 'No predictions' };
+  // Ensure outcomes are non-empty
+  for (const p of predictedOutcomes) {
+    if (!p || typeof p !== 'string') {
       return { valid: false, error: 'Invalid predictedOutcome' };
-    }
-    // Address format checks
-    if (!/^0x[a-fA-F0-9]{40}$/.test(p.resolverContract)) {
-      return { valid: false, error: 'Invalid resolverContract address' };
     }
   }
   if (!auction.taker) {
@@ -210,12 +187,12 @@ export function extractTakerFromSignature(): string | null {
  * This is a simplified implementation - in production you'd want proper EIP-712 verification
  */
 export function extractTakerWagerFromSignature(): string | null {
-  // Deprecated: wager is not derivable from a signature alone. Use verifyTakerBid instead.
+  // Deprecated: wager is not derivable from a signature alone. Use verifyMakerBid instead.
   return null;
 }
 
 /**
- * Verifies a taker bid using a typed payload scheme (e.g., EIP-712 or personal_sign preimage).
+ * Verifies a maker bid using a typed payload scheme (e.g., EIP-712 or personal_sign preimage).
  * This function currently does structural checks only; wire in real signature recovery for production.
  */
 export function verifyMakerBid(params: {
@@ -270,13 +247,10 @@ export async function verifyMakerBidStrict(params: {
 
     // Basic guards
     if (!auction || !bid) return { ok: false, reason: 'invalid_payload' };
-    const { predictions, uniqueResolverContracts, predictionsHash } =
+    const { predictedOutcomes, predictionsHash } =
       normalizeAuctionPayload(auction);
-    if (!predictions.length)
+    if (!predictedOutcomes.length)
       return { ok: false, reason: 'invalid_auction_predictions' };
-    if (uniqueResolverContracts.size !== 1) {
-      return { ok: false, reason: 'CROSS_VERIFIER_UNSUPPORTED' };
-    }
 
     // Hash the inner message: predictionsHash + makerWager + makerDeadline
     const inner = encodeAbiParameters(

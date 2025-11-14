@@ -10,7 +10,7 @@ interface AuctionRecord {
 
 const auctions = new Map<string, AuctionRecord>();
 
-// Ranking algorithm removed - UI will select best bid based on highest taker collateral
+// Ranking algorithm removed - UI will select best bid based on highest maker wager
 
 export function upsertAuction(auction: AuctionRequestPayload): string {
   // Deterministic ID incorporating predictionsHash and key auction fields
