@@ -13,11 +13,7 @@ export interface AuctionStartLike {
   predictedOutcomes: Hex[]; // bytes[] (non-empty expected)
   resolver: Address;
   taker: Address;
-  takerNonce: number;
-  chainId: number;
-  marketContract: Address;
 }
-
 
 /**
  * Build EIP‑712 typed data for a maker bid using the new auction payload.
