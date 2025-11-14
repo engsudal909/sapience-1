@@ -28,10 +28,8 @@ ws.on('open', () => {
     payload: {
       taker: '0xTaker123...',
       wager: '1000000000000000000',
-      predictions: [{
-        resolverContract: '0xResolver456...',
-        predictedOutcome: '0xdeadbeef',
-      }],
+      predictedOutcomes: ['0xdeadbeef'],
+      resolver: '0xResolver456...',
       takerNonce: 1,
       chainId: 42161,
       marketContract: '0xPredictionMarket...'
@@ -84,7 +82,7 @@ ws.onmessage = (ev) => {
 
 ## Message lifecycle
 
-1) Taker sends `auction.start` with `taker`, `wager`, `predictions[]`, `takerNonce`, `chainId`, `marketContract`.
+1) Taker sends `auction.start` with `taker`, `wager`, `predictedOutcomes[]`, `resolver`, `takerNonce`, `chainId`, `marketContract`.
 2) Relayer responds to the same socket with `auction.ack { auctionId?; error? }` and broadcasts `auction.started` (with the same payload plus `auctionId`) to all connected clients. The `auctionId` is a deterministic hash derived from the payload.
 3) Makers send `bid.submit` with `auctionId`, `maker`, `makerWager`, `makerDeadline`, `makerSignature`, `makerNonce`.
 4) Relayer replies to the bidding socket with `bid.ack { error? }` and streams `auction.bids { bids[] }` to the taker's subscribed socket for that auction.
@@ -95,10 +93,9 @@ ws.onmessage = (ev) => {
 
 ## Validation (high level)
 
-- **Auction**: positive `wager`, ≥1 `predictions`, each with `resolverContract` and non-empty `predictedOutcomes`; valid `taker` address and `chainId`, valid `marketContract`. Today only a single unique resolver is supported; otherwise `CROSS_VERIFIER_UNSUPPORTED`.
- - **Auction**: positive `wager`, ≥1 `predictions`, each with `resolverContract` and non-empty `predictedOutcome`; valid `taker` address and `chainId`, valid `marketContract`. Today only a single unique resolver is supported; otherwise `CROSS_VERIFIER_UNSUPPORTED`.
+- **Auction**: positive `wager`, ≥1 `predictedOutcomes` (non-empty bytes strings), valid `resolver` address, valid `taker` address and `chainId`, valid `marketContract`.
 - **Bid**: `makerDeadline` in the future, positive `makerWager`, valid hex `makerSignature` format
-- Optional strict signature verification uses EIP-712 with domain `{ chainId: auction.chainId, verifyingContract: auction.marketContract }` and inner hash over `predictionsHash`, `makerWager`, `makerDeadline` (see Reference).
+- Optional strict signature verification uses EIP-712 with domain `{ chainId: auction.chainId, verifyingContract: auction.marketContract }` and inner hash over `encodedPredictedOutcomes`, `makerWager`, `wager`, `resolver`, `taker`, `makerDeadline` (see Reference).
 
 ## Limits and closes
 

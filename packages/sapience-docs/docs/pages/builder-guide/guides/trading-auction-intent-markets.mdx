@@ -22,10 +22,8 @@ ws.onopen = () => {
     payload: {
       taker: '0xTaker...',
       wager: '1000000000000000000',
-      predictions: [{
-        resolverContract: '0xResolver...',
-        predictedOutcome: '0xabc...',
-      }],
+      predictedOutcomes: ['0xabc...'],
+      resolver: '0xResolver...',
       takerNonce: 1,
       chainId: 42161,
       marketContract: '0xPredictionMarket...',
@@ -52,7 +50,7 @@ function pickBest(bids) {
 }
 ```
 
-Takers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `taker`, `wager`, `predictions[]`, `chainId`, and `marketContract`.
+Takers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `taker`, `wager`, `predictedOutcomes[]`, `resolver`, `chainId`, and `marketContract`.
 
 ## Accept a Bid
 
