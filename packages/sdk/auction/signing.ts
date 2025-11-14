@@ -8,60 +8,16 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-/**
- * Normalized shape for the new auction payload used by the relayer.
- * The taker starts the auction and provides a canonical predictions[] array.
- */
-export interface AuctionRequestLike {
+export interface AuctionStartLike {
   wager: bigint | string;
+  predictedOutcomes: Hex[]; // bytes[] (non-empty expected)
+  resolver: Address;
   taker: Address;
   takerNonce: number;
   chainId: number;
   marketContract: Address;
-  predictions: {
-    resolverContract: Address;
-    predictedOutcome: Hex;
-  }[];
 }
 
-/**
- * Normalize auction predictions and compute an order‑invariant predictionsHash.
- * Mirrors server semantics to ensure signatures are constructed identically client/server.
- * The hash is computed from sorted predictedOutcomes (bytes[]) to match the API.
- */
-export function normalizeAuctionPayload(auction: AuctionRequestLike): {
-  predictions: {
-    resolverContract: Address;
-    predictedOutcome: Hex;
-  }[];
-  uniqueResolverContracts: Set<Address>;
-  predictionsHash: Hex;
-} {
-  const predictions = (auction?.predictions ?? []).map((p) => ({
-    resolverContract: getAddress(p?.resolverContract as Address),
-    predictedOutcome: (p?.predictedOutcome || '0x') as Hex,
-  }));
-
-  // Extract predictedOutcomes and sort them (matching API format)
-  const predictedOutcomes = predictions.map((p) => p.predictedOutcome);
-  const sorted = [...predictedOutcomes].sort((a, b) => {
-    if (a !== b) return a < b ? -1 : 1;
-    return 0;
-  });
-
-  // Compute hash the same way as API: keccak256(encodeAbiParameters([{ type: 'bytes[]' }], [sorted]))
-  const encoded = encodeAbiParameters(
-    [{ type: 'bytes[]' }],
-    [sorted]
-  );
-  const predictionsHash = keccak256(encoded) as Hex;
-  const uniqueResolverContracts = new Set(predictions.map((p) => p.resolverContract));
-  return {
-    predictions,
-    uniqueResolverContracts,
-    predictionsHash,
-  };
-}
 
 /**
  * Build EIP‑712 typed data for a maker bid using the new auction payload.
@@ -69,9 +25,11 @@ export function normalizeAuctionPayload(auction: AuctionRequestLike): {
  * Message hash: keccak256(encodeAbiParameters([bytes32 predictionsHash, uint256 makerWager, uint256 makerDeadline]))
  */
 export function buildMakerBidTypedData(args: {
-  auction: AuctionRequestLike;
+  auction: AuctionStartLike;
   makerWager: bigint;
   makerDeadline: bigint | number;
+  chainId: number;
+  verifyingContract: Address;
   maker: Address;
 }): {
   domain: TypedDataDomain;
@@ -82,25 +40,31 @@ export function buildMakerBidTypedData(args: {
   primaryType: 'Approve';
   message: { messageHash: Hex; owner: Address };
 } {
-  const { uniqueResolverContracts, predictionsHash } = normalizeAuctionPayload(args.auction);
-  // Enforce single resolver across predictions for now
-  if (uniqueResolverContracts.size !== 1) {
-    throw new Error('CROSS_VERIFIER_UNSUPPORTED');
+  if (args.auction.predictedOutcomes.length === 0) {
+    throw new Error('predictedOutcomes must be non-empty');
   }
-  // Use the market contract as the EIP-712 verifying contract
-  const verifierContract = getAddress(args.auction.marketContract);
+
+  // NOTE: Only the first element is used intentionally. The relayer encodes all legs
+  // into a single bytes blob at index 0 for compatibility with the on-chain verifier.
+  const encodedPredictedOutcomes = args.auction.predictedOutcomes[0];
 
   const inner = encodeAbiParameters(
     [
-      { type: 'bytes32' }, // predictionsHash
-      { type: 'uint256' }, // makerWager
-      { type: 'uint256' }, // makerDeadline
+      { type: 'bytes' },
+      { type: 'uint256' },
+      { type: 'uint256' },
+      { type: 'address' },
+      { type: 'address' },
+      { type: 'uint256' },
     ],
     [
-      predictionsHash,
+      encodedPredictedOutcomes,
       args.makerWager,
+      typeof args.auction.wager === 'bigint' ? args.auction.wager : BigInt(args.auction.wager),
+      args.auction.resolver,
+      args.auction.taker,
       typeof args.makerDeadline === 'bigint' ? args.makerDeadline : BigInt(args.makerDeadline),
-    ]
+    ],
   );
 
   const messageHash = keccak256(inner);
@@ -108,16 +72,19 @@ export function buildMakerBidTypedData(args: {
   const domain = {
     name: 'SignatureProcessor',
     version: '1',
-    chainId: args.auction.chainId,
-    verifyingContract: verifierContract,
+    chainId: args.chainId,
+    verifyingContract: args.verifyingContract,
   } as const;
-
+  
   const types = {
     Approve: [
       { name: 'messageHash', type: 'bytes32' },
       { name: 'owner', type: 'address' },
     ] as const,
-  } as const;
+  } as const satisfies { Approve: readonly [
+    { name: 'messageHash'; type: 'bytes32' },
+    { name: 'owner'; type: 'address' },
+  ] };
 
   const message = {
     messageHash,
