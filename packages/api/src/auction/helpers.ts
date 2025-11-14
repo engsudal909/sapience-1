@@ -247,19 +247,29 @@ export async function verifyMakerBidStrict(params: {
 
     // Basic guards
     if (!auction || !bid) return { ok: false, reason: 'invalid_payload' };
-    const { predictedOutcomes, predictionsHash } =
-      normalizeAuctionPayload(auction);
+    const { predictedOutcomes } = normalizeAuctionPayload(auction);
     if (!predictedOutcomes.length)
       return { ok: false, reason: 'invalid_auction_predictions' };
 
-    // Hash the inner message: predictionsHash + makerWager + makerDeadline
+    // Hash the inner message to match SDK format: encodedPredictedOutcomes + makerWager + wager + resolver + taker + makerDeadline
+    const encodedPredictedOutcomes = predictedOutcomes[0] as `0x${string}`;
     const inner = encodeAbiParameters(
       [
-        { type: 'bytes32' }, // predictionsHash
+        { type: 'bytes' }, // encodedPredictedOutcomes
         { type: 'uint256' }, // makerWager
+        { type: 'uint256' }, // wager
+        { type: 'address' }, // resolver
+        { type: 'address' }, // taker
         { type: 'uint256' }, // makerDeadline
       ],
-      [predictionsHash, BigInt(bid.makerWager), BigInt(bid.makerDeadline)]
+      [
+        encodedPredictedOutcomes,
+        BigInt(bid.makerWager),
+        BigInt(auction.wager),
+        getAddress(auction.resolver),
+        getAddress(auction.taker),
+        BigInt(bid.makerDeadline),
+      ]
     );
 
     const messageHash = keccak256(inner);

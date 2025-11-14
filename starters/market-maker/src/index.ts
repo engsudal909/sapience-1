@@ -216,8 +216,8 @@ function start() {
 
         // Decode first prediction blob to extract conditionIds and yes/no
         try {
-          const arr = Array.isArray(auction.predictions) ? (auction.predictions as any[]) : [];
-          if (arr.length > 0 && arr[0]?.predictedOutcome) {
+          const predictedOutcomes = Array.isArray(auction.predictedOutcomes) ? (auction.predictedOutcomes as string[]) : [];
+          if (predictedOutcomes.length > 0) {
             const decodedUnknown = decodeAbiParameters(
               [
                 {
@@ -228,7 +228,7 @@ function start() {
                   ],
                 },
               ] as const,
-              arr[0].predictedOutcome as `0x${string}`
+              predictedOutcomes[0] as `0x${string}`
             ) as unknown;
             const decodedArr = Array.isArray(decodedUnknown) ? (decodedUnknown as any)[0] : [];
             const legs = (decodedArr || []) as { marketId: `0x${string}`; prediction: boolean }[];
@@ -260,21 +260,24 @@ function start() {
           return;
         }
 
-        // Build maker bid typed data from auction payload (derive verifyingContract from predictions)
+        // Build maker bid typed data from auction payload
+        const predictedOutcomes = Array.isArray(auction.predictedOutcomes) 
+          ? (auction.predictedOutcomes as string[]).map((p) => p as `0x${string}`)
+          : [];
+        const resolver = (auction.resolver as string) || VERIFYING_CONTRACT;
+        const marketContract = (auction.marketContract as string) || VERIFYING_CONTRACT;
+        
         const { domain, types, primaryType, message } = buildMakerBidTypedData({
           auction: {
-            taker: auction.taker as Address,
-            takerNonce: Number(auction.takerNonce || 0),
-            chainId: Number(auction.chainId || CHAIN_ID),
-            marketContract: auction.marketContract as Address,
             wager: auction.wager as string,
-            predictions: (auction.predictions as any[] || []).map((p: any) => ({
-              resolverContract: p.resolverContract as Address,
-              predictedOutcome: p.predictedOutcome as `0x${string}`,
-            })),
+            predictedOutcomes: predictedOutcomes,
+            resolver: resolver as Address,
+            taker: auction.taker as Address,
           },
           makerWager,
           makerDeadline,
+          chainId: Number(auction.chainId || CHAIN_ID),
+          verifyingContract: marketContract as Address,
           maker: MAKER,
         });
 

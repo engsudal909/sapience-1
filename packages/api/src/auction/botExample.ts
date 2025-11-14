@@ -134,20 +134,17 @@ ws.on('message', async (data: RawData) => {
             const { domain, types, primaryType, message } =
               buildMakerBidTypedData({
                 auction: {
-                  taker: taker as Address,
-                  takerNonce: Number(auction.takerNonce || 0),
-                  chainId: Number(auction.chainId || 0),
-                  marketContract: getAddress(
-                    auction.marketContract as `0x${string}`
-                  ),
                   wager: String(auction.wager || '0'),
-                  predictions: predictedOutcomes.map((outcome) => ({
-                    resolverContract: getAddress(resolver as `0x${string}`),
-                    predictedOutcome: outcome as Hex,
-                  })),
+                  predictedOutcomes: predictedOutcomes.map((outcome) => outcome as Hex),
+                  resolver: getAddress(resolver as `0x${string}`),
+                  taker: taker as Address,
                 },
                 makerWager,
                 makerDeadline,
+                chainId: Number(auction.chainId || 0),
+                verifyingContract: getAddress(
+                  auction.marketContract as `0x${string}`
+                ),
                 maker,
               });
             makerSignature = await signMakerBid({
