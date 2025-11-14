@@ -16,8 +16,8 @@ Starts a new auction to receive bids from makers.
   payload: {
     taker: string,                    // Taker's EOA address (starts the auction)
     wager: string,                    // Taker's wager amount (wei)
-    predictedOutcomes: string[],      // Array of bytes strings that the resolver validates/understands
     resolver: string,                  // Contract address for market validation (0x...)
+    predictedOutcomes: string[],      // Array of bytes strings that the resolver validates/understands
     takerNonce: number,               // Nonce for taker-side binding/deduplication
     chainId: number,                  // Chain ID where the market executes
     marketContract: string            // Primary market entrypoint for execution

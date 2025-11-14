@@ -27,6 +27,7 @@ export interface AuctionRequestLike {
 /**
  * Normalize auction predictions and compute an order‑invariant predictionsHash.
  * Mirrors server semantics to ensure signatures are constructed identically client/server.
+ * The hash is computed from sorted predictedOutcomes (bytes[]) to match the API.
  */
 export function normalizeAuctionPayload(auction: AuctionRequestLike): {
   predictions: {
@@ -41,33 +42,20 @@ export function normalizeAuctionPayload(auction: AuctionRequestLike): {
     predictedOutcome: (p?.predictedOutcome || '0x') as Hex,
   }));
 
-  // Canonical order: (resolver, predictedOutcomes)
-  const sorted = [...predictions].sort((a, b) => {
-    if (a.resolverContract !== b.resolverContract) return a.resolverContract < b.resolverContract ? -1 : 1;
-    if (a.predictedOutcome !== b.predictedOutcome) return a.predictedOutcome < b.predictedOutcome ? -1 : 1;
+  // Extract predictedOutcomes and sort them (matching API format)
+  const predictedOutcomes = predictions.map((p) => p.predictedOutcome);
+  const sorted = [...predictedOutcomes].sort((a, b) => {
+    if (a !== b) return a < b ? -1 : 1;
     return 0;
   });
 
+  // Compute hash the same way as API: keccak256(encodeAbiParameters([{ type: 'bytes[]' }], [sorted]))
   const encoded = encodeAbiParameters(
-    [
-      {
-        type: 'tuple[]',
-        components: [
-          { name: 'resolverContract', type: 'address' },
-          { name: 'predictedOutcome', type: 'bytes' },
-        ],
-      },
-    ],
-    [
-      sorted.map((p) => ({
-        resolverContract: p.resolverContract,
-        predictedOutcome: p.predictedOutcome,
-      })),
-    ]
+    [{ type: 'bytes[]' }],
+    [sorted]
   );
-
   const predictionsHash = keccak256(encoded) as Hex;
-  const uniqueResolverContracts = new Set(sorted.map((p) => p.resolverContract));
+  const uniqueResolverContracts = new Set(predictions.map((p) => p.resolverContract));
   return {
     predictions,
     uniqueResolverContracts,
