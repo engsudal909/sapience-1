@@ -5,22 +5,25 @@ import { useMemo, useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Pencil } from 'lucide-react';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 // removed dialog imports
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 const AutoBid: React.FC = () => {
   const { address } = useAccount();
+  const chainId = useChainIdFromLocalStorage();
+  const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
 
   const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
     | `0x${string}`
     | undefined;
-  const SPENDER_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address as
+  const SPENDER_ADDRESS = predictionMarket[chainId]?.address as
     | `0x${string}`
     | undefined;
 
@@ -28,7 +31,7 @@ const AutoBid: React.FC = () => {
     abi: erc20Abi,
     address: COLLATERAL_ADDRESS,
     functionName: 'decimals',
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: chainId,
     query: { enabled: Boolean(COLLATERAL_ADDRESS) },
   });
 
@@ -37,7 +40,7 @@ const AutoBid: React.FC = () => {
     address: COLLATERAL_ADDRESS,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: chainId,
     query: { enabled: Boolean(address && COLLATERAL_ADDRESS) },
   });
 
@@ -73,7 +76,7 @@ const AutoBid: React.FC = () => {
       | `0x${string}`
       | undefined,
     amount: '',
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: chainId,
     decimals: tokenDecimals,
     enabled: Boolean(
       COLLATERAL_ADDRESS && (spenderAddressInput || SPENDER_ADDRESS)
@@ -113,7 +116,7 @@ const AutoBid: React.FC = () => {
             <div className="px-1">
               <div className="text-xs font-medium">Approved Spend</div>
               <div className="font-mono text-[13px] text-brand-white inline-flex items-center gap-1">
-                {allowanceDisplay} testUSDe
+                {allowanceDisplay} {collateralSymbol}
                 <button
                   type="button"
                   className="inline-flex items-center justify-center"
@@ -129,7 +132,7 @@ const AutoBid: React.FC = () => {
             <div className="px-1">
               <div className="text-xs font-medium">Account Balance</div>
               <div className="font-mono text-[13px] text-brand-white inline-flex items-center gap-1">
-                {balanceDisplay} testUSDe
+                {balanceDisplay} {collateralSymbol}
               </div>
             </div>
           </div>

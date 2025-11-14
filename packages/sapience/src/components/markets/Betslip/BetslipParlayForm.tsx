@@ -21,6 +21,7 @@ import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { formatNumber } from '~/lib/utils/util';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 interface BetslipParlayFormProps {
   methods: UseFormReturn<{
@@ -55,13 +56,15 @@ export default function BetslipParlayForm({
   bids = [],
   requestQuotes,
   collateralToken,
-  collateralSymbol,
+  collateralSymbol: collateralSymbolProp,
   collateralDecimals,
   minWager,
   predictionMarketAddress,
 }: BetslipParlayFormProps) {
   const { parlaySelections, removeParlaySelection } = useBetSlipContext();
   const { address: makerAddress } = useAccount();
+  const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
+  const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;
   const [nowMs, setNowMs] = useState<number>(Date.now());
   const [lastQuoteRequestMs, setLastQuoteRequestMs] = useState<number | null>(
     null
@@ -212,13 +215,14 @@ export default function BetslipParlayForm({
         marketId: s.conditionId || '0',
         prediction: !!s.prediction,
       }));
-      const payload = buildAuctionStartPayload(outcomes);
+      const payload = buildAuctionStartPayload(outcomes, chainId);
       const params: AuctionParams = {
         wager: wagerWei,
         resolver: payload.resolver,
         predictedOutcomes: payload.predictedOutcomes,
         maker: selectedMakerAddress,
         makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+        chainId: chainId,
       };
       requestQuotes(params);
       setLastQuoteRequestMs(Date.now());
@@ -233,6 +237,7 @@ export default function BetslipParlayForm({
     selectedMakerAddress,
     makerNonce,
     makerAddress,
+    chainId,
   ]);
 
   return (
@@ -245,7 +250,7 @@ export default function BetslipParlayForm({
           {parlaySelections.map((s) => (
             <div
               key={s.id}
-              className="-mx-4 px-4 py-2 border-b border-brand-white/10 first:border-t"
+              className="-mx-4 px-4 py-2.5 border-b border-brand-white/10 first:border-t"
             >
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -313,7 +318,7 @@ export default function BetslipParlayForm({
                       return 0n;
                     }
                   })();
-                  const symbol = collateralSymbol || 'testUSDe';
+                  const symbol = collateralSymbol;
                   const humanTotal = (() => {
                     try {
                       const human = Number(formatUnits(totalWei, decimals));

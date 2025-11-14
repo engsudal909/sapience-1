@@ -32,7 +32,7 @@ export const Footer = () => {
           className="border border-white/50 bg-black hover:text-primary"
         >
           <a
-            href="https://x.com/sapiencehq"
+            href="https://x.com/sapiencemarkets"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Twitter"
