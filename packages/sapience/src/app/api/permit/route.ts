@@ -64,8 +64,48 @@ export async function GET(req: Request) {
 
   try {
     const ip = getClientIpFromHeaders(req.headers);
+
+    // Development override: allow forcing geofence locally without relying on IP.
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      process.env.FORCE_GEOFENCE_LOCAL === '1'
+    ) {
+      const body: Record<string, unknown> = {
+        permitted: false,
+      };
+
+      // Optional debug information in development when requested.
+      if (url.searchParams.get('debug') === '1') {
+        body.ip = ip;
+        body.tokenPresent = !!process.env.IPINFO_TOKEN;
+        body.reason = 'FORCE_GEOFENCE_LOCAL override';
+      }
+
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...baseHeaders,
+        },
+      });
+    }
+
     const blocked = await isGeofenced(ip);
-    return new Response(JSON.stringify({ permitted: !blocked }), {
+
+    const body: Record<string, unknown> = {
+      permitted: !blocked,
+    };
+
+    // Optional debug information in development when requested.
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      url.searchParams.get('debug') === '1'
+    ) {
+      body.ip = ip;
+      body.tokenPresent = !!process.env.IPINFO_TOKEN;
+    }
+
+    return new Response(JSON.stringify(body), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

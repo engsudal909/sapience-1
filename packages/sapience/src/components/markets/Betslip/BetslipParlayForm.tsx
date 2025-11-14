@@ -22,6 +22,8 @@ import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { formatNumber } from '~/lib/utils/util';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
+import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';
 
 interface BetslipParlayFormProps {
   methods: UseFormReturn<{
@@ -69,6 +71,8 @@ export default function BetslipParlayForm({
   const [lastQuoteRequestMs, setLastQuoteRequestMs] = useState<number | null>(
     null
   );
+
+  const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
   // Generate or retrieve a stable guest maker address for logged-out users
   const guestMakerAddress = useMemo<`0x${string}` | null>(() => {
@@ -334,13 +338,13 @@ export default function BetslipParlayForm({
                   return (
                     <div className="mt-3 mb-4">
                       <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full min-h-[48px] shadow-[0_0_10px_rgba(136,180,245,0.25)]">
-                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap shrink-0">
                           <Image
                             src="/usde.svg"
                             alt="USDe"
-                            width={20}
-                            height={20}
-                            className="opacity-90 w-5 h-5"
+                            width={24}
+                            height={24}
+                            className="opacity-90 ml-[-2px] w-6 h-6"
                           />
                           <span className="font-medium text-brand-white">
                             To Win:
@@ -360,10 +364,17 @@ export default function BetslipParlayForm({
                     </div>
                   );
                 })()}
+                <RestrictedJurisdictionBanner
+                  show={!isPermitLoading && isRestricted}
+                  className="mb-3"
+                />
                 <Button
                   className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={
-                    isSubmitting || bestBid.takerDeadline * 1000 - nowMs <= 0
+                    isSubmitting ||
+                    bestBid.takerDeadline * 1000 - nowMs <= 0 ||
+                    isPermitLoading ||
+                    isRestricted
                   }
                   type="submit"
                   size="lg"
@@ -388,9 +399,13 @@ export default function BetslipParlayForm({
               </div>
             ) : (
               <div className="text-center">
+                <RestrictedJurisdictionBanner
+                  show={!isPermitLoading && isRestricted}
+                  className="mb-3"
+                />
                 <Button
                   className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
-                  disabled={true}
+                  disabled
                   type="submit"
                   size="lg"
                   variant="default"

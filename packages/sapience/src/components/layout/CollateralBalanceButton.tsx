@@ -99,7 +99,7 @@ export default function CollateralBalanceButton({
                     variant="outline"
                     className="rounded-full border-ethena/80 bg-ethena/20"
                   >
-                    9% APY
+                    5% APY
                   </Badge>
                 </div>
               </div>
