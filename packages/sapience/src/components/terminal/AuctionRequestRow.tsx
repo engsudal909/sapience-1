@@ -340,33 +340,21 @@ const AuctionRequestRow: React.FC<Props> = ({
         })();
         const takerDeadline = nowSec + clampedExpiry;
 
-        // Compute predictionsHash for maker bid typed data
-        const predictionsEncoded = encodeAbiParameters(
-          [
-            {
-              type: 'tuple[]',
-              components: [
-                { name: 'resolverContract', type: 'address' },
-                { name: 'predictedOutcomes', type: 'bytes' },
-              ],
-            },
-          ] as const,
-          [
-            [
-              {
-                resolverContract: getAddress(resolverAddr as `0x${string}`),
-                predictedOutcomes: encodedPredicted,
-              },
-            ],
-          ]
-        );
-        const predictionsHash = keccak256(predictionsEncoded);
-
-        // Build inner message hash for maker bid: (bytes32 predictionsHash, uint256 makerWager, uint256 makerDeadline)
+        // Build inner message hash (bytes, uint256, uint256, address, address, uint256, uint256)
         const innerMessageHash = keccak256(
           encodeAbiParameters(
-            [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'uint256' }],
-            [predictionsHash, makerWagerWei, BigInt(takerDeadline)]
+            parseAbiParameters(
+              'bytes, uint256, uint256, address, address, uint256, uint256'
+            ),
+            [
+              encodedPredicted,
+              takerWagerWei,
+              makerWagerWei,
+              getAddress(resolverAddr as `0x${string}`),
+              getAddress(makerAddr as `0x${string}`),
+              BigInt(takerDeadline),
+              BigInt(makerNonceVal),
+            ]
           )
         );
 

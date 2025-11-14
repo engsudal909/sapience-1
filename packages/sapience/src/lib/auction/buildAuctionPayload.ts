@@ -1,14 +1,10 @@
 import { encodeAbiParameters } from 'viem';
-import { umaResolver } from '@sapience/sdk/contracts';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import { umaResolver, lzPMResolver } from '@sapience/sdk/contracts';
+import { CHAIN_ID_ARBITRUM, CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 
 export interface PredictedOutcomeInputStub {
   marketId: string; // The id from API (already encoded claim:endTime)
   prediction: boolean;
-}
-
-function isHexAddress(value: string | undefined): value is `0x${string}` {
-  return !!value && /^0x[a-fA-F0-9]{40}$/.test(value);
 }
 
 function encodePredictedOutcomes(
@@ -38,21 +34,21 @@ function encodePredictedOutcomes(
 
 export function buildAuctionStartPayload(
   outcomes: PredictedOutcomeInputStub[],
-  chainId: number,
-  resolverOverride?: string
-): {
-  predictions: {
-    resolverContract: `0x${string}`;
-    predictedOutcome: `0x${string}`;
-  }[];
-} {
-  // Resolve contracts
-  const cid =
-    Number.isFinite(chainId) && chainId > 0 ? chainId : DEFAULT_CHAIN_ID;
-  const UMA_RESOLVER_ADDRESS = umaResolver[cid]?.address;
-  const resolverContract: `0x${string}` = isHexAddress(resolverOverride)
-    ? resolverOverride
-    : UMA_RESOLVER_ADDRESS;
+  chainId?: number
+): { resolver: `0x${string}`; predictedOutcomes: `0x${string}`[] } {
+  // Select the correct resolver based on chain ID
+  const targetChainId = chainId || CHAIN_ID_ARBITRUM;
+  let resolverAddress: `0x${string}` | undefined;
+
+  if (targetChainId === CHAIN_ID_ETHEREAL) {
+    resolverAddress = lzPMResolver[CHAIN_ID_ETHEREAL]?.address;
+  } else {
+    resolverAddress = umaResolver[CHAIN_ID_ARBITRUM]?.address;
+  }
+
+  const resolver: `0x${string}` =
+    resolverAddress ||
+    ('0x0000000000000000000000000000000000000000' as `0x${string}`);
 
   const encoded = encodePredictedOutcomes(outcomes);
   const predictions = [
