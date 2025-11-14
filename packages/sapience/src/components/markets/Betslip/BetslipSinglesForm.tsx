@@ -223,7 +223,7 @@ export default function BetslipSinglesForm({
               type="submit"
               variant="default"
               size="lg"
-              className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90"
               disabled={
                 positionsWithMarketData.some((p) => p.isLoading) ||
                 isSubmitting ||

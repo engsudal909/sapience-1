@@ -78,10 +78,10 @@ export default function CollateralBalanceButton({
               asChild
               variant="outline"
               size="xs"
-              className={`rounded-full h-9 px-3 min-w-[122px] justify-start gap-2 ${buttonClassName ?? ''}`}
+              className={`rounded-md h-9 px-3 min-w-[122px] justify-start gap-2 bg-brand-black text-brand-white border border-brand-white/10 hover:bg-brand-black/90 font-mono ${buttonClassName ?? ''}`}
               onClick={onClick}
             >
-              <div className="flex items-center justify-between gap-2 w-full">
+              <div className="flex items-stretch justify-between gap-2 w-full">
                 <div className="flex items-center gap-2">
                   <Image
                     src="/usde.svg"
@@ -94,10 +94,10 @@ export default function CollateralBalanceButton({
                     {formattedBalance}
                   </span>
                 </div>
-                <div className="inline-flex ml-1 rounded-full w-fit shadow-[0_0_10px_rgba(136,180,245,0.25)] -mr-1">
+                <div className="inline-flex items-center ml-1 w-fit -mr-1">
                   <Badge
                     variant="outline"
-                    className="rounded-full border-ethena/80 bg-ethena/20"
+                    className="rounded-md border-ethena/80 bg-ethena/20 font-normal text-xs h-5 flex items-center px-2 tracking-[0.08em] shadow-[0_0_10px_rgba(136,180,245,0.25)]"
                   >
                     5% APY
                   </Badge>

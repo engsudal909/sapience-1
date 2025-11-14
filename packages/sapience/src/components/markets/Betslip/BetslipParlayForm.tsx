@@ -342,9 +342,15 @@ export default function BetslipParlayForm({
                           <Image
                             src="/usde.svg"
                             alt="USDe"
+<<<<<<< HEAD
                             width={24}
                             height={24}
                             className="opacity-90 ml-[-2px] w-6 h-6"
+=======
+                            width={18}
+                            height={18}
+                            className="opacity-90 w-4.5 h-4.5"
+>>>>>>> main
                           />
                           <span className="font-medium text-brand-white">
                             To Win:
@@ -369,7 +375,7 @@ export default function BetslipParlayForm({
                   className="mb-3"
                 />
                 <Button
-                  className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
                   disabled={
                     isSubmitting ||
                     bestBid.takerDeadline * 1000 - nowMs <= 0 ||
@@ -382,7 +388,7 @@ export default function BetslipParlayForm({
                 >
                   {isSubmitting ? 'Submitting Wager...' : 'Submit Wager'}
                 </Button>
-                <div className="mt-1 py-1 flex items-center justify-between text-xs">
+                <div className="mt-0.5 py-1 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-foreground">
                     <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
                     <span>Broadcasting a request for bids...</span>
@@ -404,15 +410,20 @@ export default function BetslipParlayForm({
                   className="mb-3"
                 />
                 <Button
+<<<<<<< HEAD
                   className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled
+=======
+                  className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
+                  disabled={true}
+>>>>>>> main
                   type="submit"
                   size="lg"
                   variant="default"
                 >
                   Waiting for Bids...
                 </Button>
-                <div className="mt-2 py-1 flex items-center justify-between text-xs">
+                <div className="mt-1 py-1 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-foreground">
                     <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
                     <span>Broadcasting a request for bids...</span>
