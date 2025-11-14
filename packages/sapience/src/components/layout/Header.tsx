@@ -432,7 +432,7 @@ const Header = () => {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="default"
-                      className="rounded-sm md:rounded-full h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden"
+                      className="rounded-md h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden bg-brand-white text-brand-black hover:bg-brand-white/90"
                     >
                       {connectedWallet?.address ? (
                         <>
