@@ -2,14 +2,12 @@ import { defineConfig } from "vocs";
 
 export default defineConfig({
   title: "Sapience",
-  logoUrl: {
-    light: "/sapience.svg",
-    dark: "/sapience-dark.svg",
-  },
+  logoUrl: "/logo.svg",
   head: [
     ["link", { rel: "stylesheet", href: "/styles.css" }],
   ] as any,
   theme: {
+    colorScheme: "dark",
     accentColor: {
       backgroundAccent: {
         light: "rgba(145, 179, 240, 0.2)",

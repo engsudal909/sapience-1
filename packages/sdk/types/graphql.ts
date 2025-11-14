@@ -4285,6 +4285,7 @@ export type QueryTransactionsArgs = {
 
 export type QueryUserParlaysArgs = {
   address: Scalars['String']['input'];
+  chainId?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<Scalars['String']['input']>;
   orderDirection?: InputMaybe<Scalars['String']['input']>;
   skip?: Scalars['Int']['input'];
@@ -4294,6 +4295,7 @@ export type QueryUserParlaysArgs = {
 
 export type QueryUserParlaysCountArgs = {
   address: Scalars['String']['input'];
+  chainId?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type QueryMode =

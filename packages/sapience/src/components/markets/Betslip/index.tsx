@@ -55,6 +55,7 @@ import {
 import { tickToPrice } from '~/lib/utils/tickUtils';
 import { calculateCollateralLimit, DEFAULT_SLIPPAGE } from '~/utils/trade';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 interface BetslipProps {
   variant?: 'triggered' | 'panel';
@@ -97,7 +98,10 @@ const Betslip = ({
   // Removed repetitive debug log
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const parlayChainId = betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+  const chainId = useChainIdFromLocalStorage();
+  const parlayChainId =
+    chainId || betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+
   const {
     auctionId,
     bids,
@@ -106,8 +110,8 @@ const Betslip = ({
     buildMintRequestDataFromBid,
   } = useAuctionStart();
 
-  // PredictionMarket address via centralized mapping (arb1 tag default)
-  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  // PredictionMarket address via centralized mapping (use parlayChainId)
+  const PREDICTION_MARKET_ADDRESS = predictionMarket[parlayChainId]?.address;
 
   // Fetch PredictionMarket configuration
   const predictionMarketConfigRead = useReadContracts({
@@ -493,7 +497,7 @@ const Betslip = ({
     isSubmitting: isParlaySubmitting,
     error: parlayError,
   } = useSubmitParlay({
-    chainId: betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID, // Use first position's chainId or default
+    chainId: parlayChainId,
     predictionMarketAddress: PREDICTION_MARKET_ADDRESS,
     collateralTokenAddress:
       collateralToken || '0x0000000000000000000000000000000000000000',

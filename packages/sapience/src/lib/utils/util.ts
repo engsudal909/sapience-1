@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { createPublicClient, formatEther, http } from 'viem';
+import { createPublicClient, formatEther, http, defineChain } from 'viem';
 import * as chains from 'viem/chains';
 import { mainnet } from 'viem/chains';
 import type { MarketType, TransactionType } from '@sapience/sdk/types';
@@ -68,12 +68,53 @@ export const mainnetClient = createPublicClient({
     : http('https://ethereum-rpc.publicnode.com'),
 });
 
+// Ethereal chain definition (not in viem/chains)
+const CHAIN_ID_ETHEREAL = 5064014;
+const etherealChain = defineChain({
+  id: CHAIN_ID_ETHEREAL,
+  name: 'EtherealChain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'USDe',
+    symbol: 'USDe',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.ethereal.trade'],
+    },
+    public: {
+      http: ['https://rpc.ethereal.trade'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Ethereal Explorer',
+      url: 'https://explorer.ethereal.trade',
+    },
+  },
+});
+
 // Use unknown to avoid structural type incompatibilities across different viem instances
 const publicClientCache: Map<number, unknown> = new Map();
 
 export function getPublicClientForChainId(chainId: number) {
   const cached = publicClientCache.get(chainId);
   if (cached) return cached as any;
+
+  // Handle Ethereal chain specifically since it's not in viem/chains
+  if (chainId === CHAIN_ID_ETHEREAL) {
+    // Allow per-chain override via NEXT_PUBLIC_RPC_<CHAINID>
+    const envKey = `NEXT_PUBLIC_RPC_${chainId}` as keyof NodeJS.ProcessEnv;
+    const envUrl = process.env[envKey as string];
+    const rpcUrl = envUrl || 'https://rpc.ethereal.trade';
+
+    const client = createPublicClient({
+      chain: etherealChain,
+      transport: http(rpcUrl),
+    });
+    publicClientCache.set(chainId, client);
+    return client;
+  }
 
   const chainObj = Object.values(chains).find(
     (c: any) => c?.id === chainId
