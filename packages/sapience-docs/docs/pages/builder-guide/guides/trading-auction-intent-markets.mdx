@@ -1,98 +1,120 @@
 ---
-title: "Build a Auction Bot"
-description: "Start auctions, receive bids, and accept the best quote."
+title: "Build a Parlay Trading Agent"
+description: "Start parlay auctions, receive bids, and execute multi-leg wagers."
 ---
 
 import BuilderGuideAlert from '../../../components/BuilderGuideAlert'
 
 <BuilderGuideAlert />
 
-# Build a Trading Agent
+# Build a Parlay Trading Agent
 
-This guide shows your agent can request odds for a wager it would like to place on a forecast.
+This guide shows how your agent can start parlay auctions to request odds for multi-leg wagers across 3+ markets. The auction system enables better pricing for complex parlay positions by letting market makers compete for your business.
 
-## Start auctions and receive bids
+## Enable Parlay Trading
+
+To enable parlay trading via the auction system in your forecasting agent:
+
+```bash
+# Enable parlay trading feature (uses auction system)
+ENABLE_PARLAY_TRADING=true
+
+# Configure parlay parameters (optional)
+PARLAY_WAGER_AMOUNT=1000000000000000000  # $1 default
+MIN_PARLAY_CONFIDENCE=0.6                # Minimum confidence for parlay predictions
+MIN_HOURS_BETWEEN_PARLAYS=24            # Hours between parlay attempts
+PARLAY_AUCTION_TIMEOUT_MS=300000        # 5 minutes auction timeout
+```
+
+**Benefits of Parlay Trading:**
+- **Multi-Market Exposure**: Combine 3+ predictions into a single wager for amplified returns
+- **Better Pricing**: Auction system gets competitive quotes from market makers
+- **Risk Diversification**: Spread risk across multiple correlated or uncorrelated markets
+
+## How Parlay Auctions Work
+
+1. **Market Analysis**: Agent analyzes multiple markets and generates high-confidence predictions
+2. **Parlay Assembly**: Combines 3+ predictions into a multi-leg parlay position
+3. **Start Auction**: Broadcasts parlay request to market makers via WebSocket
+4. **Receive Bids**: Market makers compete by submitting their best quotes
+5. **Execute Parlay**: Agent selects the best bid and executes the multi-leg trade
+
+**Basic parlay auction flow:**
 
 ```ts
-const ws = new WebSocket('ws://localhost:3001/auction');
+// Connect to auction relayer
+const ws = new WebSocket('wss://api.sapience.xyz/auction');
 
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    type: 'auction.start',
-    payload: {
-      maker: '0xMaker...',
-      wager: '1000000000000000000',
-      resolver: '0xResolver...',
-      predictedOutcomes: ['0xabc...'],
-      makerNonce: 1,
-    },
-  }));
-};
+// Start auction for a multi-leg parlay
+ws.send(JSON.stringify({
+  type: 'auction.start',
+  payload: {
+    maker: yourAddress,
+    wager: '1000000000000000000', // $1 parlay wager
+    resolver: resolverAddress,
+    predictedOutcomes: [conditionId1, conditionId2, conditionId3], // 3+ markets
+    makerNonce: 1,
+  },
+}));
 
-ws.onmessage = (ev) => {
-  const msg = JSON.parse(String(ev.data));
-  if (msg.type === 'auction.ack') {
-    console.log('auctionId =', msg.payload.auctionId);
-  }
-  if (msg.type === 'auction.bids') {
-    const best = pickBest(msg.payload.bids);
-    console.log('best bid =', best);
+// Handle competitive bids from market makers
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  if (message.type === 'auction.bids') {
+    const bestBid = selectBestParlay(message.payload.bids);
+    // Execute parlay with best market maker
   }
 };
+```
 
-function pickBest(bids) {
-  const now = Math.floor(Date.now()/1000);
-  const valid = bids.filter(b => b.takerDeadline > now);
-  valid.sort((a, b) => BigInt(b.takerWager) - BigInt(a.takerWager) > 0n ? 1 : -1);
-  return valid[0];
+**Implementation:** [View parlay trading code →](https://github.com/sapiencexyz/sapience/blob/main/starters/elizaos/src/actions/parlayTradingAction.ts)
+
+## Custom Parlay Implementation
+
+For custom parlay strategies beyond the built-in feature:
+
+### Parlay Selection Strategy
+
+Choose optimal market combinations for your parlays:
+
+```ts
+function selectBestParlay(predictions) {
+  // Filter high-confidence predictions (>60%)
+  const highConfidence = predictions.filter(p => p.confidence > 0.6);
+  
+  // Prefer 3-5 leg parlays for optimal risk/reward
+  const optimalSize = Math.min(highConfidence.length, 5);
+  
+  // Sort by confidence and select top markets
+  highConfidence.sort((a, b) => b.confidence - a.confidence);
+  
+  return highConfidence.slice(0, Math.max(3, optimalSize));
 }
 ```
 
-Makers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `maker`, `wager`, `resolver`, and `predictedOutcomes`.
+### Parlay Execution
 
-## Accept a Bid
+Execute the selected parlay via the PredictionMarket contract:
 
-After selecting a bid, call `PredictionMarket.mint` using the current auction parameters and the selected bid fields.
+**Key steps:**
+1. **Approve USDe collateral** for the PredictionMarket contract
+2. **Build parlay mint request** with multiple condition IDs and bid parameters  
+3. **Call PredictionMarket.mint()** to execute the multi-leg trade
 
-```ts
-import { writeContract } from 'viem/actions';
-import { erc20Abi } from 'viem';
-import { abi as PredictionMarketAbi } from './PredictionMarket.abi';
+**Implementation reference:** [View parlay execution code →](https://github.com/sapiencexyz/sapience/blob/main/starters/elizaos/src/utils/parlayExecution.ts)
 
-// Approve maker collateral for PredictionMarket to pull
-await writeContract({
-  address: '0xCollateralToken...',
-  abi: erc20Abi,
-  functionName: 'approve',
-  args: ['0xPredictionMarket...', '1000000000000000000'], // makerCollateral
-});
+---
 
-const bestBid = /* from auction.bids */
-  {
-    taker: '0xTaker...',
-    takerWager: '500000000000000000',
-    takerDeadline: Math.floor(Date.now()/1000) + 60,
-    takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
-    makerNonce: 1,
-  };
+## Why Use Parlay Trading?
 
-const mintReq = {
-  encodedPredictedOutcomes: '0xabc...',
-  resolver: '0xResolver...',
-  makerCollateral: '1000000000000000000',
-  takerCollateral: bestBid.takerWager,
-  maker: '0xMaker...',
-  taker: bestBid.taker,
-  takerSignature: bestBid.takerSignature,
-  takerDeadline: String(bestBid.takerDeadline),
-  refCode: '0x' + '00'.repeat(32),
-  makerNonce: String(bestBid.makerNonce),
-};
+**Parlay trading is ideal when:**
+- You have high confidence in multiple market outcomes
+- You want amplified returns from combining predictions
+- You prefer competitive pricing from market makers
+- You can wait 1-5 minutes for price discovery
 
-await writeContract({
-  address: '0xPredictionMarket...',
-  abi: PredictionMarketAbi,
-  functionName: 'mint',
-  args: [mintReq],
-});
-```
+**Parlay advantages over individual trades:**
+- **Higher potential returns** from multi-leg combinations
+- **Better risk diversification** across multiple markets
+- **Competitive pricing** through the auction system
+- **Efficient capital usage** with single collateral requirement
