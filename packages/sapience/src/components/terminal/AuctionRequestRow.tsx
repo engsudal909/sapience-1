@@ -360,11 +360,11 @@ const AuctionRequestRow: React.FC<Props> = ({
         })();
         const takerDeadline = nowSec + clampedExpiry;
 
-        // Build inner message hash (bytes, uint256, uint256, address, address, uint256)
+        // Build inner message hash (bytes, uint256, uint256, address, address, uint256, uint256)
         const innerMessageHash = keccak256(
           encodeAbiParameters(
             parseAbiParameters(
-              'bytes, uint256, uint256, address, address, uint256'
+              'bytes, uint256, uint256, address, address, uint256, uint256'
             ),
             [
               encodedPredicted,
@@ -373,6 +373,7 @@ const AuctionRequestRow: React.FC<Props> = ({
               getAddress(resolverAddr as `0x${string}`),
               getAddress(makerAddr as `0x${string}`),
               BigInt(takerDeadline),
+              BigInt(makerNonceVal),
             ]
           )
         );

@@ -1,10 +1,20 @@
 import { useCallback, useState } from 'react';
-import { encodeFunctionData, erc20Abi } from 'viem';
+import { encodeFunctionData, erc20Abi, parseAbi } from 'viem';
 
 import { predictionMarketAbi } from '@sapience/sdk';
 import { useAccount, useReadContract } from 'wagmi';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 import type { MintPredictionRequestData } from '~/lib/auction/useAuctionStart';
+
+// Ethereal chain configuration
+const CHAIN_ID_ETHEREAL = 5064014;
+const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
+
+// WUSDe ABI for wrapping
+const WUSDE_ABI = parseAbi([
+  'function deposit() payable',
+  'function withdraw(uint256 amount)',
+]);
 
 interface UseSubmitParlayProps {
   chainId: number;
@@ -63,6 +73,7 @@ export function useSubmitParlay({
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Use unified write/sendCalls wrapper (handles chain validation and tx monitoring)
   const { sendCalls, isPending: isSubmitting } = useSapienceWriteContract({
@@ -85,7 +96,11 @@ export function useSubmitParlay({
   // Prepare calls for sendCalls
   const prepareCalls = useCallback(
     (mintData: MintPredictionRequestData) => {
-      const callsArray: { to: `0x${string}`; data: `0x${string}` }[] = [];
+      const callsArray: {
+        to: `0x${string}`;
+        data: `0x${string}`;
+        value?: bigint;
+      }[] = [];
 
       // Parse collateral amounts
       const makerCollateralWei = BigInt(mintData.makerCollateral);
@@ -94,6 +109,19 @@ export function useSubmitParlay({
       // Validate inputs
       if (makerCollateralWei <= 0 || takerCollateralWei <= 0) {
         throw new Error('Invalid collateral amounts');
+      }
+
+      if (chainId === CHAIN_ID_ETHEREAL) {
+        const wrapCalldata = encodeFunctionData({
+          abi: WUSDE_ABI,
+          functionName: 'deposit',
+        });
+
+        callsArray.push({
+          to: WUSDE_ADDRESS as `0x${string}`,
+          data: wrapCalldata,
+          value: makerCollateralWei,
+        });
       }
 
       // Only add approval if current allowance is insufficient
@@ -149,7 +177,7 @@ export function useSubmitParlay({
 
       return callsArray;
     },
-    [predictionMarketAddress, collateralTokenAddress, currentAllowance]
+    [predictionMarketAddress, collateralTokenAddress, currentAllowance, chainId]
   );
 
   const submitParlay = useCallback(
@@ -158,6 +186,12 @@ export function useSubmitParlay({
         return;
       }
 
+      // Prevent duplicate submissions
+      if (isProcessing) {
+        return;
+      }
+
+      setIsProcessing(true);
       setError(null);
       setSuccess(null);
 
@@ -195,6 +229,7 @@ export function useSubmitParlay({
 
         // First attempt with current cached nonce
         await attempt(false);
+        setIsProcessing(false);
       } catch (err: any) {
         const msg = (err?.message || '').toString();
         const isNonceErr = msg.includes('InvalidMakerNonce');
@@ -202,12 +237,14 @@ export function useSubmitParlay({
           try {
             // One-time retry with fresh nonce
             await attempt(true);
+            setIsProcessing(false);
             return;
           } catch (retryErr: any) {
             const retryMsg = (retryErr?.message || '').toString();
             setError(
               retryMsg || 'Failed to submit parlay prediction after retry'
             );
+            setIsProcessing(false);
             return;
           }
         }
@@ -216,6 +253,7 @@ export function useSubmitParlay({
             ? err.message
             : 'Failed to submit parlay prediction';
         setError(errorMessage);
+        setIsProcessing(false);
       }
     },
     [
@@ -226,6 +264,7 @@ export function useSubmitParlay({
       sendCalls,
       makerNonce,
       refetchMakerNonce,
+      isProcessing,
     ]
   );
 
