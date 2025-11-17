@@ -371,7 +371,7 @@ const AuctionRequestRow: React.FC<Props> = ({
               makerWagerWei,
               takerWagerWei,
               getAddress(resolverAddr as `0x${string}`),
-              getAddress(takerAddr as `0x${string}`),
+              getAddress(takerAddr),
               BigInt(makerDeadline),
               BigInt(makerNonceVal),
             ]

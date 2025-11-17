@@ -263,7 +263,7 @@ export function useAuctionStart() {
           resolver,
           makerCollateral: auction.wager, // Contract maker = API taker (auction creator's wager)
           takerCollateral: args.selectedBid.makerWager, // Contract taker = API maker (bidder's wager)
-          maker: auction.taker as `0x${string}`, // Contract maker = API taker (auction creator)
+          maker: auction.taker, // Contract maker = API taker (auction creator)
           taker: args.selectedBid.maker as `0x${string}`, // Contract taker = API maker (bidder)
           takerSignature: args.selectedBid.makerSignature as `0x${string}`, // Contract taker = API maker (bidder's signature)
           takerDeadline: String(args.selectedBid.makerDeadline), // Contract taker = API maker (bidder's deadline)

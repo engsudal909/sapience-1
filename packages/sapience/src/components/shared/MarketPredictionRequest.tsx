@@ -36,12 +36,12 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     number | null
   >(null);
   const [isRequesting, setIsRequesting] = React.useState<boolean>(false);
-  const [lastMakerWagerWei, setLastMakerWagerWei] = React.useState<
+  const [lastTakerWagerWei, setLastTakerWagerWei] = React.useState<
     string | null
   >(null);
   const [queuedRequest, setQueuedRequest] = React.useState<boolean>(false);
 
-  const { address: makerAddress } = useAccount();
+  const { address: takerAddress } = useAccount();
   const { requestQuotes, bids } = useAuctionStart();
   const chainId = useChainIdFromLocalStorage();
   const PREDICTION_MARKET_ADDRESS =
@@ -86,15 +86,15 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   }, [eager]);
 
   // Prefer connected wallet address; fall back to zero address
-  const selectedMakerAddress = makerAddress || ZERO_ADDRESS;
+  const selectedTakerAddress = takerAddress || ZERO_ADDRESS;
 
-  const { data: makerNonce } = useReadContract({
+  const { data: takerNonce } = useReadContract({
     address: PREDICTION_MARKET_ADDRESS,
     abi: predictionMarketAbi,
     functionName: 'nonces',
-    args: selectedMakerAddress ? [selectedMakerAddress] : undefined,
+    args: selectedTakerAddress ? [selectedTakerAddress] : undefined,
     chainId: chainId,
-    query: { enabled: !!selectedMakerAddress && !!PREDICTION_MARKET_ADDRESS },
+    query: { enabled: !!selectedTakerAddress && !!PREDICTION_MARKET_ADDRESS },
   });
 
   // unified via PercentChance component
@@ -120,7 +120,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           return best;
         }
       }, list[0]);
-      const taker = BigInt(String(lastMakerWagerWei || '0'));
+      const taker = BigInt(String(lastTakerWagerWei || '0'));
       const maker = BigInt(String(best?.makerWager || '0'));
       const denom = maker + taker;
       const prob = denom > 0n ? Number(maker) / Number(denom) : 0.5;
@@ -133,7 +133,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     } finally {
       setIsRequesting(false);
     }
-  }, [bids, isRequesting, lastMakerWagerWei, onPrediction]);
+  }, [bids, isRequesting, lastTakerWagerWei, onPrediction]);
 
   // Fallback: if no bids arrive within a reasonable time window, stop requesting
   React.useEffect(() => {
@@ -157,18 +157,18 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   React.useEffect(() => {
     if (!queuedRequest) return;
     if (!isRequesting) return;
-    if (effectiveOutcomes.length === 0 || !selectedMakerAddress) return;
+    if (effectiveOutcomes.length === 0 || !selectedTakerAddress) return;
     try {
       const wagerWei = parseUnits('1', 18).toString();
-      setLastMakerWagerWei(wagerWei);
+      setLastTakerWagerWei(wagerWei);
       const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
       const send = () => {
         requestQuotes({
           wager: wagerWei,
           resolver: payload.resolver,
           predictedOutcomes: payload.predictedOutcomes,
-          taker: selectedMakerAddress,
-          takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+          taker: selectedTakerAddress,
+          takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
           chainId: chainId,
         });
         setQueuedRequest(false);
@@ -184,8 +184,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     queuedRequest,
     isRequesting,
     effectiveOutcomes,
-    selectedMakerAddress,
-    makerNonce,
+    selectedTakerAddress,
+    takerNonce,
     requestQuotes,
     chainId,
   ]);
@@ -195,20 +195,20 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     setRequestedPrediction(null);
     setIsRequesting(true);
     try {
-      // If outcomes aren't ready or no maker address yet -> queue
-      if (effectiveOutcomes.length === 0 || !selectedMakerAddress) {
+      // If outcomes aren't ready or no taker address yet -> queue
+      if (effectiveOutcomes.length === 0 || !selectedTakerAddress) {
         setQueuedRequest(true);
       } else {
         const wagerWei = parseUnits('1', 18).toString();
-        setLastMakerWagerWei(wagerWei);
+        setLastTakerWagerWei(wagerWei);
         const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
         const send = () => {
           requestQuotes({
             wager: wagerWei,
             resolver: payload.resolver,
             predictedOutcomes: payload.predictedOutcomes,
-            maker: selectedMakerAddress,
-            makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+            taker: selectedTakerAddress,
+            takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
             chainId: chainId,
           });
         };
@@ -225,27 +225,27 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     }
   }, [
     effectiveOutcomes,
-    selectedMakerAddress,
-    makerNonce,
+    selectedTakerAddress,
+    takerNonce,
     requestQuotes,
     isRequesting,
     eager,
     chainId,
   ]);
 
-  // Only fire eager once both maker address and outcomes are ready
+  // Only fire eager once both taker address and outcomes are ready
   React.useEffect(() => {
     if (!eager) return;
     if (eagerlyRequestedRef.current) return;
     if (!isInViewport) return;
-    if (!selectedMakerAddress) return;
+    if (!selectedTakerAddress) return;
     if (effectiveOutcomes.length === 0) return;
     eagerlyRequestedRef.current = true;
     handleRequestPrediction();
   }, [
     eager,
     isInViewport,
-    selectedMakerAddress,
+    selectedTakerAddress,
     effectiveOutcomes.length,
     handleRequestPrediction,
   ]);

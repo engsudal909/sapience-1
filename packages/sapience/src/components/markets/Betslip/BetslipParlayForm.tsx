@@ -43,7 +43,7 @@ interface BetslipParlayFormProps {
   collateralSymbol?: string;
   collateralDecimals?: number;
   minWager?: string;
-  // PredictionMarket contract address for fetching maker nonce
+  // PredictionMarket contract address for fetching taker nonce
   predictionMarketAddress?: `0x${string}`;
 }
 
@@ -62,7 +62,7 @@ export default function BetslipParlayForm({
   predictionMarketAddress,
 }: BetslipParlayFormProps) {
   const { parlaySelections, removeParlaySelection } = useBetSlipContext();
-  const { address: makerAddress } = useAccount();
+  const { address: takerAddress } = useAccount();
   const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;
   const [nowMs, setNowMs] = useState<number>(Date.now());
@@ -70,11 +70,11 @@ export default function BetslipParlayForm({
     null
   );
 
-  // Generate or retrieve a stable guest maker address for logged-out users
-  const guestMakerAddress = useMemo<`0x${string}` | null>(() => {
+  // Generate or retrieve a stable guest taker address for logged-out users
+  const guestTakerAddress = useMemo<`0x${string}` | null>(() => {
     try {
       if (typeof window === 'undefined') return null;
-      let addr = window.localStorage.getItem('sapience_guest_maker_address');
+      let addr = window.localStorage.getItem('sapience_guest_taker_address');
       if (!addr) {
         const bytes = new Uint8Array(20);
         window.crypto.getRandomValues(bytes);
@@ -83,7 +83,7 @@ export default function BetslipParlayForm({
           Array.from(bytes)
             .map((b) => b.toString(16).padStart(2, '0'))
             .join('');
-        window.localStorage.setItem('sapience_guest_maker_address', addr);
+        window.localStorage.setItem('sapience_guest_taker_address', addr);
       }
       return addr as `0x${string}`;
     } catch {
@@ -92,17 +92,17 @@ export default function BetslipParlayForm({
   }, []);
 
   // Prefer connected wallet address; fall back to guest address
-  const selectedMakerAddress = makerAddress ?? guestMakerAddress ?? undefined;
+  const selectedTakerAddress = takerAddress ?? guestTakerAddress ?? undefined;
 
-  // Fetch maker nonce from PredictionMarket contract
-  const { data: makerNonce } = useReadContract({
+  // Fetch taker nonce from PredictionMarket contract
+  const { data: takerNonce } = useReadContract({
     address: predictionMarketAddress,
     abi: predictionMarketAbi,
     functionName: 'nonces',
-    args: selectedMakerAddress ? [selectedMakerAddress] : undefined,
+    args: selectedTakerAddress ? [selectedTakerAddress] : undefined,
     chainId,
     query: {
-      enabled: !!selectedMakerAddress && !!predictionMarketAddress,
+      enabled: !!selectedTakerAddress && !!predictionMarketAddress,
     },
   });
   const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false);
@@ -200,10 +200,10 @@ export default function BetslipParlayForm({
   // Trigger RFQ quote requests when selections or wager change
   useEffect(() => {
     if (!requestQuotes) return;
-    if (!selectedMakerAddress) return;
+    if (!selectedTakerAddress) return;
     if (!parlaySelections || parlaySelections.length === 0) return;
-    // If a wallet is connected, require a real makerNonce before broadcasting RFQ
-    if (makerAddress && makerNonce === undefined) return;
+    // If a wallet is connected, require a real takerNonce before broadcasting RFQ
+    if (takerAddress && takerNonce === undefined) return;
     const wagerStr = parlayWagerAmount || '0';
     try {
       const decimals = Number.isFinite(collateralDecimals as number)
@@ -220,8 +220,8 @@ export default function BetslipParlayForm({
         wager: wagerWei,
         resolver: payload.resolver,
         predictedOutcomes: payload.predictedOutcomes,
-        maker: selectedMakerAddress,
-        makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+        taker: selectedTakerAddress,
+        takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
         chainId: chainId,
       };
       requestQuotes(params);
@@ -234,9 +234,9 @@ export default function BetslipParlayForm({
     parlaySelections,
     parlayWagerAmount,
     collateralDecimals,
-    selectedMakerAddress,
-    makerNonce,
-    makerAddress,
+    selectedTakerAddress,
+    takerNonce,
+    takerAddress,
     chainId,
   ]);
 
