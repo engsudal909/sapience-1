@@ -143,8 +143,15 @@ function attestationToComment(
   let chainShortName: string | undefined = undefined;
 
   // Check if this is a parlay condition attestation (questionId != 0x0000...)
-  const isZeroQuestionId = !questionId || questionId === '0x0000000000000000000000000000000000000000000000000000000000000000';
-  const isParlayCondition = !isZeroQuestionId && marketId === '0' && marketAddress?.toLowerCase() === '0x0000000000000000000000000000000000000000';
+  const isZeroQuestionId =
+    !questionId ||
+    questionId ===
+      '0x0000000000000000000000000000000000000000000000000000000000000000';
+  const isParlayCondition =
+    !isZeroQuestionId &&
+    marketId?.toString() === '0' &&
+    marketAddress?.toLowerCase() ===
+      '0x0000000000000000000000000000000000000000';
 
   if (isParlayCondition && conditions && questionId) {
     // This is a parlay condition attestation - look up condition data
