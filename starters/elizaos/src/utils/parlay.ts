@@ -3,17 +3,17 @@ import { encodeAbiParameters } from "viem";
 
 interface Bid {
   auctionId: string;
-  taker: string;
-  takerWager: string;
-  takerDeadline: number;
-  takerSignature: string;
   maker: string;
-  makerCollateral: string;
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
+  makerNonce: number;
+  taker: string;
+  takerCollateral: string;
   wager?: string; // fallback for legacy compatibility
   resolver: string;
   encodedPredictedOutcomes: string;
   predictedOutcomes: string[];
-  makerNonce: number;
 }
 
 /**
@@ -62,15 +62,15 @@ export async function encodeParlayOutcomes(markets: any[], predictions: any[]): 
  */
 export function selectBestBid(bids: Bid[]): Bid {
   const now = Date.now() / 1000;
-  const validBids = bids.filter((bid) => bid.takerDeadline > now);
+  const validBids = bids.filter((bid) => bid.makerDeadline > now);
   
   if (validBids.length === 0) {
     throw new Error("No valid bids available");
   }
 
   const sortedBids = validBids.sort((a, b) => {
-    const wagerA = parseFloat(a.takerWager || '0');
-    const wagerB = parseFloat(b.takerWager || '0');
+    const wagerA = parseFloat(a.makerWager || '0');
+    const wagerB = parseFloat(b.makerWager || '0');
     return wagerB - wagerA;
   });
 

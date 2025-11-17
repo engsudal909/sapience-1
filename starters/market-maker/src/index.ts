@@ -71,11 +71,11 @@ const PRIVATE_KEY_HEX = PRIVATE_KEY
 
 const sdk = await loadSdk();
 type ContractsMap = typeof import('@sapience/sdk/contracts').contracts;
-type BuildTakerBidTypedData = typeof import('@sapience/sdk/auction/signing').buildTakerBidTypedData;
-type SignTakerBid = typeof import('@sapience/sdk/auction/signing').signTakerBid;
+type BuildMakerBidTypedData = typeof import('@sapience/sdk/auction/signing').buildMakerBidTypedData;
+type SignMakerBid = typeof import('@sapience/sdk/auction/signing').signMakerBid;
 const addressBook = sdk.contracts as ContractsMap;
-const buildTakerBidTypedData = sdk.buildTakerBidTypedData as BuildTakerBidTypedData;
-const signTakerBid = sdk.signTakerBid as SignTakerBid;
+const buildMakerBidTypedData = sdk.buildMakerBidTypedData as BuildMakerBidTypedData;
+const signMakerBid = sdk.signMakerBid as SignMakerBid;
 
 const VERIFYING_CONTRACT = (process.env.VERIFYING_CONTRACT || (addressBook.predictionMarket as any)[CHAIN_ID]?.address) as Address;
 const COLLATERAL_TOKEN = (process.env.COLLATERAL_TOKEN || (addressBook.collateralToken as any)[CHAIN_ID]?.address) as Address;
@@ -90,7 +90,7 @@ const MIN_MAKER_WAGER = parseEther(MIN_MAKER_WAGER_DEC);
 const account = PRIVATE_KEY_HEX
   ? privateKeyToAccount(PRIVATE_KEY_HEX)
   : undefined;
-const TAKER = account?.address as Address | undefined;
+const MAKER = account?.address as Address | undefined;
 
 function formatAddress(addr: Address | string): string {
   try {
@@ -158,7 +158,7 @@ async function approveOnInit() {
       address: COLLATERAL_TOKEN,
       abi: erc20Abi,
       functionName: 'allowance',
-      args: [TAKER as Address, VERIFYING_CONTRACT],
+      args: [MAKER as Address, VERIFYING_CONTRACT],
     })) as bigint;
 
     const MAX = (1n << 256n) - 1n;
@@ -199,8 +199,7 @@ function start() {
       if (type === 'auction.started') {
         const auction = msg.payload || {};
         const auctionId = auction.auctionId as string;
-        const makerWager = BigInt(auction.wager || '0');
-        const makerNonce = (auction.makerNonce as number) ?? 0;
+        const takerWager = BigInt(auction.wager || '0');
         const auctionChainId = (auction.chainId as number | undefined);
 
         // Ignore auctions on different chains
@@ -209,7 +208,7 @@ function start() {
         }
 
         // Ignore auctions below minimum before logging anything
-        if (makerWager < MIN_MAKER_WAGER) {
+        if (takerWager < MIN_MAKER_WAGER) {
           return;
         }
 
@@ -249,31 +248,31 @@ function start() {
           logger.info(`🎯 Auction started ${fmt.id(auctionId)}`);
         }
 
-        const takerWager = BID_AMOUNT;
-        const takerDeadline = Math.floor(Date.now() / 1000) + DEADLINE_SECONDS;
+        const makerWager = BID_AMOUNT;
+        const makerDeadline = Math.floor(Date.now() / 1000) + DEADLINE_SECONDS;
 
-        if (!account || !TAKER) {
+        if (!account || !MAKER) {
           logger.info(
             `Would bid ${BID_AMOUNT_DEC} on auction ${auctionId} but skipping signing/submission: PRIVATE_KEY not set`
           );
           return;
         }
 
-        const { domain, types, primaryType, message } = buildTakerBidTypedData({
+        const { domain, types, primaryType, message } = buildMakerBidTypedData({
           auction: {
-            maker: auction.maker as Address,
+            taker: auction.taker as Address,
             resolver: auction.resolver as Address,
             predictedOutcomes: auction.predictedOutcomes as string[],
             wager: auction.wager as string,
           },
-          takerWager,
-          takerDeadline,
+          makerWager,
+          makerDeadline,
           chainId: CHAIN_ID,
           verifyingContract: VERIFYING_CONTRACT,
-          taker: TAKER,
+          maker: MAKER,
         });
 
-        const takerSignature = await signTakerBid({
+        const makerSignature = await signMakerBid({
           privateKey: PRIVATE_KEY_HEX as Hex,
           domain,
           types,
@@ -281,14 +280,16 @@ function start() {
           message,
         });
 
+        const makerNonce = 1; // Maker's own nonce for the bid
+
         const bid = {
           type: 'bid.submit',
           payload: {
             auctionId,
-            taker: TAKER,
-            takerWager: takerWager.toString(),
-            takerDeadline,
-            takerSignature,
+            maker: MAKER,
+            makerWager: makerWager.toString(),
+            makerDeadline,
+            makerSignature,
             makerNonce,
           },
         };

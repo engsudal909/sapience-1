@@ -255,17 +255,20 @@ export function useAuctionStart() {
         const predictedOutcomes = auction.predictedOutcomes as `0x${string}`[];
         if (!resolver || predictedOutcomes.length === 0) return null;
 
+        // Contract field names haven't changed - map API roles to contract roles:
+        // Contract "maker" = API "taker" (auction creator)
+        // Contract "taker" = API "maker" (bidder)
         return {
           encodedPredictedOutcomes: predictedOutcomes[0],
           resolver,
-          makerCollateral: args.selectedBid.makerWager,
-          takerCollateral: auction.wager,
-          maker: args.selectedBid.maker as `0x${string}`,
-          taker: args.maker,
-          takerSignature: args.selectedBid.makerSignature as `0x${string}`,
-          takerDeadline: String(args.selectedBid.makerDeadline),
+          makerCollateral: auction.wager, // Contract maker = API taker (auction creator's wager)
+          takerCollateral: args.selectedBid.makerWager, // Contract taker = API maker (bidder's wager)
+          maker: auction.taker as `0x${string}`, // Contract maker = API taker (auction creator)
+          taker: args.selectedBid.maker as `0x${string}`, // Contract taker = API maker (bidder)
+          takerSignature: args.selectedBid.makerSignature as `0x${string}`, // Contract taker = API maker (bidder's signature)
+          takerDeadline: String(args.selectedBid.makerDeadline), // Contract taker = API maker (bidder's deadline)
           refCode: args.refCode || (zeroBytes32 as `0x${string}`),
-          makerNonce: String(args.selectedBid.makerNonce),
+          makerNonce: String(auction.takerNonce), // Contract maker = API taker (auction creator's nonce)
         };
       } catch {
         return null;
@@ -304,20 +307,20 @@ export function buildMintPredictionRequestData(args: {
     const makerCollateral = args.makerCollateral || '0';
     if (!makerCollateral || BigInt(makerCollateral) === 0n) return null;
 
-    const maker = args.selectedBid.maker as `0x${string}`;
-    const makerCollateralFromBid = args.selectedBid.makerWager;
-
+    // Contract field names haven't changed - map API roles to contract roles:
+    // Contract "maker" = API "taker" (auction creator)
+    // Contract "taker" = API "maker" (bidder)
     const out: MintPredictionRequestData = {
       encodedPredictedOutcomes: predictedOutcomes[0],
       resolver,
-      makerCollateral: makerCollateralFromBid,
-      takerCollateral: makerCollateral,
-      maker,
-      taker: args.maker,
-      takerSignature: args.selectedBid.makerSignature as `0x${string}`,
-      takerDeadline: String(args.selectedBid.makerDeadline),
+      makerCollateral: makerCollateral, // Contract maker = API taker (auction creator's wager)
+      takerCollateral: args.selectedBid.makerWager, // Contract taker = API maker (bidder's wager)
+      maker: args.maker, // Contract maker = API taker (auction creator)
+      taker: args.selectedBid.maker as `0x${string}`, // Contract taker = API maker (bidder)
+      takerSignature: args.selectedBid.makerSignature as `0x${string}`, // Contract taker = API maker (bidder's signature)
+      takerDeadline: String(args.selectedBid.makerDeadline), // Contract taker = API maker (bidder's deadline)
       refCode: args.refCode || (zeroBytes32 as `0x${string}`),
-      makerNonce: String(args.selectedBid.makerNonce),
+      makerNonce: undefined, // TODO: Need auction creator's nonce (takerNonce), not from bid
     };
 
     return out;
