@@ -35,7 +35,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
     take: 200,
     chainId: useChainIdFromLocalStorage(),
   });
-  const { addParlaySelection } = useBetSlipContext();
+  const { addParlaySelection, clearParlaySelections } = useBetSlipContext();
 
   const handleRefresh = React.useCallback(() => {
     setNonce((n) => n + 1);
@@ -229,6 +229,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                         variant="outline"
                         type="button"
                         onClick={() => {
+                          // Replace any existing parlay legs with this suggested combo
+                          clearParlaySelections();
                           combo.forEach((leg) => {
                             addParlaySelection({
                               conditionId: leg.condition.id,
