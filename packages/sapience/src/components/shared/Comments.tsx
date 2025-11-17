@@ -9,12 +9,14 @@ import LottieLoader from './LottieLoader';
 import { useInfiniteForecasts } from '~/hooks/graphql/useForecasts';
 import { SCHEMA_UID } from '~/lib/constants/eas';
 import { useEnrichedMarketGroups } from '~/hooks/graphql/useMarketGroups';
+import { useConditions } from '~/hooks/graphql/useConditions';
 import { tickToPrice } from '~/lib/utils/tickUtils';
 import { sqrtPriceX96ToPriceD18, getChainShortName } from '~/lib/utils/util';
 import { formatRelativeTime } from '~/lib/utils/timeUtils';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { formatPercentChance } from '~/lib/format/percentChance';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 // Helper function to check if a market is active
 function isMarketActive(market: any): boolean {
@@ -29,6 +31,19 @@ function isMarketActive(market: any): boolean {
     typeof end === 'number' &&
     !Number.isNaN(end) &&
     now >= start &&
+    now < end
+  );
+}
+
+// Helper function to check if a condition is active
+function isConditionActive(condition: any): boolean {
+  const now = Math.floor(Date.now() / 1000);
+  const end = condition.endTime;
+
+  return (
+    condition.public &&
+    typeof end === 'number' &&
+    !Number.isNaN(end) &&
     now < end
   );
 }
@@ -73,6 +88,8 @@ interface Comment {
   marketAddress?: string;
   marketId?: string;
   chainShortName?: string;
+  isParlayCondition?: boolean;
+  conditionId?: string;
 }
 
 interface CommentsProps {
@@ -104,13 +121,17 @@ function getDecodedDataFromAttestation(att: any): {
 // Helper to parse EAS attestation data to Comment type for SCHEMA_UID
 function attestationToComment(
   att: any,
-  marketGroups: any[] | undefined
+  marketGroups: any[] | undefined,
+  conditions: any[] | undefined
 ): Comment {
-  // Schema: address marketAddress, uint256 marketId, uint160 prediction, string comment
+  // Schema: address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment
   const { marketAddress, marketId, prediction, commentText } =
     getDecodedDataFromAttestation(att);
 
-  // Find the category, question, and marketClassification using marketGroups
+  // Extract questionId from the attestation
+  const questionId = att.questionId;
+
+  // Find the category, question, and marketClassification using marketGroups or conditions
   let category: string | undefined = undefined;
   let question: string = marketId?.toString() || '';
   let marketClassification: string | undefined = undefined;
@@ -123,7 +144,32 @@ function attestationToComment(
   let upperBound: number | undefined = undefined;
   let isActive: boolean = false;
   let chainShortName: string | undefined = undefined;
-  if (marketGroups && marketAddress && marketId) {
+
+  // Check if this is a parlay condition attestation (questionId != 0x0000...)
+  const isZeroQuestionId =
+    !questionId ||
+    questionId ===
+      '0x0000000000000000000000000000000000000000000000000000000000000000';
+  const isParlayCondition =
+    !isZeroQuestionId &&
+    marketId?.toString() === '0' &&
+    marketAddress?.toLowerCase() ===
+      '0x0000000000000000000000000000000000000000';
+
+  if (isParlayCondition && conditions && questionId) {
+    // This is a parlay condition attestation - look up condition data
+    const condition = conditions.find(
+      (c) => c.id?.toLowerCase() === questionId.toLowerCase()
+    );
+    if (condition) {
+      question = condition.shortName || condition.question;
+      category = condition.category?.slug;
+      isActive = isConditionActive(condition);
+      chainShortName = getChainShortName(condition.chainId || 42161); // Default to Arbitrum
+      marketClassification = '2'; // Treat parlay conditions as YES_NO markets
+    }
+  } else if (marketGroups && marketAddress && marketId) {
+    // This is a regular market attestation - look up market group data
     const group = marketGroups.find(
       (g) => g.address?.toLowerCase() === marketAddress.toLowerCase()
     );
@@ -245,6 +291,8 @@ function attestationToComment(
     marketAddress,
     marketId: marketId?.toString(),
     chainShortName,
+    isParlayCondition,
+    conditionId: isParlayCondition ? questionId : undefined,
   };
 }
 
@@ -289,9 +337,12 @@ const Comments = ({
     ? useEnrichedMarketGroups()
     : { data: undefined };
 
+  // Fetch all conditions for parlay condition lookup
+  const { data: conditions } = useConditions({ chainId: 42161 });
+
   // Convert EAS attestations to Comment objects with category
   const easComments: Comment[] = (easAttestations || []).map((att) =>
-    attestationToComment(att, marketGroups)
+    attestationToComment(att, marketGroups, conditions)
   );
 
   // Filter comments based on selected category and question
@@ -426,7 +477,14 @@ const Comments = ({
                       >
                         {/* Question and Prediction */}
                         <div className="space-y-3">
-                          {comment.marketAddress ? (
+                          {comment.isParlayCondition ? (
+                            <ConditionTitleLink
+                              conditionId={comment.conditionId}
+                              title={comment.question}
+                              className="font-medium"
+                              clampLines={null}
+                            />
+                          ) : comment.marketAddress ? (
                             <Link
                               href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
                               className="group"

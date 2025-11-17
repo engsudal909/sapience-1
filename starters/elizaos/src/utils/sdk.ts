@@ -36,12 +36,15 @@ export async function loadSdk(): Promise<SdkModule> {
   
   // Add local fallback implementations if missing from SDK
   if (!sdk.buildAttestationCalldata) {
+    console.log("[SDK] buildAttestationCalldata not found in SDK, using local fallback");
     try {
       const { buildAttestationCalldata } = await import("../utils/eas.js");
       sdk.buildAttestationCalldata = buildAttestationCalldata;
     } catch (e) {
       console.warn("Failed to load local buildAttestationCalldata implementation:", e);
     }
+  } else {
+    console.log("[SDK] Using buildAttestationCalldata from @sapience/sdk");
   }
   
   // Add transaction functions from actions if missing
