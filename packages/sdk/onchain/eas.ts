@@ -77,9 +77,11 @@ export async function buildAttestationCalldata(
       (conditionId || ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)) as Hex,
       (() => {
         const price = prediction.probability / 100;
-        const sqrtPrice = BigInt(Math.floor(Math.sqrt(price) * 10 ** 18));
-        const Q96 = BigInt('79228162514264337593543950336');
-        return BigInt(sqrtPrice * Q96) / BigInt(10 ** 18);
+        const effectivePrice = price * 10 ** 18;
+        const sqrtEffectivePrice = Math.sqrt(effectivePrice);
+        const JS_2_POW_96 = 2 ** 96;
+        const sqrtPriceX96Float = sqrtEffectivePrice * JS_2_POW_96;
+        return BigInt(Math.round(sqrtPriceX96Float));
       })(),
       prediction.reasoning.length > 180
         ? `${prediction.reasoning.substring(0, 177)}...`

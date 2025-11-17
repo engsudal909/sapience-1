@@ -76,6 +76,21 @@ export async function buildAttestationCalldata(
   conditionId?: `0x${string}`,
 ): Promise<AttestationCalldata | null> {
   try {
+    
+    // For parlay condition attestations, we MUST have a condition ID
+    // For regular market attestations, we can use zeros
+    let questionId: `0x${string}`;
+    if (conditionId) {
+      questionId = conditionId;
+    } else {
+      // Only allow missing condition ID for regular market attestations (non-zero marketId)
+      if (market.marketId === 0) {
+        elizaLogger.error("[EAS] Missing condition ID for parlay attestation (marketId=0)");
+        throw new Error("Condition ID is required for parlay attestations");
+      }
+      questionId = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
+    }
+    
     // Use Viem to encode the attestation data directly
     // Schema: 'address marketAddress,uint256 marketId,bytes32 questionId,uint160 prediction,string comment'
     const encodedData = encodeAbiParameters(
@@ -85,15 +100,17 @@ export async function buildAttestationCalldata(
       [
         market.address as `0x${string}`,
         BigInt(market.marketId),
-        (conditionId || ("0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`)) as `0x${string}`,
+        questionId,
         (() => {
           // Convert probability (0-100) to price (0-1)
           const price = prediction.probability / 100;
 
-          // Calculate sqrtPriceX96 using the same formula as Sapience
-          const sqrtPrice = BigInt(Math.floor(Math.sqrt(price) * 10 ** 18));
-          const Q96 = BigInt("79228162514264337593543950336");
-          return BigInt(sqrtPrice * Q96) / BigInt(10 ** 18);
+          // Calculate sqrtPriceX96 using the same formula as the working frontend
+          const effectivePrice = price * 10 ** 18;
+          const sqrtEffectivePrice = Math.sqrt(effectivePrice);
+          const JS_2_POW_96 = 2 ** 96;
+          const sqrtPriceX96Float = sqrtEffectivePrice * JS_2_POW_96;
+          return BigInt(Math.round(sqrtPriceX96Float));
         })(), // Calculate sqrtPriceX96 for the prediction
         prediction.reasoning.length > 180
           ? prediction.reasoning.substring(0, 177) + "..."
@@ -129,14 +146,6 @@ export async function buildAttestationCalldata(
       return null;
     }
 
-    // Log attestation details (temporary for debugging)
-    console.log(`\n📝 Attestation prepared for market #${market.marketId}:`);
-    console.log(`   • Prediction: ${prediction.probability}% YES`);
-    console.log(
-      `   • Confidence: ${(prediction.confidence * 100).toFixed(0)}%`,
-    );
-    console.log(`   • Target: ${easAddress} (Chain ${chainId})`);
-    console.log(`   • Status: Calldata generated (not submitted)\n`);
 
     return {
       to: easAddress,
@@ -146,8 +155,7 @@ export async function buildAttestationCalldata(
       description: `Attest: ${prediction.probability}% YES for market ${market.marketId}`,
     };
   } catch (error) {
-    elizaLogger.error("Error building attestation calldata:");
-    console.error(error);
+    elizaLogger.error("Error building attestation calldata:", error);
     return null;
   }
 }

@@ -332,6 +332,8 @@ Analyze and respond with ONLY valid JSON:
       const { buildAttestationCalldata } = await loadSdk();
       const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
       const zero = "0x0000000000000000000000000000000000000000" as const;
+      
+      
       const attestationData = await buildAttestationCalldata(
         {
           marketId: 0,
