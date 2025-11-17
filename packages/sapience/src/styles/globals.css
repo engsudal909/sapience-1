@@ -223,12 +223,60 @@
     background-position: -40% 0;
     animation: gold-sheen-sweep 2s linear infinite;
   }
+  /* Animated glow cycle for betslip buttons, reusing header colors (vertical sweep) */
+  @keyframes betslip-glow-cycle {
+    0% {
+      background-position: 50% 0%;
+    }
+    100% {
+      background-position: 50% 400%;
+    }
+  }
 }
 
 @layer components {
   .betslip {
     /* Scope form elements inside betslip to brand white */
     --form-foreground: var(--brand-white);
+  }
+  .betslip-submit {
+    position: relative;
+    overflow: visible;
+    /* Establish stacking context so ::before can sit behind content */
+    z-index: 0;
+    /* Smoothly adjust base styling while glow is handled in ::before */
+    transition:
+      background-color 220ms ease-out,
+      box-shadow 220ms ease-out,
+      color 150ms ease-out;
+  }
+  .betslip-submit::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    /* Glow built from the same colors used in the header gradient, rotated 90deg */
+    background-image: linear-gradient(180deg, var(--betslip-gradient-stops));
+    /* Make the glow taller/longer so colors have more room to travel */
+    background-size: 100% 400%;
+    background-position: 50% 0%;
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+    filter: blur(10px);
+    pointer-events: none;
+    /* Place glow behind the button box + text */
+    z-index: -1;
+  }
+  .betslip-submit:hover:not(:disabled) {
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.22);
+    text-shadow:
+      0 0 6px rgba(255, 255, 255, 0.7),
+      0 0 14px rgba(255, 255, 255, 0.35);
+  }
+  .betslip-submit:hover:not(:disabled)::before {
+    opacity: 1;
+    /* Slow down the vertical sweep for a smoother, more ambient hover */
+    animation: betslip-glow-cycle 6s linear infinite;
   }
   /* Eyebrow and headline utilities */
   .eyebrow {

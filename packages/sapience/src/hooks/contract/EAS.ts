@@ -55,11 +55,13 @@ export function encodeAttest({
   _marketId,
   _comment,
   predictionAmount,
+  questionIdHex,
 }: {
   _marketAddress: Address;
   _marketId: bigint;
   _comment: string;
   predictionAmount: bigint;
+  questionIdHex?: `0x${string}`;
 }) {
   return encodeAbiParameters(
     parseAbiParameters(
@@ -68,7 +70,8 @@ export function encodeAttest({
     [
       _marketAddress,
       _marketId,
-      `0x0000000000000000000000000000000000000000000000000000000000000000` as Address, // TODO: fix this, it is a stub!
+      questionIdHex ||
+        (`0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`),
       predictionAmount,
       _comment,
     ]
@@ -81,12 +84,14 @@ export const encodeEASAttest = ({
   predictionInput,
   classification,
   comment,
+  questionIdHex,
 }: {
   marketAddress: Address;
   marketId: string;
   predictionInput: string;
   classification: MarketGroupClassification;
   comment: string;
+  questionIdHex?: `0x${string}`;
 }) => {
   try {
     const finalPredictionBigInt = getPredictionValue(
@@ -101,7 +106,8 @@ export const encodeEASAttest = ({
       [
         marketAddress,
         BigInt(marketId),
-        `0x0000000000000000000000000000000000000000000000000000000000000000` as Address, // TODO: fix this, it is a stub!
+        questionIdHex ||
+          (`0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`),
         finalPredictionBigInt,
         comment,
       ]
