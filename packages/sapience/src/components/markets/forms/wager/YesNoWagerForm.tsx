@@ -217,7 +217,7 @@ export default function YesNoWagerForm({
           <Button
             type="submit"
             disabled={isButtonDisabled}
-            className="w-full bg-primary text-primary-foreground py-6 px-5 rounded text-lg font-normal hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-brand-white text-brand-black py-6 px-5 rounded text-lg font-medium hover:bg-brand-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {getButtonText()}
           </Button>
