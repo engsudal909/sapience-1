@@ -246,7 +246,9 @@ const AuctionPageContent: React.FC = () => {
     try {
       if (m.type !== 'auction.started')
         return <span className="text-muted-foreground">—</span>;
-      const predictedOutcomes = m.data?.predictedOutcomes as string[] | undefined;
+      const predictedOutcomes = m.data?.predictedOutcomes as
+        | string[]
+        | undefined;
       if (!predictedOutcomes || predictedOutcomes.length === 0)
         return <span className="text-muted-foreground">—</span>;
       const encoded = predictedOutcomes[0] as `0x${string}` | undefined;

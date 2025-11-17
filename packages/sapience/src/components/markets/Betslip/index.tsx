@@ -27,7 +27,6 @@ import { z } from 'zod';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import erc20ABI from '@sapience/sdk/queries/abis/erc20abi.json';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';

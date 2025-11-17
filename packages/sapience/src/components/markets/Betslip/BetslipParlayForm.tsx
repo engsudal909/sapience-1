@@ -14,8 +14,6 @@ import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
-import { predictionMarket } from '@sapience/sdk/contracts';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { WagerInput } from '~/components/markets/forms';
 import WagerDisclaimer from '~/components/markets/forms/shared/WagerDisclaimer';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
@@ -55,7 +53,7 @@ export default function BetslipParlayForm({
   onSubmit,
   isSubmitting,
   error,
-  chainId,
+  chainId = 42161,
   bids = [],
   requestQuotes,
   collateralToken,
@@ -230,7 +228,9 @@ export default function BetslipParlayForm({
         taker: selectedMakerAddress,
         takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
         chainId: effectiveChainId,
-        marketContract: predictionMarketAddress || ('0x0000000000000000000000000000000000000000' as `0x${string}`),
+        marketContract:
+          predictionMarketAddress ||
+          ('0x0000000000000000000000000000000000000000' as `0x${string}`),
       };
       requestQuotes(params);
       setLastQuoteRequestMs(Date.now());

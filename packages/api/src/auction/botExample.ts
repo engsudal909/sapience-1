@@ -13,7 +13,6 @@ import {
   buildMakerBidTypedData,
   signMakerBid,
 } from '@sapience/sdk/auction/signing';
-import type { AuctionRequestPayload } from './types';
 
 const API_BASE = process.env.FOIL_API_BASE || 'http://localhost:3001';
 const WS_URL =
@@ -135,7 +134,9 @@ ws.on('message', async (data: RawData) => {
               buildMakerBidTypedData({
                 auction: {
                   wager: String(auction.wager || '0'),
-                  predictedOutcomes: predictedOutcomes.map((outcome) => outcome as Hex),
+                  predictedOutcomes: predictedOutcomes.map(
+                    (outcome) => outcome as Hex
+                  ),
                   resolver: getAddress(resolver as `0x${string}`),
                   taker: taker as Address,
                 },
