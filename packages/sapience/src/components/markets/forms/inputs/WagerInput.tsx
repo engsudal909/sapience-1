@@ -1,11 +1,5 @@
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
-import { HelpCircle, ChevronRight } from 'lucide-react';
 import { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { z } from 'zod';
@@ -33,43 +27,6 @@ export const wagerAmountSchema = z
   .refine((val) => Number(val) > 0, {
     message: 'Amount must be greater than 0',
   });
-
-function SUsdsHelp() {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="ml-1 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer pointer-events-auto"
-          aria-label="Information about sUSDS"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <HelpCircle size={16} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="left" className="w-[370px] p-4 text-sm">
-        <div className="flex items-center gap-4">
-          <img src="/sky.svg" alt="Sky Protocol Logo" className="h-14 w-auto" />
-          <div className="flex flex-col text-left">
-            <p className="mb-1.5">
-              sUSDS is the yield-bearing token of the Sky Protocol, currently
-              earning 4.5% APY.
-            </p>
-            <a
-              href="https://sky.money/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground/70 hover:text-muted-foreground flex items-center gap-1 text-xs tracking-widest transition-all duration-300 font-semibold"
-            >
-              LEARN MORE
-              <ChevronRight className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 export function WagerInput({
   name = 'wagerAmount',
@@ -149,7 +106,9 @@ export function WagerInput({
           autoCorrect="off"
           spellCheck={false}
           autoCapitalize="none"
-          className={`pr-24 ${errors[name] ? 'border-destructive' : ''} ${inputClassName || ''}`}
+          className={`pr-24 text-brand-white placeholder:text-brand-white/70 ${
+            errors[name] ? 'border-destructive' : ''
+          } ${inputClassName || ''}`}
           {...register(name, {
             validate: (val) => {
               if (!val) return '';
@@ -178,8 +137,8 @@ export function WagerInput({
             },
           })}
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground flex items-center pointer-events-none">
-          {collateralSymbol} {collateralSymbol === 'sUSDS' && <SUsdsHelp />}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-white flex items-center pointer-events-none">
+          {collateralSymbol}
         </div>
       </div>
       {typeof minAmount !== 'undefined' &&
