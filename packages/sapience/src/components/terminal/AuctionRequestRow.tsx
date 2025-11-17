@@ -300,14 +300,14 @@ const AuctionRequestRow: React.FC<Props> = ({
         const takerAddr = typeof maker === 'string' ? maker : undefined;
         const resolverAddr =
           typeof resolverContract === 'string' ? resolverContract : undefined;
-        
+
         const takerWagerWei = (() => {
-            try {
-              return BigInt(String(takerWager ?? '0'));
-            } catch {
-              return 0n;
-            }
-          })();
+          try {
+            return BigInt(String(takerWager ?? '0'));
+          } catch {
+            return 0n;
+          }
+        })();
         // Resolve maker nonce: prefer feed-provided, fall back to on-chain
         let makerNonceVal: number | undefined = undefined;
         try {
@@ -363,7 +363,7 @@ const AuctionRequestRow: React.FC<Props> = ({
               makerWagerWei,
               takerWagerWei,
               getAddress(resolverAddr as `0x${string}`),
-              getAddress(takerAddr as `0x${string}`),
+              getAddress(takerAddr),
               BigInt(makerDeadline),
               BigInt(makerNonceVal),
             ]
