@@ -470,9 +470,9 @@ const AuctionRequestRow: React.FC<Props> = ({
     [
       auctionId,
       encodedPredictedOutcomes,
-      maker,
+      taker,
       resolverContract,
-      makerWager,
+      takerWager,
       address,
       connectOrCreateWallet,
       wsUrl,
@@ -566,21 +566,21 @@ const AuctionRequestRow: React.FC<Props> = ({
           >
             <AuctionRequestChart
               bids={bids}
-              makerWager={makerWager}
+              makerWager={takerWager}
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
-              maker={maker}
+              maker={taker}
               hasMultipleConditions={conditionIds.length > 1}
               tokenDecimals={tokenDecimals}
             />
             <AuctionRequestInfo
               uiTx={uiTx}
               bids={bids}
-              makerWager={makerWager}
+              makerWager={takerWager}
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
               onSubmit={submitBid}
-              maker={maker}
+              maker={taker}
               predictedOutcomes={
                 [encodedPredictedOutcomes || undefined].filter(
                   Boolean
