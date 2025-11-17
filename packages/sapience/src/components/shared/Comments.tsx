@@ -16,6 +16,7 @@ import { formatRelativeTime } from '~/lib/utils/timeUtils';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { formatPercentChance } from '~/lib/format/percentChance';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 // Helper function to check if a market is active
 function isMarketActive(market: any): boolean {
@@ -87,6 +88,8 @@ interface Comment {
   marketAddress?: string;
   marketId?: string;
   chainShortName?: string;
+  isParlayCondition?: boolean;
+  conditionId?: string;
 }
 
 interface CommentsProps {
@@ -288,6 +291,8 @@ function attestationToComment(
     marketAddress,
     marketId: marketId?.toString(),
     chainShortName,
+    isParlayCondition,
+    conditionId: isParlayCondition ? questionId : undefined,
   };
 }
 
@@ -472,7 +477,14 @@ const Comments = ({
                       >
                         {/* Question and Prediction */}
                         <div className="space-y-3">
-                          {comment.marketAddress ? (
+                          {comment.isParlayCondition ? (
+                            <ConditionTitleLink
+                              conditionId={comment.conditionId}
+                              title={comment.question}
+                              className="font-medium"
+                              clampLines={null}
+                            />
+                          ) : comment.marketAddress ? (
                             <Link
                               href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
                               className="group"
