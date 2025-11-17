@@ -20,7 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { sapienceAbi } from '@sapience/sdk/queries/client/abi';
 import Image from 'next/image';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type CSSProperties } from 'react';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -55,6 +55,7 @@ import {
 import { tickToPrice } from '~/lib/utils/tickUtils';
 import { calculateCollateralLimit, DEFAULT_SLIPPAGE } from '~/utils/trade';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 interface BetslipProps {
   variant?: 'triggered' | 'panel';
@@ -97,7 +98,10 @@ const Betslip = ({
   // Removed repetitive debug log
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const parlayChainId = betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+  const chainId = useChainIdFromLocalStorage();
+  const parlayChainId =
+    chainId || betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+
   const {
     auctionId,
     bids,
@@ -106,8 +110,8 @@ const Betslip = ({
     buildMintRequestDataFromBid,
   } = useAuctionStart();
 
-  // PredictionMarket address via centralized mapping (arb1 tag default)
-  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  // PredictionMarket address via centralized mapping (use parlayChainId)
+  const PREDICTION_MARKET_ADDRESS = predictionMarket[parlayChainId]?.address;
 
   // Fetch PredictionMarket configuration
   const predictionMarketConfigRead = useReadContracts({
@@ -196,13 +200,31 @@ const Betslip = ({
   // Disable logic is handled by page-level UI; no internal toggling
 
   // Desktop-only top gradient bar across categories in filter order
-  const categoryGradient = useMemo(() => {
+  const { categoryGradient, categoryGradientStops } = useMemo(() => {
     const colors = FOCUS_AREAS.map((fa) => fa.color);
-    if (colors.length === 0) return 'transparent';
-    if (colors.length === 1) return colors[0];
-    const step = 100 / (colors.length - 1);
-    const stops = colors.map((c, i) => `${c} ${i * step}%`);
-    return `linear-gradient(to right, ${stops.join(', ')})`;
+    if (colors.length === 0) {
+      return { categoryGradient: 'transparent', categoryGradientStops: '' };
+    }
+    if (colors.length === 1) {
+      return { categoryGradient: colors[0], categoryGradientStops: colors[0] };
+    }
+
+    // Header gradient: use each category color once across the width
+    const headerStep = 100 / (colors.length - 1);
+    const headerStops = colors.map((c, i) => `${c} ${i * headerStep}%`);
+    const headerJoinedStops = headerStops.join(', ');
+
+    // Glow gradient: repeat the first color as a final stop so the loop
+    // can wrap without a visible edge when the background-position resets.
+    const loopColors = [...colors, colors[0]];
+    const loopStep = 100 / (loopColors.length - 1);
+    const glowStops = loopColors.map((c, i) => `${c} ${i * loopStep}%`);
+    const glowJoinedStops = glowStops.join(', ');
+
+    return {
+      categoryGradient: `linear-gradient(to right, ${headerJoinedStops})`,
+      categoryGradientStops: glowJoinedStops,
+    };
   }, []);
 
   // Create separate form schemas for individual and parlay modes
@@ -493,7 +515,7 @@ const Betslip = ({
     isSubmitting: isParlaySubmitting,
     error: parlayError,
   } = useSubmitParlay({
-    chainId: betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID, // Use first position's chainId or default
+    chainId: parlayChainId,
     predictionMarketAddress: PREDICTION_MARKET_ADDRESS,
     collateralTokenAddress:
       collateralToken || '0x0000000000000000000000000000000000000000',
@@ -901,7 +923,15 @@ const Betslip = ({
               />
             </Button>
           </DrawerTrigger>
-          <DrawerContent className="h-[85vh] betslip bg-brand-black overflow-hidden">
+          <DrawerContent
+            className="h-[85vh] betslip bg-brand-black overflow-hidden"
+            style={
+              {
+                '--betslip-gradient': categoryGradient,
+                '--betslip-gradient-stops': categoryGradientStops,
+              } as CSSProperties
+            }
+          >
             <DrawerHeader className="pb-0">
               <DrawerTitle className="text-left"></DrawerTitle>
             </DrawerHeader>
@@ -922,7 +952,15 @@ const Betslip = ({
         <div
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
-          <div className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden">
+          <div
+            className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
+            style={
+              {
+                '--betslip-gradient': categoryGradient,
+                '--betslip-gradient-stops': categoryGradientStops,
+              } as CSSProperties
+            }
+          >
             <div
               className="hidden lg:block absolute top-0 left-0 right-0 h-px"
               style={{ background: categoryGradient }}
@@ -970,7 +1008,15 @@ const Betslip = ({
           align="end"
         >
           <div className="flex-1 min-h-0">
-            <div className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden">
+            <div
+              className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
+              style={
+                {
+                  '--betslip-gradient': categoryGradient,
+                  '--betslip-gradient-stops': categoryGradientStops,
+                } as CSSProperties
+              }
+            >
               <div
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}

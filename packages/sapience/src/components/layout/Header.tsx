@@ -133,6 +133,15 @@ const NavLinks = ({
         >
           Build Bots
         </Link>
+        <a
+          href="https://docs.sapience.xyz"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} hover:text-accent-gold transition-colors`}
+          onClick={handleLinkClick}
+        >
+          Docs
+        </a>
         {/* Mobile settings link, placed under links */}
         <Link
           href="/settings"
@@ -390,6 +399,17 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <a
+                      href="https://docs.sapience.xyz"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
+                    >
+                      <BookOpen className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
+                      <span>Docs</span>
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link
                       href="/settings"
                       className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
@@ -412,7 +432,7 @@ const Header = () => {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="default"
-                      className="rounded-sm md:rounded-full h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden"
+                      className="rounded-md h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden bg-brand-white text-brand-black hover:bg-brand-white/90"
                     >
                       {connectedWallet?.address ? (
                         <>
@@ -520,7 +540,7 @@ const Header = () => {
             </Button>
             <Button size="icon" className="h-6 w-6 rounded-full" asChild>
               <a
-                href="https://x.com/sapiencehq"
+                href="https://x.com/sapiencemarkets"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -558,15 +578,6 @@ const Header = () => {
                   className="h-3 w-3  scale-[70%]"
                   aria-label="Substack"
                 />
-              </a>
-            </Button>
-            <Button size="icon" className="h-6 w-6 rounded-full" asChild>
-              <a
-                href="https://docs.sapience.xyz"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <BookOpen className="h-3 w-3 scale-[85%]" />
               </a>
             </Button>
           </div>

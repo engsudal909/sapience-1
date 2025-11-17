@@ -21,6 +21,7 @@ import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { formatNumber } from '~/lib/utils/util';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 interface BetslipParlayFormProps {
   methods: UseFormReturn<{
@@ -55,13 +56,15 @@ export default function BetslipParlayForm({
   bids = [],
   requestQuotes,
   collateralToken,
-  collateralSymbol,
+  collateralSymbol: collateralSymbolProp,
   collateralDecimals,
   minWager,
   predictionMarketAddress,
 }: BetslipParlayFormProps) {
   const { parlaySelections, removeParlaySelection } = useBetSlipContext();
   const { address: makerAddress } = useAccount();
+  const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
+  const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;
   const [nowMs, setNowMs] = useState<number>(Date.now());
   const [lastQuoteRequestMs, setLastQuoteRequestMs] = useState<number | null>(
     null
@@ -212,13 +215,14 @@ export default function BetslipParlayForm({
         marketId: s.conditionId || '0',
         prediction: !!s.prediction,
       }));
-      const payload = buildAuctionStartPayload(outcomes);
+      const payload = buildAuctionStartPayload(outcomes, chainId);
       const params: AuctionParams = {
         wager: wagerWei,
         resolver: payload.resolver,
         predictedOutcomes: payload.predictedOutcomes,
         maker: selectedMakerAddress,
         makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+        chainId: chainId,
       };
       requestQuotes(params);
       setLastQuoteRequestMs(Date.now());
@@ -233,6 +237,7 @@ export default function BetslipParlayForm({
     selectedMakerAddress,
     makerNonce,
     makerAddress,
+    chainId,
   ]);
 
   return (
@@ -245,7 +250,7 @@ export default function BetslipParlayForm({
           {parlaySelections.map((s) => (
             <div
               key={s.id}
-              className="-mx-4 px-4 py-2 border-b border-brand-white/10 first:border-t"
+              className="-mx-4 px-4 py-2.5 border-b border-brand-white/10 first:border-t"
             >
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -313,7 +318,7 @@ export default function BetslipParlayForm({
                       return 0n;
                     }
                   })();
-                  const symbol = collateralSymbol || 'testUSDe';
+                  const symbol = collateralSymbol;
                   const humanTotal = (() => {
                     try {
                       const human = Number(formatUnits(totalWei, decimals));
@@ -333,9 +338,9 @@ export default function BetslipParlayForm({
                           <Image
                             src="/usde.svg"
                             alt="USDe"
-                            width={20}
-                            height={20}
-                            className="opacity-90 w-5 h-5"
+                            width={18}
+                            height={18}
+                            className="opacity-90 w-4.5 h-4.5"
                           />
                           <span className="font-medium text-brand-white">
                             To Win:
@@ -356,7 +361,7 @@ export default function BetslipParlayForm({
                   );
                 })()}
                 <Button
-                  className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
                   disabled={
                     isSubmitting || bestBid.takerDeadline * 1000 - nowMs <= 0
                   }
@@ -366,7 +371,7 @@ export default function BetslipParlayForm({
                 >
                   {isSubmitting ? 'Submitting Wager...' : 'Submit Wager'}
                 </Button>
-                <div className="mt-1 py-1 flex items-center justify-between text-xs">
+                <div className="mt-0.5 py-1 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-foreground">
                     <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
                     <span>Broadcasting a request for bids...</span>
@@ -384,7 +389,7 @@ export default function BetslipParlayForm({
             ) : (
               <div className="text-center">
                 <Button
-                  className="w-full py-6 text-lg font-normal bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
                   disabled={true}
                   type="submit"
                   size="lg"
@@ -392,7 +397,7 @@ export default function BetslipParlayForm({
                 >
                   Waiting for Bids...
                 </Button>
-                <div className="mt-2 py-1 flex items-center justify-between text-xs">
+                <div className="mt-1 py-1 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-foreground">
                     <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
                     <span>Broadcasting a request for bids...</span>

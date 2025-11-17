@@ -11,12 +11,18 @@ export interface ConditionType {
   claimStatement: string;
   description: string;
   similarMarkets: string[];
+  chainId: number;
   category?: { id: number; name: string; slug: string } | null;
 }
 
 const GET_CONDITIONS = /* GraphQL */ `
-  query Conditions($take: Int, $skip: Int) {
-    conditions(orderBy: { createdAt: desc }, take: $take, skip: $skip) {
+  query Conditions($take: Int, $skip: Int, $chainId: Int) {
+    conditions(
+      orderBy: { createdAt: desc }
+      take: $take
+      skip: $skip
+      where: { chainId: { equals: $chainId } }
+    ) {
       id
       createdAt
       question
@@ -26,6 +32,7 @@ const GET_CONDITIONS = /* GraphQL */ `
       claimStatement
       description
       similarMarkets
+      chainId
       category {
         id
         name
@@ -35,17 +42,30 @@ const GET_CONDITIONS = /* GraphQL */ `
   }
 `;
 
-export const useConditions = (opts?: { take?: number; skip?: number }) => {
+export const useConditions = (opts?: {
+  take?: number;
+  skip?: number;
+  chainId?: number;
+}) => {
   const take = opts?.take ?? 50;
   const skip = opts?.skip ?? 0;
+  const chainId = opts?.chainId;
+
   return useQuery<ConditionType[], Error>({
-    queryKey: ['conditions', take, skip],
+    queryKey: ['conditions', take, skip, chainId],
     queryFn: async (): Promise<ConditionType[]> => {
       type ConditionsQueryResult = { conditions: ConditionType[] };
-      const data = await graphqlRequest<ConditionsQueryResult>(GET_CONDITIONS, {
+      const variables = {
         take,
         skip,
-      });
+        ...(chainId !== undefined ? { chainId } : {}),
+      };
+
+      const data = await graphqlRequest<ConditionsQueryResult>(
+        GET_CONDITIONS,
+        variables
+      );
+
       return data.conditions ?? [];
     },
   });
