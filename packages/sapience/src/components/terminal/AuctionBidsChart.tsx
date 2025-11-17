@@ -23,8 +23,8 @@ type Props = {
   refreshMs?: number;
   // When true, use requestAnimationFrame to continuously update time window
   continuous?: boolean;
-  makerWager?: string | null;
-  maker?: string | null;
+  takerWager?: string | null;
+  taker?: string | null;
   collateralAssetTicker: string;
 };
 
@@ -32,14 +32,14 @@ const AuctionBidsChart: React.FC<Props> = ({
   bids,
   refreshMs = 1000,
   continuous = false,
-  makerWager,
-  maker,
+  takerWager,
+  taker,
   collateralAssetTicker,
 }) => {
   const [nowMs, setNowMs] = useState<number>(Date.now());
-  const makerEth = (() => {
+  const takerEth = (() => {
     try {
-      return Number(formatEther(BigInt(String(makerWager ?? '0'))));
+      return Number(formatEther(BigInt(String(takerWager ?? '0'))));
     } catch {
       return 0;
     }
@@ -109,14 +109,14 @@ const AuctionBidsChart: React.FC<Props> = ({
               {
                 time: start,
                 amount,
-                takerAddress: (b as any)?.maker || '',
+                takerAddress: (b as any)?.taker || '',
                 takerAmountEth: amount,
                 endMs: end,
               },
               {
                 time: end,
                 amount,
-                takerAddress: (b as any)?.maker || '',
+                takerAddress: (b as any)?.taker || '',
                 takerAmountEth: amount,
                 endMs: end,
               },
@@ -244,7 +244,7 @@ const AuctionBidsChart: React.FC<Props> = ({
               const p: any = payload[0]?.payload || {};
               const takerAmount = Number(p?.takerAmountEth || p?.amount || 0);
               const total = Number.isFinite(takerAmount)
-                ? takerAmount + (Number.isFinite(makerEth) ? makerEth : 0)
+                ? takerAmount + (Number.isFinite(takerEth) ? takerEth : 0)
                 : 0;
               const pct =
                 Number.isFinite(takerAmount) &&
@@ -261,7 +261,7 @@ const AuctionBidsChart: React.FC<Props> = ({
                 <div className="rounded-md bg-background border border-border px-3 py-2.5">
                   <TradePopoverContent
                     leftAddress={String(p?.takerAddress || '')}
-                    rightAddress={String(maker || '')}
+                    rightAddress={String(taker || '')}
                     takerAmountEth={takerAmount}
                     totalAmountEth={total}
                     percent={pct}

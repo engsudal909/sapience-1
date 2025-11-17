@@ -34,11 +34,11 @@ type SubmitData = {
 type Props = {
   uiTx: UiTransaction;
   bids: any[] | undefined;
-  makerWager: string | null;
+  takerWager: string | null;
   collateralAssetTicker: string;
   onSubmit: (data: SubmitData) => void | Promise<void>;
   maxEndTimeSec?: number | null;
-  maker?: string | null;
+  taker?: string | null;
   predictedOutcomes?: string[];
 };
 
@@ -46,7 +46,7 @@ type BestBidProps = {
   uiTx: UiTransaction;
   sortedBids: any[];
   now: number;
-  makerWager: string | null;
+  takerWager: string | null;
   collateralAssetTicker: string;
   lastTrade: {
     takerStr: string;
@@ -63,7 +63,7 @@ const BestBid: React.FC<BestBidProps> = ({
   uiTx,
   sortedBids,
   now,
-  makerWager,
+  takerWager,
   collateralAssetTicker,
   lastTrade,
   lastBid,
@@ -143,7 +143,7 @@ const BestBid: React.FC<BestBidProps> = ({
                 })();
                 const toWinStr = (() => {
                   try {
-                    const maker = BigInt(String(makerWager ?? '0'));
+                    const maker = BigInt(String(takerWager ?? '0'));
                     const taker = BigInt(String(b?.makerWager ?? '0'));
                     return (maker + taker).toString();
                   } catch {
@@ -166,7 +166,7 @@ const BestBid: React.FC<BestBidProps> = ({
                 }
                 let pct: number | null = null;
                 try {
-                  const maker = BigInt(String(makerWager ?? '0'));
+                  const maker = BigInt(String(takerWager ?? '0'));
                   const taker = BigInt(String(b?.makerWager ?? '0'));
                   const total = maker + taker;
                   if (total > 0n) {
@@ -266,11 +266,11 @@ const BestBid: React.FC<BestBidProps> = ({
 const AuctionRequestInfo: React.FC<Props> = ({
   uiTx,
   bids,
-  makerWager,
+  takerWager,
   collateralAssetTicker,
   onSubmit,
   maxEndTimeSec,
-  maker,
+  taker,
   predictedOutcomes,
 }) => {
   const [now, setNow] = useState<number>(Date.now());
@@ -280,13 +280,13 @@ const AuctionRequestInfo: React.FC<Props> = ({
     return () => clearInterval(id);
   }, []);
 
-  const makerAmountDisplay = useMemo(() => {
+  const takerAmountDisplay = useMemo(() => {
     try {
-      return Number(formatEther(BigInt(String(makerWager ?? '0'))));
+      return Number(formatEther(BigInt(String(takerWager ?? '0'))));
     } catch {
       return 0;
     }
-  }, [makerWager]);
+  }, [takerWager]);
 
   const highestTakerBidDisplay = useMemo(() => {
     try {
@@ -357,7 +357,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
 
   const { data: lastParlay, refetch: refetchLastTrade } = useLastTradeForIntent(
     {
-      maker: maker || uiTx?.position?.owner,
+      maker: taker || uiTx?.position?.owner,
       outcomesSignature: outcomesSignature,
     }
   );
@@ -513,7 +513,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
         collateralAssetTicker={collateralAssetTicker}
         decimals={2}
         variant="compact"
-        makerAmountDisplay={makerAmountDisplay}
+        makerAmountDisplay={takerAmountDisplay}
         bestBidDisplay={highestTakerBidDisplay}
         onSubmit={onSubmit}
         maxExpirySeconds={maxRemainingExpirySeconds}
@@ -538,7 +538,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
             uiTx={uiTx}
             sortedBids={sortedBids}
             now={now}
-            makerWager={makerWager}
+            takerWager={takerWager}
             collateralAssetTicker={collateralAssetTicker}
             lastTrade={lastTrade}
             lastBid={lastBid}

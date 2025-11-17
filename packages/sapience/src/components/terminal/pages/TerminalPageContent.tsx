@@ -818,16 +818,16 @@ const TerminalPageContent: React.FC = () => {
                                 uiTx={toUiTx(m)}
                                 predictionsContent={renderPredictionsCell(m)}
                                 auctionId={auctionId}
-                                makerWager={String(m?.data?.wager ?? '0')}
-                                maker={m?.data?.maker || null}
+                                takerWager={String(m?.data?.wager ?? '0')}
+                                taker={m?.data?.taker || null}
                                 resolver={m?.data?.resolver || null}
                                 predictedOutcomes={
                                   Array.isArray(m?.data?.predictedOutcomes)
                                     ? (m?.data?.predictedOutcomes as string[])
                                     : []
                                 }
-                                makerNonce={(() => {
-                                  const raw = m?.data?.makerNonce;
+                                takerNonce={(() => {
+                                  const raw = m?.data?.takerNonce;
                                   const n = Number(raw);
                                   return Number.isFinite(n) ? n : null;
                                 })()}
@@ -870,16 +870,16 @@ const TerminalPageContent: React.FC = () => {
                                   uiTx={toUiTx(m)}
                                   predictionsContent={renderPredictionsCell(m)}
                                   auctionId={auctionId}
-                                  makerWager={String(m?.data?.wager ?? '0')}
-                                  maker={m?.data?.maker || null}
+                                  takerWager={String(m?.data?.wager ?? '0')}
+                                  taker={m?.data?.taker || null}
                                   resolver={m?.data?.resolver || null}
                                   predictedOutcomes={
                                     Array.isArray(m?.data?.predictedOutcomes)
                                       ? (m?.data?.predictedOutcomes as string[])
                                       : []
                                   }
-                                  makerNonce={(() => {
-                                    const raw = m?.data?.makerNonce;
+                                  takerNonce={(() => {
+                                    const raw = m?.data?.takerNonce;
                                     const n = Number(raw);
                                     return Number.isFinite(n) ? n : null;
                                   })()}

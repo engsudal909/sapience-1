@@ -39,11 +39,11 @@ type Props = {
   uiTx: UiTransaction;
   predictionsContent: React.ReactNode;
   auctionId: string | null;
-  makerWager: string | null;
-  maker: string | null;
+  takerWager: string | null;
+  taker: string | null;
   resolver: string | null;
   predictedOutcomes: string[];
-  makerNonce: number | null;
+  takerNonce: number | null;
   collateralAssetTicker: string;
   onTogglePin?: (auctionId: string | null) => void;
   isPinned?: boolean;
@@ -53,11 +53,11 @@ const AuctionRequestRow: React.FC<Props> = ({
   uiTx,
   predictionsContent,
   auctionId,
-  makerWager,
-  maker,
+  takerWager,
+  taker,
   resolver,
   predictedOutcomes,
-  makerNonce,
+  takerNonce,
   collateralAssetTicker,
   onTogglePin,
   isPinned,
@@ -133,16 +133,16 @@ const AuctionRequestRow: React.FC<Props> = ({
       enabled: Boolean(address && COLLATERAL_ADDRESS && verifyingContract),
     },
   });
-  // Read maker nonce on-chain for the provided maker address
-  const { data: makerNonceOnChain, refetch: refetchMakerNonce } =
+  // Read taker nonce on-chain for the provided taker address
+  const { data: takerNonceOnChain, refetch: refetchTakerNonce } =
     useReadContract({
       address: PREDICTION_MARKET_ADDRESS,
       abi: predictionMarketAbi,
       functionName: 'nonces',
-      args: typeof maker === 'string' ? [maker as `0x${string}`] : undefined,
+      args: typeof taker === 'string' ? [taker as `0x${string}`] : undefined,
       chainId: chainId,
       query: {
-        enabled: Boolean(PREDICTION_MARKET_ADDRESS && maker),
+        enabled: Boolean(PREDICTION_MARKET_ADDRESS && taker),
       },
     });
   const [isExpanded, setIsExpanded] = useState(false);
@@ -255,16 +255,16 @@ const AuctionRequestRow: React.FC<Props> = ({
           return;
         }
         // Ensure connected wallet FIRST so Privy opens immediately if needed
-        let maker = address;
-        if (!maker) {
+        let taker = address;
+        if (!taker) {
           // eslint-disable-next-line @typescript-eslint/await-thenable
           await connectOrCreateWallet();
           // try to read again (wagmi state updates asynchronously)
-          maker = (window as any)?.wagmi?.state?.address as
+          taker = (window as any)?.wagmi?.state?.address as
             | `0x${string}`
             | undefined;
         }
-        if (!maker) {
+        if (!taker) {
           openApproval(String(data.amount || ''));
           return;
         }
@@ -272,11 +272,11 @@ const AuctionRequestRow: React.FC<Props> = ({
         const decimalsToUse = Number.isFinite(tokenDecimals)
           ? tokenDecimals
           : 18;
-        const makerWagerWei = parseUnits(
+        const takerWagerWei = parseUnits(
           String(data.amount || '0'),
           decimalsToUse
         );
-        if (makerWagerWei <= 0n) {
+        if (takerWagerWei <= 0n) {
           toast({
             title: 'Invalid amount',
             description: 'Enter a valid bid amount greater than 0.',
@@ -288,7 +288,7 @@ const AuctionRequestRow: React.FC<Props> = ({
         try {
           const fresh = await Promise.resolve(refetchAllowance?.());
           const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
-          if (currentAllowance < makerWagerWei) {
+          if (currentAllowance < takerWagerWei) {
             openApproval(String(data.amount || ''));
             return;
           }
@@ -303,25 +303,25 @@ const AuctionRequestRow: React.FC<Props> = ({
           Array.isArray(predictedOutcomes) && predictedOutcomes[0]
             ? (predictedOutcomes[0] as `0x${string}`)
             : undefined;
-        const takerAddr = typeof maker === 'string' ? maker : undefined;
+        const takerAddr = typeof taker === 'string' ? taker : undefined;
         const resolverAddr =
           typeof resolver === 'string' ? resolver : undefined;
-        const takerWagerWei = (() => {
+        const makerWagerWei = (() => {
           try {
-            return BigInt(String(makerWager ?? '0'));
+            return BigInt(String(takerWager ?? '0'));
           } catch {
             return 0n;
           }
         })();
-        // Resolve maker nonce: prefer feed-provided, fall back to on-chain
-        let makerNonceVal: number | undefined =
-          typeof makerNonce === 'number' ? makerNonce : undefined;
-        if (makerNonceVal === undefined) {
+        // Resolve taker nonce: prefer feed-provided, fall back to on-chain
+        let takerNonceVal: number | undefined =
+          typeof takerNonce === 'number' ? takerNonce : undefined;
+        if (takerNonceVal === undefined) {
           try {
-            const fresh = await Promise.resolve(refetchMakerNonce?.());
-            const raw = fresh?.data ?? makerNonceOnChain;
+            const fresh = await Promise.resolve(refetchTakerNonce?.());
+            const raw = fresh?.data ?? takerNonceOnChain;
             const n = Number(raw);
-            if (Number.isFinite(n)) makerNonceVal = n;
+            if (Number.isFinite(n)) takerNonceVal = n;
           } catch {
             /* noop */
           }
@@ -330,15 +330,15 @@ const AuctionRequestRow: React.FC<Props> = ({
           !encodedPredicted ||
           !takerAddr ||
           !resolverAddr ||
-          makerNonceVal === undefined ||
-          takerWagerWei <= 0n
+          takerNonceVal === undefined ||
+          makerWagerWei <= 0n
         ) {
           const missing: string[] = [];
           if (!encodedPredicted) missing.push('predicted outcomes');
           if (!takerAddr) missing.push('taker');
           if (!resolverAddr) missing.push('resolver');
-          if (makerNonceVal === undefined) missing.push('maker nonce');
-          if (takerWagerWei <= 0n) missing.push('taker wager');
+          if (takerNonceVal === undefined) missing.push('taker nonce');
+          if (makerWagerWei <= 0n) missing.push('maker wager');
           toast({
             title: 'Request not ready',
             description:
@@ -358,7 +358,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           const remaining = Math.max(0, end - nowSec);
           return Math.min(requested, remaining);
         })();
-        const makerDeadline = nowSec + clampedExpiry;
+        const takerDeadline = nowSec + clampedExpiry;
 
         // Build inner message hash (bytes, uint256, uint256, address, address, uint256, uint256)
         const innerMessageHash = keccak256(
@@ -372,8 +372,8 @@ const AuctionRequestRow: React.FC<Props> = ({
               takerWagerWei,
               getAddress(resolverAddr as `0x${string}`),
               getAddress(takerAddr),
-              BigInt(makerDeadline),
-              BigInt(makerNonceVal),
+              BigInt(takerDeadline),
+              BigInt(takerNonceVal),
             ]
           )
         );
@@ -401,13 +401,13 @@ const AuctionRequestRow: React.FC<Props> = ({
         } as const;
         const message = {
           messageHash: innerMessageHash,
-          owner: getAddress(maker),
+          owner: getAddress(taker),
         } as const;
 
         // Sign typed data via wagmi/viem
-        let makerSignature: `0x${string}` | null = null;
+        let takerSignature: `0x${string}` | null = null;
         try {
-          makerSignature = await signTypedDataAsync({
+          takerSignature = await signTypedDataAsync({
             domain,
             types,
             primaryType: 'Approve',
@@ -420,7 +420,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           });
           return;
         }
-        if (!makerSignature) {
+        if (!takerSignature) {
           toast({
             title: 'Signing failed',
             description: 'No signature returned',
@@ -432,11 +432,11 @@ const AuctionRequestRow: React.FC<Props> = ({
         // Build bid payload
         const payload = {
           auctionId,
-          maker,
-          makerWager: makerWagerWei.toString(),
-          makerDeadline,
-          makerSignature,
-          makerNonce: makerNonceVal,
+          taker,
+          takerWager: takerWagerWei.toString(),
+          takerDeadline,
+          takerSignature,
+          takerNonce: takerNonceVal,
         };
 
         // Send over shared Auction WS and await ack
@@ -478,10 +478,10 @@ const AuctionRequestRow: React.FC<Props> = ({
     [
       auctionId,
       predictedOutcomes,
-      maker,
+      taker,
       resolver,
-      makerWager,
-      makerNonce,
+      takerWager,
+      takerNonce,
       address,
       connectOrCreateWallet,
       wsUrl,
@@ -575,21 +575,21 @@ const AuctionRequestRow: React.FC<Props> = ({
           >
             <AuctionRequestChart
               bids={bids}
-              makerWager={makerWager}
+              takerWager={takerWager}
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
-              maker={maker}
+              taker={taker}
               hasMultipleConditions={conditionIds.length > 1}
               tokenDecimals={tokenDecimals}
             />
             <AuctionRequestInfo
               uiTx={uiTx}
               bids={bids}
-              makerWager={makerWager}
+              takerWager={takerWager}
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
               onSubmit={submitBid}
-              maker={maker}
+              taker={taker}
               predictedOutcomes={predictedOutcomes}
             />
           </motion.div>

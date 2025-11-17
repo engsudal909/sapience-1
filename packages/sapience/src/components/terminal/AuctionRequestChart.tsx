@@ -12,10 +12,10 @@ import type { AuctionBid } from '~/lib/auction/useAuctionBids';
 type Props = {
   bids: AuctionBid[];
   refreshMs?: number;
-  makerWager: string | null;
+  takerWager: string | null;
   collateralAssetTicker: string;
   maxEndTimeSec?: number;
-  maker?: string | null;
+  taker?: string | null;
   hasMultipleConditions?: boolean;
   tokenDecimals: number;
 };
@@ -23,10 +23,10 @@ type Props = {
 const AuctionRequestChart: React.FC<Props> = ({
   bids,
   refreshMs = 90,
-  makerWager,
+  takerWager,
   collateralAssetTicker,
   maxEndTimeSec: _maxEndTimeSec,
-  maker,
+  taker,
   hasMultipleConditions,
   tokenDecimals,
 }) => {
@@ -59,10 +59,10 @@ const AuctionRequestChart: React.FC<Props> = ({
     };
   }, [bids]);
 
-  const makerAmountDisplay = (() => {
+  const takerAmountDisplay = (() => {
     try {
       return Number(
-        formatUnits(BigInt(String(makerWager ?? '0')), tokenDecimals)
+        formatUnits(BigInt(String(takerWager ?? '0')), tokenDecimals)
       );
     } catch {
       return 0;
@@ -87,8 +87,8 @@ const AuctionRequestChart: React.FC<Props> = ({
       <div className="flex items-center justify-between text-xs mb-2">
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
           <span className="font-mono text-brand-white">
-            {Number.isFinite(makerAmountDisplay)
-              ? makerAmountDisplay.toLocaleString(undefined, {
+            {Number.isFinite(takerAmountDisplay)
+              ? takerAmountDisplay.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })
@@ -100,13 +100,13 @@ const AuctionRequestChart: React.FC<Props> = ({
             <span className="text-muted-foreground">from</span>
             <div className="inline-flex items-center gap-1 min-w-0">
               <EnsAvatar
-                address={maker || ''}
+                address={taker || ''}
                 className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
                 width={16}
                 height={16}
               />
               <div className="min-w-0">
-                <AddressDisplay address={maker || ''} compact />
+                <AddressDisplay address={taker || ''} compact />
               </div>
             </div>
           </div>
@@ -118,8 +118,8 @@ const AuctionRequestChart: React.FC<Props> = ({
           bids={displayBids}
           continuous
           refreshMs={refreshMs}
-          makerWager={makerWager}
-          maker={maker}
+          takerWager={takerWager}
+          taker={taker}
           collateralAssetTicker={collateralAssetTicker}
         />
       </div>
