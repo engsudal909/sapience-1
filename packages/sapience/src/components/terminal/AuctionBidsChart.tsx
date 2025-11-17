@@ -74,12 +74,12 @@ const AuctionBidsChart: React.FC<Props> = ({
         .map((b) => {
           let amount = 0;
           try {
-            amount = Number(formatEther(BigInt(String(b?.takerWager ?? '0'))));
+            amount = Number(formatEther(BigInt(String(b?.makerWager ?? '0'))));
           } catch {
             amount = 0;
           }
           const start = Number(b?.receivedAtMs || 0);
-          const end = Number(b?.takerDeadline || 0) * 1000;
+          const end = Number(b?.makerDeadline || 0) * 1000;
           if (
             !Number.isFinite(amount) ||
             amount <= 0 ||
@@ -109,14 +109,14 @@ const AuctionBidsChart: React.FC<Props> = ({
               {
                 time: start,
                 amount,
-                takerAddress: (b as any)?.taker || '',
+                takerAddress: (b as any)?.maker || '',
                 takerAmountEth: amount,
                 endMs: end,
               },
               {
                 time: end,
                 amount,
-                takerAddress: (b as any)?.taker || '',
+                takerAddress: (b as any)?.maker || '',
                 takerAmountEth: amount,
                 endMs: end,
               },

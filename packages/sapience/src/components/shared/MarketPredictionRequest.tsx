@@ -106,7 +106,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       const nowMs = Date.now();
       const valid = bids.filter((b) => {
         try {
-          const dl = Number(b?.takerDeadline || 0);
+          const dl = Number(b?.makerDeadline || 0);
           return Number.isFinite(dl) ? dl * 1000 > nowMs : true;
         } catch {
           return true;
@@ -115,13 +115,13 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       const list = valid.length > 0 ? valid : bids;
       const best = list.reduce((best, cur) => {
         try {
-          return BigInt(cur.takerWager) > BigInt(best.takerWager) ? cur : best;
+          return BigInt(cur.makerWager) > BigInt(best.makerWager) ? cur : best;
         } catch {
           return best;
         }
       }, list[0]);
-      const maker = BigInt(String(lastMakerWagerWei || '0'));
-      const taker = BigInt(String(best?.takerWager || '0'));
+      const taker = BigInt(String(lastMakerWagerWei || '0'));
+      const maker = BigInt(String(best?.makerWager || '0'));
       const denom = maker + taker;
       const prob = denom > 0n ? Number(maker) / Number(denom) : 0.5;
       const clamped = Math.max(0, Math.min(0.99, prob));
@@ -167,8 +167,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           wager: wagerWei,
           resolver: payload.resolver,
           predictedOutcomes: payload.predictedOutcomes,
-          maker: selectedMakerAddress,
-          makerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
+          taker: selectedMakerAddress,
+          takerNonce: makerNonce !== undefined ? Number(makerNonce) : 0,
           chainId: chainId,
         });
         setQueuedRequest(false);

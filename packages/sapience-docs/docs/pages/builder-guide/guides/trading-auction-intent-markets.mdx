@@ -20,11 +20,12 @@ ws.onopen = () => {
   ws.send(JSON.stringify({
     type: 'auction.start',
     payload: {
-      maker: '0xMaker...',
+      taker: '0xTaker...',
       wager: '1000000000000000000',
       resolver: '0xResolver...',
       predictedOutcomes: ['0xabc...'],
-      makerNonce: 1,
+      takerNonce: 1,
+      chainId: 42161,
     },
   }));
 };
@@ -42,13 +43,13 @@ ws.onmessage = (ev) => {
 
 function pickBest(bids) {
   const now = Math.floor(Date.now()/1000);
-  const valid = bids.filter(b => b.takerDeadline > now);
-  valid.sort((a, b) => BigInt(b.takerWager) - BigInt(a.takerWager) > 0n ? 1 : -1);
+  const valid = bids.filter(b => b.makerDeadline > now);
+  valid.sort((a, b) => BigInt(b.makerWager) - BigInt(a.makerWager) > 0n ? 1 : -1);
   return valid[0];
 }
 ```
 
-Makers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `maker`, `wager`, `resolver`, and `predictedOutcomes`.
+Takers initiate auctions by sending `auction.start`. The relayer broadcasts `auction.started` with parameters including `auctionId`, `taker`, `wager`, `resolver`, and `predictedOutcomes`.
 
 ## Accept a Bid
 
@@ -69,22 +70,22 @@ await writeContract({
 
 const bestBid = /* from auction.bids */
   {
-    taker: '0xTaker...',
-    takerWager: '500000000000000000',
-    takerDeadline: Math.floor(Date.now()/1000) + 60,
-    takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
+    maker: '0xMaker...',
+    makerWager: '500000000000000000',
+    makerDeadline: Math.floor(Date.now()/1000) + 60,
+    makerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
     makerNonce: 1,
   };
 
 const mintReq = {
   encodedPredictedOutcomes: '0xabc...',
   resolver: '0xResolver...',
-  makerCollateral: '1000000000000000000',
-  takerCollateral: bestBid.takerWager,
-  maker: '0xMaker...',
-  taker: bestBid.taker,
-  takerSignature: bestBid.takerSignature,
-  takerDeadline: String(bestBid.takerDeadline),
+  makerCollateral: bestBid.makerWager,
+  takerCollateral: '1000000000000000000',
+  maker: bestBid.maker,
+  taker: '0xTaker...',
+  takerSignature: bestBid.makerSignature,
+  takerDeadline: String(bestBid.makerDeadline),
   refCode: '0x' + '00'.repeat(32),
   makerNonce: String(bestBid.makerNonce),
 };

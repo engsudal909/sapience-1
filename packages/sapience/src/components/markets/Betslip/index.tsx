@@ -813,7 +813,7 @@ const Betslip = ({
     // Find the best bid and submit via PredictionMarket.mint
     try {
       const nowSec = Math.floor(Date.now() / 1000);
-      const validBids = bids.filter((b) => b.takerDeadline > nowSec);
+      const validBids = bids.filter((b) => b.makerDeadline > nowSec);
 
       if (validBids.length === 0) {
         toast({
@@ -826,10 +826,10 @@ const Betslip = ({
         return;
       }
 
-      // Pick highest takerWager (best payout for maker)
+      // Pick highest makerWager (best payout for maker)
       const bestBid = validBids.reduce((best, cur) => {
         try {
-          return BigInt(cur.takerWager) > BigInt(best.takerWager) ? cur : best;
+          return BigInt(cur.makerWager) > BigInt(best.makerWager) ? cur : best;
         } catch {
           return best;
         }

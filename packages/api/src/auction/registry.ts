@@ -1,5 +1,5 @@
 import { BidPayload, ValidatedBid, AuctionRequestPayload } from './types';
-import { verifyTakerBid } from './helpers';
+import { verifyMakerBid } from './helpers';
 
 interface AuctionRecord {
   auction: AuctionRequestPayload;
@@ -9,7 +9,7 @@ interface AuctionRecord {
 
 const auctions = new Map<string, AuctionRecord>();
 
-// Ranking algorithm removed - UI will select best bid based on highest taker collateral
+// Ranking algorithm removed - UI will select best bid based on highest maker wager
 
 export function upsertAuction(auction: AuctionRequestPayload): string {
   const auctionId = crypto.randomUUID();
@@ -37,12 +37,12 @@ export function addBid(
   if (!rec) return undefined;
 
   // Validate passed-in fields and signature
-  const verification = verifyTakerBid({
+  const verification = verifyMakerBid({
     auctionId,
-    taker: bid.taker,
-    takerWager: bid.takerWager,
-    takerDeadline: bid.takerDeadline,
-    takerSignature: bid.takerSignature,
+    maker: bid.maker,
+    makerWager: bid.makerWager,
+    makerDeadline: bid.makerDeadline,
+    makerSignature: bid.makerSignature,
   });
   if (!verification.ok) return undefined;
 

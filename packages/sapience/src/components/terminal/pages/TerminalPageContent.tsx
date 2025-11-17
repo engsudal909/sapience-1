@@ -677,20 +677,20 @@ const TerminalPageContent: React.FC = () => {
         : [];
       const top = bids.reduce((best, b) => {
         try {
-          const cur = BigInt(String(b?.takerWager ?? '0'));
-          const bestVal = BigInt(String(best?.takerWager ?? '0'));
+          const cur = BigInt(String(b?.makerWager ?? '0'));
+          const bestVal = BigInt(String(best?.makerWager ?? '0'));
           return cur > bestVal ? b : best;
         } catch {
           return best;
         }
       }, bids[0] || null);
       const taker = top?.taker || '';
-      const takerWager = top?.takerWager || '0';
+      const makerWager = top?.makerWager || '0';
       return {
         id: m.time,
         type: 'FORECAST',
         createdAt,
-        collateral: String(takerWager || '0'),
+        collateral: String(makerWager || '0'),
         position: { owner: taker },
       } as UiTransaction;
     }

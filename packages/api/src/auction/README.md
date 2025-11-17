@@ -2,32 +2,31 @@
 
 ## Overview
 
-The Auction WebSocket API enables real-time communication between makers and takers, facilitated by a relayer, for creating and managing prediction market auctions using the `PredictionMarket.sol` contract. Makers create auctions with their wagers and predictions, takers submit competitive bids, and the relayer facilitates the matching process by validating signatures and broadcasting auction data. The system supports a mint-based flow where positions (represented as NFTs) are created immediately when both parties provide valid signatures.
+The Auction WebSocket API enables real-time communication between takers and makers, facilitated by a relayer, for creating and managing prediction market auctions using the `PredictionMarket.sol` contract. Takers create auctions with their wagers and predictions, makers submit competitive bids, and the relayer facilitates the matching process by validating signatures and broadcasting auction data. The system supports a mint-based flow where positions (represented as NFTs) are created immediately when both parties provide valid signatures.
 
 ## Message Types
 
 ### 1. auction.start
 
-Starts a new auction to receive bids from takers.
+Starts a new auction to receive bids from makers.
 
 ```typescript
 {
   type: 'auction.start',
   payload: {
-    maker: string                     // Maker's EOA address
-    wager: string,                    // Maker's wager amount (in collateral native units, likely 18 decimals places)
-    resolver: string,                 // Resolver contract address
-    predictedOutcomes: [              // Array of bytes strings that the resolver validates/understands
-      string,                         // Bytes string representing market prediction
-      string                          // Additional prediction bytes strings...
-    ],
+    taker: string,                    // Taker's EOA address (starts the auction)
+    wager: string,                    // Taker's wager amount (wei)
+    resolver: string,                  // Contract address for market validation (0x...)
+    predictedOutcomes: string[],      // Array of bytes strings that the resolver validates/understands
+    takerNonce: number,               // Nonce for taker-side binding/deduplication
+    chainId: number,                  // Chain ID where the market executes
   }
 }
 ```
 
 ### 2. Response (auction.ack)
 
-Confirms receipt of an Auction start and automatically subscribes the maker to a channel for bids for that auctionId.
+Confirms receipt of an Auction start and automatically subscribes the taker to a channel for bids for that auctionId.
 
 ```typescript
 {
@@ -40,37 +39,37 @@ Confirms receipt of an Auction start and automatically subscribes the maker to a
 
 ### 3. auction.started (Broadcast)
 
-Broadcasts new Auction starts to all connected takers.
+Broadcasts new Auction starts to all connected makers.
 
 ```typescript
 {
   type: 'auction.started',
   payload: {
     auctionId: string,                // Server-generated unique identifier for this Auction
-    maker: string,                    // Maker's EOA address
-    wager: string,                    // Maker's wager amount (wei)
-    predictedOutcomes: [              // Array of bytes strings that the resolver validates/understands
-      string,                         // Bytes string representing market prediction
-      string                          // Additional prediction bytes strings...
-    ],
-    resolver: string                  // Resolver contract address
+    taker: string,                    // Taker's EOA address
+    wager: string,                    // Taker's wager amount (wei)
+    predictedOutcomes: string[],      // Array of bytes strings that the resolver validates/understands
+    resolver: string,                  // Contract address for market validation (0x...)
+    takerNonce: number,
+    chainId: number,
   }
 }
 ```
 
 ### 4. bid.submit
 
-Submits a bid/quote for an Auction. The payload MUST explicitly include the taker address, taker wager, and a quote expiration. These values are NOT derivable from a signature and must be provided and then verified against the signed payload.
+Submits a bid/quote for an Auction. The payload MUST explicitly include the maker address, maker wager, and a quote expiration. These values are NOT derivable from a signature and must be provided and then verified against the signed payload.
 
 ```typescript
 {
   type: 'bid.submit',
   payload: {
     auctionId: string,                // Auction ID to bid on
-    taker: string,                    // Taker's EOA address (0x...)
-    takerWager: string,               // Taker's wager contribution (wei)
-    takerDeadline: number,            // Unix timestamp when quote expires
-    takerSignature: string            // Off-chain signature over the typed payload to authorize this bid
+    maker: string,                    // Maker's EOA address (bidding party)
+    makerWager: string,               // Maker's wager contribution (wei)
+    makerDeadline: number,            // Unix timestamp when quote expires
+    makerSignature: string,           // Off-chain signature over the typed payload to authorize this bid
+    makerNonce: number                // Maker's nonce
   }
 }
 ```
@@ -90,19 +89,20 @@ Confirms receipt of a bid or reports an error.
 
 ### 6. auction.bids (Broadcast)
 
-Broadcasts current bids for an Auction to subscribed makers only. Makers are automatically subscribed to an auction channel when they send an `auction.start` for that specific auction ID.
+Broadcasts current bids for an Auction to subscribed takers only. Takers are automatically subscribed to an auction channel when they send an `auction.start` for that specific auction ID.
 
 ```typescript
 {
   type: 'auction.bids',
   payload: {
+    auctionId: string,
     bids: [                           // Array of validated bids
       {
         auctionId: string,            // Auction ID this bid is for
-        takerSignature: string,       // Taker's off-chain signature authorizing the bid
-        taker: string,                // Taker's EOA address
-        takerWager: string,           // Taker's wager contribution (collateral units, typically represented with 18 decimals)
-        takerDeadline: number         // Unix timestamp when quote expires
+        makerSignature: string,       // Maker's off-chain signature authorizing the bid
+        maker: string,                // Maker's EOA address
+        makerWager: string,           // Maker's wager contribution (collateral units, typically represented with 18 decimals)
+        makerDeadline: number         // Unix timestamp when quote expires
       }
     ]
   }
@@ -124,7 +124,7 @@ Broadcasts current bids for an Auction to subscribed makers only. Makers are aut
 
 ## Bid Selection
 
-The UI presents the best available bid that hasn't expired yet. The best bid is determined by the highest taker wager amount among all valid (non-expired) bids.
+The UI presents the best available bid that hasn't expired yet. The best bid is determined by the highest maker wager amount among all valid (non-expired) bids.
 
 ## Validation Rules
 
@@ -133,12 +133,12 @@ The UI presents the best available bid that hasn't expired yet. The best bid is 
 - Wager must be positive
 - At least one predicted outcome required (as non-empty bytes strings)
 - Resolver address must be provided
-- Maker address must be provided and a valid `0x` address
+- Taker address must be provided and a valid `0x` address
 
 ### Bid Validation
 
 - Quote must not be expired
-- Taker wager must be positive and ≤ maker wager
+- Maker wager must be positive
 - Off-chain bid signature must be provided and be a valid hex string
 
 ### Token Approvals
@@ -152,32 +152,33 @@ Both parties must perform standard ERC-20 approvals in their own wallets:
 
 - `invalid_payload`: Missing or invalid message structure
 - `quote_expired`: Quote has expired
-- `invalid_taker_wager`: Taker wager is invalid
-- `taker_wager_too_high`: Taker wager exceeds maker wager
-- `invalid_taker_bid_signature_format`: Taker bid signature format is invalid
+- `invalid_maker_wager`: Maker wager is invalid
+- `invalid_maker_bid_signature_format`: Maker bid signature format is invalid
 
 ## Example Flow
 
-### 1. Maker Creates Auction
+### 1. Taker Creates Auction
 
 ```javascript
 ws.send(
   JSON.stringify({
     type: 'auction.start',
     payload: {
+      taker: '0xYourTakerAddressHere',
       wager: '1000000000000000000', // 1 ETH
       predictedOutcomes: [
         '0x...', // Bytes string representing market prediction
         '0x...', // Additional prediction bytes strings...
       ],
       resolver: '0x...',
-      maker: '0xYourMakerAddressHere',
+      takerNonce: 1,
+      chainId: 42161,
     },
   })
 );
 ```
 
-### 2. Taker Responds with Bid
+### 2. Maker Responds with Bid
 
 ```javascript
 ws.send(
@@ -185,32 +186,33 @@ ws.send(
     type: 'bid.submit',
     payload: {
       auctionId: 'auction-123',
-      taker: '0xTakerAddress',
-      takerWager: '500000000000000000', // 0.5 ETH
-      takerDeadline: Math.floor(Date.now() / 1000) + 60,
-      takerSignature: '0x...', // Signature over the typed payload
+      maker: '0xMakerAddress',
+      makerWager: '500000000000000000', // 0.5 ETH
+      makerDeadline: Math.floor(Date.now() / 1000) + 60,
+      makerSignature: '0x...', // Signature over the typed payload
+      makerNonce: 1,
     },
   })
 );
 ```
 
-### 3. Maker Executes Transaction
+### 3. Taker Executes Transaction
 
-After receiving and selecting a bid, the maker constructs the `MintParlayRequestData` struct using:
+After receiving and selecting a bid, the taker constructs the `MintParlayRequestData` struct using:
 
-- The Auction data (predictedOutcomes, resolver, makerCollateral from wager)
-- The bid data (taker, takerWager, takerSignature)
-- Their own maker signature and refCode
+- The Auction data (predictedOutcomes, resolver, takerCollateral from wager)
+- The bid data (maker, makerWager, makerSignature)
+- Their own taker signature and refCode
 
-The maker then calls the `mint()` function on the ParlayPool contract. The system will automatically detect the minting through blockchain event listeners.
+The taker then calls the `mint()` function on the ParlayPool contract. The system will automatically detect the minting through blockchain event listeners.
 
-## Taker Example
+## Maker Example
 
-The system includes a reference taker implementation (`botExample.ts`) that:
+The system includes a reference maker implementation (`botExample.ts`) that:
 
 - Connects to the WebSocket endpoint
 - Listens for `auction.started` messages
-- Automatically calculates taker collateral as 50% of maker collateral
+- Automatically calculates maker collateral as 50% of taker collateral
 - Submits bids with proper mint data structure
 - Handles bid acknowledgments and bid updates
 
@@ -224,4 +226,4 @@ The system includes a reference taker implementation (`botExample.ts`) that:
 
 ## Error Handling
 
-All errors are returned in the `bid.ack` message with descriptive error codes. Makers and takers should implement proper error handling and retry logic for transient failures.
+All errors are returned in the `bid.ack` message with descriptive error codes. Takers and makers should implement proper error handling and retry logic for transient failures.

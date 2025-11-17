@@ -11,20 +11,20 @@ export interface PredictedOutcomeInput {
 }
 
 export interface AuctionParams {
-  wager: string; // wei string - maker's wager amount
+  wager: string; // wei string - taker's wager amount
   resolver: string; // contract address for market validation
   predictedOutcomes: string[]; // Array of bytes strings that the resolver validates/understands
-  maker: `0x${string}`; // maker EOA address
-  makerNonce: number; // nonce for the maker
+  taker: `0x${string}`; // taker EOA address
+  takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
 }
 
 export interface QuoteBid {
   auctionId: string;
-  taker: string;
-  takerWager: string; // wei
-  takerDeadline: number; // unix seconds
-  takerSignature: string; // Taker's bid signature
+  maker: string;
+  makerWager: string; // wei
+  makerDeadline: number; // unix seconds
+  makerSignature: string; // Maker's bid signature
   makerNonce: number; // nonce for the maker
 }
 
@@ -116,17 +116,17 @@ export function useAuctionStart() {
               try {
                 const auctionIdVal: string =
                   b.auctionId || latestAuctionIdRef.current || '';
-                const taker: string =
-                  b.taker || '0x0000000000000000000000000000000000000000';
-                const takerWager: string = b.takerWager || '0';
-                const takerDeadline: number = b.takerDeadline || 0;
+                const maker: string =
+                  b.maker || '0x0000000000000000000000000000000000000000';
+                const makerWager: string = b.makerWager || '0';
+                const makerDeadline: number = b.makerDeadline || 0;
 
                 return {
                   auctionId: auctionIdVal,
-                  taker,
-                  takerWager,
-                  takerDeadline,
-                  takerSignature: b.takerSignature || '0x',
+                  maker,
+                  makerWager,
+                  makerDeadline,
+                  makerSignature: b.makerSignature || '0x',
                   makerNonce: b.makerNonce || 0,
                 } as QuoteBid;
               } catch {
@@ -160,8 +160,8 @@ export function useAuctionStart() {
           wager: params.wager,
           resolver: params.resolver,
           predictedOutcomes: params.predictedOutcomes,
-          maker: params.maker,
-          makerNonce: params.makerNonce,
+          taker: params.taker,
+          takerNonce: params.takerNonce,
           chainId: params.chainId,
         },
       };
@@ -258,12 +258,12 @@ export function useAuctionStart() {
         return {
           encodedPredictedOutcomes: predictedOutcomes[0],
           resolver,
-          makerCollateral: auction.wager,
-          takerCollateral: args.selectedBid.takerWager,
-          maker: args.maker,
-          taker: args.selectedBid.taker as `0x${string}`,
-          takerSignature: args.selectedBid.takerSignature as `0x${string}`,
-          takerDeadline: String(args.selectedBid.takerDeadline),
+          makerCollateral: args.selectedBid.makerWager,
+          takerCollateral: auction.wager,
+          maker: args.selectedBid.maker as `0x${string}`,
+          taker: args.maker,
+          takerSignature: args.selectedBid.makerSignature as `0x${string}`,
+          takerDeadline: String(args.selectedBid.makerDeadline),
           refCode: args.refCode || (zeroBytes32 as `0x${string}`),
           makerNonce: String(args.selectedBid.makerNonce),
         };
@@ -304,18 +304,18 @@ export function buildMintPredictionRequestData(args: {
     const makerCollateral = args.makerCollateral || '0';
     if (!makerCollateral || BigInt(makerCollateral) === 0n) return null;
 
-    const taker = args.selectedBid.taker as `0x${string}`;
-    const takerCollateral = args.selectedBid.takerWager;
+    const maker = args.selectedBid.maker as `0x${string}`;
+    const makerCollateralFromBid = args.selectedBid.makerWager;
 
     const out: MintPredictionRequestData = {
       encodedPredictedOutcomes: predictedOutcomes[0],
       resolver,
-      makerCollateral,
-      takerCollateral,
-      maker: args.maker,
-      taker,
-      takerSignature: args.selectedBid.takerSignature as `0x${string}`,
-      takerDeadline: String(args.selectedBid.takerDeadline),
+      makerCollateral: makerCollateralFromBid,
+      takerCollateral: makerCollateral,
+      maker,
+      taker: args.maker,
+      takerSignature: args.selectedBid.makerSignature as `0x${string}`,
+      takerDeadline: String(args.selectedBid.makerDeadline),
       refCode: args.refCode || (zeroBytes32 as `0x${string}`),
       makerNonce: String(args.selectedBid.makerNonce),
     };

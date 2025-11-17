@@ -114,7 +114,7 @@ export default function BetslipParlayForm({
 
   const bestBid = useMemo(() => {
     if (!bids || bids.length === 0) return null;
-    const validBids = bids.filter((bid) => bid.takerDeadline * 1000 > nowMs);
+    const validBids = bids.filter((bid) => bid.makerDeadline * 1000 > nowMs);
     if (validBids.length === 0) return null;
     const makerWagerStr = parlayWagerAmount || '0';
     let makerWager: bigint;
@@ -126,14 +126,14 @@ export default function BetslipParlayForm({
     return validBids.reduce((best, current) => {
       const bestPayout = (() => {
         try {
-          return makerWager + BigInt(best.takerWager);
+          return makerWager + BigInt(best.makerWager);
         } catch {
           return 0n;
         }
       })();
       const currentPayout = (() => {
         try {
-          return makerWager + BigInt(current.takerWager);
+          return makerWager + BigInt(current.makerWager);
         } catch {
           return 0n;
         }
@@ -313,7 +313,7 @@ export default function BetslipParlayForm({
                   }
                   const totalWei = (() => {
                     try {
-                      return makerWagerWei + BigInt(bestBid.takerWager);
+                      return makerWagerWei + BigInt(bestBid.makerWager);
                     } catch {
                       return 0n;
                     }
@@ -327,7 +327,7 @@ export default function BetslipParlayForm({
                       return '0.00';
                     }
                   })();
-                  const remainingMs = bestBid.takerDeadline * 1000 - nowMs;
+                  const remainingMs = bestBid.makerDeadline * 1000 - nowMs;
                   const secs = Math.max(0, Math.ceil(remainingMs / 1000));
                   const suffix = secs === 1 ? 'second' : 'seconds';
 
@@ -363,7 +363,7 @@ export default function BetslipParlayForm({
                 <Button
                   className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
                   disabled={
-                    isSubmitting || bestBid.takerDeadline * 1000 - nowMs <= 0
+                    isSubmitting || bestBid.makerDeadline * 1000 - nowMs <= 0
                   }
                   type="submit"
                   size="lg"

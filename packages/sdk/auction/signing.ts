@@ -15,17 +15,17 @@ export interface AuctionStartLike {
   // provides a single aggregated blob containing all legs. Additional elements are ignored.
   predictedOutcomes: Hex[]; // bytes[] (non-empty expected)
   resolver: Address;
-  maker: Address;
+  taker: Address;
 }
 
-export function buildTakerBidTypedData(args: {
+export function buildMakerBidTypedData(args: {
   auction: AuctionStartLike;
-  takerWager: bigint;
+  makerWager: bigint;
   // Accept bigint for timestamp to avoid precision issues; number remains supported
-  takerDeadline: bigint | number;
+  makerDeadline: bigint | number;
   chainId: number;
   verifyingContract: Address;
-  taker: Address;
+  maker: Address;
 }): {
   domain: TypedDataDomain;
   types: { Approve: readonly [
@@ -54,11 +54,11 @@ export function buildTakerBidTypedData(args: {
     ],
     [
       encodedPredictedOutcomes,
-      args.takerWager,
+      args.makerWager,
       typeof args.auction.wager === 'bigint' ? args.auction.wager : BigInt(args.auction.wager),
       args.auction.resolver,
-      args.auction.maker,
-      typeof args.takerDeadline === 'bigint' ? args.takerDeadline : BigInt(args.takerDeadline),
+      args.auction.taker,
+      typeof args.makerDeadline === 'bigint' ? args.makerDeadline : BigInt(args.makerDeadline),
     ],
   );
 
@@ -83,7 +83,7 @@ export function buildTakerBidTypedData(args: {
 
   const message = {
     messageHash,
-    owner: getAddress(args.taker),
+    owner: getAddress(args.maker),
   } as const;
 
   // NOTE: The primaryType 'Approve' is required for compatibility with the on-chain
@@ -96,7 +96,7 @@ export function buildTakerBidTypedData(args: {
   };
 }
 
-export async function signTakerBid(args: {
+export async function signMakerBid(args: {
   privateKey: Hex;
   domain: TypedDataDomain;
   types: { Approve: readonly [

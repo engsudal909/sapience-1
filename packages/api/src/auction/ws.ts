@@ -4,7 +4,7 @@ import { verifyMessage, type Abi } from 'viem';
 import { getProviderForChain } from '../utils/utils';
 import { addBid, getBids, upsertAuction, getAuction } from './registry';
 import { basicValidateBid } from './sim';
-import { verifyTakerBidStrict } from './helpers';
+import { verifyMakerBidStrict } from './helpers';
 import {
   PREDICTION_MARKET_ADDRESS_ARB1,
   PREDICTION_MARKET_CHAIN_ID_ARB1,
@@ -675,7 +675,7 @@ export function createAuctionWebSocketServer() {
         // Optional strict EIP-712 verification when address is configured
         (async () => {
           try {
-            const strict = await verifyTakerBidStrict({
+            const strict = await verifyMakerBidStrict({
               auction: rec.auction,
               bid,
               chainId: PREDICTION_MARKET_CHAIN_ID_ARB1,

@@ -27,7 +27,7 @@ async function ensureApprovalIfConfigured(amount: bigint) {
     const rpcUrl = process.env.BOT_RPC_URL;
     const pk = process.env.BOT_PRIVATE_KEY;
     const collateralToken = process.env.BOT_COLLATERAL_TOKEN;
-    const spender = process.env.BOT_PARLAY_CONTRACT; // contract that will pull taker collateral
+    const spender = process.env.BOT_PARLAY_CONTRACT; // contract that will pull maker collateral
     const chainId = Number(process.env.BOT_CHAIN_ID || '8453');
 
     if (!rpcUrl || !pk || !collateralToken || !spender) {
@@ -92,19 +92,19 @@ ws.on('message', (data: RawData) => {
       case 'auction.started': {
         const auction = msg.payload || {};
         console.log(
-          `[BOT] auction.started auctionId=${auction.auctionId} maker=${auction.maker} wager=${auction.wager} outcomes=${auction.predictedOutcomes?.length ?? 0}`
+          `[BOT] auction.started auctionId=${auction.auctionId} taker=${auction.taker} wager=${auction.wager} outcomes=${auction.predictedOutcomes?.length ?? 0}`
         );
 
-        // For the new mint flow, we need to provide taker collateral and signature
+        // For the new mint flow, we need to provide maker collateral and signature
         const wager = BigInt(auction.wager || '0');
 
-        // Taker offers 50% of what the maker is offering
-        // If maker offers 100, taker offers 50, total payout = 150
-        const takerWager = wager / 2n; // 50% of wager
-        const totalPayout = wager + takerWager;
+        // Maker offers 50% of what the taker is offering
+        // If taker offers 100, maker offers 50, total payout = 150
+        const makerWager = wager / 2n; // 50% of wager
+        const totalPayout = wager + makerWager;
 
-        // Ensure ERC-20 approval is set up for the taker (optional, requires env vars)
-        void ensureApprovalIfConfigured(takerWager);
+        // Ensure ERC-20 approval is set up for the maker (optional, requires env vars)
+        void ensureApprovalIfConfigured(makerWager);
 
         // Collateral transfers use ERC-20 approvals (not permit).
         // This example demonstrates submitting a bid with explicit fields and an off-chain signature over them.
@@ -113,14 +113,15 @@ ws.on('message', (data: RawData) => {
           type: 'bid.submit',
           payload: {
             auctionId: auction.auctionId,
-            taker: '0x0000000000000000000000000000000000000001',
-            takerWager: takerWager.toString(),
-            takerDeadline: nowSec + 60,
-            takerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
+            maker: '0x0000000000000000000000000000000000000001',
+            makerWager: makerWager.toString(),
+            makerDeadline: nowSec + 60,
+            makerSignature: '0x' + '11'.repeat(32) + '22'.repeat(32),
+            makerNonce: 1,
           },
         };
         console.log(
-          `[BOT] Sending bid auctionId=${auction.auctionId} wager=${wager.toString()} takerWager=${takerWager.toString()} totalPayout=${totalPayout.toString()}`
+          `[BOT] Sending bid auctionId=${auction.auctionId} wager=${wager.toString()} makerWager=${makerWager.toString()} totalPayout=${totalPayout.toString()}`
         );
         ws.send(JSON.stringify(bid));
         break;
@@ -143,7 +144,7 @@ ws.on('message', (data: RawData) => {
         if (bids.length > 0) {
           const top = bids[0];
           console.log(
-            `[BOT] top bid takerWager=${top?.takerWager} takerDeadline=${top?.takerDeadline}`
+            `[BOT] top bid makerWager=${top?.makerWager} makerDeadline=${top?.makerDeadline}`
           );
         }
         break;
