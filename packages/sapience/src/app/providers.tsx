@@ -79,6 +79,32 @@ const ethereal = {
   },
 } as const satisfies Chain;
 
+const etherealTestnet = {
+  id: 13374202,
+  name: 'Ethereal Testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'USDe',
+    symbol: 'USDe',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.etherealtest.net/'],
+      webSocket: ['wss://rpc.etherealtest.net'],
+    },
+    public: {
+      http: ['https://rpc.etherealtest.net/'],
+      webSocket: ['wss://rpc.etherealtest.net'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Ethereal Testnet Explorer',
+      url: 'https://explorer.etherealtest.net',
+    },
+  },
+} as const satisfies Chain;
+
 const useWagmiConfig = () => {
   const { rpcURL: arbitrumRpcUrl } = useSettings();
 
@@ -102,9 +128,10 @@ const useWagmiConfig = () => {
       ),
       [converge.id]: http(process.env.NEXT_PUBLIC_RPC_URL || ''),
       [ethereal.id]: http('https://rpc.ethereal.trade'),
+      [etherealTestnet.id]: http('https://rpc.etherealtest.net/'),
     };
 
-    const chains: Chain[] = [arbitrum, base, converge, ethereal];
+    const chains: Chain[] = [arbitrum, base, converge, ethereal, etherealTestnet];
 
     if (process.env.NODE_ENV !== 'production') {
       transports[cannonAtLocalhost.id] = http('http://localhost:8545');
