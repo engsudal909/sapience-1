@@ -4,6 +4,11 @@ import { Alert, AlertDescription } from '@sapience/sdk/ui/components/ui/alert';
 type RestrictedJurisdictionBannerProps = {
   show: boolean;
   className?: string;
+  /**
+   * Optional override for the icon size/styling in more compact layouts.
+   * Defaults to a larger icon suitable for full-width banners.
+   */
+  iconClassName?: string;
 };
 
 /**
@@ -14,8 +19,10 @@ type RestrictedJurisdictionBannerProps = {
  */
 const RestrictedJurisdictionBanner: React.FC<
   RestrictedJurisdictionBannerProps
-> = ({ show, className }) => {
+> = ({ show, className, iconClassName }) => {
   if (!show) return null;
+
+  const iconClasses = iconClassName ?? 'h-8 w-8';
 
   return (
     <Alert
@@ -24,7 +31,7 @@ const RestrictedJurisdictionBanner: React.FC<
     >
       <AlertDescription className="text-left font-mono text-xs flex flex-row items-center gap-2.5">
         <OctagonMinusIcon
-          className="h-8 w-8 !text-no"
+          className={`${iconClasses} !text-no`}
           strokeWidth={1.2}
           aria-hidden="true"
         />

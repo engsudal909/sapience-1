@@ -365,6 +365,7 @@ const VaultsPageContent = () => {
           <RestrictedJurisdictionBanner
             show={!isPermitLoading && isRestricted}
             className="mb-1"
+            iconClassName="h-4 w-4"
           />
 
           {/* Deposit Button */}
@@ -480,6 +481,7 @@ const VaultsPageContent = () => {
           <RestrictedJurisdictionBanner
             show={!isPermitLoading && isRestricted}
             className="mb-1"
+            iconClassName="h-4 w-4"
           />
 
           {/* Withdraw Button */}

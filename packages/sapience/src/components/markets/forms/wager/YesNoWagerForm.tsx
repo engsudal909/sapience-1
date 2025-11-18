@@ -157,7 +157,7 @@ export default function YesNoWagerForm({
     if (!wagerAmount || Number(wagerAmount) <= 0) return 'Enter Wager Amount';
     if (quoteError) return 'Wager Unavailable';
 
-    return 'Submit Wager';
+    return 'Submit Prediction';
   };
 
   // Quote data is now handled by the shared QuoteDisplay component

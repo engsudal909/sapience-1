@@ -231,7 +231,7 @@ export default function BetslipSinglesForm({
                 isRestricted
               }
             >
-              Submit Wager{betSlipPositions.length > 1 ? 's' : ''}
+              Submit Prediction{betSlipPositions.length > 1 ? 's' : ''}
             </Button>
             <WagerDisclaimer className="mt-3" />
           </>
