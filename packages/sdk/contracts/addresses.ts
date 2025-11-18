@@ -19,6 +19,10 @@ export const predictionMarket: ChainAddressMap = {
     address: '0xAcD757322df2A1A0B3283c851380f3cFd4882cB4',
     legacy: [] as const,
   },
+  13374202: {
+    address: '0x7b00088CA92d4f11F305CC61758De3580a730f39',
+    legacy: [] as const,
+  },
 } as const;
 
 export const umaResolver: ChainAddressMap = {
@@ -33,6 +37,10 @@ export const lzPMResolver: ChainAddressMap = {
     address: '0xC873efA9D22A09e39101efB977C03011620bF015',
     legacy: [] as const,
   },
+  13374202: {
+    address: '0x2A97702591ACCbF330c6c813C46DE287653eb645',
+    legacy: [] as const,
+  },
 } as const;
 
 export const lzUmaResolver: ChainAddressMap = {
@@ -40,6 +48,11 @@ export const lzUmaResolver: ChainAddressMap = {
     address: '0x070Bd542474390c3AFED2DAE85C2d13932c75F17',
     legacy: [] as const,
   },
+  421614: {
+    address: '0x26DB702647e56B230E15687bFbC48b526E131dAe',
+    legacy: [] as const,
+  }
+
 } as const;
 
 export const passiveLiquidityVault: ChainAddressMap = {
@@ -49,6 +62,10 @@ export const passiveLiquidityVault: ChainAddressMap = {
   },
   5064014: {
     address: '0x5c1d4feD296d2637205Ac132CE3e030F5d94d026',
+    legacy: [] as const,
+  },
+  13374202: {
+    address: '0xb52883b935796Ef6d881B22B4fA9d46a374905D7',
     legacy: [] as const,
   },
 } as const;
@@ -62,6 +79,10 @@ export const collateralToken: ChainAddressMap = {
     address: '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D',
     legacy: [] as const,
   },
+  13374202: {
+    address: '0xb7ae43711d85c23dc862c85b9c95a64dc6351f90',
+    legacy: [] as const,
+  },
 } as const;
 
 export const eas: ChainAddressMap = {
@@ -71,6 +92,10 @@ export const eas: ChainAddressMap = {
   },
   5064014: {
     address: '0x6A225f09E0EbE597F79e86875B3704325d40c84d',
+    legacy: [] as const,
+  },
+  13374202: {
+    address: '0x680022513d33306E47441FB622D2E5CECCc089AC',
     legacy: [] as const,
   },
 } as const;
@@ -84,4 +109,3 @@ export const contracts = {
   collateralToken,
   eas,
 };
-
