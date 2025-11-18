@@ -9,7 +9,6 @@ type SetReferralCodeBody = {
   walletAddress?: string;
   codePlaintext?: string;
   signature?: `0x${string}`;
-  maxReferrals?: number;
   chainId?: number;
   nonce?: string;
 };
@@ -65,21 +64,13 @@ async function verifyWalletSignature(params: {
 }
 
 router.post('/code', async (req: Request, res: Response) => {
-  const {
-    walletAddress,
-    codePlaintext,
-    signature,
-    maxReferrals,
-    chainId,
-    nonce,
-  } = req.body as SetReferralCodeBody;
+  const { walletAddress, codePlaintext, signature, chainId, nonce } =
+    req.body as SetReferralCodeBody;
 
   if (!walletAddress || !codePlaintext || !signature) {
-    return res
-      .status(400)
-      .json({
-        message: 'walletAddress, codePlaintext, and signature are required',
-      });
+    return res.status(400).json({
+      message: 'walletAddress, codePlaintext, and signature are required',
+    });
   }
 
   let codeHash: `0x${string}`;
@@ -107,22 +98,17 @@ router.post('/code', async (req: Request, res: Response) => {
   }
 
   try {
+    // Note: maxReferrals is intentionally *not* writable via this public
+    // endpoint. It is managed exclusively by admins / internal tooling.
     const updated = await prisma.user.upsert({
       where: { address: normalizeAddress(walletAddress) },
       update: {
         refCodeHash: codeHash,
-        maxReferrals:
-          typeof maxReferrals === 'number' && maxReferrals >= 0
-            ? maxReferrals
-            : 0,
       },
       create: {
         address: normalizeAddress(walletAddress),
         refCodeHash: codeHash,
-        maxReferrals:
-          typeof maxReferrals === 'number' && maxReferrals >= 0
-            ? maxReferrals
-            : 0,
+        // Rely on Prisma default of 0; callers cannot set this via the API.
       },
     });
 
@@ -151,11 +137,9 @@ router.post('/claim', async (req: Request, res: Response) => {
     req.body as ClaimReferralBody;
 
   if (!walletAddress || !codePlaintext || !signature) {
-    return res
-      .status(400)
-      .json({
-        message: 'walletAddress, codePlaintext, and signature are required',
-      });
+    return res.status(400).json({
+      message: 'walletAddress, codePlaintext, and signature are required',
+    });
   }
 
   let codeHash: `0x${string}`;
@@ -191,39 +175,61 @@ router.post('/claim', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Invalid referral code' });
     }
 
-    const referee = await prisma.user.upsert({
-      where: { address: normalizeAddress(walletAddress) },
-      create: {
-        address: normalizeAddress(walletAddress),
-        referredById: referrer.id,
-      },
-      update: {
-        // Enforce idempotency: do not overwrite an existing referredById
-        referredById: undefined,
-      },
-    });
+    const max = referrer.maxReferrals ?? 0;
 
-    // If the user was already referred, respect existing relationship
-    const effectiveReferee = referee.referredById
-      ? referee
-      : await prisma.user.update({
-          where: { id: referee.id },
-          data: { referredById: referrer.id },
-        });
+    // Load existing referee (if any) and current referrals for this referrer.
+    const existingReferee = await prisma.user.findUnique({
+      where: { address: normalizeAddress(walletAddress) },
+    });
 
     const referrals = await prisma.user.findMany({
       where: { referredById: referrer.id },
       orderBy: { createdAt: 'asc' },
     });
 
-    const index = referrals.findIndex((u) => u.id === effectiveReferee.id);
-    const position = index === -1 ? null : index + 1;
-    const max = referrer.maxReferrals ?? 0;
-    const allowed = position !== null && position <= max;
+    // If the user was already referred, respect the existing relationship and
+    // simply report their position relative to this referrer (if applicable).
+    if (existingReferee && existingReferee.referredById != null) {
+      const index = referrals.findIndex((u) => u.id === existingReferee.id);
+      const position = index === -1 ? null : index + 1;
+      const allowed = position !== null && position <= max;
+
+      return res.status(200).json({
+        allowed,
+        index: position,
+        maxReferrals: max,
+      });
+    }
+
+    // User has not yet been referred by anyone. Enforce capacity: if this code
+    // is not configured (maxReferrals <= 0) or already full, do not create a
+    // new referral relationship.
+    const prospectivePosition = referrals.length + 1;
+    if (max <= 0 || prospectivePosition > max) {
+      return res.status(200).json({
+        allowed: false,
+        index: null,
+        maxReferrals: max,
+      });
+    }
+
+    // Capacity available: create or update the user to point at this referrer.
+    await prisma.user.upsert({
+      where: { address: normalizeAddress(walletAddress) },
+      create: {
+        address: normalizeAddress(walletAddress),
+        referredById: referrer.id,
+      },
+      update: {
+        // Only set referredById if it is currently null; if it is somehow
+        // non-null here, we respect the existing relationship.
+        referredById: existingReferee?.referredById ?? referrer.id,
+      },
+    });
 
     return res.status(200).json({
-      allowed,
-      index: position,
+      allowed: true,
+      index: prospectivePosition,
       maxReferrals: max,
     });
   } catch (e) {

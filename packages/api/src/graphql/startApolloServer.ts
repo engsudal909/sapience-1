@@ -93,6 +93,7 @@ import {
   FindUniqueAttestationResolver,
   FindUniqueAttestationOrThrowResolver,
   GroupByAttestationResolver,
+
   // Condition queries
   AggregateConditionResolver,
   FindFirstConditionResolver,
@@ -119,7 +120,6 @@ import {
   VolumeResolver,
   ScoreResolver,
   ParlayResolver,
-  UserResolver,
 } from './resolvers';
 
 export interface ApolloContext {
@@ -241,7 +241,6 @@ export const initializeApolloServer = async () => {
       VolumeResolver,
       ScoreResolver,
       ParlayResolver,
-      UserResolver,
     ]);
   const schema = await buildSchema({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

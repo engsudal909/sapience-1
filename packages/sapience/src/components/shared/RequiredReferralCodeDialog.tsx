@@ -11,7 +11,6 @@ import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { createWalletClient, custom, http, keccak256, toHex } from 'viem';
 import { mainnet } from 'viem/chains';
-import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 interface RequiredReferralCodeDialogProps {
   open: boolean;
@@ -31,21 +30,6 @@ const RequiredReferralCodeDialog = ({
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const REFERRAL_STATUS_QUERY = `
-    query ReferralStatus($wallet: String!) {
-      user(where: { address: $wallet }) {
-        referralStatus {
-          requiresCode
-          hasCode
-          allowed
-          index
-          maxReferrals
-          withinCapacity
-        }
-      }
-    }
-  `;
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     // When a referral code is required, the dialog should not be dismissible
@@ -129,15 +113,6 @@ const RequiredReferralCodeDialog = ({
 
       onCodeSet?.(code.trim());
       onOpenChange(false);
-
-      // Optionally refetch referral status to keep UI in sync
-      try {
-        await graphqlRequest(REFERRAL_STATUS_QUERY, {
-          wallet: normalizedAddress,
-        });
-      } catch {
-        // Non-fatal for the dialog flow
-      }
     } finally {
       setSubmitting(false);
     }
