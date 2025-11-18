@@ -61,8 +61,6 @@ export const useConditions = (opts?: {
         ...(chainId !== undefined ? { chainId } : {}),
       };
 
-      console.log('[useConditions] GraphQL variables:', variables);
-
       const data = await graphqlRequest<ConditionsQueryResult>(
         GET_CONDITIONS,
         variables
