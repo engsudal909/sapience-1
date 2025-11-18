@@ -101,6 +101,15 @@ import {
   FindUniqueConditionResolver,
   FindUniqueConditionOrThrowResolver,
   GroupByConditionResolver,
+
+  // User queries
+  AggregateUserResolver,
+  FindFirstUserResolver,
+  FindFirstUserOrThrowResolver,
+  FindManyUserResolver,
+  FindUniqueUserResolver,
+  FindUniqueUserOrThrowResolver,
+  GroupByUserResolver,
 } from '@generated/type-graphql';
 
 // Import the custom resolvers to keep
@@ -110,6 +119,7 @@ import {
   VolumeResolver,
   ScoreResolver,
   ParlayResolver,
+  UserResolver,
 } from './resolvers';
 
 export interface ApolloContext {
@@ -211,6 +221,15 @@ export const initializeApolloServer = async () => {
     FindUniqueConditionResolver,
     FindUniqueConditionOrThrowResolver,
     GroupByConditionResolver,
+
+    // User queries
+    AggregateUserResolver,
+    FindFirstUserResolver,
+    FindFirstUserOrThrowResolver,
+    FindManyUserResolver,
+    FindUniqueUserResolver,
+    FindUniqueUserOrThrowResolver,
+    GroupByUserResolver,
   ];
 
   // Build the GraphQL schema with query resolvers, relation resolvers, and custom resolvers
@@ -222,6 +241,7 @@ export const initializeApolloServer = async () => {
       VolumeResolver,
       ScoreResolver,
       ParlayResolver,
+      UserResolver,
     ]);
   const schema = await buildSchema({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

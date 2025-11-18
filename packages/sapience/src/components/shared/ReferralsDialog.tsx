@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
@@ -12,6 +11,9 @@ import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';
+import { createWalletClient, custom, http, keccak256, toHex } from 'viem';
+import { mainnet } from 'viem/chains';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 interface ReferralsDialogProps {
   open: boolean;
@@ -22,11 +24,9 @@ interface ReferralsDialogProps {
 
 type ReferralRow = {
   address: string;
-  volume: number;
+  index: number | null;
+  withinCapacity: boolean;
 };
-
-// TODO: Replace with real referred-account data from the backend.
-const referredAccounts: ReferralRow[] = [];
 
 const ReferralsDialog = ({
   open,
@@ -36,15 +36,130 @@ const ReferralsDialog = ({
 }: ReferralsDialogProps) => {
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [maxReferrals, setMaxReferrals] = useState<number>(0);
+
+  const USER_REFERRALS_QUERY = `
+    query UserReferrals($wallet: String!) {
+      user(where: { address: $wallet }) {
+        address
+        refCodeHash
+        maxReferrals
+        referrals {
+          address
+          createdAt
+        }
+      }
+    }
+  `;
+
+  const fetchReferrals = async (address?: string | null) => {
+    const targetAddress = address ?? walletAddress;
+    if (!targetAddress) return;
+    try {
+      const data = await graphqlRequest<{
+        user: {
+          maxReferrals: number;
+          referrals: { address: string; createdAt: string }[];
+        } | null;
+      }>(USER_REFERRALS_QUERY, { wallet: targetAddress.toLowerCase() });
+
+      if (!data?.user) {
+        setReferrals([]);
+        setMaxReferrals(0);
+        return;
+      }
+
+      const sorted = [...data.user.referrals].sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      const rows: ReferralRow[] = sorted.map((r, idx) => {
+        const position = idx + 1;
+        const withinCapacity = position <= (data.user?.maxReferrals ?? 0);
+        return {
+          address: r.address,
+          index: position,
+          withinCapacity,
+        };
+      });
+
+      setReferrals(rows);
+      setMaxReferrals(data.user.maxReferrals ?? 0);
+    } catch (e) {
+      console.error('Failed to load referrals', e);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      void fetchReferrals();
+    }
+  }, [open, walletAddress]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || submitting) return;
+    if (!walletAddress) return;
 
     try {
       setSubmitting(true);
-      // TODO: wire to real API once available
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      setError(null);
+
+      if (typeof window === 'undefined' || !(window as any).ethereum) {
+        throw new Error('Wallet not available for signing');
+      }
+
+      const walletClient = createWalletClient({
+        chain: mainnet,
+        transport: (window as any).ethereum
+          ? custom((window as any).ethereum)
+          : http(),
+      });
+
+      const normalizedAddress = walletAddress.toLowerCase();
+      const normalizedCode = code.trim().toLowerCase();
+      const codeHash = keccak256(toHex(normalizedCode));
+
+      const payload = {
+        prefix: 'Sapience Referral',
+        walletAddress: normalizedAddress,
+        codeHash,
+        chainId: null,
+        nonce: null,
+      };
+
+      const message = JSON.stringify(payload);
+      const signature = await walletClient.signMessage({
+        account: normalizedAddress as `0x${string}`,
+        message,
+      });
+
+      const resp = await fetch(
+        `${process.env.NEXT_PUBLIC_FOIL_API_URL || 'https://api.sapience.xyz'}/referrals/code`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            walletAddress: normalizedAddress,
+            codePlaintext: code.trim(),
+            signature,
+            maxReferrals,
+          }),
+        }
+      );
+
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        setError(data?.message || 'Failed to set referral code');
+        return;
+      }
 
       // Best-effort local persistence by wallet address so we can
       // avoid re-prompting users who have already provided a code.
@@ -58,6 +173,9 @@ const ReferralsDialog = ({
       }
 
       onCodeSet?.(code.trim());
+      // Immediately refresh referrals so the dashboard reflects the new code
+      // and any updated maxReferrals before closing.
+      await fetchReferrals(walletAddress);
       onOpenChange(false);
     } finally {
       setSubmitting(false);
@@ -94,6 +212,9 @@ const ReferralsDialog = ({
               Only an encrypted version of your code is stored, so you&apos;ll
               need to reset it if you forget it.
             </p>
+            {error && (
+              <p className="text-xs text-destructive mt-1.5">{error}</p>
+            )}
           </div>
         </form>
 
@@ -104,23 +225,18 @@ const ReferralsDialog = ({
               <thead>
                 <tr className="border-b border-border/70 text-muted-foreground">
                   <th className="px-3 py-2 text-left font-medium">Account</th>
-                  <th className="px-3 py-2 text-right font-medium">
-                    Trading Volume
-                  </th>
+                  <th className="px-3 py-2 text-right font-medium">Position</th>
                 </tr>
               </thead>
               <tbody>
-                {referredAccounts.length === 0 ? (
+                {referrals.length === 0 ? (
                   <tr>
-                    <td
-                      className="px-3 py-3 text-muted-foreground"
-                      colSpan={2}
-                    >
+                    <td className="px-3 py-3 text-muted-foreground" colSpan={2}>
                       You haven&apos;t referred any accounts yet.
                     </td>
                   </tr>
                 ) : (
-                  referredAccounts.map((row) => (
+                  referrals.map((row) => (
                     <tr
                       key={row.address}
                       className="border-t border-border/40 last:border-b-0"
@@ -137,7 +253,8 @@ const ReferralsDialog = ({
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums align-middle">
-                        {row.volume.toLocaleString()} USDe
+                        {row.index !== null ? `#${row.index}` : '-'}
+                        {row.withinCapacity ? ' (within capacity)' : ''}
                       </td>
                     </tr>
                   ))
@@ -152,4 +269,3 @@ const ReferralsDialog = ({
 };
 
 export default ReferralsDialog;
-

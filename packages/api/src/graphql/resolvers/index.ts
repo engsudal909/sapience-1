@@ -3,3 +3,4 @@ export { PnLResolver } from './PnLResolver';
 export { VolumeResolver } from './VolumeResolver';
 export { ScoreResolver } from './ScoreResolver';
 export { ParlayResolver } from './ParlayResolver';
+export { UserResolver } from './UserResolver';

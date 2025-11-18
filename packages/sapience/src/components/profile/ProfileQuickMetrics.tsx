@@ -23,7 +23,7 @@ import {
 
 import type { PositionType } from '@sapience/sdk/types';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
-import { formatFiveSigFigs, bigIntAbs } from '~/lib/utils/util';
+import { formatFiveSigFigs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
 import { useUserProfitRank } from '~/hooks/graphql/useUserProfitRank';
 import { useForecasterRank } from '~/hooks/graphql/useForecasterRank';

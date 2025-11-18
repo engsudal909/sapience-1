@@ -4,12 +4,14 @@ import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { createWalletClient, custom, http, keccak256, toHex } from 'viem';
+import { mainnet } from 'viem/chains';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 interface RequiredReferralCodeDialogProps {
   open: boolean;
@@ -28,6 +30,22 @@ const RequiredReferralCodeDialog = ({
 }: RequiredReferralCodeDialogProps) => {
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const REFERRAL_STATUS_QUERY = `
+    query ReferralStatus($wallet: String!) {
+      user(where: { address: $wallet }) {
+        referralStatus {
+          requiresCode
+          hasCode
+          allowed
+          index
+          maxReferrals
+          withinCapacity
+        }
+      }
+    }
+  `;
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     // When a referral code is required, the dialog should not be dismissible
@@ -39,11 +57,64 @@ const RequiredReferralCodeDialog = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || submitting) return;
+    if (!walletAddress) return;
 
     try {
       setSubmitting(true);
-      // TODO: wire to real API once available
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      setError(null);
+
+      if (typeof window === 'undefined' || !(window as any).ethereum) {
+        throw new Error('Wallet not available for signing');
+      }
+
+      const walletClient = createWalletClient({
+        chain: mainnet,
+        transport: (window as any).ethereum
+          ? custom((window as any).ethereum)
+          : http(),
+      });
+
+      const normalizedAddress = walletAddress.toLowerCase();
+      const normalizedCode = code.trim().toLowerCase();
+      const codeHash = keccak256(toHex(normalizedCode));
+
+      // Canonical message: includes walletAddress and codeHash (plus optional chainId/nonce)
+      const payload = {
+        prefix: 'Sapience Referral',
+        walletAddress: normalizedAddress,
+        codeHash,
+        chainId: null,
+        nonce: null,
+      };
+
+      const message = JSON.stringify(payload);
+      const signature = await walletClient.signMessage({
+        account: normalizedAddress as `0x${string}`,
+        message,
+      });
+
+      const resp = await fetch(
+        `${process.env.NEXT_PUBLIC_FOIL_API_URL || 'https://api.sapience.xyz'}/referrals/claim`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            walletAddress: normalizedAddress,
+            codePlaintext: code.trim(),
+            signature,
+          }),
+        }
+      );
+
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        setError(data?.message || 'Failed to claim referral code');
+        return;
+      }
 
       // Best-effort local persistence by wallet address so we can
       // avoid re-prompting users who have already provided a code.
@@ -58,6 +129,15 @@ const RequiredReferralCodeDialog = ({
 
       onCodeSet?.(code.trim());
       onOpenChange(false);
+
+      // Optionally refetch referral status to keep UI in sync
+      try {
+        await graphqlRequest(REFERRAL_STATUS_QUERY, {
+          wallet: normalizedAddress,
+        });
+      } catch {
+        // Non-fatal for the dialog flow
+      }
     } finally {
       setSubmitting(false);
     }
@@ -93,6 +173,9 @@ const RequiredReferralCodeDialog = ({
                 {submitting ? 'Submitting...' : 'Submit'}
               </Button>
             </div>
+            {error && (
+              <p className="text-xs text-destructive mt-1.5">{error}</p>
+            )}
           </div>
         </form>
 
@@ -125,5 +208,3 @@ const RequiredReferralCodeDialog = ({
 };
 
 export default RequiredReferralCodeDialog;
-
-

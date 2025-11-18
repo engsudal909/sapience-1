@@ -73,5 +73,3 @@ export function useProfileVolume(
     }
   }, [positions, parlays, address]);
 }
-
-
