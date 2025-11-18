@@ -142,7 +142,7 @@ const RequiredReferralCodeDialog = ({
         onEscapeKeyDown={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Enter a Referral Code</DialogTitle>
+          <DialogTitle>Enter an Invite Code</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -170,7 +170,7 @@ const RequiredReferralCodeDialog = ({
 
         <div>
           <p className="text-base text-foreground">
-            If you don&apos;t have a referral code, you can request one in{' '}
+            If you don&apos;t have an invite code, you can request one in{' '}
             <a
               href="https://discord.gg/sapience"
               target="_blank"

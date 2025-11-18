@@ -123,8 +123,10 @@ router.post('/code', async (req: Request, res: Response) => {
       message.includes('Unique constraint failed') ||
       message.includes('Unique constraint')
     ) {
-      return res.status(409).json({
-        message: 'Referral code is already in use',
+      // If another user already has this code hash, treat it as an invalid /
+      // unavailable code rather than surfacing a low-level unique constraint.
+      return res.status(400).json({
+        message: 'Unable to set referral code. Please choose a different code.',
       });
     }
     console.error('Error setting referral code:', e);
@@ -187,9 +189,9 @@ router.post('/claim', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' },
     });
 
-    // If the user was already referred, respect the existing relationship and
-    // simply report their position relative to this referrer (if applicable).
-    if (existingReferee && existingReferee.referredById != null) {
+    // If the user is already referred by *this* referrer, just report their
+    // existing position relative to this referrer.
+    if (existingReferee && existingReferee.referredById === referrer.id) {
       const index = referrals.findIndex((u) => u.id === existingReferee.id);
       const position = index === -1 ? null : index + 1;
       const allowed = position !== null && position <= max;
@@ -201,9 +203,10 @@ router.post('/claim', async (req: Request, res: Response) => {
       });
     }
 
-    // User has not yet been referred by anyone. Enforce capacity: if this code
-    // is not configured (maxReferrals <= 0) or already full, do not create a
-    // new referral relationship.
+    // User is either not yet referred or is switching from another referrer
+    // to this one. Enforce capacity: if this code is not configured
+    // (maxReferrals <= 0) or already full, do not create/update the
+    // referral relationship.
     const prospectivePosition = referrals.length + 1;
     if (max <= 0 || prospectivePosition > max) {
       return res.status(200).json({
@@ -213,7 +216,8 @@ router.post('/claim', async (req: Request, res: Response) => {
       });
     }
 
-    // Capacity available: create or update the user to point at this referrer.
+    // Capacity available: create or update the user to point at this referrer,
+    // overwriting any previous referrer relationship.
     await prisma.user.upsert({
       where: { address: normalizeAddress(walletAddress) },
       create: {
@@ -221,9 +225,7 @@ router.post('/claim', async (req: Request, res: Response) => {
         referredById: referrer.id,
       },
       update: {
-        // Only set referredById if it is currently null; if it is somehow
-        // non-null here, we respect the existing relationship.
-        referredById: existingReferee?.referredById ?? referrer.id,
+        referredById: referrer.id,
       },
     });
 

@@ -38,7 +38,6 @@ const ReferralsDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
-  const [maxReferrals, setMaxReferrals] = useState<number>(0);
 
   const USER_REFERRALS_QUERY = `
     query UserReferrals($wallet: String!) {
@@ -67,7 +66,6 @@ const ReferralsDialog = ({
 
       if (!data?.user) {
         setReferrals([]);
-        setMaxReferrals(0);
         return;
       }
 
@@ -87,7 +85,6 @@ const ReferralsDialog = ({
       });
 
       setReferrals(rows);
-      setMaxReferrals(data.user.maxReferrals ?? 0);
     } catch (e) {
       console.error('Failed to load referrals', e);
     }
@@ -148,7 +145,6 @@ const ReferralsDialog = ({
             walletAddress: normalizedAddress,
             codePlaintext: code.trim(),
             signature,
-            maxReferrals,
           }),
         }
       );
@@ -182,13 +178,11 @@ const ReferralsDialog = ({
     }
   };
 
-  const effectiveTitle = 'Referrals';
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>{effectiveTitle}</DialogTitle>
+          <DialogTitle>Invite a Friend</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-3">
