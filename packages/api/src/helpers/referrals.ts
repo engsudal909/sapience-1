@@ -1,4 +1,4 @@
-import { keccak256, toHex } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 
 /**
  * Compute the canonical referral code hash:
@@ -9,6 +9,6 @@ export function hashReferralCode(plaintext: string): `0x${string}` {
   if (!normalized) {
     throw new Error('Referral code cannot be empty after trimming');
   }
-  const bytes = toHex(normalized);
+  const bytes = stringToHex(normalized);
   return keccak256(bytes);
 }

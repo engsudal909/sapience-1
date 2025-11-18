@@ -39,6 +39,7 @@ import { SiSubstack } from 'react-icons/si';
 
 import { useEffect, useRef, useState } from 'react';
 import { useDisconnect } from 'wagmi';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import CollateralBalanceButton from './CollateralBalanceButton';
 import { shortenAddress } from '~/lib/utils/util';
 import { useEnsName } from '~/components/shared/AddressDisplay';
@@ -46,6 +47,18 @@ import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import ReferralsDialog from '~/components/shared/ReferralsDialog';
 import RequiredReferralCodeDialog from '~/components/shared/RequiredReferralCodeDialog';
+
+const USER_REFERRAL_STATUS_QUERY = `
+  query UserReferralStatus($wallet: String!) {
+    user(where: { address: $wallet }) {
+      address
+      refCodeHash
+      referredBy {
+        id
+      }
+    }
+  }
+`;
 
 // logo.svg will be rendered via next/image below
 
@@ -243,38 +256,73 @@ const Header = () => {
     };
   }, []);
 
-  // When a wallet connects (or the active wallet changes), check whether
-  // we already have a referral code stored for that address. If not, open
-  // a blocking dialog that requires the user to either enter a code or
-  // disconnect their wallet.
+  // When a wallet connects (or the active wallet changes), check with the
+  // backend whether this address has an associated referral relationship
+  // (either as a referee or a referrer). If not, open a blocking dialog
+  // that requires the user to either enter a code or disconnect.
   useEffect(() => {
-    if (!ready || !hasConnectedWallet || !connectedWallet?.address) {
-      setIsReferralRequiredOpen(false);
-      lastWalletAddressRef.current = null;
-      return;
-    }
+    let cancelled = false;
 
-    const currentAddress = connectedWallet.address.toLowerCase();
-    const previousAddress = lastWalletAddressRef.current;
-    lastWalletAddressRef.current = currentAddress;
-
-    // Only re-check when the address actually changes.
-    if (previousAddress === currentAddress) {
-      return;
-    }
-
-    try {
-      if (typeof window === 'undefined') return;
-      const key = `sapience:referralCode:${currentAddress}`;
-      const existing = window.localStorage.getItem(key);
-      if (!existing) {
-        setIsReferralRequiredOpen(true);
-      } else {
+    const run = async () => {
+      if (!ready || !hasConnectedWallet || !connectedWallet?.address) {
         setIsReferralRequiredOpen(false);
+        lastWalletAddressRef.current = null;
+        return;
       }
-    } catch {
-      // If localStorage is unavailable, we simply don't gate on referral code.
-    }
+
+      const currentAddress = connectedWallet.address.toLowerCase();
+      const previousAddress = lastWalletAddressRef.current;
+      lastWalletAddressRef.current = currentAddress;
+
+      // Only re-check when the address actually changes.
+      if (previousAddress === currentAddress) {
+        return;
+      }
+
+      try {
+        const data = await graphqlRequest<{
+          user: {
+            address: string;
+            refCodeHash?: string | null;
+            referredBy?: { id: number } | null;
+          } | null;
+        }>(USER_REFERRAL_STATUS_QUERY, { wallet: currentAddress });
+
+        if (cancelled) return;
+
+        const user = data?.user;
+        const hasServerReferral = !!(
+          user &&
+          (user.refCodeHash || user.referredBy)
+        );
+
+        if (hasServerReferral) {
+          setIsReferralRequiredOpen(false);
+          return;
+        }
+
+        // No referral relationship on the backend: require a code.
+        setIsReferralRequiredOpen(true);
+      } catch {
+        // On network or GraphQL errors, fall back to localStorage so we don't
+        // accidentally lock out users who have previously provided a code.
+        try {
+          if (typeof window === 'undefined') return;
+          const key = `sapience:referralCode:${currentAddress}`;
+          const existing = window.localStorage.getItem(key);
+          setIsReferralRequiredOpen(!existing);
+        } catch {
+          // If localStorage is unavailable, err on the side of not gating.
+          setIsReferralRequiredOpen(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [ready, hasConnectedWallet, connectedWallet?.address]);
 
   const hasDisconnect = (

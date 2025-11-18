@@ -9,7 +9,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/dialog';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { createWalletClient, custom, http, keccak256, toHex } from 'viem';
+import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 
 interface RequiredReferralCodeDialogProps {
@@ -60,7 +60,7 @@ const RequiredReferralCodeDialog = ({
 
       const normalizedAddress = walletAddress.toLowerCase();
       const normalizedCode = code.trim().toLowerCase();
-      const codeHash = keccak256(toHex(normalizedCode));
+      const codeHash = keccak256(stringToHex(normalizedCode));
 
       // Canonical message: includes walletAddress and codeHash (plus optional chainId/nonce)
       const payload = {
@@ -92,11 +92,25 @@ const RequiredReferralCodeDialog = ({
         }
       );
 
+      const data = (await resp.json().catch(() => null)) as {
+        allowed?: boolean;
+        index?: number | null;
+        maxReferrals?: number;
+        message?: string;
+      } | null;
+
       if (!resp.ok) {
-        const data = (await resp.json().catch(() => null)) as {
-          message?: string;
-        } | null;
         setError(data?.message || 'Failed to claim referral code');
+        return;
+      }
+
+      // Capacity enforcement: if this wallet does not yet have a referral
+      // relationship and the code is full, keep the dialog open and surface
+      // a clear error instead of silently accepting the code.
+      if (data && data.allowed === false && (data.index ?? null) === null) {
+        setError(
+          'This referral code has reached its capacity. Please request a new code or try a different one.'
+        );
         return;
       }
 

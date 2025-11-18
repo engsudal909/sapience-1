@@ -11,7 +11,7 @@ import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';
-import { createWalletClient, custom, http, keccak256, toHex } from 'viem';
+import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
@@ -121,7 +121,7 @@ const ReferralsDialog = ({
 
       const normalizedAddress = walletAddress.toLowerCase();
       const normalizedCode = code.trim().toLowerCase();
-      const codeHash = keccak256(toHex(normalizedCode));
+      const codeHash = keccak256(stringToHex(normalizedCode));
 
       const payload = {
         prefix: 'Sapience Referral',
