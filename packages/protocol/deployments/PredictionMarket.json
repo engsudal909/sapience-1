@@ -1,5 +1,6 @@
+
 {
-  "address": "0x8D1D1946cBc56F695584761d25D13F174906671C",
+  "address": "0x7b00088CA92d4f11F305CC61758De3580a730f39",
   "abi": [
     {
       "type": "constructor",
@@ -333,26 +334,6 @@
               "internalType": "uint256"
             },
             {
-              "name": "resolver",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
-              "name": "maker",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
-              "name": "taker",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
-              "name": "encodedPredictedOutcomes",
-              "type": "bytes",
-              "internalType": "bytes"
-            },
-            {
               "name": "makerNftTokenId",
               "type": "uint256",
               "internalType": "uint256"
@@ -371,6 +352,26 @@
               "name": "takerCollateral",
               "type": "uint256",
               "internalType": "uint256"
+            },
+            {
+              "name": "encodedPredictedOutcomes",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "resolver",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maker",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "taker",
+              "type": "address",
+              "internalType": "address"
             },
             {
               "name": "settled",
@@ -409,16 +410,6 @@
               "internalType": "uint256"
             },
             {
-              "name": "encodedPredictedOutcomes",
-              "type": "bytes",
-              "internalType": "bytes"
-            },
-            {
-              "name": "resolver",
-              "type": "address",
-              "internalType": "address"
-            },
-            {
               "name": "makerCollateral",
               "type": "uint256",
               "internalType": "uint256"
@@ -429,6 +420,21 @@
               "internalType": "uint256"
             },
             {
+              "name": "orderDeadline",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "encodedPredictedOutcomes",
+              "type": "bytes",
+              "internalType": "bytes"
+            },
+            {
+              "name": "resolver",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
               "name": "maker",
               "type": "address",
               "internalType": "address"
@@ -437,11 +443,6 @@
               "name": "taker",
               "type": "address",
               "internalType": "address"
-            },
-            {
-              "name": "orderDeadline",
-              "type": "uint256",
-              "internalType": "uint256"
             }
           ]
         }
@@ -576,6 +577,11 @@
               "internalType": "address"
             },
             {
+              "name": "makerNonce",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
               "name": "takerSignature",
               "type": "bytes",
               "internalType": "bytes"
@@ -616,6 +622,25 @@
           "name": "",
           "type": "string",
           "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "nonces",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -1198,28 +1223,6 @@
     },
     {
       "type": "error",
-      "name": "AddressEmptyCode",
-      "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "AddressInsufficientBalance",
-      "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "CollateralBelowMinimum",
       "inputs": []
     },
@@ -1355,17 +1358,17 @@
     },
     {
       "type": "error",
-      "name": "FailedInnerCall",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "InvalidCollateralToken",
       "inputs": []
     },
     {
       "type": "error",
       "name": "InvalidEncodedPredictedOutcomes",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidMakerNonce",
       "inputs": []
     },
     {
@@ -1405,12 +1408,12 @@
     },
     {
       "type": "error",
-      "name": "OrderExpired",
+      "name": "NotOwner",
       "inputs": []
     },
     {
       "type": "error",
-      "name": "OrderNotExpired",
+      "name": "OrderExpired",
       "inputs": []
     },
     {
@@ -1479,22 +1482,32 @@
       "type": "error",
       "name": "TransferFailed",
       "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TransferInProcess",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TransferNotAllowed",
+      "inputs": []
     }
   ],
   "constructorArgs": [
     "Prediction Market",
     "SPM",
-    "0xD09Ca7E81df62EAe738CD7187EC2E1499e860E02",
+    "0xb7ae43711d85c23dc862c85b9c95a64dc6351f90",
     "10000000000000000"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0xded91f993e9c9a0b9ec876342f0dfa75e530881b921cf0885252d1535ff612fa",
-  "deployTxnBlockNumber": "381946930",
-  "deployTimestamp": "1758574640",
+  "deployTxnHash": "0x00809d2cf3f8e27a93389f04287ce4bc0afede78ae8c5b51f7c5ba8748299017",
+  "deployTxnBlockNumber": "1102826",
+  "deployTimestamp": "1763485649",
   "sourceName": "src/predictionMarket/PredictionMarket.sol",
   "contractName": "PredictionMarket",
   "deployedOn": "deploy.PredictionMarket",
   "highlight": true,
-  "gasUsed": 3691675,
+  "gasUsed": 3799235,
   "gasCost": "10000000"
 }
