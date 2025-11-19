@@ -2,8 +2,8 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
-import {UMALayerZeroBridge} from "../bridge/UMALayerZeroBridge.sol";
-import {BridgeTypes} from "../bridge/BridgeTypes.sol";
+import {UMALayerZeroBridge} from "../../bridge/UMALayerZeroBridge.sol";
+import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 
 // Deploy this contract on Base (where UMA is deployed)
 contract ConfigureUMALZBridge is Script {
