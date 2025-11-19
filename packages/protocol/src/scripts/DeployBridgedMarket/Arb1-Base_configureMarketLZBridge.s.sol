@@ -2,16 +2,18 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
-import {MarketLayerZeroBridge} from "../bridge/MarketLayerZeroBridge.sol";
-import {BridgeTypes} from "../bridge/BridgeTypes.sol";
+import {MarketLayerZeroBridge} from "../../bridge/MarketLayerZeroBridge.sol";
+import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 
+// Deploy this contract on Arbitrum One (where Market is deployed)
 contract ConfigureMarketLZBridge is Script {
     function run() external {
         // Replace these env vars with your own values
-        address marketLZBridge = 0xee6832F73862ABac4CC87bE58B4A949edd8533F7;
-        address umaLZBridge = 0xCe6876D1362585dF3F98294e7F214ad819AE9fA7;
+        address marketLZBridge = 0xCf17b4834223D7e54B92f8e43229C1E82faF7226;
+        address umaLZBridge = 0x6a8Ac3a120E47101F7a794Ca7445fff022D21F10;
 
-        (uint32 eidUMA, bytes32 peerUMA) = (uint32(30110), bytes32(uint256(uint160(umaLZBridge))));
+        // eid of other network. In this case is Base's 
+        (uint32 eidUMA, bytes32 peerUMA) = (uint32(30184), bytes32(uint256(uint160(umaLZBridge))));
 
         vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
         MarketLayerZeroBridge market = MarketLayerZeroBridge(payable(marketLZBridge));

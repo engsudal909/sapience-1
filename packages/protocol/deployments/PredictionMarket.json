@@ -1,5 +1,6 @@
+
 {
-  "address": "0xAcD757322df2A1A0B3283c851380f3cFd4882cB4",
+  "address": "0x7b00088CA92d4f11F305CC61758De3580a730f39",
   "abi": [
     {
       "type": "constructor",
@@ -1222,28 +1223,6 @@
     },
     {
       "type": "error",
-      "name": "AddressEmptyCode",
-      "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "AddressInsufficientBalance",
-      "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "CollateralBelowMinimum",
       "inputs": []
     },
@@ -1379,17 +1358,17 @@
     },
     {
       "type": "error",
-      "name": "FailedInnerCall",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "InvalidCollateralToken",
       "inputs": []
     },
     {
       "type": "error",
       "name": "InvalidEncodedPredictedOutcomes",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidMakerNonce",
       "inputs": []
     },
     {
@@ -1523,17 +1502,17 @@
   "constructorArgs": [
     "Prediction Market",
     "SPM",
-    "0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D",
+    "0xb7ae43711d85c23dc862c85b9c95a64dc6351f90",
     "10000000000000000"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0xa6ad7d5e1311005eef5f97c0dc04f40552fe3c7cc126d127d27f4f4a8c0c6da5",
-  "deployTxnBlockNumber": "139189",
-  "deployTimestamp": "1762258586",
+  "deployTxnHash": "0x00809d2cf3f8e27a93389f04287ce4bc0afede78ae8c5b51f7c5ba8748299017",
+  "deployTxnBlockNumber": "1102826",
+  "deployTimestamp": "1763485649",
   "sourceName": "src/predictionMarket/PredictionMarket.sol",
   "contractName": "PredictionMarket",
   "deployedOn": "deploy.PredictionMarket",
   "highlight": true,
-  "gasUsed": 3859589,
+  "gasUsed": 3799235,
   "gasCost": "10000000"
 }

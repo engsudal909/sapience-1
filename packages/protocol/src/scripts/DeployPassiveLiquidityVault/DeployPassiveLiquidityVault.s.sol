@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
-import {PassiveLiquidityVault} from "../vault/PassiveLiquidityVault.sol";
+import {PassiveLiquidityVault} from "../../vault/PassiveLiquidityVault.sol";
 
 /// @title Deploy PassiveLiquidityVault to Arbitrum One
 /// @notice Deploys the PassiveLiquidityVault contract with specified parameters
