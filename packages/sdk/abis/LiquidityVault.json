@@ -1,5 +1,5 @@
 {
-  "address": "0xcC1c64e849395D31d059a4bd19391af64D8855d7",
+  "address": "0xb52883b935796Ef6d881B22B4fA9d46a374905D7",
   "abi": [
     {
       "type": "constructor",
@@ -42,20 +42,7 @@
     },
     {
       "type": "function",
-      "name": "BASIS_POINTS",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "MIN_DEPOSIT",
+      "name": "WAD",
       "inputs": [],
       "outputs": [
         {
@@ -131,7 +118,7 @@
           "internalType": "address"
         },
         {
-          "name": "amount",
+          "name": "newApprovalAmount",
           "type": "uint256",
           "internalType": "uint256"
         }
@@ -186,6 +173,32 @@
     },
     {
       "type": "function",
+      "name": "batchProcessDeposit",
+      "inputs": [
+        {
+          "name": "requesters",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "batchProcessWithdrawal",
+      "inputs": [
+        {
+          "name": "requesters",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "cancelDeposit",
       "inputs": [],
       "outputs": [],
@@ -194,6 +207,13 @@
     {
       "type": "function",
       "name": "cancelWithdrawal",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "cleanInactiveProtocols",
       "inputs": [],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -358,6 +378,44 @@
           "name": "",
           "type": "bytes32",
           "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getAvailableShares",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getLockedShares",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -549,16 +607,6 @@
       ],
       "outputs": [
         {
-          "name": "user",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "isDeposit",
-          "type": "bool",
-          "internalType": "bool"
-        },
-        {
           "name": "shares",
           "type": "uint256",
           "internalType": "uint256"
@@ -570,8 +618,18 @@
         },
         {
           "name": "timestamp",
-          "type": "uint256",
-          "internalType": "uint256"
+          "type": "uint64",
+          "internalType": "uint64"
+        },
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "isDeposit",
+          "type": "bool",
+          "internalType": "bool"
         },
         {
           "name": "processed",
@@ -1006,6 +1064,25 @@
     },
     {
       "type": "event",
+      "name": "MaxUtilizationRateUpdated",
+      "inputs": [
+        {
+          "name": "oldRate",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newRate",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "OwnershipTransferStarted",
       "inputs": [
         {
@@ -1150,6 +1227,25 @@
     },
     {
       "type": "event",
+      "name": "ProjectedUtilizationRateUpdated",
+      "inputs": [
+        {
+          "name": "currentUtilizationRate",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newProjectedRate",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "Transfer",
       "inputs": [
         {
@@ -1185,63 +1281,6 @@
         }
       ],
       "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "UtilizationRateUpdated",
-      "inputs": [
-        {
-          "name": "oldRate",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        },
-        {
-          "name": "newRate",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "error",
-      "name": "AddressEmptyCode",
-      "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "AddressInsufficientBalance",
-      "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "AmountTooSmall",
-      "inputs": [
-        {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "minimum",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
     },
     {
       "type": "error",
@@ -1394,11 +1433,6 @@
     },
     {
       "type": "error",
-      "name": "FailedInnerCall",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "InsufficientAvailableAssets",
       "inputs": [
         {
@@ -1517,11 +1551,6 @@
     },
     {
       "type": "error",
-      "name": "MathOverflowedMulDiv",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "NoPendingDeposit",
       "inputs": [
         {
@@ -1552,11 +1581,6 @@
           "internalType": "address"
         }
       ]
-    },
-    {
-      "type": "error",
-      "name": "NotImplemented",
-      "inputs": []
     },
     {
       "type": "error",
@@ -1635,6 +1659,27 @@
     },
     {
       "type": "error",
+      "name": "SharesLockedForWithdrawal",
+      "inputs": [
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "lockedShares",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "attemptedTransfer",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "StringTooLong",
       "inputs": [
         {
@@ -1667,19 +1712,19 @@
     }
   ],
   "constructorArgs": [
-    "0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA",
+    "0xb7ae43711d85c23dc862c85b9c95a64dc6351f90",
     "0x759dd186d243ddec7901d46d7ed94a3b1bc8b948",
     "Sapience LP",
     "sapLP"
   ],
   "linkedLibraries": {},
-  "deployTxnHash": "0xb9053e0b9b8aca1e613888c496f0fe63dfc05268b5be6750d9f05a0a2808c7e1",
-  "deployTxnBlockNumber": "386456648",
-  "deployTimestamp": "1759700128",
+  "deployTxnHash": "0xd84e1812d2dfaa822e0c91a3369461cd0c026a39b1a5a84373cbe39ae08ded16",
+  "deployTxnBlockNumber": "1102825",
+  "deployTimestamp": "1763485645",
   "sourceName": "src/vault/PassiveLiquidityVault.sol",
   "contractName": "PassiveLiquidityVault",
   "deployedOn": "deploy.PassiveLiquidityVault",
   "highlight": true,
-  "gasUsed": 3527507,
+  "gasUsed": 3924410,
   "gasCost": "10000000"
 }
