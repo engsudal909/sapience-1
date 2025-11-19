@@ -14,6 +14,12 @@ import EnsAvatar from '~/components/shared/EnsAvatar';
 import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
+import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { usePositions } from '~/hooks/graphql/usePositions';
+import { useUserParlays } from '~/hooks/graphql/useUserParlays';
+import { useProfileVolume } from '~/hooks/useProfileVolume';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 interface ReferralsDialogProps {
   open: boolean;
@@ -28,6 +34,29 @@ type ReferralRow = {
   withinCapacity: boolean;
 };
 
+const ReferralVolumeCell = ({ address }: { address: string }) => {
+  const chainId = useChainIdFromLocalStorage();
+  const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'USDe';
+  const lowerAddress = address.toLowerCase();
+
+  const { data: positions, isLoading: positionsLoading } = usePositions({
+    address: lowerAddress,
+  });
+  const { data: parlays, isLoading: parlaysLoading } = useUserParlays({
+    address: lowerAddress,
+    chainId,
+  });
+
+  const volume = useProfileVolume(positions, parlays, address);
+  const loading = positionsLoading || parlaysLoading;
+
+  return (
+    <span className="tabular-nums">
+      {loading ? '—' : `${volume.display} ${collateralSymbol}`}
+    </span>
+  );
+};
+
 const ReferralsDialog = ({
   open,
   onOpenChange,
@@ -38,6 +67,16 @@ const ReferralsDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [maxReferrals, setMaxReferrals] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const invitesRemaining =
+    maxReferrals !== null
+      ? Math.max(
+          0,
+          maxReferrals - referrals.filter((row) => row.withinCapacity).length
+        )
+      : null;
 
   const USER_REFERRALS_QUERY = `
     query UserReferrals($wallet: String!) {
@@ -66,6 +105,7 @@ const ReferralsDialog = ({
 
       if (!data?.user) {
         setReferrals([]);
+        setMaxReferrals(null);
         return;
       }
 
@@ -85,6 +125,7 @@ const ReferralsDialog = ({
       });
 
       setReferrals(rows);
+      setMaxReferrals(data.user.maxReferrals ?? null);
     } catch (e) {
       console.error('Failed to load referrals', e);
     }
@@ -153,7 +194,23 @@ const ReferralsDialog = ({
         const data = (await resp.json().catch(() => null)) as {
           message?: string;
         } | null;
-        setError(data?.message || 'Failed to set referral code');
+        const message =
+          data?.message || 'Unable to set referral code. Please try again.';
+
+        if (
+          data?.message ===
+          'Unable to set referral code. Please choose a different code.'
+        ) {
+          toast({
+            title: 'Unable to set referral code',
+            description: 'Please choose a different code.',
+            variant: 'destructive',
+          });
+          // Do not render this specific message inline in the dialog.
+          setError(null);
+        } else {
+          setError(message);
+        }
         return;
       }
 
@@ -213,13 +270,27 @@ const ReferralsDialog = ({
         </form>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">Referrals</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-foreground">Referrals</h3>
+            {invitesRemaining !== null && (
+              <span className="text-[11px] text-muted-foreground">
+                {invitesRemaining}{' '}
+                {invitesRemaining === 1
+                  ? 'invite remaining'
+                  : 'invites remaining'}
+              </span>
+            )}
+          </div>
           <div className="rounded-md border border-border bg-muted/40">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/70 text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-medium">Account</th>
-                  <th className="px-3 py-2 text-right font-medium">Position</th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    Account Address
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    Trading Volume
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -239,16 +310,15 @@ const ReferralsDialog = ({
                         <div className="flex items-center gap-2">
                           <EnsAvatar
                             address={row.address}
-                            className="w-5 h-5 rounded-full ring-1 ring-border/50"
-                            width={20}
-                            height={20}
+                            className="w-4 h-4 rounded-sm ring-1 ring-border/50"
+                            width={16}
+                            height={16}
                           />
                           <AddressDisplay address={row.address} compact />
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums align-middle">
-                        {row.index !== null ? `#${row.index}` : '-'}
-                        {row.withinCapacity ? ' (within capacity)' : ''}
+                      <td className="px-3 py-2 text-right align-middle">
+                        <ReferralVolumeCell address={row.address} />
                       </td>
                     </tr>
                   ))

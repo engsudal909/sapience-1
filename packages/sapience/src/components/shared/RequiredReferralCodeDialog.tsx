@@ -9,6 +9,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/dialog';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 
@@ -30,6 +31,7 @@ const RequiredReferralCodeDialog = ({
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     // When a referral code is required, the dialog should not be dismissible
@@ -100,7 +102,14 @@ const RequiredReferralCodeDialog = ({
       } | null;
 
       if (!resp.ok) {
-        setError(data?.message || 'Failed to claim referral code');
+        const message = data?.message || 'Failed to claim referral code';
+        toast({
+          title: 'Unable to claim referral code',
+          description: message,
+          variant: 'destructive',
+        });
+        // Avoid rendering this error inline in the dialog.
+        setError(null);
         return;
       }
 
@@ -108,9 +117,15 @@ const RequiredReferralCodeDialog = ({
       // relationship and the code is full, keep the dialog open and surface
       // a clear error instead of silently accepting the code.
       if (data && data.allowed === false && (data.index ?? null) === null) {
-        setError(
-          'This referral code has reached its capacity. Please request a new code or try a different one.'
-        );
+        const capacityMessage =
+          'This referral code has reached its capacity. Please request a new code or try a different one.';
+        toast({
+          title: 'Referral code full',
+          description: capacityMessage,
+          variant: 'destructive',
+        });
+        // Keep the dialog open but avoid rendering this message inline.
+        setError(null);
         return;
       }
 
