@@ -31,6 +31,7 @@ import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
 export const CHAIN_ID_ARBITRUM = '42161';
 export const CHAIN_ID_ETHEREAL = '5064014';
+export const CHAIN_ID_ETHEREAL_TESTNET = '13374202';
 
 type SettingFieldProps = {
   id: string;
@@ -197,7 +198,7 @@ const SettingsPageContent = () => {
     'network' | 'appearance' | 'agent'
   >('network');
   const [selectedChain, setSelectedChain] = useState<
-    'arbitrum' | 'ethereal' | null
+    'arbitrum' | 'ethereal' | 'etherealTestnet' | null
   >(null);
   const [isEtherealEnabled, setIsEtherealEnabled] = useState(false);
   const { ready, exportWallet } = usePrivy();
@@ -221,6 +222,8 @@ const SettingsPageContent = () => {
     );
     if (chainIdLocalStorage === CHAIN_ID_ETHEREAL) {
       setSelectedChain('ethereal');
+    } else if (chainIdLocalStorage === CHAIN_ID_ETHEREAL_TESTNET) {
+      setSelectedChain('etherealTestnet');
     } else {
       setSelectedChain('arbitrum');
     }
@@ -235,7 +238,10 @@ const SettingsPageContent = () => {
 
   // If the flag is off while Ethereal is selected, revert to Arbitrum
   useEffect(() => {
-    if (!isEtherealEnabled && selectedChain === 'ethereal') {
+    if (
+      !isEtherealEnabled &&
+      (selectedChain === 'ethereal' || selectedChain === 'etherealTestnet')
+    ) {
       setSelectedChain('arbitrum');
     }
   }, [isEtherealEnabled, selectedChain]);
@@ -243,6 +249,7 @@ const SettingsPageContent = () => {
   // Update RPC input and store chain id when the chain selection changes
   useEffect(() => {
     const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
+    const ETHEREAL_TESTNET_RPC = 'https://rpc.etherealtest.net/';
     if (typeof window === 'undefined' || !selectedChain) return;
 
     try {
@@ -252,6 +259,13 @@ const SettingsPageContent = () => {
         window.localStorage.setItem(
           'sapience.settings.chainId',
           CHAIN_ID_ETHEREAL
+        );
+      } else if (selectedChain === 'etherealTestnet') {
+        setRpcInput(ETHEREAL_TESTNET_RPC);
+        window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_TESTNET_RPC);
+        window.localStorage.setItem(
+          'sapience.settings.chainId',
+          CHAIN_ID_ETHEREAL_TESTNET
         );
       } else {
         console.log(defaults.rpcURL);
@@ -453,8 +467,8 @@ const SettingsPageContent = () => {
                         <Tabs
                           value={selectedChain ?? 'arbitrum'}
                           onValueChange={(v) => {
-                            const next = v as 'arbitrum' | 'ethereal';
-                            if (next === 'ethereal' && !isEtherealEnabled)
+                            const next = v as 'arbitrum' | 'ethereal' | 'etherealTestnet';
+                            if ((next === 'ethereal' || next === 'etherealTestnet') && !isEtherealEnabled)
                               return;
                             setSelectedChain(next);
                           }}
@@ -466,6 +480,12 @@ const SettingsPageContent = () => {
                               disabled={!isEtherealEnabled}
                             >
                               Ethereal
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="etherealTestnet"
+                              disabled={!isEtherealEnabled}
+                            >
+                              Ethereal Testnet
                             </TabsTrigger>
                           </SegmentedTabsList>
                         </Tabs>
@@ -500,6 +520,8 @@ const SettingsPageContent = () => {
                             </a>{' '}
                             network
                           </>
+                        ) : selectedChain === 'etherealTestnet' ? (
+                          <>JSON-RPC URL for the Ethereal Testnet network</>
                         ) : (
                           <>JSON-RPC URL for the Ethereal network</>
                         )}
