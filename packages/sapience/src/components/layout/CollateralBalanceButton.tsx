@@ -90,7 +90,7 @@ export default function CollateralBalanceButton({
                     height={20}
                     className="opacity-90 ml-[-2px] w-5 h-5"
                   />
-                  <span className="relative top-[1px] md:top-0 text-sm">
+                  <span className="relative top-[1px] md:top-0 text-sm font-normal">
                     {formattedBalance}
                   </span>
                 </div>
