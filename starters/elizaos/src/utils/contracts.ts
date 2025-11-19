@@ -3,17 +3,17 @@ import { createArbitrumPublicClient, createArbitrumWalletClient, getContractAddr
 
 interface Bid {
   auctionId: string;
-  taker: string;
-  takerWager: string;
-  takerDeadline: number;
-  takerSignature: string;
   maker: string;
-  makerCollateral: string;
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
+  makerNonce: number;
+  taker: string;
+  takerCollateral: string;
   wager?: string; // fallback for legacy compatibility
   resolver: string;
   encodedPredictedOutcomes: string;
   predictedOutcomes: string[];
-  makerNonce: number;
 }
 
 /**
@@ -110,16 +110,29 @@ export async function buildMintCalldata({
   const { encodeFunctionData } = await import("viem");
   const { UMA_RESOLVER } = getContractAddresses();
   
+  // Contract field names haven't changed - map API roles to contract roles:
+  // Contract "maker" = API "taker" (auction creator)
+  // Contract "taker" = API "maker" (bidder)
   const mintRequest = {
     encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
     resolver: bid.resolver || UMA_RESOLVER,
-    makerCollateral: BigInt(bid.makerCollateral || bid.wager || '0'),
-    takerCollateral: BigInt(bid.takerWager || '0'),
+<<<<<<< Current (Your changes)
+    makerCollateral: BigInt(bid.makerWager || '0'),
+    takerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'),
     maker: bid.maker || maker,
     taker: bid.taker,
     makerNonce: BigInt(bid.makerNonce || 0),
-    takerSignature: bid.takerSignature || "0x",
-    takerDeadline: BigInt(bid.takerDeadline || 0),
+    takerSignature: bid.makerSignature || "0x",
+    takerDeadline: BigInt(bid.makerDeadline || 0),
+=======
+    makerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'), // Contract maker = API taker (auction creator's wager)
+    takerCollateral: BigInt(bid.makerWager || '0'), // Contract taker = API maker (bidder's wager)
+    maker: maker, // Contract maker = API taker (auction creator - passed as parameter)
+    taker: bid.maker, // Contract taker = API maker (bidder)
+    makerNonce: BigInt(0), // TODO: Need takerNonce from auction, not from bid
+    takerSignature: bid.makerSignature || "0x", // Contract taker = API maker (bidder's signature)
+    takerDeadline: BigInt(bid.makerDeadline || 0), // Contract taker = API maker (bidder's deadline)
+>>>>>>> Incoming (Background Agent changes)
     refCode: "0x0000000000000000000000000000000000000000000000000000000000000000"
   };
   
