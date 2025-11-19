@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "../interfaces/IConfigurationModule.sol";
 import "../storage/Market.sol";
 import "../storage/MarketGroup.sol";
-import "../storage/Errors.sol";
+import {Errors} from "../storage/Errors.sol";
 import {ISapienceStructs} from "../interfaces/ISapienceStructs.sol";
 
 contract ConfigurationModule is IConfigurationModule, ReentrancyGuardUpgradeable {
