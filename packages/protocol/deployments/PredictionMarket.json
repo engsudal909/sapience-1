@@ -1373,11 +1373,6 @@
     },
     {
       "type": "error",
-      "name": "InvalidMakerNonce",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "InvalidMarketsAccordingToResolver",
       "inputs": []
     },

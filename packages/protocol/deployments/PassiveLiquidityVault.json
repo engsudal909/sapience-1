@@ -1083,25 +1083,6 @@
     },
     {
       "type": "event",
-      "name": "MaxUtilizationRateUpdated",
-      "inputs": [
-        {
-          "name": "oldRate",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        },
-        {
-          "name": "newRate",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
       "name": "OwnershipTransferStarted",
       "inputs": [
         {
@@ -1283,7 +1264,7 @@
           "name": "value",
           "type": "uint256",
           "indexed": false,
-          "internalType": "address"
+          "internalType": "uint256"
         }
       ],
       "anonymous": false
