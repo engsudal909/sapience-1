@@ -13,6 +13,7 @@ import TickerMarketCard from './ticker/TickerMarketCard';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getActivePublicConditions } from './featuredConditions';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 // Removed LottieLoader in favor of simple fade-in cards and fixed-height placeholder
 
@@ -29,9 +30,11 @@ interface FeaturedCondition {
 }
 
 export default function FeaturedMarketGroupCards() {
-  // Fetch recent conditions
+  // Fetch recent conditions for the currently selected chain
+  const chainId = useChainIdFromLocalStorage();
   const { data: conditions, isLoading: isLoadingConditions } = useConditions({
     take: 100,
+    chainId,
   });
 
   // Per-mount random seed to vary picks between mounts but keep them stable within a session
