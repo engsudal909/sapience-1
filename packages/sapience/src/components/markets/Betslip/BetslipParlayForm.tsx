@@ -74,29 +74,12 @@ export default function BetslipParlayForm({
 
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
-  // Generate or retrieve a stable guest taker address for logged-out users
-  const guestTakerAddress = useMemo<`0x${string}` | null>(() => {
-    try {
-      if (typeof window === 'undefined') return null;
-      let addr = window.localStorage.getItem('sapience_guest_taker_address');
-      if (!addr) {
-        const bytes = new Uint8Array(20);
-        window.crypto.getRandomValues(bytes);
-        addr =
-          '0x' +
-          Array.from(bytes)
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join('');
-        window.localStorage.setItem('sapience_guest_taker_address', addr);
-      }
-      return addr as `0x${string}`;
-    } catch {
-      return null;
-    }
-  }, []);
+  // Use zero address as the guest taker address when the user is logged out
+  const guestTakerAddress: `0x${string}` =
+    '0x0000000000000000000000000000000000000000';
 
-  // Prefer connected wallet address; fall back to guest address
-  const selectedTakerAddress = takerAddress ?? guestTakerAddress ?? undefined;
+  // Prefer connected wallet address; fall back to zero address
+  const selectedTakerAddress = takerAddress ?? guestTakerAddress;
 
   // Fetch taker nonce from PredictionMarket contract
   const { data: takerNonce } = useReadContract({

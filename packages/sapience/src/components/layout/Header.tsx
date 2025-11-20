@@ -30,7 +30,6 @@ import {
   Bot,
   Zap,
   Trophy,
-  UserPlus,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -42,7 +41,6 @@ import { useDisconnect } from 'wagmi';
 import CollateralBalanceButton from './CollateralBalanceButton';
 import { shortenAddress } from '~/lib/utils/util';
 import { useEnsName } from '~/components/shared/AddressDisplay';
-import ReferralsDialog from '~/components/shared/ReferralsDialog';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 
@@ -192,7 +190,6 @@ const Header = () => {
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
   const { disconnect } = useDisconnect();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isReferralsOpen, setIsReferralsOpen] = useState(false);
   const thresholdRef = useRef(12);
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -290,10 +287,6 @@ const Header = () => {
 
   return (
     <>
-      <ReferralsDialog
-        open={isReferralsOpen}
-        onOpenChange={setIsReferralsOpen}
-      />
       {/* Top Header Bar */}
       <header
         ref={headerRef}
@@ -470,13 +463,6 @@ const Header = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => setIsReferralsOpen(true)}
-                      className="flex items-center cursor-pointer"
-                    >
-                      <UserPlus className="mr-0.5 opacity-75 h-4 w-4" />
-                      <span>Referrals</span>
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={handleLogout}
                       className="flex items-center cursor-pointer"
