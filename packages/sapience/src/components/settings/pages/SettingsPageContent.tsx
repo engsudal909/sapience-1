@@ -13,11 +13,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/command';
 import { Textarea } from '@sapience/sdk/ui/components/ui/textarea';
 import { Switch } from '@sapience/sdk/ui/components/ui/switch';
-import {
-  Tabs,
-  TabsTrigger,
-  TabsContent,
-} from '@sapience/sdk/ui/components/ui/tabs';
+import { Tabs, TabsTrigger, TabsContent } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -31,6 +27,7 @@ import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
 export const CHAIN_ID_ARBITRUM = '42161';
 export const CHAIN_ID_ETHEREAL = '5064014';
+const CHAIN_ID_STORAGE_KEY = 'sapience.settings.selectedChainId';
 
 type SettingFieldProps = {
   id: string;
@@ -199,7 +196,6 @@ const SettingsPageContent = () => {
   const [selectedChain, setSelectedChain] = useState<
     'arbitrum' | 'ethereal' | null
   >(null);
-  const [isEtherealEnabled, setIsEtherealEnabled] = useState(false);
   const { ready, exportWallet } = usePrivy();
   const { wallets } = useWallets();
   const activeWallet = (
@@ -216,13 +212,15 @@ const SettingsPageContent = () => {
   // Initialize selectedChain from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const chainIdLocalStorage = window.localStorage.getItem(
-      'sapience.settings.chainId'
-    );
+    const chainIdLocalStorage = window.localStorage.getItem(CHAIN_ID_STORAGE_KEY);
+
     if (chainIdLocalStorage === CHAIN_ID_ETHEREAL) {
       setSelectedChain('ethereal');
-    } else {
+    } else if (chainIdLocalStorage === CHAIN_ID_ARBITRUM) {
       setSelectedChain('arbitrum');
+    } else {
+      // Default to Ethereal when there is no stored value or an unknown value
+      setSelectedChain('ethereal');
     }
     console.log(
       'window.localStorage.getItem(sapience.settings.rpcURL)',
@@ -233,13 +231,6 @@ const SettingsPageContent = () => {
     );
   }, []);
 
-  // If the flag is off while Ethereal is selected, revert to Arbitrum
-  useEffect(() => {
-    if (!isEtherealEnabled && selectedChain === 'ethereal') {
-      setSelectedChain('arbitrum');
-    }
-  }, [isEtherealEnabled, selectedChain]);
-
   // Update RPC input and store chain id when the chain selection changes
   useEffect(() => {
     const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
@@ -249,10 +240,7 @@ const SettingsPageContent = () => {
       if (selectedChain === 'ethereal') {
         setRpcInput(ETHEREAL_RPC);
         window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_RPC);
-        window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ETHEREAL
-        );
+        window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, CHAIN_ID_ETHEREAL);
       } else {
         console.log(defaults.rpcURL);
         if (
@@ -266,9 +254,10 @@ const SettingsPageContent = () => {
           );
         }
         window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ARBITRUM
+          'sapience.settings.rpcURL',
+          defaults.rpcURL
         );
+        window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, CHAIN_ID_ARBITRUM);
       }
     } catch (e) {
       console.log('error', e);
@@ -306,18 +295,6 @@ const SettingsPageContent = () => {
     syncFromHash();
     window.addEventListener('hashchange', syncFromHash);
     return () => window.removeEventListener('hashchange', syncFromHash);
-  }, []);
-
-  // Feature flag: enable chain switcher when URL includes `ethereal=true` (or 1)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const raw = (params.get('ethereal') || '').toLowerCase();
-      setIsEtherealEnabled(raw === 'true' || raw === '1');
-    } catch {
-      // no-op
-    }
   }, []);
 
   useEffect(() => {
@@ -451,22 +428,15 @@ const SettingsPageContent = () => {
                       <Label htmlFor="chain-selector">Chain</Label>
                       <div id="chain-selector">
                         <Tabs
-                          value={selectedChain ?? 'arbitrum'}
+                          value={selectedChain ?? 'ethereal'}
                           onValueChange={(v) => {
                             const next = v as 'arbitrum' | 'ethereal';
-                            if (next === 'ethereal' && !isEtherealEnabled)
-                              return;
                             setSelectedChain(next);
                           }}
                         >
                           <SegmentedTabsList>
+                            <TabsTrigger value="ethereal">Ethereal</TabsTrigger>
                             <TabsTrigger value="arbitrum">Arbitrum</TabsTrigger>
-                            <TabsTrigger
-                              value="ethereal"
-                              disabled={!isEtherealEnabled}
-                            >
-                              Ethereal
-                            </TabsTrigger>
                           </SegmentedTabsList>
                         </Tabs>
                       </div>
