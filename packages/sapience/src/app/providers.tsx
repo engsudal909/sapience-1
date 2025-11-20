@@ -168,6 +168,7 @@ const ProvidersContent = ({ children }: { children: React.ReactNode }) => {
 
   // Determine default chain based on settings
   const defaultChain = useMemo(() => {
+    if (!chainId) return arbitrum; // Safe default during hydration
     if (chainId === ethereal.id) return ethereal;
     if (chainId === etherealTestnet.id) return etherealTestnet;
     return arbitrum;
@@ -179,6 +180,7 @@ const ProvidersContent = ({ children }: { children: React.ReactNode }) => {
       clientId={process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID}
       config={{
         defaultChain,
+        supportedChains: [arbitrum, base, converge, ethereal, etherealTestnet],
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
         },

@@ -1,6 +1,10 @@
 import { encodeAbiParameters } from 'viem';
 import { umaResolver, lzPMResolver } from '@sapience/sdk/contracts';
-import { CHAIN_ID_ARBITRUM, CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
+import {
+  CHAIN_ID_ARBITRUM,
+  CHAIN_ID_ETHEREAL,
+  CHAIN_ID_ETHEREAL_TESTNET,
+} from '@sapience/sdk/constants';
 
 export interface PredictedOutcomeInputStub {
   marketId: string; // The id from API (already encoded claim:endTime)
@@ -40,9 +44,14 @@ export function buildAuctionStartPayload(
   const targetChainId = chainId || CHAIN_ID_ARBITRUM;
   let resolverAddress: `0x${string}` | undefined;
 
-  if (targetChainId === CHAIN_ID_ETHEREAL) {
-    resolverAddress = lzPMResolver[CHAIN_ID_ETHEREAL]?.address;
+  // Ethereal chains use lzPMResolver
+  if (
+    targetChainId === CHAIN_ID_ETHEREAL ||
+    targetChainId === CHAIN_ID_ETHEREAL_TESTNET
+  ) {
+    resolverAddress = lzPMResolver[targetChainId as keyof typeof lzPMResolver]?.address;
   } else {
+    // Default to Arbitrum UMA resolver
     resolverAddress = umaResolver[CHAIN_ID_ARBITRUM]?.address;
   }
 
