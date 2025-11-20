@@ -18,10 +18,13 @@ import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
 import { getPublicClientForChainId } from '~/lib/utils/util';
+import {
+  CHAIN_ID_ETHEREAL,
+  CHAIN_ID_ETHEREAL_TESTNET,
+} from '@sapience/sdk/constants';
+import { collateralToken } from '@sapience/sdk/contracts';
 
-// Ethereal chain configuration
-const CHAIN_ID_ETHEREAL = 5064014;
-const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
+// WUSDe ABI for wrapping/unwrapping on Ethereal chains
 const WUSDE_ABI = parseAbi([
   'function deposit() payable',
   'function withdraw(uint256 amount)',
@@ -85,27 +88,41 @@ export function useSapienceWriteContract({
   }, [wallets]);
   const isEmbeddedWallet = Boolean(embeddedWallet);
 
-  // Helper to check if we're on Ethereal chain
+  // Helper to check if we're on Ethereal chain (mainnet or testnet)
   const isEtherealChain = useCallback((chainId: number) => {
-    return chainId === CHAIN_ID_ETHEREAL;
+    return chainId === CHAIN_ID_ETHEREAL || chainId === CHAIN_ID_ETHEREAL_TESTNET;
+  }, []);
+
+  // Helper to get the WUSDe address for the current chain
+  const getWUSDEAddress = useCallback((chainId: number): `0x${string}` | undefined => {
+    const entry = collateralToken[chainId as keyof typeof collateralToken];
+    return entry?.address as `0x${string}` | undefined;
   }, []);
 
   // Helper to create WUSDe wrap transaction for Ethereal chain
-  const createWrapTransaction = useCallback((amount: bigint) => {
+  const createWrapTransaction = useCallback((amount: bigint, chainId: number) => {
+    const wusdeAddress = getWUSDEAddress(chainId);
+    if (!wusdeAddress) {
+      throw new Error(`WUSDe address not found for chain ${chainId}`);
+    }
     return {
-      to: WUSDE_ADDRESS as `0x${string}`,
+      to: wusdeAddress,
       data: encodeFunctionData({
         abi: WUSDE_ABI,
         functionName: 'deposit',
       }),
       value: amount,
     };
-  }, []);
+  }, [getWUSDEAddress]);
 
   // Helper to create WUSDe unwrap transaction for Ethereal chain
-  const createUnwrapTransaction = useCallback((amount: bigint) => {
+  const createUnwrapTransaction = useCallback((amount: bigint, chainId: number) => {
+    const wusdeAddress = getWUSDEAddress(chainId);
+    if (!wusdeAddress) {
+      throw new Error(`WUSDe address not found for chain ${chainId}`);
+    }
     return {
-      to: WUSDE_ADDRESS as `0x${string}`,
+      to: wusdeAddress,
       data: encodeFunctionData({
         abi: WUSDE_ABI,
         functionName: 'withdraw',
@@ -113,7 +130,7 @@ export function useSapienceWriteContract({
       }),
       value: 0n,
     };
-  }, []);
+  }, [getWUSDEAddress]);
 
   // Helper to get user's WUSDe balance
   const getUserWUSDEBalance = useCallback(async () => {
@@ -121,10 +138,16 @@ export function useSapienceWriteContract({
       return 0n;
     }
 
+    const wusdeAddress = getWUSDEAddress(chainId);
+    if (!wusdeAddress) {
+      console.error(`WUSDe address not found for chain ${chainId}`);
+      return 0n;
+    }
+
     try {
       const publicClient = getPublicClientForChainId(chainId);
       const balance = await publicClient.readContract({
-        address: WUSDE_ADDRESS as `0x${string}`,
+        address: wusdeAddress,
         abi: WUSDE_ABI,
         functionName: 'balanceOf',
         args: [wagmiAddress],
@@ -134,7 +157,7 @@ export function useSapienceWriteContract({
       console.error('Failed to get WUSDe balance:', error);
       return 0n;
     }
-  }, [wagmiAddress, chainId, isEtherealChain]);
+  }, [wagmiAddress, chainId, isEtherealChain, getWUSDEAddress]);
 
   // Write durable share intent to sessionStorage
   const writeShareIntent = useCallback(
@@ -249,7 +272,7 @@ export function useSapienceWriteContract({
 
   // Helper to execute auto-unwrap after main transaction
   const executeAutoUnwrap = useCallback(
-    async (balanceBefore: bigint) => {
+    async (balanceBefore: bigint, chainId: number) => {
       // Get the current balance after transaction
       const balanceAfter = await getUserWUSDEBalance();
 
@@ -262,7 +285,7 @@ export function useSapienceWriteContract({
       }
 
       // Only unwrap the amount received from this transaction
-      const unwrapTx = createUnwrapTransaction(received);
+      const unwrapTx = createUnwrapTransaction(received, chainId);
       return unwrapTx;
     },
     [getUserWUSDEBalance, createUnwrapTransaction]
@@ -328,7 +351,7 @@ export function useSapienceWriteContract({
   const executeEmbeddedUnwrap = useCallback(
     async (walletId: string, chainId: number, balanceBefore: bigint) => {
       try {
-        const unwrapTx = await executeAutoUnwrap(balanceBefore);
+        const unwrapTx = await executeAutoUnwrap(balanceBefore, chainId);
         if (unwrapTx) {
           const response = await fetch('/api/privy/send-calls', {
             method: 'POST',
@@ -407,7 +430,7 @@ export function useSapienceWriteContract({
     (chainId: number, balanceBefore: bigint) => {
       setTimeout(async () => {
         try {
-          const unwrapTx = await executeAutoUnwrap(balanceBefore);
+          const unwrapTx = await executeAutoUnwrap(balanceBefore, chainId);
           if (unwrapTx) {
             await sendCallsAsync({
               chainId,
@@ -465,7 +488,7 @@ export function useSapienceWriteContract({
           if (isEtherealChain(_chainId)) {
             if (value && BigInt(value) > 0n) {
               // On Ethereal, if there's a value (USDe), we need to wrap it first
-              const wrapTx = createWrapTransaction(BigInt(value));
+              const wrapTx = createWrapTransaction(BigInt(value), _chainId);
               callsToExecute.push({
                 to: wrapTx.to,
                 data: wrapTx.data,
@@ -575,7 +598,7 @@ export function useSapienceWriteContract({
               }
 
               // Need to wrap USDe first, then execute main transaction
-              const wrapTx = createWrapTransaction(BigInt(value));
+              const wrapTx = createWrapTransaction(BigInt(value), _chainId);
 
               const mainCalldata = encodeFunctionData({
                 abi: (params as any).abi,

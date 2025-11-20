@@ -28,7 +28,7 @@ import { Plus, RefreshCw, Loader2, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-import { CHAIN_ID_ETHEREAL } from '../settings/pages/SettingsPageContent';
+import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 import { DEFAULT_FACTORY_ADDRESS } from './constants';
 import RFQTab from './RFQTab';
 import CLCsvImportDialog from './CLCsvImportDialog';
@@ -452,53 +452,15 @@ const Admin = () => {
   const [clCsvImportOpen, setClCsvImportOpen] = useState(false);
   const [predictionMarketReindexOpen, setPredictionMarketReindexOpen] =
     useState(false);
-  const { adminBaseUrl, setAdminBaseUrl, defaults } = useSettings();
+  const { adminBaseUrl, setAdminBaseUrl, defaults, chainId } = useSettings();
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [adminDraft, setAdminDraft] = useState(
     adminBaseUrl ?? defaults.adminBaseUrl
   );
   const [adminError, setAdminError] = useState<string | null>(null);
-  const [isEtherealChain, setIsEtherealChain] = useState(false);
+  const isEtherealChain = chainId === CHAIN_ID_ETHEREAL;
   // Initialize with safe default to avoid hydration mismatch
   const [activeTab, setActiveTab] = useState<'liquid' | 'rfq'>('liquid');
-
-  // Check if we're on Ethereal chain and update state
-  useEffect(() => {
-    const checkChainId = () => {
-      try {
-        if (typeof window === 'undefined') return;
-        const chainId = window.localStorage.getItem(
-          'sapience.settings.chainId'
-        );
-        const isEthereal = chainId === CHAIN_ID_ETHEREAL;
-        setIsEtherealChain(isEthereal);
-      } catch {
-        return;
-      }
-    };
-
-    // Check on mount
-    checkChainId();
-
-    // Listen for storage changes (e.g., when chain ID changes in settings from other tabs)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'sapience.settings.chainId') {
-        checkChainId();
-      }
-    };
-
-    // Also check when window regains focus (handles same-tab changes)
-    const handleFocus = () => {
-      checkChainId();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
 
   // Force to rfq tab when on Ethereal chain
   useEffect(() => {

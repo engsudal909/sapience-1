@@ -20,7 +20,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
@@ -166,6 +166,7 @@ const SettingsPageContent = () => {
     quoterBaseUrl,
     chatBaseUrl,
     rpcURL,
+    chainId,
     openrouterApiKey,
     researchAgentSystemMessage,
     researchAgentModel,
@@ -176,6 +177,7 @@ const SettingsPageContent = () => {
     setQuoterBaseUrl,
     setChatBaseUrl,
     setRpcUrl,
+    setChainId,
     setOpenrouterApiKey,
     setResearchAgentSystemMessage,
     setResearchAgentModel,
@@ -197,9 +199,14 @@ const SettingsPageContent = () => {
   const [activeTab, setActiveTab] = useState<
     'network' | 'appearance' | 'agent'
   >('network');
-  const [selectedChain, setSelectedChain] = useState<
-    'arbitrum' | 'ethereal' | 'etherealTestnet' | null
-  >(null);
+  
+  const selectedChain = useMemo(() => {
+    if (!chainId) return 'arbitrum';
+    if (chainId === Number(CHAIN_ID_ETHEREAL)) return 'ethereal';
+    if (chainId === Number(CHAIN_ID_ETHEREAL_TESTNET)) return 'etherealTestnet';
+    return 'arbitrum';
+  }, [chainId]);
+
   const [isEtherealEnabled, setIsEtherealEnabled] = useState(false);
   const { ready, exportWallet } = usePrivy();
   const { wallets } = useWallets();
@@ -214,94 +221,49 @@ const SettingsPageContent = () => {
   // Validation hints handled within SettingField to avoid parent re-renders breaking focus
   const [hydrated, setHydrated] = useState(false);
 
-  // Initialize selectedChain from localStorage on mount
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const chainIdLocalStorage = window.localStorage.getItem(
-      'sapience.settings.chainId'
-    );
-    if (chainIdLocalStorage === CHAIN_ID_ETHEREAL) {
-      setSelectedChain('ethereal');
-    } else if (chainIdLocalStorage === CHAIN_ID_ETHEREAL_TESTNET) {
-      setSelectedChain('etherealTestnet');
-    } else {
-      setSelectedChain('arbitrum');
-    }
-    console.log(
-      'window.localStorage.getItem(sapience.settings.rpcURL)',
-      window.localStorage.getItem('sapience.settings.rpcURL')
-    );
-    setRpcInput(
-      window.localStorage.getItem('sapience.settings.rpcURL') || defaults.rpcURL
-    );
-  }, []);
-
   // If the flag is off while Ethereal is selected, revert to Arbitrum
   useEffect(() => {
     if (
       !isEtherealEnabled &&
       (selectedChain === 'ethereal' || selectedChain === 'etherealTestnet')
     ) {
-      setSelectedChain('arbitrum');
+      setChainId(Number(CHAIN_ID_ARBITRUM));
     }
-  }, [isEtherealEnabled, selectedChain]);
-
-  // Update RPC input and store chain id when the chain selection changes
-  useEffect(() => {
-    const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
-    const ETHEREAL_TESTNET_RPC = 'https://rpc.etherealtest.net/';
-    if (typeof window === 'undefined' || !selectedChain) return;
-
-    try {
-      if (selectedChain === 'ethereal') {
-        setRpcInput(ETHEREAL_RPC);
-        window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_RPC);
-        window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ETHEREAL
-        );
-      } else if (selectedChain === 'etherealTestnet') {
-        setRpcInput(ETHEREAL_TESTNET_RPC);
-        window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_TESTNET_RPC);
-        window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ETHEREAL_TESTNET
-        );
-      } else {
-        console.log(defaults.rpcURL);
-        if (
-          window.localStorage.getItem('sapience.settings.rpcURL') !==
-          defaults.rpcURL
-        ) {
-          setRpcInput(defaults.rpcURL);
-          window.localStorage.setItem(
-            'sapience.settings.rpcURL',
-            defaults.rpcURL
-          );
-        }
-        window.localStorage.setItem(
-          'sapience.settings.chainId',
-          CHAIN_ID_ARBITRUM
-        );
-      }
-    } catch (e) {
-      console.log('error', e);
-      // no-op
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChain]);
+  }, [isEtherealEnabled, selectedChain, setChainId]);
 
   // override from SettingsContext if exists for first render after mount
   useEffect(() => {
     if (!mounted) return;
     if (typeof window === 'undefined') return;
     setRpcInput(rpcURL || '');
-    window.localStorage.setItem('sapience.settings.rpcURL', rpcURL || '');
   }, [rpcURL, mounted]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleChainChange = (v: string) => {
+    const next = v as 'arbitrum' | 'ethereal' | 'etherealTestnet';
+    if ((next === 'ethereal' || next === 'etherealTestnet') && !isEtherealEnabled) return;
+
+    const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
+    const ETHEREAL_TESTNET_RPC = 'https://rpc.etherealtest.net/';
+
+    if (next === 'ethereal') {
+      setRpcInput(ETHEREAL_RPC);
+      setRpcUrl(ETHEREAL_RPC);
+      setChainId(Number(CHAIN_ID_ETHEREAL));
+    } else if (next === 'etherealTestnet') {
+      setRpcInput(ETHEREAL_TESTNET_RPC);
+      setRpcUrl(ETHEREAL_TESTNET_RPC);
+      setChainId(Number(CHAIN_ID_ETHEREAL_TESTNET));
+    } else {
+      setRpcInput(defaults.rpcURL);
+      setRpcUrl(defaults.rpcURL);
+      setChainId(Number(CHAIN_ID_ARBITRUM));
+    }
+  };
+
 
   // Sync active tab with URL hash (#network | #appearance | #agent)
   useEffect(() => {
@@ -465,13 +427,8 @@ const SettingsPageContent = () => {
                       <Label htmlFor="chain-selector">Chain</Label>
                       <div id="chain-selector">
                         <Tabs
-                          value={selectedChain ?? 'arbitrum'}
-                          onValueChange={(v) => {
-                            const next = v as 'arbitrum' | 'ethereal' | 'etherealTestnet';
-                            if ((next === 'ethereal' || next === 'etherealTestnet') && !isEtherealEnabled)
-                              return;
-                            setSelectedChain(next);
-                          }}
+                          value={selectedChain}
+                          onValueChange={handleChainChange}
                         >
                           <SegmentedTabsList>
                             <TabsTrigger value="arbitrum">Arbitrum</TabsTrigger>

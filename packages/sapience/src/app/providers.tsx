@@ -106,7 +106,7 @@ const etherealTestnet = {
 } as const satisfies Chain;
 
 const useWagmiConfig = () => {
-  const { rpcURL: arbitrumRpcUrl } = useSettings();
+  const { rpcURL: arbitrumRpcUrl, chainId } = useSettings();
 
   const config = useMemo(() => {
     const transports: Record<number, HttpTransport> = {
@@ -157,11 +157,28 @@ const WagmiRoot = ({ children }: { children: React.ReactNode }) => {
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
+    <SettingsProvider>
+      <ProvidersContent>{children}</ProvidersContent>
+    </SettingsProvider>
+  );
+};
+
+const ProvidersContent = ({ children }: { children: React.ReactNode }) => {
+  const { chainId } = useSettings();
+
+  // Determine default chain based on settings
+  const defaultChain = useMemo(() => {
+    if (chainId === ethereal.id) return ethereal;
+    if (chainId === etherealTestnet.id) return etherealTestnet;
+    return arbitrum;
+  }, [chainId]);
+
+  return (
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       clientId={process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID}
       config={{
-        defaultChain: arbitrum,
+        defaultChain,
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
         },
@@ -188,7 +205,6 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
             <ReactQueryDevtools initialIsOpen={false} />
           ) : null}
 
-          <SettingsProvider>
             <WagmiRoot>
               <SapienceProvider>
                 <BetSlipProvider>
@@ -196,7 +212,6 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
                 </BetSlipProvider>
               </SapienceProvider>
             </WagmiRoot>
-          </SettingsProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </PrivyProvider>

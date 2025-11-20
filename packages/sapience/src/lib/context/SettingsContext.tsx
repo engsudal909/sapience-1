@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 
 type SettingsContextValue = {
   graphqlEndpoint: string | null;
@@ -17,6 +18,7 @@ type SettingsContextValue = {
   chatBaseUrl: string | null;
   adminBaseUrl: string | null;
   rpcURL: string | null;
+  chainId: number | null;
   // Research Agent settings
   openrouterApiKey: string | null;
   researchAgentSystemMessage: string | null;
@@ -30,6 +32,7 @@ type SettingsContextValue = {
   setChatBaseUrl: (value: string | null) => void;
   setAdminBaseUrl: (value: string | null) => void;
   setRpcUrl: (value: string | null) => void;
+  setChainId: (value: number | null) => void;
   setOpenrouterApiKey: (value: string | null) => void;
   setResearchAgentSystemMessage: (value: string | null) => void;
   setResearchAgentModel: (value: string | null) => void;
@@ -42,6 +45,7 @@ type SettingsContextValue = {
     chatBaseUrl: string;
     adminBaseUrl: string;
     rpcURL: string;
+    chainId: number;
     researchAgentSystemMessage: string;
     researchAgentModel: string;
     researchAgentTemperature: number;
@@ -56,6 +60,7 @@ const STORAGE_KEYS = {
   chat: 'sapience.settings.chatBaseUrl',
   admin: 'sapience.settings.adminBaseUrl',
   rpcURL: 'sapience.settings.rpcURL',
+  chainId: 'sapience.settings.chainId',
   openrouterApiKey: 'sapience.settings.openrouterApiKey',
   researchAgentSystemMessage: 'sapience.settings.researchAgentSystemMessage',
   researchAgentModel: 'sapience.settings.researchAgentModel',
@@ -168,6 +173,7 @@ export const SettingsProvider = ({
     null
   );
   const [rpcOverride, setRpcOverride] = useState<string | null>(null);
+  const [chainIdOverride, setChainIdOverride] = useState<number | null>(null);
   const [openrouterApiKeyOverride, setOpenrouterApiKeyOverride] = useState<
     string | null
   >(null);
@@ -214,6 +220,10 @@ export const SettingsProvider = ({
         typeof window !== 'undefined'
           ? window.localStorage.getItem(STORAGE_KEYS.rpcURL)
           : null;
+      const cid =
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem(STORAGE_KEYS.chainId)
+          : null;
       const ork =
         typeof window !== 'undefined'
           ? window.localStorage.getItem(STORAGE_KEYS.openrouterApiKey)
@@ -244,6 +254,10 @@ export const SettingsProvider = ({
       if (admin && isHttpUrl(admin))
         setAdminBaseOverride(normalizeBaseUrlPreservePath(admin));
       if (r && isHttpUrl(r)) setRpcOverride(r);
+      if (cid) {
+        const parsed = parseInt(cid, 10);
+        if (!Number.isNaN(parsed)) setChainIdOverride(parsed);
+      }
       if (ork) setOpenrouterApiKeyOverride(ork);
       if (rsm) setResearchAgentSystemMessageOverride(rsm);
       if (rmodel) setResearchAgentModelOverride(rmodel);
@@ -271,6 +285,7 @@ export const SettingsProvider = ({
       chatBaseUrl: getDefaultChatBase(),
       adminBaseUrl: getDefaultAdminBase(),
       rpcURL: getDefaultRpcURL(),
+      chainId: DEFAULT_CHAIN_ID,
       researchAgentSystemMessage:
         'You are an expert researcher assisting a prediction market participant via chat. You are friendly, smart, curious, succinct, and analytical. You proactively search the web for the most recent information relevant to the questions being discussed.',
       researchAgentModel: 'anthropic/claude-sonnet-4:online',
@@ -310,6 +325,7 @@ export const SettingsProvider = ({
     ? adminBaseOverride || defaults.adminBaseUrl
     : null;
   const rpcURL = mounted ? rpcOverride || defaults.rpcURL : null;
+  const chainId = mounted ? chainIdOverride || defaults.chainId : null;
   const openrouterApiKey = mounted ? openrouterApiKeyOverride || '' : null;
   const researchAgentSystemMessage = mounted
     ? researchAgentSystemMessageOverride || defaults.researchAgentSystemMessage
@@ -426,6 +442,22 @@ export const SettingsProvider = ({
     }
   }, []);
 
+  const setChainId = useCallback((value: number | null) => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (value == null) {
+        window.localStorage.removeItem(STORAGE_KEYS.chainId);
+        setChainIdOverride(null);
+        return;
+      }
+      if (!Number.isInteger(value)) return;
+      window.localStorage.setItem(STORAGE_KEYS.chainId, value.toString());
+      setChainIdOverride(value);
+    } catch {
+      console.error('Error setting chainId', value);
+    }
+  }, []);
+
   const setOpenrouterApiKey = useCallback((value: string | null) => {
     try {
       if (typeof window === 'undefined') return;
@@ -518,6 +550,7 @@ export const SettingsProvider = ({
     chatBaseUrl,
     adminBaseUrl,
     rpcURL,
+    chainId,
     openrouterApiKey,
     researchAgentSystemMessage,
     researchAgentModel,
@@ -529,6 +562,7 @@ export const SettingsProvider = ({
     setChatBaseUrl,
     setAdminBaseUrl,
     setRpcUrl,
+    setChainId,
     setOpenrouterApiKey,
     setResearchAgentSystemMessage,
     setResearchAgentModel,
