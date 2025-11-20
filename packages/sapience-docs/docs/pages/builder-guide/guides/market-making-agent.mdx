@@ -62,11 +62,11 @@ pnpm dev:published
 ## How it works
 
 1. Connect to the relayer WebSocket
-2. Listen for `auction.started { auctionId, maker, wager, resolver, predictedOutcomes[] }`
+2. Listen for `auction.started { auctionId, taker, wager, resolver, predictedOutcomes[] }`
 3. Filter out small auctions via `MIN_MAKER_WAGER`
 4. Ensure ERC‑20 approval (one‑time MAX) for the `PredictionMarket` contract
 5. Build EIP‑712 typed data and sign with `PRIVATE_KEY`
-6. Send `bid.submit { auctionId, taker, takerWager, takerDeadline, takerSignature, makerNonce }`
+6. Send `bid.submit { auctionId, maker, makerWager, makerDeadline, makerSignature, makerNonce }`
 7. Handle `bid.ack { error? }` and optionally observe `auction.bids`
 8. Auto‑reconnect on close/error
 
@@ -82,25 +82,25 @@ pnpm dev:published
 Minimal bid submission (excerpt):
 
 ```ts
-const { domain, types, primaryType, message } = buildTakerBidTypedData({
+const { domain, types, primaryType, message } = buildMakerBidTypedData({
   auction: {
-    maker: auction.maker,
+    taker: auction.taker,
     resolver: auction.resolver,
     predictedOutcomes: auction.predictedOutcomes,
     wager: auction.wager,
   },
-  takerWager,
-  takerDeadline,
+  makerWager,
+  makerDeadline,
   chainId: CHAIN_ID,
   verifyingContract: VERIFYING_CONTRACT,
-  taker: TAKER,
+  maker: MAKER,
 });
 
-const takerSignature = await signTakerBid({ privateKey: PRIVATE_KEY_HEX, domain, types, primaryType, message });
+const makerSignature = await signMakerBid({ privateKey: PRIVATE_KEY_HEX, domain, types, primaryType, message });
 
 ws.send(JSON.stringify({
   type: 'bid.submit',
-  payload: { auctionId, taker: TAKER, takerWager: String(takerWager), takerDeadline, takerSignature, makerNonce },
+  payload: { auctionId, maker: MAKER, makerWager: String(makerWager), makerDeadline, makerSignature, makerNonce },
 }));
 ```
 
