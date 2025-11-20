@@ -186,7 +186,7 @@ router.post('/claim', async (req: Request, res: Response) => {
 
     const referrals = await prisma.user.findMany({
       where: { referredById: referrer.id },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
 
     // If the user is already referred by *this* referrer, just report their
@@ -194,12 +194,31 @@ router.post('/claim', async (req: Request, res: Response) => {
     if (existingReferee && existingReferee.referredById === referrer.id) {
       const index = referrals.findIndex((u) => u.id === existingReferee.id);
       const position = index === -1 ? null : index + 1;
-      const allowed = position !== null && position <= max;
+      // Once a user is referred by this referrer, they remain allowed even if
+      // maxReferrals is later reduced. This endpoint is also used to query
+      // their current position, so we always treat an existing relationship
+      // as allowed.
+      const allowed = position !== null;
 
       return res.status(200).json({
         allowed,
         index: position,
         maxReferrals: max,
+      });
+    }
+
+    // If the user already has a different referrer, do not allow switching
+    // referral codes.
+    if (
+      existingReferee &&
+      existingReferee.referredById &&
+      existingReferee.referredById !== referrer.id
+    ) {
+      return res.status(409).json({
+        allowed: false,
+        index: null,
+        maxReferrals: max,
+        message: 'Referral already set for this wallet address.',
       });
     }
 
@@ -209,7 +228,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     // referral relationship.
     const prospectivePosition = referrals.length + 1;
     if (max <= 0 || prospectivePosition > max) {
-      return res.status(200).json({
+      return res.status(403).json({
         allowed: false,
         index: null,
         maxReferrals: max,
