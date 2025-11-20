@@ -237,31 +237,25 @@ const SettingsPageContent = () => {
     );
   }, []);
 
-  // Update RPC input and store chain id when the chain selection changes
+  // Update RPC input, selected chain ID, and persisted RPC override when the selection changes
   useEffect(() => {
     const ETHEREAL_RPC = 'https://rpc.ethereal.trade';
     if (typeof window === 'undefined' || !selectedChain) return;
 
+    const nextChainId =
+      selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+    const nextRpcUrl =
+      selectedChain === 'ethereal' ? ETHEREAL_RPC : defaults.rpcURL;
+
     try {
-      if (selectedChain === 'ethereal') {
-        setRpcInput(ETHEREAL_RPC);
-        window.localStorage.setItem(RPC_STORAGE_KEY, ETHEREAL_RPC);
-        window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, CHAIN_ID_ETHEREAL);
-      } else {
-        console.log(defaults.rpcURL);
-        if (window.localStorage.getItem(RPC_STORAGE_KEY) !== defaults.rpcURL) {
-          setRpcInput(defaults.rpcURL);
-          window.localStorage.setItem(RPC_STORAGE_KEY, defaults.rpcURL);
-        }
-        window.localStorage.setItem(RPC_STORAGE_KEY, defaults.rpcURL);
-        window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, CHAIN_ID_ARBITRUM);
-      }
+      setRpcInput(nextRpcUrl);
+      setRpcUrl(nextRpcUrl);
+      window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, nextChainId);
     } catch (e) {
       console.log('error', e);
       // no-op
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChain]);
+  }, [selectedChain, defaults.rpcURL, setRpcUrl]);
 
   // override from SettingsContext if exists for first render after mount
   useEffect(() => {
