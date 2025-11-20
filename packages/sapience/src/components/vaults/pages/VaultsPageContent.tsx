@@ -824,7 +824,7 @@ const VaultsPageContent = () => {
                                   Number(expirationTime ?? 0n)) *
                                 1000;
                               const isExpired = Date.now() >= expiresAt;
-                              
+
                               return (
                                 <Button
                                   variant="outline"

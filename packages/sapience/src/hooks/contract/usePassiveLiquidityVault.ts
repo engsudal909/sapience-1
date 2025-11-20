@@ -268,11 +268,7 @@ export function usePassiveLiquidityVault(
     TARGET_CHAIN_ID === CHAIN_ID_ETHEREAL_TESTNET;
 
   // Native balance for Ethereal chains
-  const {
-    data: nativeBalance,
-    isLoading: isLoadingNativeBalance,
-    refetch: refetchNativeBalance,
-  } = useBalance({
+  const { data: nativeBalance, refetch: refetchNativeBalance } = useBalance({
     address,
     chainId: TARGET_CHAIN_ID,
     query: { enabled: !!address && isEtherealChain },
@@ -712,20 +708,17 @@ export function usePassiveLiquidityVault(
       });
 
       if (isEtherealChain) {
-       
         const wrapCalldata = encodeFunctionData({
           abi: parseAbi(['function deposit() payable']),
           functionName: 'deposit',
         });
 
-       
         const approveCalldata = encodeFunctionData({
           abi: erc20Abi,
           functionName: 'approve',
           args: [VAULT_ADDRESS, amountWei],
         });
 
-     
         await sendCalls({
           chainId,
           calls: [
