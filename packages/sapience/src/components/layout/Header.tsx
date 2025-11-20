@@ -44,8 +44,6 @@ import { useEnsName } from '~/components/shared/AddressDisplay';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 
-// logo.svg will be rendered via next/image below
-
 const isActive = (path: string, pathname: string) => {
   if (path === '/') {
     return pathname === path;
@@ -69,8 +67,6 @@ const NavLinks = ({
     ? 'sc-heading justify-start rounded-full'
     : 'sc-heading justify-start rounded-full';
   const activeClass = 'text-accent-gold';
-
-  // No feature flag: Chat button is always available in the sidebar for authenticated users
 
   const handleLinkClick = () => {
     if (isMobile) {

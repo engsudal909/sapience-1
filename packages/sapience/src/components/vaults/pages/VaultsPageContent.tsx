@@ -28,6 +28,8 @@ import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVa
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
+import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';
 
 const VaultsPageContent = () => {
   const { isConnected } = useAccount();
@@ -37,7 +39,7 @@ const VaultsPageContent = () => {
   const VAULT_ADDRESS = passiveLiquidityVault[VAULT_CHAIN_ID]?.address;
   const collateralSymbol = COLLATERAL_SYMBOLS[VAULT_CHAIN_ID] || 'testUSDe';
 
-  // Vaults are always enabled
+  // Vaults are always enabled, but may be gated by jurisdiction
 
   // Vault integration
   const {
@@ -70,6 +72,8 @@ const VaultsPageContent = () => {
     vaultAddress: VAULT_ADDRESS,
     chainId: VAULT_CHAIN_ID,
   });
+
+  const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
   // Form state
   const [depositAmount, setDepositAmount] = useState('');
@@ -358,6 +362,12 @@ const VaultsPageContent = () => {
             </div>
           )}
 
+          <RestrictedJurisdictionBanner
+            show={!isPermitLoading && isRestricted}
+            className="mb-1"
+            iconClassName="h-4 w-4"
+          />
+
           {/* Deposit Button */}
           <Button
             size="lg"
@@ -370,7 +380,9 @@ const VaultsPageContent = () => {
               !pricePerShare ||
               pricePerShare === '0' ||
               isInteractionDelayActive ||
-              !!(pendingRequest && !pendingRequest.processed)
+              !!(pendingRequest && !pendingRequest.processed) ||
+              isPermitLoading ||
+              isRestricted
             }
             onClick={async () => {
               if (!isConnected) {
@@ -466,6 +478,12 @@ const VaultsPageContent = () => {
             </div>
           )}
 
+          <RestrictedJurisdictionBanner
+            show={!isPermitLoading && isRestricted}
+            className="mb-1"
+            iconClassName="h-4 w-4"
+          />
+
           {/* Withdraw Button */}
           <Button
             size="lg"
@@ -478,7 +496,9 @@ const VaultsPageContent = () => {
               pricePerShare === '0' ||
               isInteractionDelayActive ||
               !!(pendingRequest && !pendingRequest.processed) ||
-              withdrawExceedsShareBalance
+              withdrawExceedsShareBalance ||
+              isPermitLoading ||
+              isRestricted
             }
             onClick={async () => {
               if (!isConnected) {
