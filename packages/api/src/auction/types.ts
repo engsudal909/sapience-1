@@ -4,13 +4,13 @@ export interface AuctionRequestPayload {
   wager: string; // wei string
   predictedOutcomes: string[]; // Array of bytes strings that the resolver validates/understands
   resolver: string; // contract address for market validation
-  maker: string; // EOA address of the maker initiating the auction
-  makerNonce: number; // nonce for the maker
+  taker: string; // EOA address of the taker initiating the auction
+  takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
 }
 
 export interface BidQuote {
-  takerDeadline: number; // unix seconds
+  makerDeadline: number; // unix seconds
 }
 
 export interface BidFillRawTx {
@@ -43,11 +43,11 @@ export type BidFill = BidFillRawTx | BidFillCallData | MintParlayData;
 
 export interface BidPayload {
   auctionId: string;
-  taker: string; // Taker's EOA address (0x...)
-  takerWager: string; // wei string
-  takerDeadline: number; // unix seconds
-  takerSignature: string; // Taker's signature authorizing this specific bid over the typed payload
-  makerNonce: number; // nonce for the maker (same as makerNonce in AuctionRequestPayload)
+  maker: string; // Maker's EOA address (0x...) - the bidding party
+  makerWager: string; // wei string
+  makerDeadline: number; // unix seconds
+  makerSignature: string; // Maker's signature authorizing this specific bid over the typed payload
+  makerNonce: number; // nonce for the maker (bidding party)
 }
 
 export type ValidatedBid = BidPayload;

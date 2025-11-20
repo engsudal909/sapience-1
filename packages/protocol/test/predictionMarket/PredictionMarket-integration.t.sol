@@ -13,7 +13,7 @@ interface IMintableToken {
 import "../../src/predictionMarket/PredictionMarket.sol";
 import "../../src/predictionMarket/resolvers/PredictionMarketSapienceResolver.sol";
 import "../../src/predictionMarket/interfaces/IPredictionStructs.sol";
-import "../../src/marketGroupFactory/MarketGroupFactory.sol";
+import {MarketGroupFactory} from "../../src/marketGroupFactory/MarketGroupFactory.sol";
 import "../../src/market/interfaces/ISapience.sol";
 import "../../src/market/interfaces/ISapienceStructs.sol";
 import "./MockERC20.sol";

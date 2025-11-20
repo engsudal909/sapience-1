@@ -9,7 +9,9 @@ interface IPredictionMarketResolver {
         NO_ERROR,
         INVALID_MARKET,
         MARKET_NOT_OPENED,
-        MARKET_NOT_SETTLED
+        MARKET_NOT_SETTLED,
+        TOO_MANY_MARKETS,
+        MUST_HAVE_AT_LEAST_ONE_MARKET
     }
 
     function validatePredictionMarkets(

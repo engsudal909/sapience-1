@@ -60,8 +60,6 @@ const USER_REFERRAL_STATUS_QUERY = `
   }
 `;
 
-// logo.svg will be rendered via next/image below
-
 const isActive = (path: string, pathname: string) => {
   if (path === '/') {
     return pathname === path;
@@ -85,8 +83,6 @@ const NavLinks = ({
     ? 'sc-heading justify-start rounded-full'
     : 'sc-heading justify-start rounded-full';
   const activeClass = 'text-accent-gold';
-
-  // No feature flag: Chat button is always available in the sidebar for authenticated users
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -520,31 +516,31 @@ const Header = () => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
-                        variant="default"
-                        className="rounded-md h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden bg-brand-white text-brand-black hover:bg-brand-white/90"
+                        variant="outline"
+                        className="rounded-md h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden bg-brand-black text-brand-white border border-brand-white/10 hover:bg-brand-black/90 font-mono"
                       >
                         {connectedWallet?.address ? (
                           <>
                             {/* Mobile: avatar fills the entire circular button */}
                             <EnsAvatar
                               address={connectedWallet.address}
-                              className="h-full w-full ring-inset md:hidden"
-                              width={40}
-                              height={40}
+                              className="h-8 w-8 rounded-sm ring-inset md:hidden"
+                              width={32}
+                              height={32}
                             />
                             {/* Desktop: small avatar next to address */}
                             <EnsAvatar
                               address={connectedWallet.address}
-                              className="hidden md:inline-flex h-6.5 w-6.5 rounded-full"
-                              width={24}
-                              height={24}
+                              className="hidden md:inline-flex h-6 w-6 rounded-sm"
+                              width={20}
+                              height={20}
                             />
                           </>
                         ) : (
                           <User className="h-5 w-5" />
                         )}
                         {connectedWallet?.address && (
-                          <span className="hidden md:inline text-sm">
+                          <span className="hidden md:inline text-sm font-normal">
                             {ensName || shortenAddress(connectedWallet.address)}
                           </span>
                         )}
