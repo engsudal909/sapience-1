@@ -13,7 +13,11 @@ import {
 } from '@sapience/sdk/ui/components/ui/command';
 import { Textarea } from '@sapience/sdk/ui/components/ui/textarea';
 import { Switch } from '@sapience/sdk/ui/components/ui/switch';
-import { Tabs, TabsTrigger, TabsContent } from '@sapience/sdk/ui/components/ui/tabs';
+import {
+  Tabs,
+  TabsTrigger,
+  TabsContent,
+} from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -28,6 +32,7 @@ import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 export const CHAIN_ID_ARBITRUM = '42161';
 export const CHAIN_ID_ETHEREAL = '5064014';
 const CHAIN_ID_STORAGE_KEY = 'sapience.settings.selectedChainId';
+const RPC_STORAGE_KEY = 'sapience.settings.selectedRpcURL';
 
 type SettingFieldProps = {
   id: string;
@@ -212,7 +217,8 @@ const SettingsPageContent = () => {
   // Initialize selectedChain from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const chainIdLocalStorage = window.localStorage.getItem(CHAIN_ID_STORAGE_KEY);
+    const chainIdLocalStorage =
+      window.localStorage.getItem(CHAIN_ID_STORAGE_KEY);
 
     if (chainIdLocalStorage === CHAIN_ID_ETHEREAL) {
       setSelectedChain('ethereal');
@@ -223,11 +229,11 @@ const SettingsPageContent = () => {
       setSelectedChain('ethereal');
     }
     console.log(
-      'window.localStorage.getItem(sapience.settings.rpcURL)',
-      window.localStorage.getItem('sapience.settings.rpcURL')
+      'window.localStorage.getItem(sapience.settings.selectedRpcURL)',
+      window.localStorage.getItem(RPC_STORAGE_KEY)
     );
     setRpcInput(
-      window.localStorage.getItem('sapience.settings.rpcURL') || defaults.rpcURL
+      window.localStorage.getItem(RPC_STORAGE_KEY) || defaults.rpcURL
     );
   }, []);
 
@@ -239,24 +245,15 @@ const SettingsPageContent = () => {
     try {
       if (selectedChain === 'ethereal') {
         setRpcInput(ETHEREAL_RPC);
-        window.localStorage.setItem('sapience.settings.rpcURL', ETHEREAL_RPC);
+        window.localStorage.setItem(RPC_STORAGE_KEY, ETHEREAL_RPC);
         window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, CHAIN_ID_ETHEREAL);
       } else {
         console.log(defaults.rpcURL);
-        if (
-          window.localStorage.getItem('sapience.settings.rpcURL') !==
-          defaults.rpcURL
-        ) {
+        if (window.localStorage.getItem(RPC_STORAGE_KEY) !== defaults.rpcURL) {
           setRpcInput(defaults.rpcURL);
-          window.localStorage.setItem(
-            'sapience.settings.rpcURL',
-            defaults.rpcURL
-          );
+          window.localStorage.setItem(RPC_STORAGE_KEY, defaults.rpcURL);
         }
-        window.localStorage.setItem(
-          'sapience.settings.rpcURL',
-          defaults.rpcURL
-        );
+        window.localStorage.setItem(RPC_STORAGE_KEY, defaults.rpcURL);
         window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, CHAIN_ID_ARBITRUM);
       }
     } catch (e) {
@@ -271,7 +268,7 @@ const SettingsPageContent = () => {
     if (!mounted) return;
     if (typeof window === 'undefined') return;
     setRpcInput(rpcURL || '');
-    window.localStorage.setItem('sapience.settings.rpcURL', rpcURL || '');
+    window.localStorage.setItem(RPC_STORAGE_KEY, rpcURL || '');
   }, [rpcURL, mounted]);
 
   useEffect(() => {
@@ -494,26 +491,6 @@ const SettingsPageContent = () => {
                     </div>
 
                     <div className="grid gap-2">
-                      <Label htmlFor="quoter-endpoint">Quoter Endpoint</Label>
-                      <SettingField
-                        id="quoter-endpoint"
-                        value={quoterInput}
-                        setValue={setQuoterInput}
-                        defaultValue={defaults.quoterBaseUrl}
-                        onPersist={setQuoterBaseUrl}
-                        validate={isHttpUrl}
-                        normalizeOnChange={normalizeBase}
-                        invalidMessage="Must be an absolute http(s) base URL"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Used to generate quotes based on liquidity available
-                        onchain
-                      </p>
-                    </div>
-
-                    {/* Admin Endpoint intentionally managed only via Admin page dialog */}
-
-                    <div className="grid gap-2">
                       <Label htmlFor="relayer-endpoint">Relayer Endpoint</Label>
                       <SettingField
                         id="relayer-endpoint"
@@ -552,6 +529,24 @@ const SettingsPageContent = () => {
                           chat widget
                         </button>{' '}
                         to send and receive signed messages
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="quoter-endpoint">Quoter Endpoint</Label>
+                      <SettingField
+                        id="quoter-endpoint"
+                        value={quoterInput}
+                        setValue={setQuoterInput}
+                        defaultValue={defaults.quoterBaseUrl}
+                        onPersist={setQuoterBaseUrl}
+                        validate={isHttpUrl}
+                        normalizeOnChange={normalizeBase}
+                        invalidMessage="Must be an absolute http(s) base URL"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Used to generate spot market quotes based on liquidity
+                        available onchain
                       </p>
                     </div>
 
