@@ -31,6 +31,7 @@ declare module "@sapience/sdk" {
     market: { marketId: number; address: `0x${string}`; question: string },
     prediction: { probability: number; reasoning: string; confidence: number },
     chainId: number,
+    conditionId?: `0x${string}`,
   ): Promise<AttestationCalldata | null>;
   export function decodeProbabilityFromUint160(value: string): number | null;
 
@@ -48,6 +49,7 @@ declare module "@sapience/sdk" {
     market: { marketId: number; address: `0x${string}`; question: string };
     prediction: { probability: number; reasoning: string; confidence: number };
     chainId: number;
+    conditionId?: `0x${string}`;
     rpc: string;
     privateKey?: `0x${string}`;
     account?: any;

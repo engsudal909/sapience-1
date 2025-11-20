@@ -34,9 +34,12 @@ export default function YesNoPredict({
     <div className="space-y-4">
       <div>
         {/* Slider for fine-tuning */}
-        <div className="space-y-2.5">
-          <Label className="text-base">
-            Forecast: {formatPercentChance(sliderValue[0] / 100)} Chance
+        <div className="space-y-2.5 pt-3">
+          <Label className="text-base font-mono">
+            <span className="font-normal">Forecast:</span>{' '}
+            <span className="font-medium">
+              {formatPercentChance(sliderValue[0] / 100)} Chance
+            </span>
           </Label>
           <Slider
             value={sliderValue}

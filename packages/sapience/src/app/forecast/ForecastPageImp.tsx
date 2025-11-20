@@ -11,15 +11,13 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import Comments, { CommentFilters } from '../../components/shared/Comments';
-import PredictForm from '~/components/markets/forms/ForecastForm';
-import ForecastInfoNotice from '~/components/markets/ForecastInfoNotice';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
-import { useEnrichedMarketGroups } from '~/hooks/graphql/useMarketGroups';
-import QuestionSuggestions from '~/components/markets/QuestionSuggestions';
 import WalletAddressPopover from '~/components/markets/DataDrawer/WalletAddressPopover';
-import QuestionSelect from '~/components/shared/QuestionSelect';
-import LottieLoader from '~/components/shared/LottieLoader';
 import SubmitForecastsBlurb from '~/components/shared/SubmitForecastsBlurb';
+import ConditionSelect from '~/components/conditions/ConditionSelect';
+import ConditionForecastForm from '~/components/conditions/ConditionForecastForm';
+import type { ConditionType } from '~/hooks/graphql/useConditions';
+import MarketBadge from '~/components/markets/MarketBadge';
 
 type TabsHeaderProps = {
   isAskTooltipOpen: boolean;
@@ -74,8 +72,9 @@ const ForecastPageImp = () => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isAskTooltipOpen, setIsAskTooltipOpen] = useState(false);
 
-  // State for selected market - moved to top
-  const [selectedMarket, setSelectedMarket] = useState<any>(undefined);
+  // Selected condition (conditions-only UI)
+  const [selectedCondition, setSelectedCondition] =
+    useState<ConditionType | null>(null);
 
   const refetchComments = useCallback(() => {
     // Add a small delay to ensure the transaction is processed
@@ -84,97 +83,9 @@ const ForecastPageImp = () => {
     }, 1000); // 1 second delay
   }, []);
 
-  // Fetch all market groups
-  const { data: marketGroups, isLoading, error } = useEnrichedMarketGroups();
-
-  // Show loading state while data is being fetched
-  if (isLoading) {
-    return (
-      <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
-        <div className="max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm md:rounded-t overflow-hidden">
-          <TabsHeader
-            isAskTooltipOpen={isAskTooltipOpen}
-            setIsAskTooltipOpen={setIsAskTooltipOpen}
-          />
-          <div className="p-8 text-center">
-            <div className="mx-auto mb-4 flex items-center justify-center">
-              <LottieLoader width={32} height={32} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state if data fetching failed
-  if (error) {
-    return (
-      <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
-        <div className="max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm md:rounded-t overflow-hidden">
-          <TabsHeader
-            isAskTooltipOpen={isAskTooltipOpen}
-            setIsAskTooltipOpen={setIsAskTooltipOpen}
-          />
-          <div className="p-8 text-center">
-            <p className="text-destructive mb-4">Failed to load market data</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Extract market details if selected
-  let marketClassification, marketGroupData;
-  if (selectedMarket) {
-    marketClassification = selectedMarket.group.marketClassification;
-    marketGroupData = {
-      ...selectedMarket.group,
-      markets: [selectedMarket],
-    };
-  }
-
-  // Flatten all markets from all groups
-  const allMarkets = (marketGroups || []).flatMap((group) =>
-    (group.markets || []).map((market) => ({
-      ...market,
-      group,
-    }))
-  );
-
-  // All public markets (for suggestions we want any market that hasn't ended yet)
-  const publicMarkets = allMarkets.filter((market) => market.public);
-
-  // Filter to only show active markets
-  const activeMarkets = allMarkets.filter((market) => {
-    const now = Math.floor(Date.now() / 1000);
-    const start = market.startTimestamp;
-    const end = market.endTimestamp;
-
-    return (
-      market.public &&
-      typeof start === 'number' &&
-      !Number.isNaN(start) &&
-      typeof end === 'number' &&
-      !Number.isNaN(end) &&
-      now >= start &&
-      now < end
-    );
-  });
-
-  // Remove auto-selection - user should choose from suggestions
-
-  // Handler to select a market and switch to the selected question tab
-  const handleMarketSelect = (market: any) => {
+  const handleConditionSelect = (condition: ConditionType) => {
     setSelectedCategory(CommentFilters.SelectedQuestion);
-    setTimeout(() => {
-      setSelectedMarket(market);
-    }, 0);
+    setSelectedCondition(condition);
   };
 
   // Style classes for category buttons
@@ -186,7 +97,7 @@ const ForecastPageImp = () => {
     <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
       {/* Main content container with Twitter-like layout */}
       <div
-        className={`max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-card/70 backdrop-blur-sm md:rounded-t overflow-hidden`}
+        className={`max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-brand-black backdrop-blur-sm md:rounded-t overflow-hidden`}
       >
         <>
           {/* Tabs */}
@@ -200,44 +111,35 @@ const ForecastPageImp = () => {
             <SubmitForecastsBlurb />
           </div>
 
-          {/* Market Selector (direct market search) - always visible */}
+          {/* Condition selector */}
           <div className="relative z-50">
-            <div className="p-6 pb-0">
-              <QuestionSelect
-                key={selectedMarket?.id || 'no-selection'}
-                marketMode={true}
-                markets={activeMarkets}
-                selectedMarketId={(() => {
-                  const marketId = selectedMarket?.id?.toString();
-                  return marketId;
-                })()}
-                onMarketGroupSelect={handleMarketSelect}
-                setSelectedCategory={setSelectedCategory}
+            <div className={`p-6 pb-0 ${!selectedCondition ? 'mb-6' : ''}`}>
+              <ConditionSelect
+                selectedConditionId={selectedCondition?.id || null}
+                onSelect={handleConditionSelect}
               />
             </div>
           </div>
 
-          {/* Question Suggestions or Forecast Form */}
-          <div className="border-b border-border relative pb-3">
-            {!selectedMarket ? (
-              <QuestionSuggestions
-                markets={publicMarkets}
-                onMarketSelect={handleMarketSelect}
-              />
-            ) : (
+          {/* Forecast form for selected condition */}
+          {selectedCondition ? (
+            <div className="border-b border-border relative pb-3">
               <div className="p-6 pb-4">
-                <ForecastInfoNotice className="mb-4" />
-                <PredictForm
-                  marketGroupData={marketGroupData}
-                  marketClassification={marketClassification}
+                <ConditionForecastForm
+                  conditionId={selectedCondition.id}
+                  question={
+                    selectedCondition.shortName || selectedCondition.question
+                  }
+                  endTime={selectedCondition.endTime}
+                  categorySlug={selectedCondition.category?.slug || null}
                   onSuccess={refetchComments}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          ) : null}
 
           {/* Category Selection Section */}
-          <div className="bg-background/60 backdrop-blur-sm z-5 relative">
+          <div className="bg-background/60 backdrop-blur-sm z-5 relative border-t border-border">
             <div
               className={`flex overflow-x-auto max-w-[100dvw] no-scrollbar ${
                 isPopoverOpen ? 'overflow-x-hidden' : ''
@@ -280,8 +182,8 @@ const ForecastPageImp = () => {
                 <span className="font-medium">All</span>
               </button>
 
-              {/* Selected Question option - only show when a market is selected */}
-              {selectedMarket && (
+              {/* Selected Question option - only show when a condition is selected */}
+              {selectedCondition && (
                 <button
                   type="button"
                   onClick={() =>
@@ -358,19 +260,12 @@ const ForecastPageImp = () => {
                       : hoverStatusClass
                   }`}
                 >
-                  <div
-                    className="rounded-full p-0.5 w-4 h-4 flex items-center justify-center"
-                    style={{ backgroundColor: `${focusArea.color}1A` }}
-                  >
-                    <div style={{ transform: 'scale(0.5)' }}>
-                      {focusArea.Icon ? (
-                        <focusArea.Icon
-                          className="w-4 h-4"
-                          style={{ color: focusArea.color }}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
+                  <MarketBadge
+                    label={focusArea.name}
+                    size={16}
+                    color={focusArea.color}
+                    categorySlug={focusArea.id}
+                  />
                   <span className="font-medium">{focusArea.name}</span>
                 </button>
               ))}
@@ -380,7 +275,7 @@ const ForecastPageImp = () => {
           <div className="divide-y divide-border">
             <Comments
               selectedCategory={selectedCategory}
-              question={selectedMarket?.question}
+              question={selectedCondition?.question}
               address={selectedAddressFilter || address}
               refetchTrigger={refetchCommentsTrigger}
             />

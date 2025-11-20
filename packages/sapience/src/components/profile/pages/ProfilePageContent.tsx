@@ -93,10 +93,10 @@ const ProfilePageContent = () => {
   const hasForecasts = (attestations?.length || 0) > 0;
   const hasParlays = (parlays?.length || 0) > 0;
 
-  // On Ethereal chain, only show parlays; otherwise show all tabs
+  // Always allow forecasts regardless of chain; other tabs still respect Ethereal gating
   const shouldShowTradesTab = !isEtherealChain && hasTrades;
   const shouldShowLpTab = !isEtherealChain && hasLp;
-  const shouldShowForecastsTab = !isEtherealChain && hasForecasts;
+  const shouldShowForecastsTab = hasForecasts;
   const shouldShowParlaysTab = hasParlays;
 
   // Count visible tabs to determine if we should show the tab switcher
