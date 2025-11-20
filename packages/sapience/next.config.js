@@ -33,6 +33,15 @@ module.exports = withPWA({
         ],
       },
     ]
+  },
+  async redirects() {
+    return [
+      {
+        source: '/discord',
+        destination: 'http://discord.gg/sapience',
+        permanent: false,
+      },
+    ];
   }
 });
 

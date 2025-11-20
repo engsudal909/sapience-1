@@ -24,12 +24,15 @@ import { type MultiSelectItem } from '~/components/terminal/filters/MultiSelect'
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
 import { useReadContracts } from 'wagmi';
 import { predictionMarket } from '@sapience/sdk/contracts';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarketAbi } from '@sapience/sdk';
 import bidsHub from '~/lib/auction/useAuctionBidsHub';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
+  const chainId = useChainIdFromLocalStorage();
+  const collateralAssetTicker = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);
   const [minWager, setMinWager] = useState<string>('1');
@@ -388,9 +391,8 @@ const TerminalPageContent: React.FC = () => {
     }
   }
 
-  const collateralAssetTicker = 'testUSDe';
   // Fetch PredictionMarket config to get collateral token, then read ERC20 decimals
-  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  const PREDICTION_MARKET_ADDRESS = predictionMarket[chainId]?.address;
   const predictionMarketConfigRead = useReadContracts({
     contracts: PREDICTION_MARKET_ADDRESS
       ? [
@@ -398,7 +400,7 @@ const TerminalPageContent: React.FC = () => {
             address: PREDICTION_MARKET_ADDRESS,
             abi: predictionMarketAbi,
             functionName: 'getConfig',
-            chainId: DEFAULT_CHAIN_ID,
+            chainId: chainId,
           },
         ]
       : [],
@@ -421,7 +423,7 @@ const TerminalPageContent: React.FC = () => {
             address: collateralTokenAddress,
             abi: erc20Abi,
             functionName: 'decimals',
-            chainId: DEFAULT_CHAIN_ID,
+            chainId: chainId,
           },
         ]
       : [],
@@ -675,20 +677,20 @@ const TerminalPageContent: React.FC = () => {
         : [];
       const top = bids.reduce((best, b) => {
         try {
-          const cur = BigInt(String(b?.takerWager ?? '0'));
-          const bestVal = BigInt(String(best?.takerWager ?? '0'));
+          const cur = BigInt(String(b?.makerWager ?? '0'));
+          const bestVal = BigInt(String(best?.makerWager ?? '0'));
           return cur > bestVal ? b : best;
         } catch {
           return best;
         }
       }, bids[0] || null);
       const taker = top?.taker || '';
-      const takerWager = top?.takerWager || '0';
+      const makerWager = top?.makerWager || '0';
       return {
         id: m.time,
         type: 'FORECAST',
         createdAt,
-        collateral: String(takerWager || '0'),
+        collateral: String(makerWager || '0'),
         position: { owner: taker },
       } as UiTransaction;
     }
@@ -816,16 +818,16 @@ const TerminalPageContent: React.FC = () => {
                                 uiTx={toUiTx(m)}
                                 predictionsContent={renderPredictionsCell(m)}
                                 auctionId={auctionId}
-                                makerWager={String(m?.data?.wager ?? '0')}
-                                maker={m?.data?.maker || null}
+                                takerWager={String(m?.data?.wager ?? '0')}
+                                taker={m?.data?.taker || null}
                                 resolver={m?.data?.resolver || null}
                                 predictedOutcomes={
                                   Array.isArray(m?.data?.predictedOutcomes)
                                     ? (m?.data?.predictedOutcomes as string[])
                                     : []
                                 }
-                                makerNonce={(() => {
-                                  const raw = m?.data?.makerNonce;
+                                takerNonce={(() => {
+                                  const raw = m?.data?.takerNonce;
                                   const n = Number(raw);
                                   return Number.isFinite(n) ? n : null;
                                 })()}
@@ -868,16 +870,16 @@ const TerminalPageContent: React.FC = () => {
                                   uiTx={toUiTx(m)}
                                   predictionsContent={renderPredictionsCell(m)}
                                   auctionId={auctionId}
-                                  makerWager={String(m?.data?.wager ?? '0')}
-                                  maker={m?.data?.maker || null}
+                                  takerWager={String(m?.data?.wager ?? '0')}
+                                  taker={m?.data?.taker || null}
                                   resolver={m?.data?.resolver || null}
                                   predictedOutcomes={
                                     Array.isArray(m?.data?.predictedOutcomes)
                                       ? (m?.data?.predictedOutcomes as string[])
                                       : []
                                   }
-                                  makerNonce={(() => {
-                                    const raw = m?.data?.makerNonce;
+                                  takerNonce={(() => {
+                                    const raw = m?.data?.takerNonce;
                                     const n = Number(raw);
                                     return Number.isFinite(n) ? n : null;
                                   })()}

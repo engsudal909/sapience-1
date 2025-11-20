@@ -19,6 +19,7 @@ import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 type SuggestedBetslipsProps = {
   onRefresh?: () => void;
@@ -30,8 +31,11 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
   className,
 }) => {
   const [nonce, setNonce] = React.useState(0);
-  const { data: allConditions = [], isLoading } = useConditions({ take: 200 });
-  const { addParlaySelection } = useBetSlipContext();
+  const { data: allConditions = [], isLoading } = useConditions({
+    take: 200,
+    chainId: useChainIdFromLocalStorage(),
+  });
+  const { addParlaySelection, clearParlaySelections } = useBetSlipContext();
 
   const handleRefresh = React.useCallback(() => {
     setNonce((n) => n + 1);
@@ -225,6 +229,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
                         variant="outline"
                         type="button"
                         onClick={() => {
+                          // Replace any existing parlay legs with this suggested combo
+                          clearParlaySelections();
                           combo.forEach((leg) => {
                             addParlaySelection({
                               conditionId: leg.condition.id,

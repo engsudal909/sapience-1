@@ -1,6 +1,5 @@
 'use client';
 
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { passiveLiquidityVault } from '@sapience/sdk/contracts';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
@@ -27,16 +26,20 @@ import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { usePassiveLiquidityVault } from '~/hooks/contract/usePassiveLiquidityVault';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
-import { PROTOCOL_VAULT_ADDRESS } from '~/lib/constants';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
+import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';
 
 const VaultsPageContent = () => {
   const { isConnected } = useAccount();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
-  // Constants for vault integration
-  const VAULT_CHAIN_ID = DEFAULT_CHAIN_ID; // default chain
-  const VAULT_ADDRESS = passiveLiquidityVault[DEFAULT_CHAIN_ID]?.address;
+  // Constants for vault integration - use chain ID from localStorage
+  const VAULT_CHAIN_ID = useChainIdFromLocalStorage();
+  const VAULT_ADDRESS = passiveLiquidityVault[VAULT_CHAIN_ID]?.address;
+  const collateralSymbol = COLLATERAL_SYMBOLS[VAULT_CHAIN_ID] || 'testUSDe';
 
-  // Vaults are always enabled
+  // Vaults are always enabled, but may be gated by jurisdiction
 
   // Vault integration
   const {
@@ -69,6 +72,8 @@ const VaultsPageContent = () => {
     vaultAddress: VAULT_ADDRESS,
     chainId: VAULT_CHAIN_ID,
   });
+
+  const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
   // Form state
   const [depositAmount, setDepositAmount] = useState('');
@@ -304,7 +309,9 @@ const VaultsPageContent = () => {
                 className="text-lg bg-transparent border-none p-0 h-auto font-normal placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <div className="flex items-center gap-2">
-                <span className="text-lg text-muted-foreground">testUSDe</span>
+                <span className="text-lg text-muted-foreground">
+                  {collateralSymbol}
+                </span>
               </div>
             </div>
           </div>
@@ -315,7 +322,7 @@ const VaultsPageContent = () => {
           <div className="flex items-center gap-2">
             <span>
               Balance: <NumberDisplay value={Number(shortWalletBalance)} />{' '}
-              testUSDe
+              {collateralSymbol}
             </span>
             <Button
               variant="outline"
@@ -339,7 +346,8 @@ const VaultsPageContent = () => {
           ) : (
             (minDeposit ?? 0n) > 0n && (
               <div className="sm:text-right">
-                Minimum Deposit: {formatAssetAmount(minDeposit ?? 0n)} testUSDe
+                Minimum Deposit: {formatAssetAmount(minDeposit ?? 0n)}{' '}
+                {collateralSymbol}
               </div>
             )
           )}
@@ -354,6 +362,12 @@ const VaultsPageContent = () => {
             </div>
           )}
 
+          <RestrictedJurisdictionBanner
+            show={!isPermitLoading && isRestricted}
+            className="mb-1"
+            iconClassName="h-4 w-4"
+          />
+
           {/* Deposit Button */}
           <Button
             size="lg"
@@ -366,7 +380,9 @@ const VaultsPageContent = () => {
               !pricePerShare ||
               pricePerShare === '0' ||
               isInteractionDelayActive ||
-              !!(pendingRequest && !pendingRequest.processed)
+              !!(pendingRequest && !pendingRequest.processed) ||
+              isPermitLoading ||
+              isRestricted
             }
             onClick={async () => {
               if (!isConnected) {
@@ -448,7 +464,7 @@ const VaultsPageContent = () => {
             !withdrawExceedsShareBalance && (
               <div className="sm:text-right">
                 Requested Collateral: {formatAssetAmount(estWithdrawAssets)}{' '}
-                testUSDe
+                {collateralSymbol}
               </div>
             )}
         </div>
@@ -462,6 +478,12 @@ const VaultsPageContent = () => {
             </div>
           )}
 
+          <RestrictedJurisdictionBanner
+            show={!isPermitLoading && isRestricted}
+            className="mb-1"
+            iconClassName="h-4 w-4"
+          />
+
           {/* Withdraw Button */}
           <Button
             size="lg"
@@ -474,7 +496,9 @@ const VaultsPageContent = () => {
               pricePerShare === '0' ||
               isInteractionDelayActive ||
               !!(pendingRequest && !pendingRequest.processed) ||
-              withdrawExceedsShareBalance
+              withdrawExceedsShareBalance ||
+              isPermitLoading ||
+              isRestricted
             }
             onClick={async () => {
               if (!isConnected) {
@@ -574,33 +598,16 @@ const VaultsPageContent = () => {
   };
 
   // Derived vault metrics for display
+  // TVL = availableAssets + totalDeployed (direct on-chain reads)
   const tvlWei = useMemo(() => {
     try {
-      const totalAssetsWei = vaultData?.totalAssets ?? 0n;
-      if (totalAssetsWei > 0n) return totalAssetsWei;
-
-      // Fallback: derive TVL from totalSupply * pricePerShare when assets aren't populated
-      if (
-        vaultData?.totalSupply &&
-        pricePerShare &&
-        pricePerShare !== '0' &&
-        assetDecimals !== undefined
-      ) {
-        try {
-          const ppsScaled = parseUnits(pricePerShare, assetDecimals);
-          return (
-            (vaultData.totalSupply * ppsScaled) / 10n ** BigInt(assetDecimals)
-          );
-        } catch {
-          // ignore fallback errors and return 0n below
-        }
-      }
-
-      return 0n;
+      const available = vaultData?.availableAssets ?? 0n;
+      const deployed = vaultData?.totalDeployed ?? 0n;
+      return available + deployed;
     } catch {
       return 0n;
     }
-  }, [vaultData, pricePerShare, assetDecimals]);
+  }, [vaultData]);
 
   const deployedWei = useMemo(() => {
     try {
@@ -705,13 +712,13 @@ const VaultsPageContent = () => {
                       </h3>
                       <div className="flex items-center gap-2">
                         <EnsAvatar
-                          address={PROTOCOL_VAULT_ADDRESS}
+                          address={VAULT_ADDRESS}
                           width={16}
                           height={16}
                           className="shrink-0"
                         />
                         <AddressDisplay
-                          address={PROTOCOL_VAULT_ADDRESS}
+                          address={VAULT_ADDRESS}
                           compact
                           className="text-xs text-muted-foreground"
                           hideVaultIcon
@@ -723,7 +730,7 @@ const VaultsPageContent = () => {
                         Total Value Locked
                       </div>
                       <div className="text-xl font-normal font-mono">
-                        {tvlDisplay} testUSDe
+                        {tvlDisplay} {collateralSymbol}
                       </div>
                     </div>
                   </div>
@@ -737,7 +744,7 @@ const VaultsPageContent = () => {
                           Utilization Rate: {utilizationDisplay}
                         </div>
                         <div className="text-sm font-normal">
-                          Deployed: {deployedDisplay} testUSDe
+                          Deployed: {deployedDisplay} {collateralSymbol}
                         </div>
                       </div>
                       <div className="w-full h-2 rounded-sm bg-[hsl(var(--primary)/_0.09)] overflow-hidden shadow-inner">
@@ -748,7 +755,7 @@ const VaultsPageContent = () => {
                       </div>
                       <p className="mt-2 text-xs">
                         <Link
-                          href={`/profile/${PROTOCOL_VAULT_ADDRESS}`}
+                          href={`/profile/${VAULT_ADDRESS}`}
                           className="gold-link"
                         >
                           View Portfolio
@@ -776,7 +783,7 @@ const VaultsPageContent = () => {
                               {pendingRequest.isDeposit ? (
                                 <>
                                   {formatAssetAmount(pendingRequest.assets)}{' '}
-                                  testUSDe
+                                  {collateralSymbol}
                                   {depositQueuePosition
                                     ? ` · Queue #${depositQueuePosition}`
                                     : ''}

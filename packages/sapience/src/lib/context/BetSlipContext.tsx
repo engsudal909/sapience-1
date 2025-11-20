@@ -273,22 +273,24 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
 
   const addParlaySelection = useCallback(
     (selection: Omit<ParlaySelection, 'id'>) => {
-      const existingIndex = parlaySelections.findIndex(
-        (s) => s.conditionId === selection.conditionId
-      );
-      if (existingIndex !== -1) {
-        setParlaySelections((prev) =>
-          prev.map((s, i) =>
-            i === existingIndex ? { ...s, prediction: selection.prediction } : s
-          )
+      setParlaySelections((prev) => {
+        const existingIndex = prev.findIndex(
+          (s) => s.conditionId === selection.conditionId
         );
-      } else {
+
+        if (existingIndex !== -1) {
+          // Update the existing leg's prediction while preserving id and question
+          return prev.map((s, i) =>
+            i === existingIndex ? { ...s, prediction: selection.prediction } : s
+          );
+        }
+
         const id = `${selection.conditionId}-${selection.prediction}-${Date.now()}`;
-        setParlaySelections((prev) => [...prev, { ...selection, id }]);
-      }
+        return [...prev, { ...selection, id }];
+      });
       setIsPopoverOpen(true);
     },
-    [parlaySelections]
+    []
   );
 
   const removeParlaySelection = useCallback((id: string) => {

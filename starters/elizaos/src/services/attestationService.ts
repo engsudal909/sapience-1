@@ -126,25 +126,124 @@ export class AttestationService {
         return;
       }
 
-      // Fetch active markets
-      const marketsResponse = await sapienceService.callTool("sapience", "list_active_markets", {});
-      if (!marketsResponse || !marketsResponse.content) {
-        elizaLogger.error("[AttestationService] Failed to fetch markets");
-        return;
+      // Condition-first attestation flow
+      const walletAddress = await this.getWalletAddress();
+      const allMyAttestations = walletAddress
+        ? await this.getAllMyAttestations(walletAddress)
+        : [];
+
+      const conditions =
+        this.parlayService ? await this.parlayService.fetchParlayMarkets() : [];
+
+      const candidateConditions: any[] = [];
+      for (const condition of conditions) {
+        try {
+          // Check last attestation by questionId
+          const matchingAttestation = allMyAttestations.find(
+            (att) =>
+              (att.questionId?.toLowerCase?.() || "") ===
+              (condition.id?.toLowerCase?.() || "")
+          );
+
+          if (!matchingAttestation) {
+            condition._attestationReason = "Never attested";
+            candidateConditions.push(condition);
+            continue;
+          }
+
+          const hoursSince =
+            (Date.now() - new Date(matchingAttestation.createdAt).getTime()) /
+            (1000 * 60 * 60);
+          if (hoursSince < this.config.minTimeBetweenAttestations) {
+            elizaLogger.info(
+              `[AttestationService] Condition ${condition.id}: Only ${hoursSince.toFixed(
+                1
+              )} hours since last attestation, need ${this.config.minTimeBetweenAttestations} hours`
+            );
+            continue;
+          }
+
+          const currentPrediction = await this.generateConditionPrediction(
+            condition
+          );
+          if (currentPrediction && matchingAttestation.prediction) {
+            const previousProbability = this.decodeProbability(
+              matchingAttestation.prediction
+            );
+            if (previousProbability !== null) {
+              const probabilityChange = Math.abs(
+                currentPrediction.probability - previousProbability
+              );
+              if (
+                probabilityChange >= this.config.probabilityChangeThreshold
+              ) {
+                condition._attestationReason = `Probability changed by ${probabilityChange.toFixed(
+                  1
+                )}% (from ${previousProbability.toFixed(
+                  0
+                )}% to ${currentPrediction.probability}%)`;
+                condition._currentPrediction = currentPrediction;
+                candidateConditions.push(condition);
+              } else {
+                elizaLogger.info(
+                  `[AttestationService] Condition ${condition.id}: Probability change ${probabilityChange.toFixed(
+                    1
+                  )}% below threshold ${this.config.probabilityChangeThreshold}%`
+                );
+              }
+            }
+          }
+        } catch (error) {
+          elizaLogger.warn(
+            `[AttestationService] Condition ${condition.id}: Error checking previous attestation - ${error.message}`
+          );
+        }
       }
 
-      const markets = JSON.parse(marketsResponse.content?.[0]?.text ?? "[]");
-      const candidateMarkets = await this.filterMarketsForAttestation(markets);
-
-      if (candidateMarkets.length > 0) {
-        console.log(`📊 Processing ${candidateMarkets.length} eligible markets...`);
-        
-        const batch = candidateMarkets.slice(0, this.config.batchSize);
-        for (const market of batch) {
+      if (candidateConditions.length > 0) {
+        console.log(
+          `📊 Processing ${candidateConditions.length} eligible conditions...`
+        );
+        const batch = candidateConditions.slice(0, this.config.batchSize);
+        for (const condition of batch) {
           try {
-            await this.attestToMarket(market);
+            await this.attestToCondition(condition);
           } catch (error) {
-            elizaLogger.error(`[AttestationService] Failed to process market ${market.id}:`, error);
+            elizaLogger.error(
+              `[AttestationService] Failed to process condition ${condition.id}:`,
+              error
+            );
+          }
+        }
+      } else if (process.env.ENABLE_MARKET_ATTESTATION_FALLBACK === "true") {
+        // Optional: fallback to old market-based flow
+        const marketsResponse = await sapienceService.callTool(
+          "sapience",
+          "list_active_markets",
+          {}
+        );
+        if (marketsResponse && marketsResponse.content) {
+          const markets = JSON.parse(
+            marketsResponse.content?.[0]?.text ?? "[]"
+          );
+          const candidateMarkets = await this.filterMarketsForAttestation(
+            markets
+          );
+          if (candidateMarkets.length > 0) {
+            console.log(
+              `📊 Processing ${candidateMarkets.length} eligible markets...`
+            );
+            const batch = candidateMarkets.slice(0, this.config.batchSize);
+            for (const market of batch) {
+              try {
+                await this.attestToMarket(market);
+              } catch (error) {
+                elizaLogger.error(
+                  `[AttestationService] Failed to process market ${market.id}:`,
+                  error
+                );
+              }
+            }
           }
         }
       }
@@ -159,6 +258,135 @@ export class AttestationService {
       }
     } catch (error) {
       elizaLogger.error("[AttestationService] Cycle failed:", error);
+    }
+  }
+
+  private async generateConditionPrediction(condition: any): Promise<{
+    probability: number;
+    reasoning: string;
+    confidence: number;
+  } | null> {
+    try {
+      const endDate = condition.endTime
+        ? new Date(condition.endTime * 1000).toISOString()
+        : "Unknown";
+      const predictionPrompt = `Condition:
+Question: ${condition.question}
+End Date: ${endDate}
+
+Analyze and respond with ONLY valid JSON:
+{
+  "probability": <number 0-100>,
+  "reasoning": "<analysis under 180 chars, lowercase>",
+  "confidence": <number 0.0-1.0>
+}`;
+      const response = await this.runtime.useModel(ModelType.TEXT_SMALL, {
+        prompt: predictionPrompt,
+      });
+      let prediction;
+      try {
+        prediction = JSON.parse(response);
+      } catch {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          prediction = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("Invalid JSON response");
+        }
+      }
+      if (
+        !prediction.probability ||
+        !prediction.reasoning ||
+        prediction.confidence === undefined
+      ) {
+        throw new Error("Incomplete prediction data");
+      }
+      return prediction;
+    } catch (error) {
+      elizaLogger.error(
+        `[AttestationService] Failed to generate prediction for condition ${condition.id}:`,
+        error
+      );
+      return null;
+    }
+  }
+
+  private async attestToCondition(condition: any): Promise<void> {
+    try {
+      const prediction =
+        condition._currentPrediction ||
+        (await this.generateConditionPrediction(condition));
+      if (!prediction) return;
+
+      if (prediction.confidence < this.config.minConfidence) {
+        console.log(
+          `⏭️  Skipping: confidence ${prediction.confidence} below threshold`
+        );
+        return;
+      }
+
+      console.log(
+        `📊 Prediction: ${prediction.probability}% YES (confidence: ${prediction.confidence})`
+      );
+
+      const { buildAttestationCalldata } = await loadSdk();
+      const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
+      const zero = "0x0000000000000000000000000000000000000000" as const;
+      
+      
+      const attestationData = await buildAttestationCalldata(
+        {
+          marketId: 0,
+          address: zero,
+          question: condition.shortName || condition.question || "Condition",
+        },
+        prediction,
+        chainId,
+        condition.id as `0x${string}`
+      );
+
+      if (attestationData) {
+        const submitAction = this.runtime.actions?.find(
+          (a) => a.name === "SUBMIT_TRANSACTION"
+        );
+        if (submitAction) {
+          const transactionMessage: Memory = {
+            entityId:
+              "00000000-0000-0000-0000-000000000000" as any,
+            agentId: this.runtime.agentId,
+            roomId:
+              "00000000-0000-0000-0000-000000000000" as any,
+            content: {
+              text: `Submit this transaction: ${JSON.stringify({
+                to: attestationData.to,
+                data: attestationData.data,
+                value: attestationData.value || "0",
+              })}`,
+              action: "SUBMIT_TRANSACTION",
+            },
+            createdAt: Date.now(),
+          };
+          await submitAction.handler(
+            this.runtime,
+            transactionMessage,
+            undefined,
+            {},
+            undefined
+          );
+        }
+      }
+
+      console.log(
+        `✅ Attested condition: ${prediction.probability}% YES - ${prediction.reasoning.substring(
+          0,
+          80
+        )}${prediction.reasoning.length > 80 ? "..." : ""}`
+      );
+    } catch (error) {
+      elizaLogger.error(
+        `[AttestationService] Failed to process condition ${condition.id}:`,
+        error
+      );
     }
   }
 
@@ -317,14 +545,32 @@ Analyze this prediction market and respond with ONLY valid JSON:
       console.log(`📊 Prediction: ${prediction.probability}% YES (confidence: ${prediction.confidence})`);
 
       const { buildAttestationCalldata } = await loadSdk();
+      const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
+      const zero = "0x0000000000000000000000000000000000000000" as const;
+      const maybeConditionId =
+        typeof marketId === "string" &&
+        marketId.startsWith("0x") &&
+        marketId.length === 66
+          ? (marketId as `0x${string}`)
+          : null;
       const attestationData = await buildAttestationCalldata(
-        {
-          marketId: parseInt(marketId),
-          address: market.marketGroupAddress || market.contractAddress || "0x0000000000000000000000000000000000000000",
-          question: market.question,
-        },
+        maybeConditionId
+          ? {
+              marketId: 0,
+              address: zero,
+              question: market.question,
+            }
+          : {
+              marketId: parseInt(marketId),
+              address:
+                market.marketGroupAddress ||
+                market.contractAddress ||
+                zero,
+              question: market.question,
+            },
         prediction,
-        42161,
+        chainId,
+        maybeConditionId || undefined
       );
 
       if (attestationData) {

@@ -55,6 +55,30 @@ const converge = {
   },
 } as const satisfies Chain;
 
+const ethereal = {
+  id: 5064014,
+  name: 'Ethereal',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'USDe',
+    symbol: 'USDe',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.ethereal.trade'],
+    },
+    public: {
+      http: ['https://rpc.ethereal.trade'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Ethereal Explorer',
+      url: 'https://explorer.ethereal.trade',
+    },
+  },
+} as const satisfies Chain;
+
 const useWagmiConfig = () => {
   const { rpcURL: arbitrumRpcUrl } = useSettings();
 
@@ -77,9 +101,10 @@ const useWagmiConfig = () => {
             : 'https://arbitrum-rpc.publicnode.com')
       ),
       [converge.id]: http(process.env.NEXT_PUBLIC_RPC_URL || ''),
+      [ethereal.id]: http('https://rpc.ethereal.trade'),
     };
 
-    const chains: Chain[] = [arbitrum, base, converge];
+    const chains: Chain[] = [arbitrum, base, converge, ethereal];
 
     if (process.env.NODE_ENV !== 'production') {
       transports[cannonAtLocalhost.id] = http('http://localhost:8545');

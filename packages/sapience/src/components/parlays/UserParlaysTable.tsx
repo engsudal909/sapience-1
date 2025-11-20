@@ -64,6 +64,7 @@ import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
 import LottieLoader from '~/components/shared/LottieLoader';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 function PredictionsScroller({
   legs,
@@ -189,11 +190,14 @@ function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
 export default function UserParlaysTable({
   account,
   showHeaderText = true,
+  chainId,
 }: {
   account: Address;
   showHeaderText?: boolean;
+  chainId?: number;
 }) {
   // ---
+  const collateralSymbol = COLLATERAL_SYMBOLS[chainId || 42161] || 'testUSDe';
   const queryClient = useQueryClient();
   const { address: connectedAddress } = useAccount();
   const hasWallet = Boolean(connectedAddress);
@@ -252,15 +256,15 @@ export default function UserParlaysTable({
   const orderBy = sorting[0]?.id;
   const orderDirection = sorting[0]?.desc ? 'desc' : 'asc';
 
-  // Reset when account or sorting changes
+  // Reset when account, sorting, or chainId changes
   React.useEffect(() => {
     setSkip(0);
     setAllLoadedData([]);
     setHasMore(true);
-  }, [account, sorting]);
+  }, [account, sorting, chainId]);
 
   // Fetch total count
-  const totalCount = useUserParlaysCount(String(account));
+  const totalCount = useUserParlaysCount(String(account), chainId);
 
   // Fetch real data with pagination - fetch one extra to detect if there are more pages
   const { data: rawData, isLoading } = useUserParlays({
@@ -269,6 +273,7 @@ export default function UserParlaysTable({
     skip,
     orderBy,
     orderDirection,
+    chainId,
   });
 
   // Append new data when it arrives
@@ -844,7 +849,7 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'testUSDe';
+          const symbol = collateralSymbol;
           const viewerWagerWei =
             row.original.addressRole === 'maker'
               ? (row.original.makerCollateralWei ?? 0n)
@@ -909,17 +914,20 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'testUSDe';
+          const symbol = collateralSymbol;
           const totalPayout = Number(
             formatEther(row.original.totalPayoutWei || 0n)
           );
-          if (row.original.status === 'lost') {
+          if (
+            row.original.status === 'lost' ||
+            rowKeyToResolution.get(row.original.positionId)?.state === 'lost'
+          ) {
             return (
               <div>
                 <div className="xl:hidden text-xs text-muted-foreground mb-1">
                   To Win
                 </div>
-                <span className="text-muted-foreground">Parlay Lost</span>
+                <span className="text-muted-foreground">Wager Lost</span>
               </div>
             );
           }
@@ -975,10 +983,13 @@ export default function UserParlaysTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const symbol = 'testUSDe';
+          const symbol = collateralSymbol;
           const isClosed = row.original.status !== 'active';
+          const lostParlayUnclaimed =
+            row.original.status === 'active' &&
+            rowKeyToResolution.get(row.original.positionId)?.state === 'lost';
 
-          if (!isClosed) {
+          if (!isClosed && !lostParlayUnclaimed) {
             return (
               <div>
                 <div className="xl:hidden text-xs text-muted-foreground mb-1">
@@ -989,9 +1000,6 @@ export default function UserParlaysTable({
             );
           }
 
-          const pnlValue = Number(
-            formatEther(BigInt(row.original.userPnL || '0'))
-          );
           const viewerWagerWei =
             row.original.addressRole === 'maker'
               ? (row.original.makerCollateralWei ?? 0n)
@@ -1001,6 +1009,11 @@ export default function UserParlaysTable({
                   row.original.takerCollateralWei ??
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
+
+          const pnlValue = lostParlayUnclaimed
+            ? -viewerWager
+            : Number(formatEther(BigInt(row.original.userPnL || '0')));
+
           const roi = viewerWager > 0 ? (pnlValue / viewerWager) * 100 : 0;
 
           return (
@@ -1096,7 +1109,7 @@ export default function UserParlaysTable({
                   if (res.state === 'lost') {
                     return (
                       <Button size="sm" variant="outline" disabled>
-                        Parlay Lost
+                        Wager Lost
                       </Button>
                     );
                   }
@@ -1160,7 +1173,7 @@ export default function UserParlaysTable({
                 )}
               {row.original.status === 'lost' && (
                 <Button size="sm" variant="outline" disabled>
-                  Parlay Lost
+                  Wager Lost
                 </Button>
               )}
               {(() => {
@@ -1240,17 +1253,17 @@ export default function UserParlaysTable({
         <h2 className="text-lg font-medium mb-2">Your Parlays</h2>
       )}
       {rows.length === 0 && !isLoading ? (
-        <EmptyTabState message="No parlays found" />
+        <EmptyTabState centered message="No parlays found" />
       ) : isLoading && rows.length === 0 ? (
-        <div className="flex justify-center py-16">
-          <LottieLoader width={32} height={32} />
+        <div className="w-full min-h-[300px] flex items-center justify-center">
+          <LottieLoader width={12} height={12} />
         </div>
       ) : (
         <>
           <div className="border-y border-border rounded-none overflow-hidden bg-brand-black relative">
             {isLoading && (
               <div className="absolute inset-0 bg-brand-black/50 flex items-center justify-center z-10">
-                <LottieLoader width={32} height={32} />
+                <LottieLoader width={12} height={12} />
               </div>
             )}
             <Table className="table-auto">
@@ -1315,13 +1328,6 @@ export default function UserParlaysTable({
                   Scroll to load more • {data.length} of {totalCount}
                 </span>
               )}
-            </div>
-          )}
-          {!hasMore && data.length > 0 && (
-            <div className="flex items-center justify-center px-4 py-4 border-b border-border bg-brand-black">
-              <span className="text-sm text-muted-foreground">
-                All {data.length} parlays loaded
-              </span>
             </div>
           )}
         </>

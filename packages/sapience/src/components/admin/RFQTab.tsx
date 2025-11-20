@@ -52,6 +52,8 @@ import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
 import ResolveConditionCell from './ResolveConditionCell';
+import { CHAIN_ID_ARBITRUM, CHAIN_ID_ETHEREAL } from './constants';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { parseCsv, mapCsv } from '~/lib/utils/csv';
 import { useAdminApi } from '~/hooks/useAdminApi';
 import { useCategories } from '~/hooks/graphql/useMarketGroups';
@@ -67,6 +69,7 @@ type RFQRow = {
   claimStatement: string;
   description: string;
   similarMarketUrls?: string[];
+  chainId?: number;
 };
 
 type CSVRow = {
@@ -108,7 +111,21 @@ const RFQTab = ({
   const { toast } = useToast();
   const { postJson, putJson } = useAdminApi();
   const { data: categories } = useCategories();
-  const { data: conditions, isLoading, refetch } = useConditions({ take: 200 });
+
+  // Read chainId from localStorage with event monitoring
+  const currentChainId = useChainIdFromLocalStorage();
+
+  const currentChainName =
+    currentChainId === CHAIN_ID_ETHEREAL ? 'Ethereal' : 'Arbitrum';
+
+  const {
+    data: conditions,
+    isLoading,
+    refetch,
+  } = useConditions({
+    take: 500,
+    chainId: currentChainId,
+  });
 
   const [question, setQuestion] = useState('');
   const [shortName, setShortName] = useState('');
@@ -119,7 +136,11 @@ const RFQTab = ({
   const [description, setDescription] = useState('');
   const [similarMarketsText, setSimilarMarketsText] = useState('');
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [editingChainId, setEditingChainId] = useState<number | undefined>(
+    undefined
+  );
   const [filter, setFilter] = useState<ConditionFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
   const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
@@ -194,6 +215,7 @@ const RFQTab = ({
     setDescription('');
     setSimilarMarketsText('');
     setEditingId(undefined);
+    setEditingChainId(undefined);
   };
 
   // CSV Import helper functions
@@ -315,6 +337,7 @@ const RFQTab = ({
               claimStatement: row.claimStatement.trim(),
               description: row.description.trim(),
               similarMarkets: row.parsedSimilarMarkets || [],
+              chainId: currentChainId,
             };
 
             await postJson<RFQRow>('/conditions', body);
@@ -536,6 +559,21 @@ const RFQTab = ({
         size: 120,
       },
       {
+        header: 'Chain',
+        accessorKey: 'chainId',
+        size: 100,
+        cell: ({ getValue }) => {
+          const chainId = getValue() as number;
+          const chainName =
+            chainId === CHAIN_ID_ETHEREAL ? 'Ethereal' : 'Arbitrum';
+          return (
+            <Badge variant="outline" className="whitespace-nowrap">
+              {chainName}
+            </Badge>
+          );
+        },
+      },
+      {
         header: 'Public',
         accessorKey: 'public',
         size: 80,
@@ -616,6 +654,7 @@ const RFQTab = ({
                 size="sm"
                 onClick={() => {
                   setEditingId(id);
+                  setEditingChainId(original.chainId ?? CHAIN_ID_ARBITRUM);
                   setQuestion(original.question || '');
                   setShortName(original.shortName || '');
                   setCategorySlug(original.category?.slug || '');
@@ -660,6 +699,7 @@ const RFQTab = ({
         claimStatement: c.claimStatement,
         description: c.description,
         similarMarketUrls: c.similarMarkets,
+        chainId: c.chainId,
         _isSettled: isSettled,
         _hasData: settlementResult?.status === 'success',
       };
@@ -667,30 +707,31 @@ const RFQTab = ({
 
     // Filter based on selected filter
     const filtered = mapped.filter((row) => {
-      if (filter === 'all') return true;
+      let passesSettlementFilter = true;
+      if (filter !== 'all') {
+        const isPastEnd = !!(row.endTime && row.endTime <= now);
+        const isUpcoming = !!(row.endTime && row.endTime > now);
 
-      const isPastEnd = row.endTime && row.endTime <= now;
-      const isUpcoming = row.endTime && row.endTime > now;
-
-      if (filter === 'needs-settlement') {
-        // Show only: past end + have settlement data + NOT settled
-        return isPastEnd && row._hasData && row._isSettled === false;
+        if (filter === 'needs-settlement') {
+          passesSettlementFilter =
+            isPastEnd && row._hasData && row._isSettled === false;
+        } else if (filter === 'upcoming') {
+          passesSettlementFilter = isUpcoming;
+        } else if (filter === 'settled') {
+          passesSettlementFilter = row._isSettled === true;
+        }
       }
 
-      if (filter === 'upcoming') {
-        return isUpcoming;
+      let passesCategoryFilter = true;
+      if (categoryFilter !== 'all') {
+        passesCategoryFilter = row.category?.slug === categoryFilter;
       }
 
-      if (filter === 'settled') {
-        // Show only: explicitly settled (regardless of end time)
-        return row._isSettled === true;
-      }
-
-      return true;
+      return passesSettlementFilter && passesCategoryFilter;
     });
 
     return filtered;
-  }, [conditions, filter, settlementData]);
+  }, [conditions, filter, categoryFilter, settlementData]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -723,6 +764,7 @@ const RFQTab = ({
           claimStatement,
           description,
           similarMarkets,
+          chainId: currentChainId,
         };
         await postJson<RFQRow>(`/conditions`, body);
         // Refresh list to reflect server state and close the modal
@@ -746,8 +788,8 @@ const RFQTab = ({
     <div className="space-y-4">
       {/* Filter and Import Controls */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Filter:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">Settlement:</span>
           <Select
             value={filter}
             onValueChange={(value) => setFilter(value as ConditionFilter)}
@@ -762,7 +804,26 @@ const RFQTab = ({
               <SelectItem value="settled">Settled</SelectItem>
             </SelectContent>
           </Select>
-          {filter !== 'all' && (
+
+          <span className="text-sm font-medium">Category:</span>
+          <Select
+            value={categoryFilter}
+            onValueChange={(value) => setCategoryFilter(value)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories?.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(filter !== 'all' || categoryFilter !== 'all') && (
             <span className="text-sm text-muted-foreground">
               ({rows.length} {rows.length === 1 ? 'condition' : 'conditions'})
             </span>
@@ -993,6 +1054,20 @@ const RFQTab = ({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Chain</label>
+              <Input
+                value={
+                  editingId
+                    ? editingChainId === CHAIN_ID_ETHEREAL
+                      ? 'Ethereal'
+                      : 'Arbitrum'
+                    : currentChainName
+                }
+                disabled
+                readOnly
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">End Time (UTC)</label>

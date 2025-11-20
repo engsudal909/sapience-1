@@ -29,6 +29,7 @@ router.post('/', async (req: Request, res: Response) => {
       claimStatement,
       description,
       similarMarkets,
+      chainId,
     } = req.body as {
       question?: string;
       shortName?: string;
@@ -39,6 +40,7 @@ router.post('/', async (req: Request, res: Response) => {
       claimStatement?: string;
       description?: string;
       similarMarkets?: string[];
+      chainId?: number;
     };
 
     if (!question || !endTime || !claimStatement || !description) {
@@ -106,6 +108,7 @@ router.post('/', async (req: Request, res: Response) => {
           claimStatement,
           description,
           similarMarkets: Array.isArray(similarMarkets) ? similarMarkets : [],
+          chainId: chainId ?? 42161, // Default to Arbitrum if not provided
         },
         include: { category: true },
       });
@@ -149,6 +152,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       similarMarkets,
       claimStatement,
       endTime,
+      chainId,
     } = req.body as {
       question?: string;
       shortName?: string;
@@ -159,6 +163,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       similarMarkets?: string[];
       claimStatement?: string;
       endTime?: number | string;
+      chainId?: number;
     };
 
     const existing = await prisma.condition.findUnique({ where: { id } });
@@ -183,6 +188,10 @@ router.put('/:id', async (req: Request, res: Response) => {
       if (endTimeInt !== existing.endTime) {
         return res.status(400).json({ message: 'endTime cannot be changed' });
       }
+    }
+
+    if (typeof chainId !== 'undefined' && chainId !== existing.chainId) {
+      return res.status(400).json({ message: 'chainId cannot be changed' });
     }
 
     let resolvedCategoryId: number | null = null;

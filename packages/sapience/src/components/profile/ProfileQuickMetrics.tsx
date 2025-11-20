@@ -23,10 +23,12 @@ import {
 
 import type { PositionType } from '@sapience/sdk/types';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
-import { formatFiveSigFigs, bigIntAbs } from '~/lib/utils/util';
+import { formatFiveSigFigs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
 import { useUserProfitRank } from '~/hooks/graphql/useUserProfitRank';
 import { useForecasterRank } from '~/hooks/graphql/useForecasterRank';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 type MetricBadgeProps = {
   icon?: React.ReactNode;
@@ -146,14 +148,20 @@ function MetricBadge({
   );
 }
 
-function useProfileBalance(address?: string) {
+function useProfileBalance(
+  address?: string,
+  chainId?: number,
+  collateralSymbol?: string
+) {
   const collateralAssetAddress = DEFAULT_COLLATERAL_ASSET;
+  const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
+  const effectiveSymbol = collateralSymbol ?? 'testUSDe';
 
   const { data: decimals } = useReadContract({
     abi: erc20Abi,
     address: collateralAssetAddress,
     functionName: 'decimals',
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: effectiveChainId,
     query: { enabled: Boolean(address) },
   });
 
@@ -162,7 +170,7 @@ function useProfileBalance(address?: string) {
     address: collateralAssetAddress,
     functionName: 'balanceOf',
     args: address ? [address as `0x${string}`] : undefined,
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: effectiveChainId,
     query: { enabled: Boolean(address) },
   });
 
@@ -171,90 +179,24 @@ function useProfileBalance(address?: string) {
       const dec =
         typeof decimals === 'number' ? decimals : Number(decimals ?? 18);
       if (balance === undefined || balance === null)
-        return { display: '0', tooltip: '0 testUSDe' };
+        return { display: '0', tooltip: `0 ${effectiveSymbol}` };
       const human = formatUnits(balance as unknown as bigint, dec);
       const num = Number(human);
-      if (Number.isNaN(num)) return { display: '0', tooltip: '0 testUSDe' };
+      if (Number.isNaN(num))
+        return { display: '0', tooltip: `0 ${effectiveSymbol}` };
       return {
         display: `${formatFiveSigFigs(num)}`,
-        tooltip: `${num.toLocaleString()} testUSDe`,
+        tooltip: `${num.toLocaleString()} ${effectiveSymbol}`,
       };
     } catch {
-      return { display: '0', tooltip: '0 testUSDe' };
+      return { display: '0', tooltip: `0 ${effectiveSymbol}` };
     }
-  }, [balance, decimals]);
+  }, [balance, decimals, effectiveSymbol]);
 
   return memo;
 }
 
-function useProfileVolume(
-  positions: PositionType[] | undefined,
-  parlays: Parlay[] | undefined,
-  address?: string
-) {
-  return React.useMemo(() => {
-    try {
-      let total = 0;
-      const viewer = String(address || '').toLowerCase();
-      // Markets volume: sum of absolute deltas of collateral per position (per-market decimals)
-      for (const p of positions || []) {
-        const txs = [...(p.transactions || [])].sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        let lastCollateral = 0n;
-        const dec = Number(p.market?.marketGroup?.collateralDecimals ?? 18);
-        for (const t of txs) {
-          const type = String(t.type);
-          if (type === 'addLiquidity' || type === 'removeLiquidity') continue;
-          const currentRaw = t.collateralTransfer?.collateral ?? t.collateral;
-          let current = 0n;
-          try {
-            current = BigInt(currentRaw ?? '0');
-          } catch {
-            current = 0n;
-          }
-          const delta = current - lastCollateral;
-          const abs = bigIntAbs(delta);
-          lastCollateral = current;
-          const human = Number(formatUnits(abs, dec));
-          if (Number.isFinite(human)) total += human;
-        }
-      }
-
-      // Parlays volume: add only the party matching this address; values are 18 decimals
-      for (const parlay of parlays || []) {
-        try {
-          const makerIsUser =
-            typeof parlay.maker === 'string' &&
-            parlay.maker.toLowerCase() === viewer;
-          const takerIsUser =
-            typeof parlay.taker === 'string' &&
-            parlay.taker.toLowerCase() === viewer;
-          if (makerIsUser && parlay.makerCollateral) {
-            const human = Number(
-              formatUnits(BigInt(parlay.makerCollateral), 18)
-            );
-            if (Number.isFinite(human)) total += human;
-          }
-          if (takerIsUser && parlay.takerCollateral) {
-            const human = Number(
-              formatUnits(BigInt(parlay.takerCollateral), 18)
-            );
-            if (Number.isFinite(human)) total += human;
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      const value = total;
-      return { value, display: formatFiveSigFigs(value) };
-    } catch {
-      return { value: 0, display: '0' };
-    }
-  }, [positions, parlays, address]);
-}
+import { useProfileVolume } from '~/hooks/useProfileVolume';
 
 function useFirstActivity(
   positions: PositionType[] | undefined,
@@ -325,7 +267,9 @@ export default function ProfileQuickMetrics({
   parlays,
   className,
 }: ProfileQuickMetricsProps) {
-  const balance = useProfileBalance(address);
+  const chainId = useChainIdFromLocalStorage();
+  const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
+  const balance = useProfileBalance(address, chainId, collateralSymbol);
   const volume = useProfileVolume(positions, parlays, address);
   const first = useFirstActivity(positions, parlays);
   const forecastsIsFinite = Number.isFinite(forecastsCount);
@@ -347,7 +291,7 @@ export default function ProfileQuickMetrics({
   const pnlRank = profitLoading
     ? undefined
     : profit?.rank
-      ? `testUSDe (Rank #${profit.rank})`
+      ? `${collateralSymbol} (Rank #${profit.rank})`
       : undefined;
 
   const accValue = accuracyLoading
@@ -397,7 +341,7 @@ export default function ProfileQuickMetrics({
           imageSrc="/usde.svg"
           label="Available Balance"
           value={balance.display}
-          sublabel="testUSDe"
+          sublabel={collateralSymbol}
           tooltip={balance.tooltip}
           size="normal"
         />
@@ -407,7 +351,7 @@ export default function ProfileQuickMetrics({
           icon={<TrendingUp className="h-4 w-4 opacity-70" />}
           label="Trading Volume"
           value={volume.display}
-          sublabel="testUSDe"
+          sublabel={collateralSymbol}
           size="normal"
         />
       </li>

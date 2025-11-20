@@ -26,8 +26,12 @@ import AuctionBidsDialog from '~/components/auction/AuctionBidsDialog';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 const AuctionPageContent: React.FC = () => {
+  const chainId = useChainIdFromLocalStorage();
+  const collateralAssetTicker = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const TAB_VALUES = ['auctions', 'vault-quotes'] as const;
   type TabValue = (typeof TAB_VALUES)[number];
 
@@ -172,20 +176,20 @@ const AuctionPageContent: React.FC = () => {
       const bids = Array.isArray(m.data?.bids) ? (m.data.bids as any[]) : [];
       const top = bids.reduce((best, b) => {
         try {
-          const cur = BigInt(String(b?.takerWager ?? '0'));
-          const bestVal = BigInt(String(best?.takerWager ?? '0'));
+          const cur = BigInt(String(b?.makerWager ?? '0'));
+          const bestVal = BigInt(String(best?.makerWager ?? '0'));
           return cur > bestVal ? b : best;
         } catch {
           return best;
         }
       }, bids[0] || null);
       const taker = top?.taker || '';
-      const takerWager = top?.takerWager || '0';
+      const makerWager = top?.makerWager || '0';
       return {
         id: m.time,
         type: 'FORECAST',
         createdAt,
-        collateral: String(takerWager || '0'),
+        collateral: String(makerWager || '0'),
         position: { owner: taker },
       } as UiTransaction;
     }
@@ -197,8 +201,6 @@ const AuctionPageContent: React.FC = () => {
       position: { owner: '' },
     } as UiTransaction;
   }
-
-  const collateralAssetTicker = 'testUSDe';
 
   const getHashValue = () => {
     if (typeof window === 'undefined') return 'auctions' as TabValue;

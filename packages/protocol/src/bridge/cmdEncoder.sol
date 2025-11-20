@@ -11,6 +11,10 @@ library Encoder {
     uint16 constant CMD_FROM_ESCROW_WITHDRAW = 6;
     uint16 constant CMD_FROM_ESCROW_REMOVE_WITHDRAWAL_INTENT = 7;
 
+    // Prediction Market Resolver commands
+    uint16 constant CMD_FROM_UMA_MARKET_RESOLVED = 8;
+    uint16 constant CMD_FROM_UMA_MARKET_DISPUTED = 9;
+
     function decodeType(bytes memory data) internal pure returns (uint16, bytes memory) {
         return abi.decode(data, (uint16, bytes));
     }
@@ -63,5 +67,30 @@ library Encoder {
 
     function decodeFromBalanceUpdate(bytes memory data) internal pure returns (address, address, uint256) {
         return abi.decode(data, (address, address, uint256));
+    }
+
+    // Prediction Market Resolver commands
+    function encodeFromUMAMarketResolved(
+        bytes32 marketId,
+        bool resolvedToYes,
+        bool assertedTruthfully
+    ) internal pure returns (bytes memory) {
+        return abi.encode(marketId, resolvedToYes, assertedTruthfully);
+    }
+
+    function decodeFromUMAMarketResolved(bytes memory data)
+        internal
+        pure
+        returns (bytes32, bool, bool)
+    {
+        return abi.decode(data, (bytes32, bool, bool));
+    }
+
+    function encodeFromUMAMarketDisputed(bytes32 marketId) internal pure returns (bytes memory) {
+        return abi.encode(marketId);
+    }
+
+    function decodeFromUMAMarketDisputed(bytes memory data) internal pure returns (bytes32) {
+        return abi.decode(data, (bytes32));
     }
 }

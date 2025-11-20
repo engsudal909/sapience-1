@@ -26,7 +26,8 @@ export const INDEXERS: {
   // 'sf-precipitation': new WeatherIndexer('precipitation'),
   // 'bitcoin-hashrate': new BtcHashIndexer(),
   'attestation-prediction-market': new EASPredictionIndexer(42161),
-  'prediction-market-events': new PredictionMarketIndexer(42161), // Arbitrum chain ID
+  'prediction-market-events-arbitrum': new PredictionMarketIndexer(42161), // Arbitrum
+  'prediction-market-events-ethereal': new PredictionMarketIndexer(5064014), // Ethereal
 };
 
 // Function to initialize fixtures - upsert resources and markets from fixtures.json

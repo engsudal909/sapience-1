@@ -25,8 +25,8 @@ import {
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { predictionMarket } from '@sapience/sdk/contracts';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { predictionMarketAbi } from '@sapience/sdk';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
@@ -39,11 +39,11 @@ type Props = {
   uiTx: UiTransaction;
   predictionsContent: React.ReactNode;
   auctionId: string | null;
-  makerWager: string | null;
-  maker: string | null;
+  takerWager: string | null;
+  taker: string | null;
   resolver: string | null;
   predictedOutcomes: string[];
-  makerNonce: number | null;
+  takerNonce: number | null;
   collateralAssetTicker: string;
   onTogglePin?: (auctionId: string | null) => void;
   isPinned?: boolean;
@@ -53,11 +53,11 @@ const AuctionRequestRow: React.FC<Props> = ({
   uiTx,
   predictionsContent,
   auctionId,
-  makerWager,
-  maker,
+  takerWager,
+  taker,
   resolver,
   predictedOutcomes,
-  makerNonce,
+  takerNonce,
   collateralAssetTicker,
   onTogglePin,
   isPinned,
@@ -68,13 +68,14 @@ const AuctionRequestRow: React.FC<Props> = ({
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   const { apiBaseUrl } = useSettings();
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
-  const verifyingContract = predictionMarket[DEFAULT_CHAIN_ID]?.address as
+  const chainId = useChainIdFromLocalStorage();
+  const verifyingContract = predictionMarket[chainId]?.address as
     | `0x${string}`
     | undefined;
   const { toast } = useToast();
   const { openApproval } = useApprovalDialog();
   // Resolve collateral token from PredictionMarket config (fallback to default constant)
-  const PREDICTION_MARKET_ADDRESS = predictionMarket[DEFAULT_CHAIN_ID]?.address;
+  const PREDICTION_MARKET_ADDRESS = predictionMarket[chainId]?.address;
   const predictionMarketConfigRead = useReadContracts({
     contracts: PREDICTION_MARKET_ADDRESS
       ? [
@@ -82,7 +83,7 @@ const AuctionRequestRow: React.FC<Props> = ({
             address: PREDICTION_MARKET_ADDRESS,
             abi: predictionMarketAbi,
             functionName: 'getConfig',
-            chainId: DEFAULT_CHAIN_ID,
+            chainId: chainId,
           },
         ]
       : [],
@@ -105,7 +106,7 @@ const AuctionRequestRow: React.FC<Props> = ({
     abi: erc20Abi,
     address: COLLATERAL_ADDRESS,
     functionName: 'decimals',
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: chainId,
     query: { enabled: Boolean(COLLATERAL_ADDRESS) },
   });
   const tokenDecimals = useMemo(() => {
@@ -127,21 +128,21 @@ const AuctionRequestRow: React.FC<Props> = ({
         '0x0000000000000000000000000000000000000000',
       verifyingContract as `0x${string}`,
     ],
-    chainId: DEFAULT_CHAIN_ID,
+    chainId: chainId,
     query: {
       enabled: Boolean(address && COLLATERAL_ADDRESS && verifyingContract),
     },
   });
-  // Read maker nonce on-chain for the provided maker address
-  const { data: makerNonceOnChain, refetch: refetchMakerNonce } =
+  // Read taker nonce on-chain for the provided taker address
+  const { data: takerNonceOnChain, refetch: refetchTakerNonce } =
     useReadContract({
       address: PREDICTION_MARKET_ADDRESS,
       abi: predictionMarketAbi,
       functionName: 'nonces',
-      args: typeof maker === 'string' ? [maker as `0x${string}`] : undefined,
-      chainId: DEFAULT_CHAIN_ID,
+      args: typeof taker === 'string' ? [taker as `0x${string}`] : undefined,
+      chainId: chainId,
       query: {
-        enabled: Boolean(PREDICTION_MARKET_ADDRESS && maker),
+        enabled: Boolean(PREDICTION_MARKET_ADDRESS && taker),
       },
     });
   const [isExpanded, setIsExpanded] = useState(false);
@@ -302,41 +303,41 @@ const AuctionRequestRow: React.FC<Props> = ({
           Array.isArray(predictedOutcomes) && predictedOutcomes[0]
             ? (predictedOutcomes[0] as `0x${string}`)
             : undefined;
-        const makerAddr = typeof maker === 'string' ? maker : undefined;
+        const takerAddr = typeof taker === 'string' ? taker : undefined;
         const resolverAddr =
           typeof resolver === 'string' ? resolver : undefined;
         const makerWagerWei = (() => {
           try {
-            return BigInt(String(makerWager ?? '0'));
+            return BigInt(String(takerWager ?? '0'));
           } catch {
             return 0n;
           }
         })();
-        // Resolve maker nonce: prefer feed-provided, fall back to on-chain
-        let makerNonceVal: number | undefined =
-          typeof makerNonce === 'number' ? makerNonce : undefined;
-        if (makerNonceVal === undefined) {
+        // Resolve taker nonce: prefer feed-provided, fall back to on-chain
+        let takerNonceVal: number | undefined =
+          typeof takerNonce === 'number' ? takerNonce : undefined;
+        if (takerNonceVal === undefined) {
           try {
-            const fresh = await Promise.resolve(refetchMakerNonce?.());
-            const raw = fresh?.data ?? makerNonceOnChain;
+            const fresh = await Promise.resolve(refetchTakerNonce?.());
+            const raw = fresh?.data ?? takerNonceOnChain;
             const n = Number(raw);
-            if (Number.isFinite(n)) makerNonceVal = n;
+            if (Number.isFinite(n)) takerNonceVal = n;
           } catch {
             /* noop */
           }
         }
         if (
           !encodedPredicted ||
-          !makerAddr ||
+          !takerAddr ||
           !resolverAddr ||
-          makerNonceVal === undefined ||
+          takerNonceVal === undefined ||
           makerWagerWei <= 0n
         ) {
           const missing: string[] = [];
           if (!encodedPredicted) missing.push('predicted outcomes');
-          if (!makerAddr) missing.push('maker');
+          if (!takerAddr) missing.push('taker');
           if (!resolverAddr) missing.push('resolver');
-          if (makerNonceVal === undefined) missing.push('maker nonce');
+          if (takerNonceVal === undefined) missing.push('taker nonce');
           if (makerWagerWei <= 0n) missing.push('maker wager');
           toast({
             title: 'Request not ready',
@@ -359,19 +360,20 @@ const AuctionRequestRow: React.FC<Props> = ({
         })();
         const takerDeadline = nowSec + clampedExpiry;
 
-        // Build inner message hash (bytes, uint256, uint256, address, address, uint256)
+        // Build inner message hash (bytes, uint256, uint256, address, address, uint256, uint256)
         const innerMessageHash = keccak256(
           encodeAbiParameters(
             parseAbiParameters(
-              'bytes, uint256, uint256, address, address, uint256'
+              'bytes, uint256, uint256, address, address, uint256, uint256'
             ),
             [
               encodedPredicted,
-              takerWagerWei,
               makerWagerWei,
+              takerWagerWei,
               getAddress(resolverAddr as `0x${string}`),
-              getAddress(makerAddr as `0x${string}`),
+              getAddress(takerAddr),
               BigInt(takerDeadline),
+              BigInt(takerNonceVal),
             ]
           )
         );
@@ -388,7 +390,7 @@ const AuctionRequestRow: React.FC<Props> = ({
         const domain = {
           name: 'SignatureProcessor',
           version: '1',
-          chainId: DEFAULT_CHAIN_ID,
+          chainId: chainId,
           verifyingContract,
         } as const;
         const types = {
@@ -434,7 +436,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           takerWager: takerWagerWei.toString(),
           takerDeadline,
           takerSignature,
-          makerNonce: makerNonceVal,
+          takerNonce: takerNonceVal,
         };
 
         // Send over shared Auction WS and await ack
@@ -476,10 +478,10 @@ const AuctionRequestRow: React.FC<Props> = ({
     [
       auctionId,
       predictedOutcomes,
-      maker,
+      taker,
       resolver,
-      makerWager,
-      makerNonce,
+      takerWager,
+      takerNonce,
       address,
       connectOrCreateWallet,
       wsUrl,
@@ -573,21 +575,21 @@ const AuctionRequestRow: React.FC<Props> = ({
           >
             <AuctionRequestChart
               bids={bids}
-              makerWager={makerWager}
+              takerWager={takerWager}
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
-              maker={maker}
+              taker={taker}
               hasMultipleConditions={conditionIds.length > 1}
               tokenDecimals={tokenDecimals}
             />
             <AuctionRequestInfo
               uiTx={uiTx}
               bids={bids}
-              makerWager={makerWager}
+              takerWager={takerWager}
               collateralAssetTicker={collateralAssetTicker}
               maxEndTimeSec={maxEndTimeSec ?? undefined}
               onSubmit={submitBid}
-              maker={maker}
+              taker={taker}
               predictedOutcomes={predictedOutcomes}
             />
           </motion.div>
