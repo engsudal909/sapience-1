@@ -624,7 +624,7 @@ const VaultsPageContent = () => {
     try {
       // Primary: on-chain utilization rate in basis points
       if (vaultData?.utilizationRate !== undefined) {
-        const pct = Number(vaultData.utilizationRate) / 100; // bps -> percent
+        const pct = Number(vaultData.utilizationRate) / 1e16; 
         if (!Number.isFinite(pct)) return 0;
         return Math.max(0, Math.min(100, pct));
       }
@@ -678,9 +678,9 @@ const VaultsPageContent = () => {
 
   const utilizationDisplay = useMemo(() => {
     try {
-      return `${Math.round(utilizationPercent)}%`;
+      return `${utilizationPercent.toFixed(2)}%`;
     } catch {
-      return '0%';
+      return '0.00%';
     }
   }, [utilizationPercent]);
 

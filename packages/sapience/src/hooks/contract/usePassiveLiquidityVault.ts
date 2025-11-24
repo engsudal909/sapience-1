@@ -957,7 +957,7 @@ export function usePassiveLiquidityVault(
   );
 
   const formatUtilizationRate = useCallback((rate: bigint) => {
-    return ((Number(rate) / 10000) * 100).toFixed(1); // Convert from basis points to percentage
+    return (Number(rate) / 1e16).toFixed(2); 
   }, []);
 
   const formatinteractionDelay = useCallback((delay: bigint) => {
