@@ -28,7 +28,7 @@ export interface QuoteBid {
   makerNonce: number; // nonce for the maker
 }
 
-// Struct shape expected by PredictionMarket.mint() 
+// Struct shape expected by PredictionMarket.mint()
 // @dev notice that this interface follows contract field names, not API field names
 // Contract "maker" = API "taker" (auction creator)
 // Contract "taker" = API "maker" (bidder)
