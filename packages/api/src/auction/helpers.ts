@@ -234,6 +234,7 @@ export async function verifyMakerBidStrict(params: {
         { type: 'address' },
         { type: 'address' },
         { type: 'uint256' },
+        { type: 'uint256' },
       ],
       [
         encodedPredictedOutcomes,
@@ -242,6 +243,7 @@ export async function verifyMakerBidStrict(params: {
         auction.resolver as `0x${string}`,
         auction.taker as `0x${string}`,
         BigInt(bid.makerDeadline),
+        BigInt(bid.makerNonce),
       ]
     );
 
