@@ -4,10 +4,8 @@ import TerminalPageContent from '~/components/terminal/pages/TerminalPageContent
 
 const TerminalPage = () => {
   return (
-    <div className="relative w-full min-h-0 pt-16 md:pt-24 pb-0 flex flex-col flex-1">
-      <div className="relative flex-1 min-h-0 flex flex-col">
-        <TerminalPageContent />
-      </div>
+    <div className="w-full mx-auto px-4 md:px-8 lg:pr-0 md:pt-8 md:pb-12 mt-16">
+      <TerminalPageContent />
     </div>
   );
 };

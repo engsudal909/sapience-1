@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { cn } from '~/lib/utils/util';
 import {
   Popover,
   PopoverContent,
@@ -35,6 +36,10 @@ type Props = {
     item: MultiSelectItem,
     isSelected: boolean
   ) => React.ReactNode;
+  alwaysShowPlaceholder?: boolean;
+  size?: 'default' | 'compact';
+  matchTriggerWidth?: boolean;
+  closeOnSelect?: boolean;
 };
 
 const MultiSelect: React.FC<Props> = ({
@@ -47,14 +52,27 @@ const MultiSelect: React.FC<Props> = ({
   renderTriggerContent,
   emptyMessage,
   renderItemContent,
+  alwaysShowPlaceholder = false,
+  size = 'compact',
+  matchTriggerWidth = false,
+  closeOnSelect = false,
 }) => {
   const [open, setOpen] = useState(false);
 
   const triggerContent = useMemo(() => {
-    if (selected.length === 0) return placeholder;
+    if (alwaysShowPlaceholder || selected.length === 0) return placeholder;
     if (renderTriggerContent) return renderTriggerContent(selected, items);
     return `${selected.length} selected`;
-  }, [placeholder, renderTriggerContent, selected, items]);
+  }, [
+    alwaysShowPlaceholder,
+    placeholder,
+    renderTriggerContent,
+    selected,
+    items,
+  ]);
+
+  const sizeClasses =
+    size === 'default' ? 'h-10 px-3 py-2 text-sm' : 'h-8 px-3 text-sm';
 
   const toggle = useCallback(
     (value: string) => {
@@ -63,8 +81,11 @@ const MultiSelect: React.FC<Props> = ({
           ? selected.filter((v) => v !== value)
           : [...selected, value]
       );
+      if (closeOnSelect) {
+        setOpen(false);
+      }
     },
-    [onChange, selected]
+    [closeOnSelect, onChange, selected]
   );
 
   return (
@@ -72,20 +93,31 @@ const MultiSelect: React.FC<Props> = ({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={
-            'h-8 w-full rounded-md border border-border bg-background px-3 text-left text-sm inline-flex items-center justify-between' +
-            (className ? ' ' + className : '')
-          }
+          className={cn(
+            'w-full rounded-md border border-border bg-background text-left inline-flex items-center justify-between',
+            sizeClasses,
+            className
+          )}
         >
           <span
-            className={selected.length === 0 ? 'text-muted-foreground' : ''}
+            className={
+              selected.length === 0 || alwaysShowPlaceholder
+                ? 'text-muted-foreground'
+                : ''
+            }
           >
             {triggerContent}
           </span>
           <ChevronsUpDown className="h-4 w-4 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0" align="start">
+      <PopoverContent
+        className={cn(
+          'p-0',
+          matchTriggerWidth ? 'w-[--radix-popover-trigger-width]' : 'w-[280px]'
+        )}
+        align="start"
+      >
         <Command>
           {enableSearch && <CommandInput placeholder="Search…" />}
           <CommandList>
