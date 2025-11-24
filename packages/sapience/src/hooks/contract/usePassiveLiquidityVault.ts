@@ -957,7 +957,7 @@ export function usePassiveLiquidityVault(
   );
 
   const formatUtilizationRate = useCallback((rate: bigint) => {
-    return (Number(rate) / 1e16).toFixed(2); 
+    return (Number(rate) / 1e16).toFixed(2);
   }, []);
 
   const formatinteractionDelay = useCallback((delay: bigint) => {
