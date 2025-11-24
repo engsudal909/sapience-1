@@ -47,7 +47,7 @@ import { Copy, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, fromUnixTime } from 'date-fns';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { keccak256, concatHex, toHex } from 'viem';
-import { umaResolver } from '@sapience/sdk/contracts';
+import { lzUmaResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
@@ -143,7 +143,7 @@ const RFQTab = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
-  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
+  const UMA_RESOLVER_ADDRESS = lzUmaResolver[DEFAULT_CHAIN_ID]?.address;
 
   const umaWrappedMarketAbi = [
     {

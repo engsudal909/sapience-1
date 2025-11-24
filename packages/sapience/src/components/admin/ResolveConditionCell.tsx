@@ -5,7 +5,7 @@ import { useWallets } from '@privy-io/react-auth';
 import { Loader2 } from 'lucide-react';
 import { erc20Abi, zeroAddress, toHex } from 'viem';
 import { useReadContract } from 'wagmi';
-import { umaResolver } from '@sapience/sdk/contracts';
+import { lzUmaResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 
@@ -57,9 +57,18 @@ const ResolveConditionCell = ({
     | `0x${string}`
     | undefined;
 
-  // Hardcoded Arbitrum One + UMA Resolver address
   const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
-  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
+  const UMA_RESOLVER_ADDRESS = lzUmaResolver[DEFAULT_CHAIN_ID]?.address;
+
+  // Debug logging
+  console.log('ResolveConditionCell Debug:', {
+    DEFAULT_CHAIN_ID,
+    UMA_RESOLVER_ADDRESS,
+    lzUmaResolver,
+    connectedAddress,
+    claim,
+    endTime,
+  });
 
   const nowSec = Math.floor(Date.now() / 1000);
   const pastEnd = !!endTime && nowSec >= endTime;
@@ -97,6 +106,19 @@ const ResolveConditionCell = ({
     typeof allowance !== 'undefined' && typeof bondAmount !== 'undefined'
       ? allowance < bondAmount
       : false;
+
+  // Debug logging for button state
+  console.log('Button State:', {
+    umaConfigured,
+    connectedAddress,
+    requiresApproval,
+    bondCurrency: bondCurrency,
+    allowance: allowance?.toString(),
+    bondAmount: bondAmount?.toString(),
+    pastEnd,
+    claim,
+    endTime,
+  });
 
   const { writeContract: approveWrite, isPending: isApproving } =
     useSapienceWriteContract({
