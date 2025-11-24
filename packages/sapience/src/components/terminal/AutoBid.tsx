@@ -1,10 +1,10 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits, isAddress } from 'viem';
-import { Clock, Info, Pencil, Plus, X } from 'lucide-react';
+import { Clock, Info, Pause, Pencil, Play, X } from 'lucide-react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
@@ -36,6 +36,8 @@ import { cn, formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 import ForecastOddsSlider from '~/components/shared/ForecastOddsSlider';
+import EnsAvatar from '~/components/shared/EnsAvatar';
+import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
@@ -47,19 +49,21 @@ type ConditionSelection = {
   outcome: ConditionOutcome;
 };
 
+type OrderStatus = 'active' | 'paused';
+
 type Order = {
   id: string;
-  maxSpend: number;
   expiration: string | null;
+  autoPausedAt: string | null;
   strategy: OrderStrategy;
   copyTradeAddress?: string;
   increment?: number;
   conditionSelections?: ConditionSelection[];
   odds: number;
+  status: OrderStatus;
 };
 
 type OrderDraft = {
-  maxSpend: string;
   durationValue: string;
   strategy: OrderStrategy;
   copyTradeAddress: string;
@@ -68,10 +72,143 @@ type OrderDraft = {
   odds: number;
 };
 
+const AUTO_BID_STORAGE_KEY = 'sapience:autoBidOrders';
+
+const sanitizeConditionSelections = (
+  value: unknown
+): ConditionSelection[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const selections = value
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+      const id =
+        typeof (item as ConditionSelection).id === 'string'
+          ? (item as ConditionSelection).id
+          : null;
+      const outcome =
+        (item as ConditionSelection).outcome === 'yes' ||
+        (item as ConditionSelection).outcome === 'no'
+          ? (item as ConditionSelection).outcome
+          : null;
+      if (!id || !outcome) {
+        return null;
+      }
+      return { id, outcome };
+    })
+    .filter((entry): entry is ConditionSelection => Boolean(entry));
+  return selections.length > 0 ? selections : undefined;
+};
+
+const sanitizeOrder = (value: unknown): Order | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const candidate = value as Partial<Order>;
+  if (typeof candidate.id !== 'string' || candidate.id.length === 0) {
+    return null;
+  }
+  if (typeof candidate.odds !== 'number' || !Number.isFinite(candidate.odds)) {
+    return null;
+  }
+  const strategy: OrderStrategy | null =
+    candidate.strategy === 'copy_trade'
+      ? 'copy_trade'
+      : candidate.strategy === 'conditions'
+        ? 'conditions'
+        : null;
+  if (!strategy) {
+    return null;
+  }
+
+  const expiration =
+    typeof candidate.expiration === 'string' ? candidate.expiration : null;
+  const autoPausedAt =
+    typeof candidate.autoPausedAt === 'string' ? candidate.autoPausedAt : null;
+
+  const baseOrder: Order = {
+    id: candidate.id,
+    expiration,
+    autoPausedAt,
+    strategy,
+    odds: clampConditionOdds(candidate.odds),
+    status:
+      candidate.status === 'paused' || candidate.status === 'active'
+        ? candidate.status
+        : 'active',
+  };
+
+  if (strategy === 'copy_trade') {
+    baseOrder.copyTradeAddress =
+      typeof candidate.copyTradeAddress === 'string'
+        ? candidate.copyTradeAddress
+        : undefined;
+    baseOrder.increment =
+      typeof candidate.increment === 'number' &&
+      Number.isFinite(candidate.increment)
+        ? candidate.increment
+        : undefined;
+  } else if (strategy === 'conditions') {
+    baseOrder.conditionSelections = sanitizeConditionSelections(
+      candidate.conditionSelections
+    );
+  }
+
+  return baseOrder;
+};
+
+const readOrdersFromStorage = (): Order[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(AUTO_BID_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .map((entry) => sanitizeOrder(entry))
+      .filter((order): order is Order => Boolean(order));
+  } catch {
+    return [];
+  }
+};
+
+const writeOrdersToStorage = (orders: Order[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(
+      AUTO_BID_STORAGE_KEY,
+      JSON.stringify(orders ?? [])
+    );
+  } catch {
+    // no-op
+  }
+};
+
 const HOUR_IN_MS = 60 * 60 * 1000;
 const DEFAULT_DURATION_HOURS = '24';
 const DEFAULT_CONDITION_ODDS = 50;
 const EXAMPLE_ODDS_STAKE = 100;
+const AUTO_PAUSE_TICK_MS = 1000;
+const YES_BADGE_BASE_CLASSES =
+  'border-green-500/40 bg-green-500/10 text-green-600';
+const YES_BADGE_HOVER_CLASSES =
+  'hover:border-green-500/60 hover:bg-green-500/15 hover:text-green-600/90';
+const YES_BADGE_SHADOW = 'shadow-[0_0_0_1px_rgba(34,197,94,0.35)]';
+const NO_BADGE_BASE_CLASSES = 'border-red-500/40 bg-red-500/10 text-red-600';
+const NO_BADGE_HOVER_CLASSES =
+  'hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-600/90';
+const NO_BADGE_SHADOW = 'shadow-[0_0_0_1px_rgba(239,68,68,0.35)]';
 
 const withAlpha = (color: string, alpha: number): string => {
   const hexMatch = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
@@ -102,6 +239,26 @@ const formatDurationValue = (value: number) => {
   return fixed.replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
 };
 
+const formatTimeRemaining = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return '0s';
+  const totalSeconds = Math.floor(value / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  }
+  return `${seconds}s`;
+};
+
 const deriveDurationValueFromExpiration = (
   expiration?: string | null
 ): string => {
@@ -121,7 +278,6 @@ const deriveDurationValueFromExpiration = (
 };
 
 const createEmptyDraft = (): OrderDraft => ({
-  maxSpend: '',
   durationValue: '',
   strategy: 'conditions',
   copyTradeAddress: '',
@@ -165,6 +321,7 @@ const AutoBid: React.FC = () => {
     (SPENDER_ADDRESS as string | undefined) ?? ''
   );
   const [orders, setOrders] = useState<Order[]>([]);
+  const hasHydratedOrdersRef = useRef(false);
   const [draft, setDraft] = useState<OrderDraft>(() => createEmptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -172,6 +329,7 @@ const AutoBid: React.FC = () => {
   const [isDurationExpanded, setIsDurationExpanded] = useState(false);
   const [isPayoutPopoverOpen, setIsPayoutPopoverOpen] = useState(false);
   const [examplePayoutInput, setExamplePayoutInput] = useState('');
+  const [now, setNow] = useState(() => Date.now());
   const isExamplePayoutInputValid = useMemo(() => {
     const parsed = Number(examplePayoutInput);
     return Number.isFinite(parsed) && parsed >= 100;
@@ -189,6 +347,21 @@ const AutoBid: React.FC = () => {
       return condition.endTime > nowSeconds;
     });
   }, [conditionCatalog]);
+
+  useEffect(() => {
+    const storedOrders = readOrdersFromStorage();
+    if (storedOrders.length > 0) {
+      setOrders(storedOrders);
+    }
+    hasHydratedOrdersRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedOrdersRef.current) {
+      return;
+    }
+    writeOrdersToStorage(orders);
+  }, [orders]);
 
   const conditionItems = useMemo<MultiSelectItem[]>(() => {
     return activeConditionCatalog.map((condition) => ({
@@ -235,6 +408,40 @@ const AutoBid: React.FC = () => {
       ])
     );
   }, [conditionCatalog]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now());
+    }, AUTO_PAUSE_TICK_MS);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (orders.length === 0) {
+      return;
+    }
+    let mutated = false;
+    const updated = orders.map((order) => {
+      if (order.status === 'active' && order.expiration) {
+        const expiresAt = new Date(order.expiration).getTime();
+        if (Number.isFinite(expiresAt) && expiresAt <= now) {
+          mutated = true;
+          return {
+            ...order,
+            status: 'paused' as OrderStatus,
+            expiration: null,
+            autoPausedAt: new Date(now).toISOString(),
+          };
+        }
+      }
+      return order;
+    });
+    if (mutated) {
+      setOrders(updated);
+    }
+  }, [orders, now]);
 
   const tokenDecimals = useMemo(() => {
     try {
@@ -286,12 +493,6 @@ const AutoBid: React.FC = () => {
     }
   }, [allowanceValue]);
 
-  const parsedMaxSpend = useMemo(() => {
-    const explicit = Number(draft.maxSpend);
-    if (Number.isFinite(explicit) && explicit > 0) return explicit;
-    return allowanceValue;
-  }, [draft.maxSpend, allowanceValue]);
-
   const parsedIncrement = useMemo(() => {
     const next = Number(draft.increment);
     return Number.isFinite(next) ? next : NaN;
@@ -322,12 +523,7 @@ const AutoBid: React.FC = () => {
 
   const isDurationValid = parsedDurationMs !== undefined;
 
-  const isFormValid =
-    Number.isFinite(parsedMaxSpend) &&
-    parsedMaxSpend > 0 &&
-    isDurationValid &&
-    isCopyTradeValid &&
-    isConditionsValid;
+  const isFormValid = isDurationValid && isCopyTradeValid && isConditionsValid;
 
   type DraftUpdater = Partial<OrderDraft> | ((prev: OrderDraft) => OrderDraft);
 
@@ -380,12 +576,26 @@ const AutoBid: React.FC = () => {
     conditionId: string,
     outcome: ConditionOutcome
   ) => {
-    updateDraft((prev) => ({
-      ...prev,
-      conditionSelections: prev.conditionSelections.map((selection) =>
-        selection.id === conditionId ? { ...selection, outcome } : selection
-      ),
-    }));
+    updateDraft((prev) => {
+      let nextOdds = prev.odds;
+      const nextSelections = prev.conditionSelections.map((selection) => {
+        if (selection.id !== conditionId) {
+          return selection;
+        }
+        if (
+          prev.conditionSelections.length === 1 &&
+          selection.outcome !== outcome
+        ) {
+          nextOdds = clampConditionOdds(100 - prev.odds);
+        }
+        return { ...selection, outcome };
+      });
+      return {
+        ...prev,
+        conditionSelections: nextSelections,
+        odds: nextOdds,
+      };
+    });
   };
 
   const handleOrderOddsChange = (odds: number) => {
@@ -430,7 +640,6 @@ const AutoBid: React.FC = () => {
       order.expiration
     );
     setDraft({
-      maxSpend: order.maxSpend.toString(),
       durationValue: derivedDurationValue,
       strategy: order.strategy,
       copyTradeAddress: order.copyTradeAddress ?? '',
@@ -453,16 +662,28 @@ const AutoBid: React.FC = () => {
     setOrders((prev) => prev.filter((order) => order.id !== id));
     if (editingId === id) {
       resetDraft();
+      setIsBuilderOpen(false);
     }
+  };
+
+  const toggleOrderStatus = (id: string) => {
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== id) {
+          return order;
+        }
+        const nextStatus = order.status === 'active' ? 'paused' : 'active';
+        return {
+          ...order,
+          status: nextStatus,
+          autoPausedAt: nextStatus === 'active' ? null : order.autoPausedAt,
+        };
+      })
+    );
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!Number.isFinite(parsedMaxSpend) || parsedMaxSpend <= 0) {
-      setFormError('Enter a positive max spend.');
-      return;
-    }
-
     if (parsedDurationMs === undefined) {
       setFormError('Duration must be greater than zero.');
       return;
@@ -501,12 +722,19 @@ const AutoBid: React.FC = () => {
         ? new Date(Date.now() + parsedDurationMs).toISOString()
         : null;
 
+    const existingOrder = editingId
+      ? orders.find((order) => order.id === editingId)
+      : undefined;
+
     const nextOrder: Order = {
       id:
         editingId ??
         `order-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      maxSpend: parsedMaxSpend,
       expiration: expirationTimestamp,
+      autoPausedAt:
+        typeof parsedDurationMs === 'number'
+          ? null
+          : (existingOrder?.autoPausedAt ?? null),
       strategy: draft.strategy,
       copyTradeAddress:
         draft.strategy === 'copy_trade' ? trimmedCopyTradeAddress : undefined,
@@ -514,6 +742,9 @@ const AutoBid: React.FC = () => {
       conditionSelections:
         draft.strategy === 'conditions' ? draft.conditionSelections : undefined,
       odds: clampConditionOdds(draft.odds),
+      status: editingId
+        ? (orders.find((order) => order.id === editingId)?.status ?? 'active')
+        : 'active',
     };
 
     setOrders((prev) =>
@@ -547,21 +778,9 @@ const AutoBid: React.FC = () => {
     conditions: 'Limit Order',
     copy_trade: 'Copy Trade',
   };
-
-  const describeExpiration = (value: string | null) => {
-    if (!value) {
-      return 'No expiration';
-    }
-    try {
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return 'Invalid date';
-      return date.toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      });
-    } catch {
-      return 'Invalid date';
-    }
+  const strategyBadgeLabels: Record<OrderStrategy, string> = {
+    conditions: 'LIMIT',
+    copy_trade: 'COPY',
   };
 
   const describeConditionTargeting = (selections?: ConditionSelection[]) => {
@@ -578,6 +797,24 @@ const AutoBid: React.FC = () => {
     }
     return `${yesCount} Yes · ${noCount} No`;
   };
+
+  const describeAutoPauseStatus = useCallback(
+    (order: Order) => {
+      if (!order.expiration) {
+        return 'No expiration set';
+      }
+      const expiresAt = new Date(order.expiration).getTime();
+      if (!Number.isFinite(expiresAt)) {
+        return 'No expiration set';
+      }
+      const remainingMs = expiresAt - now;
+      if (remainingMs <= 0) {
+        return 'Auto-pausing...';
+      }
+      return `${formatTimeRemaining(remainingMs)} until auto-pause`;
+    },
+    [now]
+  );
 
   // Approval dialog is controlled via context; no event listeners needed
 
@@ -631,93 +868,206 @@ const AutoBid: React.FC = () => {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">
-                  Active Orders
+                  Orders
                 </p>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-auto">
-                {orders.length > 0 ? (
-                  <span className="text-xs font-mono text-muted-foreground">
-                    {orders.length} {orders.length === 1 ? 'order' : 'orders'}
-                  </span>
-                ) : null}
                 <button
                   type="button"
-                  className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent-gold underline decoration-dotted decoration-accent-gold/70 underline-offset-4 transition-colors hover:text-accent-gold/80 inline-flex items-center gap-1.5"
+                  className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent-gold underline decoration-dotted decoration-accent-gold/70 underline-offset-4 transition-colors hover:text-accent-gold/80"
                   onClick={() => {
                     resetDraft();
                     setIsBuilderOpen(true);
                   }}
                 >
-                  <Plus className="h-3 w-3" />
-                  Create
+                  Create Order
                 </button>
               </div>
             </div>
-            <div className="mt-4 flex-1 min-h-0 overflow-y-auto px-1">
+            <div className="mt-2 flex-1 min-h-0 overflow-y-auto">
               {orders.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
                   Create an order to see it here.
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {sortedOrders.map((order) => (
-                    <li
-                      key={order.id}
-                      className="rounded-md border border-border/60 bg-muted/10 p-3"
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="secondary">
-                              {strategyLabels[order.strategy]}
-                            </Badge>
-                            <span className="text-sm font-semibold text-brand-white">
-                              {formatFiveSigFigs(order.maxSpend)}{' '}
-                              {collateralSymbol} max spend
-                            </span>
+                  {sortedOrders.map((order) => {
+                    const isActive = order.status === 'active';
+                    return (
+                      <li
+                        key={order.id}
+                        className="rounded-md border border-border/60 bg-background p-3"
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div className="space-y-1 w-full">
+                            <div className="flex w-full items-start gap-2 mb-1.5">
+                              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleOrderStatus(order.id)}
+                                  className={cn(
+                                    'group/order-toggle relative inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                                    order.status === 'active'
+                                      ? cn(
+                                          YES_BADGE_BASE_CLASSES,
+                                          YES_BADGE_HOVER_CLASSES,
+                                          YES_BADGE_SHADOW
+                                        )
+                                      : cn(
+                                          'border-border/40 bg-transparent text-muted-foreground/70',
+                                          YES_BADGE_HOVER_CLASSES
+                                        )
+                                  )}
+                                  aria-label={
+                                    order.status === 'active'
+                                      ? 'Pause order'
+                                      : 'Resume order'
+                                  }
+                                >
+                                  <Play
+                                    className={cn(
+                                      'h-2.5 w-2.5 transition-all duration-200',
+                                      isActive
+                                        ? 'text-green-600 opacity-95 group-hover/order-toggle:text-muted-foreground/80 group-hover/order-toggle:opacity-0'
+                                        : 'text-green-600 opacity-0 group-hover/order-toggle:opacity-100'
+                                    )}
+                                    aria-hidden
+                                  />
+                                  <Pause
+                                    className={cn(
+                                      'absolute h-2.5 w-2.5 transition-all duration-200',
+                                      isActive
+                                        ? 'text-muted-foreground opacity-0 group-hover/order-toggle:text-muted-foreground group-hover/order-toggle:opacity-100'
+                                        : 'text-muted-foreground/90 opacity-100 group-hover/order-toggle:text-green-600 group-hover/order-toggle:opacity-0'
+                                    )}
+                                    aria-hidden
+                                  />
+                                </button>
+                                <Badge
+                                  variant="secondary"
+                                  className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] h-6 px-3 inline-flex items-center rounded-full border border-border/60"
+                                >
+                                  {strategyBadgeLabels[order.strategy]}
+                                </Badge>
+                                <span className="text-sm font-mono font-medium text-brand-white">
+                                  {order.strategy === 'copy_trade'
+                                    ? `+${formatFiveSigFigs(
+                                        order.increment ?? 0
+                                      )} ${collateralSymbol}`
+                                    : `${formatPercentChance(order.odds / 100)} odds`}
+                                </span>
+                              </div>
+                              <div className="ml-auto flex items-center justify-end self-start">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEdit(order)}
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border/60 bg-transparent text-muted-foreground transition-colors hover:border-border hover:text-brand-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  aria-label="Edit order"
+                                >
+                                  <Pencil className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                            </div>
+                            {order.strategy === 'copy_trade' ? (
+                              <>
+                                {order.copyTradeAddress ? (
+                                  <div className="flex items-center gap-2 py-1.5">
+                                    <EnsAvatar
+                                      address={order.copyTradeAddress}
+                                      width={16}
+                                      height={16}
+                                      rounded={false}
+                                      className="rounded-[3px]"
+                                    />
+                                    <AddressDisplay
+                                      address={order.copyTradeAddress}
+                                      compact
+                                      className="text-brand-white [&_.font-mono]:text-brand-white"
+                                    />
+                                  </div>
+                                ) : null}
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" aria-hidden />
+                                  <span>{describeAutoPauseStatus(order)}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                {order.conditionSelections &&
+                                order.conditionSelections.length > 0 ? (
+                                  <div className="space-y-1 py-1.5">
+                                    {order.conditionSelections.map(
+                                      (selection) => {
+                                        const categorySlug =
+                                          conditionCategoryMap[selection.id] ??
+                                          undefined;
+                                        const Icon =
+                                          getCategoryIcon(categorySlug);
+                                        const color =
+                                          getCategoryStyle(categorySlug)?.color;
+                                        const label =
+                                          conditionLabelById[selection.id] ??
+                                          selection.id;
+                                        return (
+                                          <div
+                                            key={selection.id}
+                                            className="flex w-full items-center gap-2 text-xs"
+                                          >
+                                            <span
+                                              className="inline-flex h-5 w-5 items-center justify-center rounded-full shrink-0"
+                                              style={{
+                                                backgroundColor: withAlpha(
+                                                  color || 'hsl(var(--muted))',
+                                                  0.14
+                                                ),
+                                              }}
+                                            >
+                                              <Icon
+                                                className="h-3 w-3"
+                                                style={{
+                                                  color: color || 'inherit',
+                                                  strokeWidth: 1,
+                                                }}
+                                              />
+                                            </span>
+                                            <span className="font-mono text-xs text-brand-white leading-tight flex-1 min-w-0 break-words">
+                                              {label}
+                                            </span>
+                                            <span
+                                              className={cn(
+                                                'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-mono font-medium border',
+                                                selection.outcome === 'yes'
+                                                  ? YES_BADGE_BASE_CLASSES
+                                                  : NO_BADGE_BASE_CLASSES
+                                              )}
+                                            >
+                                              {selection.outcome === 'yes'
+                                                ? 'Yes'
+                                                : 'No'}
+                                            </span>
+                                          </div>
+                                        );
+                                      }
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="py-1.5 text-xs text-muted-foreground">
+                                    {describeConditionTargeting(
+                                      order.conditionSelections
+                                    )}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" aria-hidden />
+                                  <span>{describeAutoPauseStatus(order)}</span>
+                                </div>
+                              </>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {order.expiration
-                              ? `Expires ${describeExpiration(order.expiration)}`
-                              : 'No expiration limit'}
-                          </p>
-                          {order.strategy === 'copy_trade' ? (
-                            <p className="text-xs text-muted-foreground break-all">
-                              Copy{' '}
-                              <span className="text-brand-white">
-                                {order.copyTradeAddress}
-                              </span>{' '}
-                              · Increment{' '}
-                              {formatFiveSigFigs(order.increment ?? 0)}{' '}
-                              {collateralSymbol}
-                            </p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              {describeConditionTargeting(
-                                order.conditionSelections
-                              )}
-                            </p>
-                          )}
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEdit(order)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(order.id)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -729,21 +1079,12 @@ const AutoBid: React.FC = () => {
         <DialogContent className="border border-border/60 bg-brand-black text-brand-white sm:max-w-lg w-full">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? 'Edit order' : 'Create Order'}
+              {editingId ? 'Edit Order' : 'Create Order'}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Orders only execute while this app is running.
             </DialogDescription>
           </DialogHeader>
-
-          {editingId ? (
-            <Badge
-              variant="secondary"
-              className="w-fit text-[10px] uppercase tracking-[0.2em]"
-            >
-              Editing existing order
-            </Badge>
-          ) : null}
 
           <form className="space-y-4 pt-2" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-2">
@@ -756,7 +1097,7 @@ const AutoBid: React.FC = () => {
                       <Button
                         key={strategy}
                         type="button"
-                        size="sm"
+                        size="xs"
                         variant={isActive ? 'default' : 'ghost'}
                         className="flex-1"
                         aria-pressed={isActive}
@@ -793,7 +1134,7 @@ const AutoBid: React.FC = () => {
                   >
                     prediction market
                   </a>{' '}
-                  traders.
+                  traders. These orders may be filled multiple times.
                 </p>
               )}
             </div>
@@ -877,7 +1218,7 @@ const AutoBid: React.FC = () => {
                         return (
                           <li
                             key={selection.id}
-                            className="rounded-md border border-border/60 bg-brand-black/20 p-3"
+                            className="rounded-md border border-border/60 bg-background p-3"
                           >
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex-1 min-w-0">
@@ -919,8 +1260,15 @@ const AutoBid: React.FC = () => {
                                     className={cn(
                                       'flex-1 min-w-[42px] inline-flex items-center justify-center rounded-sm border px-2 text-[10px] font-mono leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-6',
                                       selection.outcome === 'yes'
-                                        ? 'border-emerald-400 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]'
-                                        : 'border-border/60 text-muted-foreground hover:border-emerald-400/50 hover:text-emerald-100 hover:bg-emerald-400/5'
+                                        ? cn(
+                                            YES_BADGE_BASE_CLASSES,
+                                            YES_BADGE_HOVER_CLASSES,
+                                            YES_BADGE_SHADOW
+                                          )
+                                        : cn(
+                                            'border-border/60 text-muted-foreground',
+                                            YES_BADGE_HOVER_CLASSES
+                                          )
                                     )}
                                   >
                                     Yes
@@ -937,8 +1285,15 @@ const AutoBid: React.FC = () => {
                                     className={cn(
                                       'flex-1 min-w-[42px] inline-flex items-center justify-center rounded-sm border px-2 text-[10px] font-mono leading-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-6',
                                       selection.outcome === 'no'
-                                        ? 'border-rose-400 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(244,63,94,0.35)]'
-                                        : 'border-border/60 text-muted-foreground hover:border-rose-400/50 hover:text-rose-100 hover:bg-rose-400/5'
+                                        ? cn(
+                                            NO_BADGE_BASE_CLASSES,
+                                            NO_BADGE_HOVER_CLASSES,
+                                            NO_BADGE_SHADOW
+                                          )
+                                        : cn(
+                                            'border-border/60 text-muted-foreground',
+                                            NO_BADGE_HOVER_CLASSES
+                                          )
                                     )}
                                   >
                                     No
@@ -1010,7 +1365,7 @@ const AutoBid: React.FC = () => {
                                 <PopoverTrigger asChild>
                                   <button
                                     type="button"
-                                    className="font-mono text-sm text-brand-white underline decoration-dotted decoration-border underline-offset-2 hover:text-brand-white/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
+                                    className="font-mono text-sm text-brand-white underline decoration-dotted decoration-brand-white underline-offset-2 hover:text-brand-white/80 hover:decoration-brand-white/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border"
                                   >
                                     {payoutDisplay} USDe
                                   </button>
@@ -1021,7 +1376,7 @@ const AutoBid: React.FC = () => {
                                 >
                                   <div className="space-y-2">
                                     <Label className="text-xs">
-                                      Example <em>To Win</em> Aamount
+                                      Example <em>To Win</em> Amount
                                     </Label>
                                     <Input
                                       type="number"
@@ -1069,7 +1424,7 @@ const AutoBid: React.FC = () => {
                 <>
                   <div className="flex items-center justify-between gap-2">
                     <Label htmlFor="order-duration" className="text-sm">
-                      Duration
+                      Time until auto-pause
                     </Label>
                   </div>
                   <div className="flex flex-col gap-2">
@@ -1097,7 +1452,7 @@ const AutoBid: React.FC = () => {
                         onClick={clearDurationFields}
                         className="text-[11px] text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
                       >
-                        Remove expiration
+                        Remove Expiration
                       </button>
                     </div>
                   </div>
@@ -1112,13 +1467,15 @@ const AutoBid: React.FC = () => {
                     <Clock className="h-3.5 w-3.5" aria-hidden />
                     Set Expiration
                   </button>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Info
-                      className="h-3 w-3 text-muted-foreground"
-                      aria-hidden
-                    />
-                    Orders can be cancelled at any time.
-                  </span>
+                  {editingId ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(editingId)}
+                      className="text-[11px] font-mono uppercase tracking-[0.2em] text-rose-400 underline decoration-dotted underline-offset-4 transition-colors hover:text-rose-400/80"
+                    >
+                      Cancel Order
+                    </button>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -1130,17 +1487,6 @@ const AutoBid: React.FC = () => {
             ) : null}
 
             <DialogFooter className="flex flex-col gap-2">
-              {editingId ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={resetDraft}
-                  className="self-start"
-                >
-                  Cancel edit
-                </Button>
-              ) : null}
               <Button
                 type="submit"
                 size="sm"
