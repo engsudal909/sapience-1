@@ -383,7 +383,7 @@ const VaultsPageContent = () => {
               !!(pendingRequest && !pendingRequest.processed) ||
               isPermitLoading ||
               isRestricted ||
-              exceedsVaultCapacity
+              (!!depositAmount && exceedsVaultCapacity)
             }
             onClick={async () => {
               if (!isConnected) {
@@ -408,12 +408,12 @@ const VaultsPageContent = () => {
                   ? 'Vault Paused'
                   : isInteractionDelayActive
                     ? 'Cooldown in progress'
-                    : quoteSignatureValid === false
-                      ? 'Waiting for Price Quote'
-                      : !pricePerShare || pricePerShare === '0'
-                        ? 'No Price Available'
-                        : exceedsVaultCapacity
-                          ? 'Exceeds Vault Capacity'
+                    : !!depositAmount && exceedsVaultCapacity
+                      ? 'Exceeds Vault Capacity'
+                      : quoteSignatureValid === false
+                        ? 'Waiting for Price Quote'
+                        : !pricePerShare || pricePerShare === '0'
+                          ? 'No Price Available'
                           : requiresApproval
                             ? 'Approve & Deposit'
                             : 'Submit Deposit'}
