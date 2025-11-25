@@ -413,7 +413,7 @@ const VaultsPageContent = () => {
                       : quoteSignatureValid === false
                         ? 'Waiting for Price Quote'
                         : !pricePerShare || pricePerShare === '0'
-                          ? 'No Price Available'
+                          ? 'Cannot connect to vault'
                           : requiresApproval
                             ? 'Approve & Deposit'
                             : 'Submit Deposit'}
@@ -528,7 +528,7 @@ const VaultsPageContent = () => {
                     : isInteractionDelayActive
                       ? 'Cooldown in progress'
                       : !pricePerShare || pricePerShare === '0'
-                        ? 'No Price Available'
+                        ? 'Cannot connect to vault'
                         : 'Request Withdrawal'}
           </Button>
         </div>
