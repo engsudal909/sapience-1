@@ -6,11 +6,12 @@ import {
   CHAIN_ID_ETHEREAL,
   CHAIN_ID_ETHEREAL_TESTNET,
 } from '@sapience/sdk/constants';
-import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
-
+import {
+  DEFAULT_COLLATERAL_ASSET,
+  GAS_RESERVE,
+} from '~/components/admin/constants';
 
 const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
-const GAS_RESERVE = 0.5;
 
 interface UseCollateralBalanceProps {
   address?: `0x${string}`;
