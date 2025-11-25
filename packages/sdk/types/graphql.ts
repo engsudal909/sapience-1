@@ -120,6 +120,15 @@ export type AggregateTransaction = {
   _sum?: Maybe<TransactionSumAggregate>;
 };
 
+export type AggregateUser = {
+  __typename?: 'AggregateUser';
+  _avg?: Maybe<UserAvgAggregate>;
+  _count?: Maybe<UserCountAggregate>;
+  _max?: Maybe<UserMaxAggregate>;
+  _min?: Maybe<UserMinAggregate>;
+  _sum?: Maybe<UserSumAggregate>;
+};
+
 export type AggregatedProfitEntryType = {
   __typename?: 'AggregatedProfitEntryType';
   owner: Scalars['String']['output'];
@@ -3538,6 +3547,7 @@ export type Query = {
   aggregateResource: AggregateResource;
   aggregateResourcePrice: AggregateResourcePrice;
   aggregateTransaction: AggregateTransaction;
+  aggregateUser: AggregateUser;
   allTimeProfitLeaderboard: Array<AggregatedProfitEntryType>;
   attestation?: Maybe<Attestation>;
   attestations: Array<Attestation>;
@@ -3565,6 +3575,8 @@ export type Query = {
   findFirstResourcePriceOrThrow?: Maybe<ResourcePrice>;
   findFirstTransaction?: Maybe<Transaction>;
   findFirstTransactionOrThrow?: Maybe<Transaction>;
+  findFirstUser?: Maybe<User>;
+  findFirstUserOrThrow?: Maybe<User>;
   forecasterScore?: Maybe<ForecasterScoreType>;
   getAttestation?: Maybe<Attestation>;
   getCategory?: Maybe<Category>;
@@ -3578,6 +3590,7 @@ export type Query = {
   getResource?: Maybe<Resource>;
   getResourcePrice?: Maybe<ResourcePrice>;
   getTransaction?: Maybe<Transaction>;
+  getUser?: Maybe<User>;
   groupByAttestation: Array<AttestationGroupBy>;
   groupByCategory: Array<CategoryGroupBy>;
   groupByCondition: Array<ConditionGroupBy>;
@@ -3588,6 +3601,7 @@ export type Query = {
   groupByResource: Array<ResourceGroupBy>;
   groupByResourcePrice: Array<ResourcePriceGroupBy>;
   groupByTransaction: Array<TransactionGroupBy>;
+  groupByUser: Array<UserGroupBy>;
   indexCandles: CandleAndTimestampType;
   indexPriceAtTime?: Maybe<CandleType>;
   legacyMarketCandles: Array<CandleType>;
@@ -3611,8 +3625,10 @@ export type Query = {
   totalVolumeByMarket: Scalars['Float']['output'];
   transaction?: Maybe<Transaction>;
   transactions: Array<Transaction>;
+  user?: Maybe<User>;
   userParlays: Array<ParlayType>;
   userParlaysCount: Scalars['Int']['output'];
+  users: Array<User>;
 };
 
 
@@ -3708,6 +3724,15 @@ export type QueryAggregateTransactionArgs = {
   skip?: InputMaybe<Scalars['Int']['input']>;
   take?: InputMaybe<Scalars['Int']['input']>;
   where?: InputMaybe<TransactionWhereInput>;
+};
+
+
+export type QueryAggregateUserArgs = {
+  cursor?: InputMaybe<UserWhereUniqueInput>;
+  orderBy?: InputMaybe<Array<UserOrderByWithRelationInput>>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<UserWhereInput>;
 };
 
 
@@ -3956,6 +3981,26 @@ export type QueryFindFirstTransactionOrThrowArgs = {
 };
 
 
+export type QueryFindFirstUserArgs = {
+  cursor?: InputMaybe<UserWhereUniqueInput>;
+  distinct?: InputMaybe<Array<UserScalarFieldEnum>>;
+  orderBy?: InputMaybe<Array<UserOrderByWithRelationInput>>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<UserWhereInput>;
+};
+
+
+export type QueryFindFirstUserOrThrowArgs = {
+  cursor?: InputMaybe<UserWhereUniqueInput>;
+  distinct?: InputMaybe<Array<UserScalarFieldEnum>>;
+  orderBy?: InputMaybe<Array<UserOrderByWithRelationInput>>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<UserWhereInput>;
+};
+
+
 export type QueryForecasterScoreArgs = {
   attester: Scalars['String']['input'];
 };
@@ -4021,6 +4066,11 @@ export type QueryGetResourcePriceArgs = {
 
 export type QueryGetTransactionArgs = {
   where: TransactionWhereUniqueInput;
+};
+
+
+export type QueryGetUserArgs = {
+  where: UserWhereUniqueInput;
 };
 
 
@@ -4121,6 +4171,16 @@ export type QueryGroupByTransactionArgs = {
   skip?: InputMaybe<Scalars['Int']['input']>;
   take?: InputMaybe<Scalars['Int']['input']>;
   where?: InputMaybe<TransactionWhereInput>;
+};
+
+
+export type QueryGroupByUserArgs = {
+  by: Array<UserScalarFieldEnum>;
+  having?: InputMaybe<UserScalarWhereWithAggregatesInput>;
+  orderBy?: InputMaybe<Array<UserOrderByWithAggregationInput>>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<UserWhereInput>;
 };
 
 
@@ -4301,6 +4361,11 @@ export type QueryTransactionsArgs = {
 };
 
 
+export type QueryUserArgs = {
+  where: UserWhereUniqueInput;
+};
+
+
 export type QueryUserParlaysArgs = {
   address: Scalars['String']['input'];
   chainId?: InputMaybe<Scalars['Int']['input']>;
@@ -4314,6 +4379,16 @@ export type QueryUserParlaysArgs = {
 export type QueryUserParlaysCountArgs = {
   address: Scalars['String']['input'];
   chainId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryUsersArgs = {
+  cursor?: InputMaybe<UserWhereUniqueInput>;
+  distinct?: InputMaybe<Array<UserScalarFieldEnum>>;
+  orderBy?: InputMaybe<Array<UserOrderByWithRelationInput>>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<UserWhereInput>;
 };
 
 export type QueryMode =
@@ -5222,6 +5297,263 @@ export type TransactionWhereUniqueInput = {
   quoteToken?: InputMaybe<StringNullableFilter>;
   tradeRatioD18?: InputMaybe<StringNullableFilter>;
   type?: InputMaybe<Enumtransaction_Type_EnumFilter>;
+};
+
+/**
+ * Application-level user record, keyed by wallet address,
+ * used for referrals and other per-wallet metadata.
+ */
+export type User = {
+  __typename?: 'User';
+  _count?: Maybe<UserCount>;
+  /** Canonical Ethereum wallet address for this user. */
+  address: Scalars['String']['output'];
+  createdAt: Scalars['DateTimeISO']['output'];
+  id: Scalars['Int']['output'];
+  /**
+   * Maximum number of referrals this user's code allows. Default is 0,
+   * so codes are not usable until explicitly configured.
+   */
+  maxReferrals: Scalars['Int']['output'];
+  /** keccak256(utf8(trimmed_lowercase_code)) stored as 0x-prefixed hex. */
+  refCodeHash?: Maybe<Scalars['String']['output']>;
+  referrals: Array<User>;
+  referredBy?: Maybe<User>;
+  referredById?: Maybe<Scalars['Int']['output']>;
+  updatedAt: Scalars['DateTimeISO']['output'];
+};
+
+
+/**
+ * Application-level user record, keyed by wallet address,
+ * used for referrals and other per-wallet metadata.
+ */
+export type UserReferralsArgs = {
+  cursor?: InputMaybe<UserWhereUniqueInput>;
+  distinct?: InputMaybe<Array<UserScalarFieldEnum>>;
+  orderBy?: InputMaybe<Array<UserOrderByWithRelationInput>>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  take?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<UserWhereInput>;
+};
+
+
+/**
+ * Application-level user record, keyed by wallet address,
+ * used for referrals and other per-wallet metadata.
+ */
+export type UserReferredByArgs = {
+  where?: InputMaybe<UserWhereInput>;
+};
+
+export type UserAvgAggregate = {
+  __typename?: 'UserAvgAggregate';
+  id?: Maybe<Scalars['Float']['output']>;
+  maxReferrals?: Maybe<Scalars['Float']['output']>;
+  referredById?: Maybe<Scalars['Float']['output']>;
+};
+
+export type UserAvgOrderByAggregateInput = {
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  referredById?: InputMaybe<SortOrder>;
+};
+
+export type UserCount = {
+  __typename?: 'UserCount';
+  referrals: Scalars['Int']['output'];
+};
+
+
+export type UserCountReferralsArgs = {
+  where?: InputMaybe<UserWhereInput>;
+};
+
+export type UserCountAggregate = {
+  __typename?: 'UserCountAggregate';
+  _all: Scalars['Int']['output'];
+  address: Scalars['Int']['output'];
+  createdAt: Scalars['Int']['output'];
+  id: Scalars['Int']['output'];
+  maxReferrals: Scalars['Int']['output'];
+  refCodeHash: Scalars['Int']['output'];
+  referredById: Scalars['Int']['output'];
+  updatedAt: Scalars['Int']['output'];
+};
+
+export type UserCountOrderByAggregateInput = {
+  address?: InputMaybe<SortOrder>;
+  createdAt?: InputMaybe<SortOrder>;
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  refCodeHash?: InputMaybe<SortOrder>;
+  referredById?: InputMaybe<SortOrder>;
+  updatedAt?: InputMaybe<SortOrder>;
+};
+
+export type UserGroupBy = {
+  __typename?: 'UserGroupBy';
+  _avg?: Maybe<UserAvgAggregate>;
+  _count?: Maybe<UserCountAggregate>;
+  _max?: Maybe<UserMaxAggregate>;
+  _min?: Maybe<UserMinAggregate>;
+  _sum?: Maybe<UserSumAggregate>;
+  address: Scalars['String']['output'];
+  createdAt: Scalars['DateTimeISO']['output'];
+  id: Scalars['Int']['output'];
+  maxReferrals: Scalars['Int']['output'];
+  refCodeHash?: Maybe<Scalars['String']['output']>;
+  referredById?: Maybe<Scalars['Int']['output']>;
+  updatedAt: Scalars['DateTimeISO']['output'];
+};
+
+export type UserListRelationFilter = {
+  every?: InputMaybe<UserWhereInput>;
+  none?: InputMaybe<UserWhereInput>;
+  some?: InputMaybe<UserWhereInput>;
+};
+
+export type UserMaxAggregate = {
+  __typename?: 'UserMaxAggregate';
+  address?: Maybe<Scalars['String']['output']>;
+  createdAt?: Maybe<Scalars['DateTimeISO']['output']>;
+  id?: Maybe<Scalars['Int']['output']>;
+  maxReferrals?: Maybe<Scalars['Int']['output']>;
+  refCodeHash?: Maybe<Scalars['String']['output']>;
+  referredById?: Maybe<Scalars['Int']['output']>;
+  updatedAt?: Maybe<Scalars['DateTimeISO']['output']>;
+};
+
+export type UserMaxOrderByAggregateInput = {
+  address?: InputMaybe<SortOrder>;
+  createdAt?: InputMaybe<SortOrder>;
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  refCodeHash?: InputMaybe<SortOrder>;
+  referredById?: InputMaybe<SortOrder>;
+  updatedAt?: InputMaybe<SortOrder>;
+};
+
+export type UserMinAggregate = {
+  __typename?: 'UserMinAggregate';
+  address?: Maybe<Scalars['String']['output']>;
+  createdAt?: Maybe<Scalars['DateTimeISO']['output']>;
+  id?: Maybe<Scalars['Int']['output']>;
+  maxReferrals?: Maybe<Scalars['Int']['output']>;
+  refCodeHash?: Maybe<Scalars['String']['output']>;
+  referredById?: Maybe<Scalars['Int']['output']>;
+  updatedAt?: Maybe<Scalars['DateTimeISO']['output']>;
+};
+
+export type UserMinOrderByAggregateInput = {
+  address?: InputMaybe<SortOrder>;
+  createdAt?: InputMaybe<SortOrder>;
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  refCodeHash?: InputMaybe<SortOrder>;
+  referredById?: InputMaybe<SortOrder>;
+  updatedAt?: InputMaybe<SortOrder>;
+};
+
+export type UserNullableRelationFilter = {
+  is?: InputMaybe<UserWhereInput>;
+  isNot?: InputMaybe<UserWhereInput>;
+};
+
+export type UserOrderByRelationAggregateInput = {
+  _count?: InputMaybe<SortOrder>;
+};
+
+export type UserOrderByWithAggregationInput = {
+  _avg?: InputMaybe<UserAvgOrderByAggregateInput>;
+  _count?: InputMaybe<UserCountOrderByAggregateInput>;
+  _max?: InputMaybe<UserMaxOrderByAggregateInput>;
+  _min?: InputMaybe<UserMinOrderByAggregateInput>;
+  _sum?: InputMaybe<UserSumOrderByAggregateInput>;
+  address?: InputMaybe<SortOrder>;
+  createdAt?: InputMaybe<SortOrder>;
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  refCodeHash?: InputMaybe<SortOrderInput>;
+  referredById?: InputMaybe<SortOrderInput>;
+  updatedAt?: InputMaybe<SortOrder>;
+};
+
+export type UserOrderByWithRelationInput = {
+  address?: InputMaybe<SortOrder>;
+  createdAt?: InputMaybe<SortOrder>;
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  refCodeHash?: InputMaybe<SortOrderInput>;
+  referrals?: InputMaybe<UserOrderByRelationAggregateInput>;
+  referredBy?: InputMaybe<UserOrderByWithRelationInput>;
+  referredById?: InputMaybe<SortOrderInput>;
+  updatedAt?: InputMaybe<SortOrder>;
+};
+
+export type UserScalarFieldEnum =
+  | 'address'
+  | 'createdAt'
+  | 'id'
+  | 'maxReferrals'
+  | 'refCodeHash'
+  | 'referredById'
+  | 'updatedAt';
+
+export type UserScalarWhereWithAggregatesInput = {
+  AND?: InputMaybe<Array<UserScalarWhereWithAggregatesInput>>;
+  NOT?: InputMaybe<Array<UserScalarWhereWithAggregatesInput>>;
+  OR?: InputMaybe<Array<UserScalarWhereWithAggregatesInput>>;
+  address?: InputMaybe<StringWithAggregatesFilter>;
+  createdAt?: InputMaybe<DateTimeWithAggregatesFilter>;
+  id?: InputMaybe<IntWithAggregatesFilter>;
+  maxReferrals?: InputMaybe<IntWithAggregatesFilter>;
+  refCodeHash?: InputMaybe<StringNullableWithAggregatesFilter>;
+  referredById?: InputMaybe<IntNullableWithAggregatesFilter>;
+  updatedAt?: InputMaybe<DateTimeWithAggregatesFilter>;
+};
+
+export type UserSumAggregate = {
+  __typename?: 'UserSumAggregate';
+  id?: Maybe<Scalars['Int']['output']>;
+  maxReferrals?: Maybe<Scalars['Int']['output']>;
+  referredById?: Maybe<Scalars['Int']['output']>;
+};
+
+export type UserSumOrderByAggregateInput = {
+  id?: InputMaybe<SortOrder>;
+  maxReferrals?: InputMaybe<SortOrder>;
+  referredById?: InputMaybe<SortOrder>;
+};
+
+export type UserWhereInput = {
+  AND?: InputMaybe<Array<UserWhereInput>>;
+  NOT?: InputMaybe<Array<UserWhereInput>>;
+  OR?: InputMaybe<Array<UserWhereInput>>;
+  address?: InputMaybe<StringFilter>;
+  createdAt?: InputMaybe<DateTimeFilter>;
+  id?: InputMaybe<IntFilter>;
+  maxReferrals?: InputMaybe<IntFilter>;
+  refCodeHash?: InputMaybe<StringNullableFilter>;
+  referrals?: InputMaybe<UserListRelationFilter>;
+  referredBy?: InputMaybe<UserNullableRelationFilter>;
+  referredById?: InputMaybe<IntNullableFilter>;
+  updatedAt?: InputMaybe<DateTimeFilter>;
+};
+
+export type UserWhereUniqueInput = {
+  AND?: InputMaybe<Array<UserWhereInput>>;
+  NOT?: InputMaybe<Array<UserWhereInput>>;
+  OR?: InputMaybe<Array<UserWhereInput>>;
+  address?: InputMaybe<Scalars['String']['input']>;
+  createdAt?: InputMaybe<DateTimeFilter>;
+  id?: InputMaybe<Scalars['Int']['input']>;
+  maxReferrals?: InputMaybe<IntFilter>;
+  refCodeHash?: InputMaybe<Scalars['String']['input']>;
+  referrals?: InputMaybe<UserListRelationFilter>;
+  referredBy?: InputMaybe<UserNullableRelationFilter>;
+  referredById?: InputMaybe<IntNullableFilter>;
+  updatedAt?: InputMaybe<DateTimeFilter>;
 };
 
 export type Transaction_Type_Enum =

@@ -368,10 +368,10 @@ const AuctionRequestRow: React.FC<Props> = ({
             ),
             [
               encodedPredicted,
-              takerWagerWei,
               makerWagerWei,
+              takerWagerWei,
               getAddress(resolverAddr as `0x${string}`),
-              getAddress(makerAddr),
+              getAddress(taker as `0x${string}`),
               BigInt(makerDeadline),
               BigInt(takerNonceVal),
             ]
@@ -436,7 +436,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           makerDeadline,
           makerNonce: takerNonceVal,
           makerSignature,
-          makerWager: takerWagerWei.toString(),
+          makerWager: makerWagerWei.toString(),
         };
 
         // Send over shared Auction WS and await ack
