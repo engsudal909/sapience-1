@@ -31,7 +31,7 @@ import type { TradeFormMarketDetails } from './CreateTradeForm';
 import LottieLoader from '~/components/shared/LottieLoader';
 import { useModifyTrade } from '~/hooks/contract/useModifyTrade';
 import { useModifyTradeQuoter } from '~/hooks/contract/useModifyTradeQuoter';
-import { useTokenBalance } from '~/hooks/contract/useTokenBalance';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useTradeForm } from '~/hooks/forms/useTradeForm'; // Assuming TradeFormValues is the correct type
 import {
   HIGH_PRICE_IMPACT,
@@ -173,11 +173,13 @@ const ModifyTradeFormInternal: React.FC<ModifyTradeFormProps> = ({
     return [BigInt(0), 'Long'];
   }, [positionData]);
 
-  const { balance: walletBalance } = useTokenBalance({
-    tokenAddress: collateralAssetAddress,
+  const { balance: walletBalanceNum } = useCollateralBalance({
+    address,
     chainId,
-    enabled: isConnected && !!collateralAssetAddress,
+    enabled: isConnected && !!address,
   });
+
+  const walletBalance = walletBalanceNum.toString();
 
   // Format the original position size for the form
   const initialSize = useMemo(() => {

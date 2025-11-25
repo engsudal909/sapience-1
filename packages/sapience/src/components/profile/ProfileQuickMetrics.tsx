@@ -2,9 +2,7 @@
 
 import Image from 'next/image';
 import * as React from 'react';
-import { erc20Abi, formatUnits } from 'viem';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
-import { useReadContract } from 'wagmi';
 import {
   Calendar,
   TrendingUp,
@@ -22,12 +20,12 @@ import {
 } from '@sapience/sdk/ui/components/ui/tooltip';
 
 import type { PositionType } from '@sapience/sdk/types';
-import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
 import { useUserProfitRank } from '~/hooks/graphql/useUserProfitRank';
 import { useForecasterRank } from '~/hooks/graphql/useForecasterRank';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 type MetricBadgeProps = {
@@ -153,45 +151,24 @@ function useProfileBalance(
   chainId?: number,
   collateralSymbol?: string
 ) {
-  const collateralAssetAddress = DEFAULT_COLLATERAL_ASSET;
   const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
-  const effectiveSymbol = collateralSymbol ?? 'testUSDe';
 
-  const { data: decimals } = useReadContract({
-    abi: erc20Abi,
-    address: collateralAssetAddress,
-    functionName: 'decimals',
+  const { balance, symbol } = useCollateralBalance({
+    address: address as `0x${string}` | undefined,
     chainId: effectiveChainId,
-    query: { enabled: Boolean(address) },
-  });
-
-  const { data: balance } = useReadContract({
-    abi: erc20Abi,
-    address: collateralAssetAddress,
-    functionName: 'balanceOf',
-    args: address ? [address as `0x${string}`] : undefined,
-    chainId: effectiveChainId,
-    query: { enabled: Boolean(address) },
+    enabled: Boolean(address),
   });
 
   const memo = React.useMemo(() => {
-    try {
-      const dec =
-        typeof decimals === 'number' ? decimals : Number(decimals ?? 18);
-      if (balance === undefined || balance === null)
-        return { display: '0', tooltip: `0 ${effectiveSymbol}` };
-      const human = formatUnits(balance as unknown as bigint, dec);
-      const num = Number(human);
-      if (Number.isNaN(num))
-        return { display: '0', tooltip: `0 ${effectiveSymbol}` };
-      return {
-        display: `${formatFiveSigFigs(num)}`,
-        tooltip: `${num.toLocaleString()} ${effectiveSymbol}`,
-      };
-    } catch {
+    const effectiveSymbol = collateralSymbol ?? symbol;
+    if (balance === 0) {
       return { display: '0', tooltip: `0 ${effectiveSymbol}` };
     }
-  }, [balance, decimals, effectiveSymbol]);
+    return {
+      display: `${formatFiveSigFigs(balance)}`,
+      tooltip: `${balance.toLocaleString()} ${effectiveSymbol}`,
+    };
+  }, [balance, symbol, collateralSymbol]);
 
   return memo;
 }
