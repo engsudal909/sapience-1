@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { parseUnits } from 'viem';
 import type { Order } from '../types';
 import type { PushLogEntryParams } from './useAutoBidLogs';
 import {
@@ -10,15 +11,25 @@ import {
   resolveMessageField,
 } from '../utils';
 import type { AuctionFeedMessage } from '~/lib/auction/useAuctionRelayerFeed';
-import {
-  buildMintPredictionRequestData,
-  type QuoteBid,
-} from '~/lib/auction/useAuctionStart';
+import type {
+  BidSubmissionParams,
+  BidSubmissionResult,
+} from '~/hooks/auction/useBidSubmission';
+
+/** Cached auction context from auction.started messages */
+type AuctionContext = {
+  predictedOutcomes: `0x${string}`[];
+  resolver: `0x${string}`;
+  taker: `0x${string}`;
+  takerWager: string;
+  takerNonce: number;
+};
 
 export type UseAuctionMatchingParams = {
   orders: Order[];
   getOrderIndex: (order: Order) => number;
   pushLogEntry: (entry: PushLogEntryParams) => void;
+  balanceValue: number;
   allowanceValue: number;
   isPermitLoading: boolean;
   isRestricted: boolean;
@@ -27,22 +38,31 @@ export type UseAuctionMatchingParams = {
   tokenDecimals: number;
   auctionMessages: AuctionFeedMessage[];
   formatCollateralAmount: (value?: string | null) => string | null;
+  submitBid: (params: BidSubmissionParams) => Promise<BidSubmissionResult>;
 };
 
 export function useAuctionMatching({
   orders,
   getOrderIndex,
   pushLogEntry,
+  balanceValue,
   allowanceValue,
   isPermitLoading,
   isRestricted,
-  address,
+  address: _address,
   collateralSymbol,
+  tokenDecimals,
   auctionMessages,
   formatCollateralAmount,
+  submitBid,
 }: UseAuctionMatchingParams) {
   const processedMessageIdsRef = useRef<Set<number>>(new Set());
   const processedMessageQueueRef = useRef<number[]>([]);
+  // Cache auction context from auction.started messages for use by copy_trade on auction.bids
+  const auctionContextCacheRef = useRef<Map<string, AuctionContext>>(new Map());
+  // Track insertion order for LRU eviction
+  const auctionContextKeysRef = useRef<string[]>([]);
+  const MAX_AUCTION_CACHE_SIZE = 200;
 
   const evaluateAutoBidReadiness = useCallback(
     (details: {
@@ -85,12 +105,38 @@ export function useAuctionMatching({
         Number.isFinite(details.context.estimatedSpend)
           ? details.context.estimatedSpend
           : null;
-      const insufficient =
+
+      // Check balance first (prioritize over allowance)
+      const insufficientBalance =
+        requiredSpend != null
+          ? balanceValue < requiredSpend
+          : balanceValue <= 0;
+
+      if (insufficientBalance) {
+        const statusMessage = 'Insufficient account balance';
+        pushLogEntry({
+          kind: 'system',
+          message: `${orderTag} bid ${statusMessage}`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+            requiredSpend,
+            balanceValue,
+            highlight: statusMessage,
+          },
+          dedupeKey: `balance:${dedupeBase}`,
+        });
+        return { blocked: true as const, reason: 'balance' as const };
+      }
+
+      // Check allowance after balance
+      const insufficientAllowance =
         requiredSpend != null
           ? allowanceValue < requiredSpend
           : allowanceValue <= 0;
 
-      if (insufficient) {
+      if (insufficientAllowance) {
         const statusMessage = 'Insufficient approved spend';
         pushLogEntry({
           kind: 'system',
@@ -125,114 +171,187 @@ export function useAuctionMatching({
         return { blocked: true as const, reason: 'geofence' as const };
       }
 
-      pushLogEntry({
-        kind: 'system',
-        message: `${orderTag} ready for auto-bid`,
-        meta: {
-          orderId: details.order.id,
-          labelSnapshot: orderLabelSnapshot,
-        },
-        dedupeKey: `ready:${dedupeBase}`,
-      });
+      // Ready to submit - no log needed here, will log after successful submission
       return { blocked: false as const, reason: null };
     },
-    [allowanceValue, getOrderIndex, isPermitLoading, isRestricted, pushLogEntry]
+    [
+      allowanceValue,
+      balanceValue,
+      getOrderIndex,
+      isPermitLoading,
+      isRestricted,
+      pushLogEntry,
+    ]
   );
 
   const triggerAutoBidSubmission = useCallback(
-    (details: {
+    async (details: {
       order: Order;
       source: 'copy_trade' | 'conditions';
       auctionId?: string | null;
-      payload?: Record<string, unknown>;
+      /** Auction context from the feed message */
+      auctionContext?: {
+        takerWager: string; // wei string
+        taker: `0x${string}`;
+        takerNonce: number;
+        predictedOutcomes: `0x${string}`[];
+        resolver: `0x${string}`;
+      };
+      /** For copy_trade: the bid we're copying + increment */
+      copyBidContext?: {
+        copiedBidWager: string; // wei string from the bid we're copying
+        increment: number; // human-readable increment from order config
+      };
     }) => {
       const tag = formatOrderTag(details.order, null, getOrderIndex);
       const orderLabelSnapshot = formatOrderLabelSnapshot(tag, details.order);
-      const makerCollateral = details.payload?.makerCollateral as
-        | string
-        | undefined;
-      const submittedAmount = formatCollateralAmount(makerCollateral);
-      const submittedStatus = submittedAmount
-        ? `Submitted ${submittedAmount} ${collateralSymbol}`
-        : 'Submitted';
-      const submittedLabel = `${tag} bid ${submittedStatus}`;
-      pushLogEntry({
-        kind: 'system',
-        message: submittedLabel,
-        severity: 'success',
-        meta: {
-          orderId: details.order.id,
-          labelSnapshot: orderLabelSnapshot,
-          source: details.source,
-          auctionId: details.auctionId ?? null,
-          highlight: submittedStatus,
-        },
-      });
+
+      // Validate required auction context
+      if (!details.auctionId || !details.auctionContext) {
+        pushLogEntry({
+          kind: 'system',
+          message: `${tag} bid skipped: missing auction context`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+          },
+          dedupeKey: `context:${details.order.id}:${details.auctionId ?? 'na'}`,
+        });
+        return;
+      }
+
+      const { takerWager, taker, takerNonce, predictedOutcomes, resolver } =
+        details.auctionContext;
+
+      // Calculate our bid amount (makerWager)
+      let makerWagerWei: bigint;
       try {
-        const selectedBid = details.payload?.selectedBid as
-          | QuoteBid
-          | undefined;
-        if (selectedBid) {
-          const predictedOutcomes = (details.payload?.predictedOutcomes ||
-            []) as `0x${string}`[];
-          const resolver = details.payload?.resolver as
-            | `0x${string}`
-            | undefined;
-          const mintDraft = buildMintPredictionRequestData({
-            maker:
-              (address as `0x${string}`) ||
-              ('0x0000000000000000000000000000000000000000' as const),
-            selectedBid,
-            predictedOutcomes,
-            resolver,
-            makerCollateral,
-          });
-          if (!mintDraft) {
-            pushLogEntry({
-              kind: 'system',
-              message: `${tag} auto-bid payload incomplete`,
-              meta: {
-                orderId: details.order.id,
-                labelSnapshot: orderLabelSnapshot,
-              },
-              dedupeKey: `mint-draft:${details.order.id}:${
-                details.auctionId ?? 'na'
-              }`,
-            });
-          }
+        if (details.source === 'copy_trade' && details.copyBidContext) {
+          // For copy_trade: copied bid + increment
+          const copiedWei = BigInt(
+            details.copyBidContext.copiedBidWager || '0'
+          );
+          const incrementWei = parseUnits(
+            String(details.copyBidContext.increment || 0),
+            tokenDecimals
+          );
+          makerWagerWei = copiedWei + incrementWei;
         } else {
+          // For conditions strategy: use a default or configured amount
+          // For now, use a sensible minimum or the order's configured amount
+          const defaultAmount = details.order.increment || 1;
+          makerWagerWei = parseUnits(String(defaultAmount), tokenDecimals);
+        }
+      } catch {
+        pushLogEntry({
+          kind: 'system',
+          message: `${tag} bid skipped: invalid bid amount`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+          },
+          dedupeKey: `amount:${details.order.id}:${details.auctionId}`,
+        });
+        return;
+      }
+
+      if (makerWagerWei <= 0n) {
+        pushLogEntry({
+          kind: 'system',
+          message: `${tag} bid skipped: zero bid amount`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+          },
+          dedupeKey: `zero:${details.order.id}:${details.auctionId}`,
+        });
+        return;
+      }
+
+      // Default expiry: 60 seconds (reasonable for auto-bids)
+      const expirySeconds = 60;
+
+      try {
+        // Actually submit the bid using the shared hook
+        const result = await submitBid({
+          auctionId: details.auctionId,
+          makerWager: makerWagerWei,
+          takerWager: BigInt(takerWager || '0'),
+          predictedOutcomes,
+          resolver,
+          taker,
+          takerNonce,
+          expirySeconds,
+        });
+
+        const makerAmount = formatCollateralAmount(makerWagerWei.toString());
+        const takerWagerBigInt = BigInt(takerWager || '0');
+        const totalWei = makerWagerWei + takerWagerBigInt;
+        const toWinAmount = formatCollateralAmount(totalWei.toString());
+
+        if (result.success) {
+          // Log successful submission with "to win" format
+          const submittedStatus =
+            makerAmount && toWinAmount
+              ? `${makerAmount} ${collateralSymbol} to win ${toWinAmount} ${collateralSymbol}`
+              : makerAmount
+                ? `${makerAmount} ${collateralSymbol}`
+                : 'Submitted';
           pushLogEntry({
             kind: 'system',
-            message: `${tag} awaiting bid payload`,
+            message: `${tag} bid ${submittedStatus}`,
+            severity: 'success',
             meta: {
               orderId: details.order.id,
               labelSnapshot: orderLabelSnapshot,
+              source: details.source,
+              auctionId: details.auctionId,
+              highlight: submittedStatus,
+              makerWager: makerWagerWei.toString(),
+              takerWager,
             },
-            dedupeKey: `await-bid:${details.order.id}:${
-              details.auctionId ?? 'na'
-            }`,
+          });
+        } else {
+          // Log failed submission
+          pushLogEntry({
+            kind: 'system',
+            message: `${tag} bid failed: ${result.error || 'Unknown error'}`,
+            severity: 'error',
+            meta: {
+              orderId: details.order.id,
+              labelSnapshot: orderLabelSnapshot,
+              source: details.source,
+              auctionId: details.auctionId,
+              error: result.error,
+            },
+            dedupeKey: `failed:${details.order.id}:${details.auctionId}`,
           });
         }
       } catch (error) {
         pushLogEntry({
           kind: 'system',
-          message: `${tag} auto-bid submission stub failed: ${
+          message: `${tag} bid error: ${
             (error as Error)?.message || 'unknown error'
-          }.`,
+          }`,
+          severity: 'error',
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
           },
-          dedupeKey: `auto-bid-error:${details.order.id}`,
+          dedupeKey: `error:${details.order.id}:${details.auctionId ?? 'na'}`,
         });
       }
     },
     [
-      address,
       collateralSymbol,
       formatCollateralAmount,
       getOrderIndex,
       pushLogEntry,
+      submitBid,
+      tokenDecimals,
     ]
   );
 
@@ -274,6 +393,17 @@ export function useAuctionMatching({
           (typeof bid?.auctionId === 'string' && bid.auctionId) ||
           entry.channel ||
           null;
+
+        // Look up cached auction context from auction.started message
+        const cachedContext = auctionId
+          ? auctionContextCacheRef.current.get(auctionId)
+          : null;
+        if (!cachedContext) {
+          // No cached context - auction.started message may not have been received yet
+          // This can happen if the user joins mid-auction or network issues occur
+          return;
+        }
+
         const signature =
           typeof bid?.makerSignature === 'string' ? bid.makerSignature : null;
         const tag = formatOrderTag(matched.order, null, getOrderIndex);
@@ -293,39 +423,15 @@ export function useAuctionMatching({
           },
         });
         if (!readiness.blocked) {
-          const quoteBid: QuoteBid = {
-            auctionId: auctionId ?? '',
-            maker:
-              (typeof bid?.maker === 'string' && (bid.maker as string)) ||
-              '0x0000000000000000000000000000000000000000',
-            makerWager: String(bid?.makerWager ?? '0'),
-            makerDeadline: Number(bid?.makerDeadline ?? 0),
-            makerSignature:
-              (typeof bid?.makerSignature === 'string' &&
-                (bid.makerSignature as string)) ||
-              '0x',
-            makerNonce: Number(bid?.makerNonce ?? 0),
-          };
-          const predictedOutcomesPayload = resolveMessageField(
-            entry?.data,
-            'predictedOutcomes'
-          );
-          triggerAutoBidSubmission({
+          // Fire and forget - don't await to avoid blocking the loop
+          void triggerAutoBidSubmission({
             order: matched.order,
             source: 'copy_trade',
             auctionId,
-            payload: {
-              selectedBid: quoteBid,
-              predictedOutcomes: Array.isArray(predictedOutcomesPayload)
-                ? (predictedOutcomesPayload as `0x${string}`[])
-                : [],
-              resolver:
-                (entry?.data as any)?.resolver ??
-                (entry?.data as any)?.payload?.resolver,
-              makerCollateral:
-                typeof bid?.makerWager === 'string'
-                  ? (bid.makerWager as string)
-                  : String(bid?.makerWager ?? '0'),
+            auctionContext: cachedContext,
+            copyBidContext: {
+              copiedBidWager: String(bid?.makerWager ?? '0'),
+              increment: matched.order.increment ?? 1,
             },
           });
         }
@@ -344,6 +450,49 @@ export function useAuctionMatching({
       if (predictedLegs.length === 0) {
         return;
       }
+
+      // Extract auction context from auction.started message
+      const auctionId = entry.channel || null;
+      const resolverAddr =
+        (entry?.data as any)?.resolver ??
+        (entry?.data as any)?.payload?.resolver;
+      const takerAddr =
+        (entry?.data as any)?.taker ?? (entry?.data as any)?.payload?.taker;
+      const takerWagerStr =
+        (entry?.data as any)?.wager ??
+        (entry?.data as any)?.payload?.wager ??
+        '0';
+      const takerNonceNum =
+        (entry?.data as any)?.takerNonce ??
+        (entry?.data as any)?.payload?.takerNonce ??
+        0;
+      const predictedOutcomesArr = Array.isArray(rawPredictions)
+        ? (rawPredictions as `0x${string}`[])
+        : [];
+
+      // Cache auction context for copy_trade to use when processing auction.bids
+      if (
+        auctionId &&
+        predictedOutcomesArr.length > 0 &&
+        resolverAddr &&
+        takerAddr
+      ) {
+        const ctx: AuctionContext = {
+          predictedOutcomes: predictedOutcomesArr,
+          resolver: resolverAddr as `0x${string}`,
+          taker: takerAddr as `0x${string}`,
+          takerWager: takerWagerStr,
+          takerNonce: Number(takerNonceNum),
+        };
+        auctionContextCacheRef.current.set(auctionId, ctx);
+        auctionContextKeysRef.current.push(auctionId);
+        // Evict oldest entries if cache exceeds limit
+        while (auctionContextKeysRef.current.length > MAX_AUCTION_CACHE_SIZE) {
+          const oldest = auctionContextKeysRef.current.shift();
+          if (oldest) auctionContextCacheRef.current.delete(oldest);
+        }
+      }
+
       const activeConditionOrders = orders.filter(
         (order) =>
           order.strategy === 'conditions' &&
@@ -358,7 +507,6 @@ export function useAuctionMatching({
         if (!matchInfo) {
           return;
         }
-        const auctionId = entry.channel || null;
         const tag = formatOrderTag(order, null, getOrderIndex);
         const readiness = evaluateAutoBidReadiness({
           order,
@@ -371,17 +519,17 @@ export function useAuctionMatching({
           },
         });
         if (!readiness.blocked) {
-          triggerAutoBidSubmission({
+          // Fire and forget - don't await to avoid blocking the loop
+          void triggerAutoBidSubmission({
             order,
             source: 'conditions',
             auctionId,
-            payload: {
-              predictedOutcomes: Array.isArray(rawPredictions)
-                ? (rawPredictions as `0x${string}`[])
-                : [],
-              resolver:
-                (entry?.data as any)?.resolver ??
-                (entry?.data as any)?.payload?.resolver,
+            auctionContext: {
+              takerWager: takerWagerStr,
+              taker: takerAddr as `0x${string}`,
+              takerNonce: Number(takerNonceNum),
+              predictedOutcomes: predictedOutcomesArr,
+              resolver: resolverAddr as `0x${string}`,
             },
           });
         }

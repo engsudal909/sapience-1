@@ -141,12 +141,15 @@ export default function BetslipParlayForm({
     });
   }, [bids, parlayWagerAmount, nowMs]);
 
+  // Derive a stable dependency for form validation state
+  const hasFormErrors = Object.keys(methods.formState.errors).length > 0;
+
   const triggerAuctionRequest = useCallback(() => {
     if (!requestQuotes) return;
     if (!selectedTakerAddress) return;
     if (!parlaySelections || parlaySelections.length === 0) return;
     if (takerAddress && takerNonce === undefined) return;
-    if (Object.keys(methods.formState.errors).length > 0) return;
+    if (hasFormErrors) return;
 
     const wagerStr = parlayWagerAmount || '0';
 
@@ -180,6 +183,7 @@ export default function BetslipParlayForm({
     parlaySelections,
     takerAddress,
     takerNonce,
+    hasFormErrors,
     parlayWagerAmount,
     collateralDecimals,
     chainId,

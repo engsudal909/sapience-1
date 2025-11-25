@@ -116,7 +116,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 </span>
               </Badge>
               {order.strategy === 'copy_trade' ? (
-                <span className="text-sm font-mono font-normal text-brand-white">
+                <span className="text-sm font-mono font-normal text-accent-gold">
                   {`+${formatFiveSigFigs(order.increment ?? 0)} ${collateralSymbol}`}
                 </span>
               ) : (

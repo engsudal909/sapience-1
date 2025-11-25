@@ -1,19 +1,21 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAccount, useReadContracts } from 'wagmi';
 import { formatUnits } from 'viem';
 import { predictionMarket } from '@sapience/sdk/contracts';
+import { predictionMarketAbi } from '@sapience/sdk';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
+import { useTerminalLogs } from '~/components/terminal/TerminalLogsContext';
 import { useAuctionRelayerFeed } from '~/lib/auction/useAuctionRelayerFeed';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
+import { useBidSubmission } from '~/hooks/auction';
 import type { MultiSelectItem } from '~/components/terminal/filters/MultiSelect';
 
 import type { AutoBidProps, Order, OrderDraft } from './types';
@@ -23,7 +25,6 @@ import {
   formatOrderTag,
   formatOrderLabelSnapshot,
 } from './utils';
-import { useAutoBidLogs } from './hooks/useAutoBidLogs';
 import { useAutoBidOrders } from './hooks/useAutoBidOrders';
 import { useAuctionMatching } from './hooks/useAuctionMatching';
 import AutoBidHeader from './components/AutoBidHeader';
@@ -41,18 +42,40 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     balance,
     symbol: collateralSymbol,
     decimals: tokenDecimals,
+    refetch: refetchBalance,
   } = useCollateralBalance({
     address,
     chainId,
     enabled: Boolean(address),
   });
 
-  const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
-    | `0x${string}`
-    | undefined;
   const SPENDER_ADDRESS = predictionMarket[chainId]?.address as
     | `0x${string}`
     | undefined;
+
+  // Read collateral token address from PredictionMarket contract config
+  const predictionMarketConfigRead = useReadContracts({
+    contracts: SPENDER_ADDRESS
+      ? [
+          {
+            address: SPENDER_ADDRESS,
+            abi: predictionMarketAbi,
+            functionName: 'getConfig',
+            chainId: chainId,
+          },
+        ]
+      : [],
+    query: { enabled: !!SPENDER_ADDRESS },
+  });
+
+  const COLLATERAL_ADDRESS: `0x${string}` | undefined = useMemo(() => {
+    const item = predictionMarketConfigRead.data?.[0];
+    if (item && item.status === 'success') {
+      const cfg = item.result as { collateralToken: `0x${string}` };
+      return cfg?.collateralToken;
+    }
+    return undefined;
+  }, [predictionMarketConfigRead.data]);
 
   const { openApproval } = useApprovalDialog();
   const [spenderAddressInput] = useState<string>(
@@ -88,7 +111,7 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     return formatFiveSigFigs(balance);
   }, [balance]);
 
-  const { allowance } = useTokenApproval({
+  const { allowance, refetchAllowance } = useTokenApproval({
     tokenAddress: COLLATERAL_ADDRESS,
     spenderAddress: (spenderAddressInput || SPENDER_ADDRESS) as
       | `0x${string}`
@@ -100,6 +123,16 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
       COLLATERAL_ADDRESS && (spenderAddressInput || SPENDER_ADDRESS)
     ),
   });
+
+  // Refresh balance and allowance every 10 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      refetchBalance();
+      refetchAllowance();
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [refetchBalance, refetchAllowance]);
 
   const allowanceValue = useMemo(() => {
     try {
@@ -133,8 +166,15 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     [tokenDecimals]
   );
 
-  // Logs hook
-  const { logs, pushLogEntry } = useAutoBidLogs();
+  // Logs from shared context
+  const { logs, pushLogEntry, setOrderLabelById } = useTerminalLogs();
+
+  // Bid submission hook for auto-bid signing and WebSocket submission
+  const { submitBid } = useBidSubmission();
+
+  // Ref to hold current orderIndexMap to avoid circular dependency
+  // (logOrderEvent is passed to useAutoBidOrders which returns orderIndexMap)
+  const orderIndexMapRef = useRef<Map<string, number>>(new Map());
 
   // Log order event callback
   const logOrderEvent = useCallback(
@@ -153,7 +193,7 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
       const tag = formatOrderTag(
         order,
         position,
-        (o) => orderIndexMap.get(o.id) ?? 0
+        (o) => orderIndexMapRef.current.get(o.id) ?? 0
       );
       pushLogEntry({
         kind: 'order',
@@ -183,11 +223,35 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     createDraftFromOrder,
   } = useAutoBidOrders(logOrderEvent);
 
+  // Keep ref in sync with current orderIndexMap
+  useEffect(() => {
+    orderIndexMapRef.current = orderIndexMap;
+  }, [orderIndexMap]);
+
+  // Sync order labels to shared context for log display
+  // Use a ref to track the previous value and only update if content changed
+  const prevOrderLabelByIdRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    // Shallow compare to avoid unnecessary context updates that could cause re-render loops
+    const prevKeys = Object.keys(prevOrderLabelByIdRef.current);
+    const nextKeys = Object.keys(orderLabelById);
+    const hasChanged =
+      prevKeys.length !== nextKeys.length ||
+      nextKeys.some(
+        (key) => prevOrderLabelByIdRef.current[key] !== orderLabelById[key]
+      );
+    if (hasChanged) {
+      prevOrderLabelByIdRef.current = orderLabelById;
+      setOrderLabelById(orderLabelById);
+    }
+  }, [orderLabelById, setOrderLabelById]);
+
   // Auction matching hook
   useAuctionMatching({
     orders,
     getOrderIndex,
     pushLogEntry,
+    balanceValue: balance,
     allowanceValue,
     isPermitLoading,
     isRestricted,
@@ -196,6 +260,7 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     tokenDecimals,
     auctionMessages,
     formatCollateralAmount,
+    submitBid,
   });
 
   const conditionItems = useMemo<MultiSelectItem[]>(() => {

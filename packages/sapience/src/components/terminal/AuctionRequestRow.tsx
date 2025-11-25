@@ -5,27 +5,17 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   parseUnits,
-  encodeAbiParameters,
-  parseAbiParameters,
-  keccak256,
-  getAddress,
   decodeAbiParameters,
   formatEther,
+  formatUnits,
 } from 'viem';
 import { Pin, ChevronDown } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
 import { useAuctionBids } from '~/lib/auction/useAuctionBids';
 import AuctionRequestInfo from '~/components/terminal/AuctionRequestInfo';
 import AuctionRequestChart from '~/components/terminal/AuctionRequestChart';
-import {
-  useAccount,
-  useSignTypedData,
-  useReadContract,
-  useReadContracts,
-} from 'wagmi';
+import { useAccount, useReadContract, useReadContracts } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
-import { useSettings } from '~/lib/context/SettingsContext';
-import { toAuctionWsUrl } from '~/lib/ws';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { predictionMarketAbi } from '@sapience/sdk';
@@ -33,8 +23,9 @@ import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
-import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
+import { useTerminalLogsOptional } from '~/components/terminal/TerminalLogsContext';
+import { useBidPreflight, useBidSubmission } from '~/hooks/auction';
 import PercentChance from '~/components/shared/PercentChance';
 
 type Props = {
@@ -70,16 +61,39 @@ const AuctionRequestRow: React.FC<Props> = ({
 }) => {
   const { bids } = useAuctionBids(auctionId);
   const { address } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
-  const { apiBaseUrl } = useSettings();
-  const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
   const chainId = useChainIdFromLocalStorage();
-  const verifyingContract = predictionMarket[chainId]?.address as
-    | `0x${string}`
-    | undefined;
   const { toast } = useToast();
   const { openApproval } = useApprovalDialog();
+  const terminalLogs = useTerminalLogsOptional();
+
+  // Use shared preflight hook for chain switching, balance, and allowance validation
+  const { runPreflight, tokenDecimals: _preflightDecimals } = useBidPreflight({
+    onError: (errorMessage) => {
+      toast({
+        title: 'Validation Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Use shared bid submission hook for signing and WebSocket submission
+  const { submitBid: submitBidToWs } = useBidSubmission({
+    onSignatureRejected: (error) => {
+      toast({
+        title: 'Signature rejected',
+        description: error.message,
+      });
+    },
+    onSubmissionFailed: (error) => {
+      toast({
+        title: 'Submission failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
   // Resolve collateral token from PredictionMarket config (fallback to default constant)
   const PREDICTION_MARKET_ADDRESS = predictionMarket[chainId]?.address;
   const predictionMarketConfigRead = useReadContracts({
@@ -124,21 +138,6 @@ const AuctionRequestRow: React.FC<Props> = ({
       return 18;
     }
   }, [tokenDecimalsData]);
-  // Read allowance for connected address -> PredictionMarket
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    abi: erc20Abi,
-    address: COLLATERAL_ADDRESS,
-    functionName: 'allowance',
-    args: [
-      (address as `0x${string}`) ||
-        '0x0000000000000000000000000000000000000000',
-      verifyingContract as `0x${string}`,
-    ],
-    chainId: chainId,
-    query: {
-      enabled: Boolean(address && COLLATERAL_ADDRESS && verifyingContract),
-    },
-  });
   // Read taker nonce on-chain for the provided taker address
   const { data: takerNonceOnChain, refetch: refetchTakerNonce } =
     useReadContract({
@@ -387,10 +386,12 @@ const AuctionRequestRow: React.FC<Props> = ({
           openApproval(String(data.amount || ''));
           return;
         }
-        // Amount in display units -> wei (token decimals) and allowance check FIRST
+
+        // Parse amount
         const decimalsToUse = Number.isFinite(tokenDecimals)
           ? tokenDecimals
           : 18;
+        const amountNum = Number(data.amount || '0');
         const makerWagerWei = parseUnits(
           String(data.amount || '0'),
           decimalsToUse
@@ -403,26 +404,63 @@ const AuctionRequestRow: React.FC<Props> = ({
           return;
         }
 
-        // Ensure sufficient ERC20 allowance to PredictionMarket
-        try {
-          const fresh = await Promise.resolve(refetchAllowance?.());
-          const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
-          if (currentAllowance < makerWagerWei) {
+        // Run preflight checks: chain switch, balance, allowance
+        const preflightResult = await runPreflight(amountNum);
+
+        if (!preflightResult.canProceed) {
+          // Log the issue to terminal logs
+          if (preflightResult.blockedReason === 'insufficient_balance') {
+            terminalLogs?.pushBidLog({
+              source: 'manual',
+              action: 'insufficient_balance',
+              amount: data.amount,
+              collateralSymbol: collateralAssetTicker,
+              meta: {
+                requiredAmount: amountNum,
+                balanceValue: preflightResult.details?.balanceValue,
+                auctionId,
+              },
+              dedupeKey: `manual-balance:${auctionId}:${Date.now()}`,
+            });
+            toast({
+              title: 'Insufficient balance',
+              description: 'You do not have enough balance to place this bid.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          if (preflightResult.blockedReason === 'insufficient_allowance') {
+            terminalLogs?.pushBidLog({
+              source: 'manual',
+              action: 'insufficient_allowance',
+              amount: data.amount,
+              collateralSymbol: collateralAssetTicker,
+              meta: {
+                requiredAmount: amountNum,
+                allowanceValue: preflightResult.details?.allowanceValue,
+                auctionId,
+              },
+              dedupeKey: `manual-allowance:${auctionId}:${Date.now()}`,
+            });
             openApproval(String(data.amount || ''));
             return;
           }
-        } catch {
-          // If allowance check fails, open approval dialog anyway with requested amount
-          openApproval(String(data.amount || ''));
+
+          if (preflightResult.blockedReason === 'chain_switch_failed') {
+            // Error already shown via onError callback
+            return;
+          }
+
+          // Wallet not connected or other issue
           return;
         }
 
-        // Ensure essential auction context (after allowance handling)
+        // Ensure essential auction context (after preflight checks)
         const encodedPredicted =
           Array.isArray(predictedOutcomes) && predictedOutcomes[0]
             ? (predictedOutcomes[0] as `0x${string}`)
             : undefined;
-        const makerAddr = typeof maker === 'string' ? maker : undefined;
         const resolverAddr =
           typeof resolver === 'string' ? resolver : undefined;
         const takerWagerWei = (() => {
@@ -447,17 +485,17 @@ const AuctionRequestRow: React.FC<Props> = ({
         }
         if (
           !encodedPredicted ||
-          !makerAddr ||
           !resolverAddr ||
           takerNonceVal === undefined ||
-          takerWagerWei <= 0n
+          takerWagerWei <= 0n ||
+          !taker
         ) {
           const missing: string[] = [];
           if (!encodedPredicted) missing.push('predicted outcomes');
-          if (!makerAddr) missing.push('maker');
           if (!resolverAddr) missing.push('resolver');
           if (takerNonceVal === undefined) missing.push('maker nonce');
           if (takerWagerWei <= 0n) missing.push('taker wager');
+          if (!taker) missing.push('taker');
           toast({
             title: 'Request not ready',
             description:
@@ -469,124 +507,66 @@ const AuctionRequestRow: React.FC<Props> = ({
           return;
         }
 
-        const nowSec = Math.floor(Date.now() / 1000);
-        const requested = Math.max(0, Number(data.expirySeconds || 0));
-        const clampedExpiry = (() => {
-          const end = Number(maxEndTimeSec || 0);
-          if (!Number.isFinite(end) || end <= 0) return requested;
-          const remaining = Math.max(0, end - nowSec);
-          return Math.min(requested, remaining);
-        })();
-        const makerDeadline = nowSec + clampedExpiry;
-
-        // Build inner message hash (bytes, uint256, uint256, address, address, uint256, uint256)
-        const innerMessageHash = keccak256(
-          encodeAbiParameters(
-            parseAbiParameters(
-              'bytes, uint256, uint256, address, address, uint256, uint256'
-            ),
-            [
-              encodedPredicted,
-              makerWagerWei,
-              takerWagerWei,
-              getAddress(resolverAddr as `0x${string}`),
-              getAddress(taker as `0x${string}`),
-              BigInt(makerDeadline),
-              BigInt(takerNonceVal),
-            ]
-          )
-        );
-
-        // EIP-712 domain and types per SignatureProcessor
-        if (!verifyingContract) {
-          toast({
-            title: 'Signing failed',
-            description: 'Missing verifying contract',
-            variant: 'destructive' as any,
-          });
-          return;
-        }
-        const domain = {
-          name: 'SignatureProcessor',
-          version: '1',
-          chainId: chainId,
-          verifyingContract,
-        } as const;
-        const types = {
-          Approve: [
-            { name: 'messageHash', type: 'bytes32' },
-            { name: 'owner', type: 'address' },
-          ],
-        } as const;
-        const message = {
-          messageHash: innerMessageHash,
-          owner: getAddress(maker),
-        } as const;
-
-        // Sign typed data via wagmi/viem
-        let makerSignature: `0x${string}` | null = null;
-        try {
-          makerSignature = await signTypedDataAsync({
-            domain,
-            types,
-            primaryType: 'Approve',
-            message,
-          });
-        } catch (e: any) {
-          toast({
-            title: 'Signature rejected',
-            description: String(e?.message || e),
-          });
-          return;
-        }
-        if (!makerSignature) {
-          toast({
-            title: 'Signing failed',
-            description: 'No signature returned',
-            variant: 'destructive' as any,
-          });
-          return;
-        }
-
-        // Build bid payload
-        const payload = {
+        // Use shared bid submission hook for signing and WebSocket
+        const result = await submitBidToWs({
           auctionId,
-          maker,
-          makerDeadline,
-          makerNonce: takerNonceVal,
-          makerSignature,
-          makerWager: makerWagerWei.toString(),
-        };
+          makerWager: makerWagerWei,
+          takerWager: takerWagerWei,
+          predictedOutcomes: [encodedPredicted],
+          resolver: resolverAddr as `0x${string}`,
+          taker: taker as `0x${string}`,
+          takerNonce: takerNonceVal,
+          expirySeconds: data.expirySeconds,
+          maxEndTimeSec: maxEndTimeSec ?? undefined,
+        });
 
-        // Send over shared Auction WS and await ack
-        if (!wsUrl) {
-          toast({
-            title: 'Unable to submit',
-            description: 'Realtime connection not configured',
-            variant: 'destructive' as any,
+        if (result.success) {
+          // Calculate total to win (makerWager + takerWager)
+          const totalWei = makerWagerWei + takerWagerWei;
+          const decimalsForFormat = Number.isFinite(tokenDecimals)
+            ? tokenDecimals
+            : 18;
+          const toWinFormatted = Number(
+            formatUnits(totalWei, decimalsForFormat)
+          ).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
           });
-          return;
-        }
-        const client = getSharedAuctionWsClient(wsUrl);
-        let acked = false;
-        try {
-          await client.sendWithAck('bid.submit', payload, { timeoutMs: 12000 });
-          acked = true;
-        } catch (e: any) {
-          if (String(e?.message) !== 'ack_timeout') throw e;
-        }
-        try {
-          window.dispatchEvent(new Event('auction.bid.submitted'));
-        } catch {
-          void 0;
-        }
-        if (acked) {
+
+          // Log successful bid to terminal logs
+          terminalLogs?.pushBidLog({
+            source: 'manual',
+            action: 'submitted',
+            amount: data.amount,
+            toWinAmount: toWinFormatted,
+            collateralSymbol: collateralAssetTicker,
+            meta: {
+              auctionId,
+              makerWager: makerWagerWei.toString(),
+              takerWager: takerWagerWei.toString(),
+            },
+          });
           toast({
             title: 'Bid submitted',
             description: 'Your bid was submitted successfully.',
           });
+        } else {
+          // Error handling is done via hook callbacks, but log the error
+          terminalLogs?.pushBidLog({
+            source: 'manual',
+            action: 'error',
+            meta: { auctionId },
+            customMessage: `Your bid failed: ${result.error || 'Unknown error'}`,
+          });
         }
-      } catch {
+      } catch (e) {
+        // Log error to terminal logs
+        terminalLogs?.pushBidLog({
+          source: 'manual',
+          action: 'error',
+          meta: { auctionId },
+          customMessage: `Your bid failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        });
         toast({
           title: 'Bid failed',
           description: 'Unable to submit bid',
@@ -603,10 +583,16 @@ const AuctionRequestRow: React.FC<Props> = ({
       takerNonce,
       address,
       connectOrCreateWallet,
-      wsUrl,
-      verifyingContract,
-      signTypedDataAsync,
+      runPreflight,
+      submitBidToWs,
+      terminalLogs,
+      collateralAssetTicker,
       toast,
+      openApproval,
+      tokenDecimals,
+      maxEndTimeSec,
+      refetchTakerNonce,
+      takerNonceOnChain,
     ]
   );
 
