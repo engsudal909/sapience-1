@@ -209,7 +209,6 @@ export function useSubmitParlay({
           ...mintData,
           makerNonce: nonceValue as unknown as bigint,
         };
-
         const calls = prepareCalls(filled);
         if (calls.length === 0) {
           throw new Error('No valid calls to execute');
