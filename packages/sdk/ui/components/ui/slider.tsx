@@ -23,29 +23,31 @@ const Slider = React.forwardRef<
         style={{ backgroundColor: 'hsl(var(--foreground, var(--primary)))' }}
       />
     </SliderPrimitive.Track>
-    <SliderPrimitive.Thumb
-      className="relative flex h-7 w-[14px] items-center justify-center rounded-sm border cursor-pointer ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{
-        backgroundColor: 'hsl(var(--brand-black, var(--background)))',
-        borderColor: 'hsl(var(--foreground, var(--brand-white)))',
-      }}
-    >
+    <SliderPrimitive.Thumb asChild>
       <span
-        className="pointer-events-none flex h-full w-[4px] items-center justify-between"
-        aria-hidden
+        className="relative flex h-7 w-[14px] items-center justify-center rounded-sm border cursor-pointer ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{
+          backgroundColor: 'hsl(var(--brand-black, var(--background)))',
+          borderColor: 'hsl(var(--foreground, var(--brand-white)))',
+        }}
       >
         <span
-          className="block h-[65%] w-px rounded-full"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.55)',
-          }}
-        />
-        <span
-          className="block h-[65%] w-px rounded-full"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.55)',
-          }}
-        />
+          className="pointer-events-none flex h-full w-[4px] items-center justify-between"
+          aria-hidden
+        >
+          <span
+            className="block h-[65%] w-px rounded-full"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.55)',
+            }}
+          />
+          <span
+            className="block h-[65%] w-px rounded-full"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.55)',
+            }}
+          />
+        </span>
       </span>
     </SliderPrimitive.Thumb>
   </SliderPrimitive.Root>

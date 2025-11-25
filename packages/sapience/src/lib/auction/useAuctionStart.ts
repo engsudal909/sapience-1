@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
+import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 
 export interface PredictedOutcomeInput {
   marketGroup: string; // address
@@ -65,7 +66,6 @@ function jsonStableStringify(value: unknown) {
 export function useAuctionStart() {
   const [auctionId, setAuctionId] = useState<string | null>(null);
   const [bids, setBids] = useState<QuoteBid[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
   const inflightRef = useRef<string>('');
   const { apiBaseUrl } = useSettings();
   const apiBase = useMemo(() => {
@@ -82,37 +82,28 @@ export function useAuctionStart() {
   const lastAuctionRef = useRef<AuctionParams | null>(null);
   // Track latest auctionId in a ref to avoid stale closures in ws handlers
   const latestAuctionIdRef = useRef<string | null>(null);
-  // Ignore any incoming bids while awaiting ack for the latest request
-  const isAwaitingAckRef = useRef<boolean>(false);
   const [currentAuctionParams, setCurrentAuctionParams] =
     useState<AuctionParams | null>(null);
 
-  // Open connection lazily when first request is sent
-  const ensureConnection = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN)
-      return wsRef.current;
-    if (!wsUrl) return null;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.addEventListener('open', () => {});
-    ws.onmessage = (evt) => {
+  // Set up message listener on the shared client for bids only
+  // auction.ack is handled via sendWithAck for proper request/response correlation
+  useEffect(() => {
+    if (!wsUrl) return;
+    const client = getSharedAuctionWsClient(wsUrl);
+
+    const handleMessage = (msg: unknown) => {
       try {
-        const msg = JSON.parse(evt.data as string);
-        if (msg?.type === 'auction.ack') {
-          const newId = msg.payload?.auctionId || null;
-          latestAuctionIdRef.current = newId;
-          setAuctionId(newId);
-          isAwaitingAckRef.current = false;
-        } else if (msg?.type === 'auction.bids') {
-          const rawBids = Array.isArray(msg.payload?.bids)
-            ? (msg.payload.bids as any[])
+        const data = msg as { type?: string; payload?: any };
+
+        if (data?.type === 'auction.bids') {
+          const rawBids = Array.isArray(data.payload?.bids)
+            ? (data.payload.bids as any[])
             : [];
-          // If awaiting ack for a newer auction, ignore any bids
-          if (isAwaitingAckRef.current) return;
-          // Only accept bids for the latest auction id
+          // Only accept bids for OUR auction id
           const targetAuctionId: string | null =
             rawBids.length > 0 ? rawBids[0]?.auctionId || null : null;
           if (!targetAuctionId) return;
+          // Filter: only process if this is for our current auction
           if (targetAuctionId !== latestAuctionIdRef.current) return;
           const normalized: QuoteBid[] = rawBids
             .map((b) => {
@@ -138,74 +129,74 @@ export function useAuctionStart() {
             })
             .filter(Boolean) as QuoteBid[];
           setBids(normalized);
-        } else if (msg?.type === 'auction.started') {
-          // noop for client for now
         }
+        // auction.ack handled via sendWithAck
+        // auction.started is handled elsewhere (noop here)
       } catch {
         // ignore
       }
     };
-    ws.onclose = () => {
-      wsRef.current = null;
+
+    const offMessage = client.addMessageListener(handleMessage);
+
+    return () => {
+      offMessage();
     };
-    ws.addEventListener('error', () => {});
-    return ws;
-  }, [wsUrl, auctionId]);
+  }, [wsUrl]);
 
   // Debounced send of auction.start when params change
   const debounceTimer = useRef<number | null>(null);
   const requestQuotes = useCallback(
     (params: AuctionParams | null) => {
-      if (!params) return;
-      const payload = {
-        type: 'auction.start',
-        payload: {
-          wager: params.wager,
-          resolver: params.resolver,
-          predictedOutcomes: params.predictedOutcomes,
-          taker: params.taker,
-          takerNonce: params.takerNonce,
-          chainId: params.chainId,
-        },
+      if (!params || !wsUrl) return;
+      const requestPayload = {
+        wager: params.wager,
+        resolver: params.resolver,
+        predictedOutcomes: params.predictedOutcomes,
+        taker: params.taker,
+        takerNonce: params.takerNonce,
+        chainId: params.chainId,
       };
 
-      const key = jsonStableStringify(payload);
+      const key = jsonStableStringify({
+        type: 'auction.start',
+        payload: requestPayload,
+      });
       if (inflightRef.current === key) return;
 
       if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
-      debounceTimer.current = window.setTimeout(() => {
-        const ws = ensureConnection();
-        if (!ws) return;
-        const sendStart = () => {
-          try {
-            isAwaitingAckRef.current = true;
-            inflightRef.current = key;
-            ws.send(JSON.stringify(payload));
-            setAuctionId(null); // Will be set when we receive auction.ack
-            setBids([]);
-            lastAuctionRef.current = params;
-            setCurrentAuctionParams(params);
-          } catch {
-            // ignore
-          }
-        };
+      debounceTimer.current = window.setTimeout(async () => {
+        const client = getSharedAuctionWsClient(wsUrl);
 
-        if (ws.readyState === WebSocket.OPEN) {
-          sendStart();
-        } else {
-          const onOpen = () => {
-            ws.removeEventListener('open', onOpen as any);
-            sendStart();
-          };
-          ws.addEventListener('open', onOpen as any);
-          // Safety timeout in case 'open' never fires
-          window.setTimeout(() => {
-            if (ws.readyState === WebSocket.OPEN) sendStart();
-          }, 1000);
+        // Clear previous auction state
+        inflightRef.current = key;
+        latestAuctionIdRef.current = null; // Clear so we don't process stale bids
+        setAuctionId(null);
+        setBids([]);
+        lastAuctionRef.current = params;
+        setCurrentAuctionParams(params);
+
+        // Use sendWithAck for proper request/response correlation
+        // Server echoes back the request ID, allowing parallel requests
+        try {
+          const response = await client.sendWithAck<{ auctionId?: string }>(
+            'auction.start',
+            requestPayload,
+            { timeoutMs: 10000 }
+          );
+          const newId = response?.auctionId || null;
+          latestAuctionIdRef.current = newId;
+          setAuctionId(newId);
+        } catch (err) {
+          // On timeout or error, clear inflight but keep params for retry
+          inflightRef.current = '';
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[AuctionStart] sendWithAck failed:', err);
+          }
         }
       }, 400);
     },
-    [ensureConnection]
+    [wsUrl]
   );
 
   const acceptBid = useCallback(
@@ -222,24 +213,19 @@ export function useAuctionStart() {
 
   const notifyOrderCreated = useCallback(
     (requestId: string, txHash?: string) => {
-      if (!auctionId) return;
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(
-        JSON.stringify({
-          type: 'order.created',
-          payload: { auctionId, requestId, txHash },
-        })
-      );
+      if (!auctionId || !wsUrl) return;
+      const client = getSharedAuctionWsClient(wsUrl);
+      client.send({
+        type: 'order.created',
+        payload: { auctionId, requestId, txHash },
+      });
     },
-    [auctionId]
+    [auctionId, wsUrl]
   );
 
   useEffect(
     () => () => {
       if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
-      if (wsRef.current) wsRef.current.close();
-      wsRef.current = null;
     },
     []
   );

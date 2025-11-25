@@ -94,7 +94,7 @@ const AuctionBidsChart: React.FC<Props> = ({
               data: {
                 time: number;
                 amount: number;
-                takerAddress?: string;
+                makerAddress?: string;
                 takerAmountEth?: number;
                 endMs?: number;
               }[];
@@ -109,14 +109,14 @@ const AuctionBidsChart: React.FC<Props> = ({
               {
                 time: start,
                 amount,
-                takerAddress: (b as any)?.taker || '',
+                makerAddress: b.maker || '',
                 takerAmountEth: amount,
                 endMs: end,
               },
               {
                 time: end,
                 amount,
-                takerAddress: (b as any)?.taker || '',
+                makerAddress: b.maker || '',
                 takerAmountEth: amount,
                 endMs: end,
               },
@@ -130,7 +130,7 @@ const AuctionBidsChart: React.FC<Props> = ({
         data: {
           time: number;
           amount: number;
-          takerAddress?: string;
+          makerAddress?: string;
           takerAmountEth?: number;
           endMs?: number;
         }[];
@@ -260,7 +260,7 @@ const AuctionBidsChart: React.FC<Props> = ({
               return (
                 <div className="rounded-md bg-background border border-border px-3 py-2.5">
                   <TradePopoverContent
-                    leftAddress={String(p?.takerAddress || '')}
+                    leftAddress={String(p?.makerAddress || '')}
                     rightAddress={String(taker || '')}
                     takerAmountEth={takerAmount}
                     totalAmountEth={total}

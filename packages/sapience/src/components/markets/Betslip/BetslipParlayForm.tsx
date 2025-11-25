@@ -180,7 +180,6 @@ export default function BetslipParlayForm({
     parlaySelections,
     takerAddress,
     takerNonce,
-    methods.formState.errors,
     parlayWagerAmount,
     collateralDecimals,
     chainId,

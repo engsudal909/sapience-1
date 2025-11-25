@@ -44,11 +44,11 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
       <div className="space-y-1">
         <div className="flex items-baseline justify-between">
           <span className="align-baseline">
-            <span className="font-mono font-semibold text-brand-white">
+            <span className="font-mono font-normal text-brand-white">
               {takerStr} {ticker}
             </span>{' '}
             <span className="text-muted-foreground">to win</span>{' '}
-            <span className="font-mono font-semibold text-brand-white">
+            <span className="font-mono font-normal text-brand-white">
               {toWinStr} {ticker}
             </span>
           </span>
