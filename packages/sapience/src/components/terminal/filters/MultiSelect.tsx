@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { cn } from '~/lib/utils/util';
 import {
   Popover,
@@ -58,6 +58,19 @@ const MultiSelect: React.FC<Props> = ({
   closeOnSelect = false,
 }) => {
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Manually handle scrolling to bypass Dialog's scroll lock
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const el = listRef.current;
+    if (!el) return;
+
+    // Prevent the event from reaching Dialog's scroll lock
+    e.stopPropagation();
+
+    // Manually scroll the container
+    el.scrollTop += e.deltaY;
+  }, []);
 
   const triggerContent = useMemo(() => {
     if (alwaysShowPlaceholder || selected.length === 0) return placeholder;
@@ -118,38 +131,60 @@ const MultiSelect: React.FC<Props> = ({
         )}
         align="start"
       >
-        <Command>
-          {enableSearch && <CommandInput placeholder="Search…" />}
-          <CommandList>
-            <CommandEmpty className="pt-4 pb-2 text-center text-sm text-muted-foreground">
-              {emptyMessage || 'No options'}
-            </CommandEmpty>
-            <CommandGroup>
-              {items.map((it) => {
-                const isSelected = selected.includes(it.value);
-                return (
-                  <CommandItem
-                    key={it.value}
-                    onSelect={() => toggle(it.value)}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {renderItemContent
-                        ? renderItemContent(it, isSelected)
-                        : it.label}
-                    </span>
-                    <Check
-                      className={
-                        isSelected
-                          ? 'h-4 w-4 opacity-100 text-amber-400'
-                          : 'h-4 w-4 opacity-0'
-                      }
-                    />
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
+        <Command className="flex flex-col overflow-visible">
+          {enableSearch && (
+            <div className="relative">
+              <CommandInput placeholder="Search…" />
+              {selected.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange([]);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  CLEAR
+                </button>
+              )}
+            </div>
+          )}
+          <div
+            ref={listRef}
+            className="max-h-[300px] overflow-y-auto overscroll-contain"
+            onWheel={handleWheel}
+          >
+            <CommandList className="max-h-none overflow-visible">
+              <CommandEmpty className="pt-4 pb-2 text-center text-sm text-muted-foreground">
+                {emptyMessage || 'No options'}
+              </CommandEmpty>
+              <CommandGroup>
+                {items.map((it) => {
+                  const isSelected = selected.includes(it.value);
+                  return (
+                    <CommandItem
+                      key={it.value}
+                      onSelect={() => toggle(it.value)}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {renderItemContent
+                          ? renderItemContent(it, isSelected)
+                          : it.label}
+                      </span>
+                      <Check
+                        className={
+                          isSelected
+                            ? 'h-4 w-4 opacity-100 text-amber-400'
+                            : 'h-4 w-4 opacity-0'
+                        }
+                      />
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>

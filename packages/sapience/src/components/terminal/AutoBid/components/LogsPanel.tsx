@@ -106,3 +106,4 @@ const LogsPanel: React.FC<LogsPanelProps> = ({ logs, orderLabelById }) => {
 };
 
 export default LogsPanel;
+

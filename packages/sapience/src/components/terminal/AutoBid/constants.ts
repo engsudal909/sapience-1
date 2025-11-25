@@ -32,3 +32,4 @@ export const STRATEGY_LABELS: Record<'conditions' | 'copy_trade', string> = {
   conditions: 'Limit Order',
   copy_trade: 'Copy Trade',
 };
+
