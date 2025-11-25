@@ -595,7 +595,9 @@ const TerminalPageContent: React.FC = () => {
 
       const matchesCondition =
         selectedConditionIds.length === 0 ||
-        legConditionIds.some((id) => !!id && selectedConditionIds.includes(id));
+        selectedConditionIds.every((selectedId) =>
+          legConditionIds.includes(selectedId)
+        );
       if (!matchesCondition) return false;
 
       try {
