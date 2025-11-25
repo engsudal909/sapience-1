@@ -8,10 +8,8 @@ import {
 } from '@sapience/sdk/constants';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 
-// wUSDe address for Ethereal chains (wrapped version of native USDe)
-const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
 
-// Gas reserve to subtract from balance on ALL chains
+const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
 const GAS_RESERVE = 0.5;
 
 interface UseCollateralBalanceProps {
