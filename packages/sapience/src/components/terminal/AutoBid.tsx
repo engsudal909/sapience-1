@@ -3,8 +3,17 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
-import { formatUnits, isAddress } from 'viem';
-import { Clock, Info, Pause, Pencil, Play, X } from 'lucide-react';
+import { decodeAbiParameters, formatUnits, isAddress } from 'viem';
+import {
+  Clock,
+  Filter,
+  HelpCircle,
+  Info,
+  Pause,
+  Pencil,
+  Play,
+  X,
+} from 'lucide-react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
@@ -14,6 +23,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sapience/sdk/ui/components/ui/popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@sapience/sdk/ui/components/ui/tooltip';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import {
   Dialog,
@@ -40,9 +55,35 @@ import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
+import {
+  useAuctionRelayerFeed,
+  type AuctionFeedMessage,
+} from '~/lib/auction/useAuctionRelayerFeed';
+import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
+import {
+  buildMintPredictionRequestData,
+  type QuoteBid,
+} from '~/lib/auction/useAuctionStart';
 
 type OrderStrategy = 'copy_trade' | 'conditions';
 type ConditionOutcome = 'yes' | 'no';
+type AutoBidLogKind = 'order' | 'match' | 'system';
+type AutoBidLogSeverity = 'success' | 'warning' | 'error' | 'info';
+
+type AutoBidLogMeta = Record<string, unknown> & {
+  highlight?: string;
+  orderId?: string;
+  labelSnapshot?: string;
+};
+
+type AutoBidLogEntry = {
+  id: string;
+  createdAt: string;
+  kind: AutoBidLogKind;
+  message: string;
+  severity: AutoBidLogSeverity;
+  meta?: AutoBidLogMeta | null;
+};
 
 type ConditionSelection = {
   id: string;
@@ -72,7 +113,18 @@ type OrderDraft = {
   odds: number;
 };
 
+type AutoBidProps = {
+  onApplyFilter?: (conditionIds: string[]) => void;
+};
+
 const AUTO_BID_STORAGE_KEY = 'sapience:autoBidOrders';
+const AUTO_BID_LOGS_KEY = 'sapience:autoBidLogs';
+const LOG_SEVERITY_CLASSES: Record<AutoBidLogSeverity, string> = {
+  success: 'text-emerald-300',
+  warning: 'text-amber-300',
+  error: 'text-rose-400',
+  info: 'text-brand-white/90',
+};
 
 const sanitizeConditionSelections = (
   value: unknown
@@ -195,6 +247,207 @@ const writeOrdersToStorage = (orders: Order[]) => {
   }
 };
 
+const sanitizeLogEntry = (value: unknown): AutoBidLogEntry | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const candidate = value as Partial<AutoBidLogEntry>;
+  if (typeof candidate.id !== 'string' || candidate.id.length === 0) {
+    return null;
+  }
+  if (
+    candidate.kind !== 'order' &&
+    candidate.kind !== 'match' &&
+    candidate.kind !== 'system'
+  ) {
+    return null;
+  }
+  const createdAt =
+    typeof candidate.createdAt === 'string' ? candidate.createdAt : null;
+  if (!createdAt) {
+    return null;
+  }
+  const severity: AutoBidLogSeverity =
+    candidate.severity === 'success' ||
+    candidate.severity === 'warning' ||
+    candidate.severity === 'error' ||
+    candidate.severity === 'info'
+      ? candidate.severity
+      : 'info';
+  return {
+    id: candidate.id,
+    createdAt,
+    kind: candidate.kind,
+    message:
+      typeof candidate.message === 'string' ? candidate.message : '— log —',
+    severity,
+    meta:
+      candidate.meta && typeof candidate.meta === 'object'
+        ? candidate.meta
+        : null,
+  };
+};
+
+const readLogsFromStorage = (): AutoBidLogEntry[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(AUTO_BID_LOGS_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .map((entry) => sanitizeLogEntry(entry))
+      .filter((entry): entry is AutoBidLogEntry => Boolean(entry))
+      .slice(0, 200);
+  } catch {
+    return [];
+  }
+};
+
+const writeLogsToStorage = (logs: AutoBidLogEntry[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(
+      AUTO_BID_LOGS_KEY,
+      JSON.stringify((logs ?? []).slice(0, 200))
+    );
+  } catch {
+    // no-op
+  }
+};
+
+const normalizeHexId = (value?: string | null) => {
+  if (typeof value !== 'string') return null;
+  return value.toLowerCase();
+};
+
+const normalizeAddress = (value?: string | null) => {
+  if (typeof value !== 'string') return null;
+  return value.toLowerCase();
+};
+
+const decodePredictedOutcomes = (
+  payload: unknown
+): Array<{ marketId: string; prediction: boolean }> => {
+  try {
+    const arr = Array.isArray(payload)
+      ? (payload as `0x${string}`[])
+      : typeof payload === 'string'
+        ? ([payload] as `0x${string}`[])
+        : [];
+    if (arr.length === 0) return [];
+    const encoded = arr[0];
+    if (!encoded) return [];
+    const decodedUnknown = decodeAbiParameters(
+      [
+        {
+          type: 'tuple[]',
+          components: [
+            { name: 'marketId', type: 'bytes32' },
+            { name: 'prediction', type: 'bool' },
+          ],
+        },
+      ] as const,
+      encoded
+    ) as unknown;
+    const decodedArr = Array.isArray(decodedUnknown)
+      ? ((decodedUnknown as any)[0] as Array<{
+          marketId: `0x${string}`;
+          prediction: boolean;
+        }>)
+      : [];
+    return (decodedArr || []).map((entry) => ({
+      marketId: String(entry.marketId).toLowerCase(),
+      prediction: Boolean(entry.prediction),
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const formatLogDisplayTime = (value: string) => {
+  try {
+    const date = new Date(value);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+      timeZone,
+    }).format(date);
+  } catch {
+    return value;
+  }
+};
+
+const getConditionMatchInfo = (
+  order: Order,
+  predictedLegs: Array<{ marketId: string; prediction: boolean }>
+): { inverted: boolean } | null => {
+  if (!order.conditionSelections || order.conditionSelections.length === 0) {
+    return null;
+  }
+  const legsMap = new Map<string, boolean>();
+  for (const leg of predictedLegs) {
+    const id = normalizeHexId(leg.marketId);
+    if (id) legsMap.set(id, !!leg.prediction);
+  }
+  if (legsMap.size === 0) {
+    return null;
+  }
+
+  const normalizedSelections = order.conditionSelections.map((selection) => ({
+    ...selection,
+    id: normalizeHexId(selection.id),
+  }));
+
+  const directMatch = normalizedSelections.every((selection) => {
+    if (!selection.id) return false;
+    if (!legsMap.has(selection.id)) return false;
+    const wantsYes = selection.outcome === 'yes';
+    return legsMap.get(selection.id) === wantsYes;
+  });
+  if (directMatch) {
+    return { inverted: false };
+  }
+
+  if (normalizedSelections.length === 1) {
+    const selection = normalizedSelections[0];
+    if (selection.id && legsMap.has(selection.id)) {
+      const wantsYes = selection.outcome === 'yes';
+      if (legsMap.get(selection.id) !== wantsYes) {
+        return { inverted: true };
+      }
+    }
+  }
+
+  return null;
+};
+
+const describeConditionTargeting = (selections?: ConditionSelection[]) => {
+  if (!selections || selections.length === 0) return 'All questions';
+  const yesCount = selections.filter(
+    (selection) => selection.outcome === 'yes'
+  ).length;
+  const noCount = selections.length - yesCount;
+  if (noCount === 0) {
+    return `${yesCount} predicting Yes`;
+  }
+  if (yesCount === 0) {
+    return `${noCount} predicting No`;
+  }
+  return `${yesCount} Yes · ${noCount} No`;
+};
+
 const HOUR_IN_MS = 60 * 60 * 1000;
 const DEFAULT_DURATION_HOURS = '24';
 const DEFAULT_CONDITION_ODDS = 50;
@@ -251,7 +504,12 @@ const formatTimeRemaining = (value: number) => {
     return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
   }
   if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    if (minutes > 0) {
+      return seconds > 0
+        ? `${hours}h ${minutes}m ${seconds}s`
+        : `${hours}h ${minutes}m`;
+    }
+    return seconds > 0 ? `${hours}h ${seconds}s` : `${hours}h`;
   }
   if (minutes > 0) {
     return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
@@ -286,10 +544,17 @@ const createEmptyDraft = (): OrderDraft => ({
   odds: DEFAULT_CONDITION_ODDS,
 });
 
-const AutoBid: React.FC = () => {
+const formatOrderLabelSnapshot = (tag: string, order: Order) => {
+  void order;
+  return tag;
+};
+
+const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
   const { address } = useAccount();
   const chainId = useChainIdFromLocalStorage();
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
+  const { messages: auctionMessages } = useAuctionRelayerFeed();
+  const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
   const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
     | `0x${string}`
@@ -322,6 +587,14 @@ const AutoBid: React.FC = () => {
   );
   const [orders, setOrders] = useState<Order[]>([]);
   const hasHydratedOrdersRef = useRef(false);
+  const [logs, setLogs] = useState<AutoBidLogEntry[]>([]);
+  const ordersScrollRef = useRef<HTMLDivElement | null>(null);
+  const [showOrdersScrollShadow, setShowOrdersScrollShadow] = useState(false);
+  const hasHydratedLogsRef = useRef(false);
+  const recentLogKeysRef = useRef<Set<string>>(new Set());
+  const logKeyQueueRef = useRef<string[]>([]);
+  const processedMessageIdsRef = useRef<Set<number>>(new Set());
+  const processedMessageQueueRef = useRef<number[]>([]);
   const [draft, setDraft] = useState<OrderDraft>(() => createEmptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -362,6 +635,84 @@ const AutoBid: React.FC = () => {
     }
     writeOrdersToStorage(orders);
   }, [orders]);
+
+  useEffect(() => {
+    const node = ordersScrollRef.current;
+    if (!node) {
+      return;
+    }
+    const updateShadow = () => {
+      const { scrollTop, scrollHeight, clientHeight } = node;
+      setShowOrdersScrollShadow(scrollHeight - scrollTop - clientHeight > 1);
+    };
+    updateShadow();
+    node.addEventListener('scroll', updateShadow);
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateShadow);
+      resizeObserver.observe(node);
+    }
+    return () => {
+      node.removeEventListener('scroll', updateShadow);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [orders]);
+
+  useEffect(() => {
+    const storedLogs = readLogsFromStorage();
+    if (storedLogs.length > 0) {
+      setLogs(storedLogs);
+    }
+    hasHydratedLogsRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedLogsRef.current) {
+      return;
+    }
+    writeLogsToStorage(logs);
+  }, [logs]);
+
+  const pushLogEntry = useCallback(
+    (entry: {
+      kind: AutoBidLogKind;
+      message: string;
+      severity?: AutoBidLogSeverity;
+      meta?: AutoBidLogMeta | null;
+      dedupeKey?: string | null;
+    }) => {
+      const { dedupeKey, ...rest } = entry;
+      if (dedupeKey) {
+        const keys = recentLogKeysRef.current;
+        if (keys.has(dedupeKey)) {
+          return;
+        }
+        keys.add(dedupeKey);
+        logKeyQueueRef.current.push(dedupeKey);
+        if (logKeyQueueRef.current.length > 400) {
+          const oldest = logKeyQueueRef.current.shift();
+          if (oldest) {
+            keys.delete(oldest);
+          }
+        }
+      }
+
+      setLogs((prev) => {
+        const next: AutoBidLogEntry = {
+          id: `log-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          createdAt: new Date().toISOString(),
+          kind: rest.kind,
+          message: rest.message,
+          severity: rest.severity ?? 'info',
+          meta: rest.meta ?? null,
+        };
+        return [next, ...prev].slice(0, 200);
+      });
+    },
+    []
+  );
 
   const conditionItems = useMemo<MultiSelectItem[]>(() => {
     return activeConditionCatalog.map((condition) => ({
@@ -418,31 +769,6 @@ const AutoBid: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (orders.length === 0) {
-      return;
-    }
-    let mutated = false;
-    const updated = orders.map((order) => {
-      if (order.status === 'active' && order.expiration) {
-        const expiresAt = new Date(order.expiration).getTime();
-        if (Number.isFinite(expiresAt) && expiresAt <= now) {
-          mutated = true;
-          return {
-            ...order,
-            status: 'paused' as OrderStatus,
-            expiration: null,
-            autoPausedAt: new Date(now).toISOString(),
-          };
-        }
-      }
-      return order;
-    });
-    if (mutated) {
-      setOrders(updated);
-    }
-  }, [orders, now]);
-
   const tokenDecimals = useMemo(() => {
     try {
       return typeof decimals === 'number' ? decimals : Number(decimals ?? 18);
@@ -492,6 +818,340 @@ const AutoBid: React.FC = () => {
       return '0';
     }
   }, [allowanceValue]);
+
+  const formatCollateralAmount = useCallback(
+    (value?: string | null) => {
+      if (!value) {
+        return null;
+      }
+      try {
+        const human = Number(formatUnits(BigInt(value), tokenDecimals));
+        return formatFiveSigFigs(human);
+      } catch {
+        return null;
+      }
+    },
+    [tokenDecimals]
+  );
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      const aTime = a.expiration
+        ? new Date(a.expiration).getTime()
+        : Number.POSITIVE_INFINITY;
+      const bTime = b.expiration
+        ? new Date(b.expiration).getTime()
+        : Number.POSITIVE_INFINITY;
+      const safeATime = Number.isFinite(aTime)
+        ? aTime
+        : Number.POSITIVE_INFINITY;
+      const safeBTime = Number.isFinite(bTime)
+        ? bTime
+        : Number.POSITIVE_INFINITY;
+      return safeATime - safeBTime;
+    });
+  }, [orders]);
+
+  const orderIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    sortedOrders.forEach((order, index) => map.set(order.id, index));
+    return map;
+  }, [sortedOrders]);
+
+  const getOrderIndex = useCallback(
+    (order: Order) => orderIndexMap.get(order.id) ?? 0,
+    [orderIndexMap]
+  );
+
+  const orderLabelById = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    sortedOrders.forEach((order, index) => {
+      const tag = `#${index + 1}`;
+      map[order.id] = formatOrderLabelSnapshot(tag, order);
+    });
+    return map;
+  }, [sortedOrders]);
+
+  const evaluateAutoBidReadiness = useCallback(
+    (details: {
+      order: Order;
+      context: {
+        kind: 'copy_trade' | 'conditions';
+        summary: string;
+        auctionId?: string | null;
+        estimatedSpend?: number | null;
+        dedupeSuffix?: string | null;
+      };
+    }) => {
+      const dedupeBase = `${details.order.id}:${
+        details.context.kind
+      }:${details.context.auctionId ?? 'none'}:${
+        details.context.dedupeSuffix ?? 'default'
+      }`;
+
+      const orderTag = formatOrderTag(details.order, null, getOrderIndex);
+      const orderLabelSnapshot = formatOrderLabelSnapshot(
+        orderTag,
+        details.order
+      );
+
+      if (isPermitLoading) {
+        pushLogEntry({
+          kind: 'system',
+          message: `${orderTag} compliance check pending; holding auto-bid`,
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+          },
+          dedupeKey: `permit:${dedupeBase}`,
+        });
+        return { blocked: true as const, reason: 'permit_loading' as const };
+      }
+
+      const requiredSpend =
+        typeof details.context.estimatedSpend === 'number' &&
+        Number.isFinite(details.context.estimatedSpend)
+          ? details.context.estimatedSpend
+          : null;
+      const insufficient =
+        requiredSpend != null
+          ? allowanceValue < requiredSpend
+          : allowanceValue <= 0;
+
+      if (insufficient) {
+        const statusMessage = 'Insufficient approved spend';
+        pushLogEntry({
+          kind: 'system',
+          message: `${orderTag} bid ${statusMessage}`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+            requiredSpend,
+            allowanceValue,
+            highlight: statusMessage,
+          },
+          dedupeKey: `allowance:${dedupeBase}`,
+        });
+        return { blocked: true as const, reason: 'allowance' as const };
+      }
+
+      if (isRestricted) {
+        const statusMessage =
+          'You cannot access this app from a restricted region';
+        pushLogEntry({
+          kind: 'system',
+          message: `${orderTag} bid ${statusMessage}`,
+          severity: 'error',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+            highlight: statusMessage,
+          },
+          dedupeKey: `geofence:${dedupeBase}`,
+        });
+        return { blocked: true as const, reason: 'geofence' as const };
+      }
+
+      pushLogEntry({
+        kind: 'system',
+        message: `${orderTag} ready for auto-bid`,
+        meta: {
+          orderId: details.order.id,
+          labelSnapshot: orderLabelSnapshot,
+        },
+        dedupeKey: `ready:${dedupeBase}`,
+      });
+      return { blocked: false as const, reason: null };
+    },
+    [allowanceValue, getOrderIndex, isPermitLoading, isRestricted, pushLogEntry]
+  );
+
+  const resolveMessageField = (
+    data: unknown,
+    field: 'bids' | 'predictedOutcomes'
+  ) => {
+    if (!data || typeof data !== 'object') {
+      return undefined;
+    }
+    if (field in (data as Record<string, unknown>)) {
+      return (data as Record<string, unknown>)[field];
+    }
+    const payload = (data as { payload?: unknown }).payload;
+    if (payload && typeof payload === 'object' && field in payload) {
+      return (payload as Record<string, unknown>)[field];
+    }
+    return undefined;
+  };
+
+  const getStrategyBadgeLabel = (
+    order: Order,
+    index?: number
+  ): { numberLabel: string; strategyLabel: string } => {
+    const numberLabel = `#${(index ?? 0) + 1}`;
+    const strategyLabel = order.strategy === 'copy_trade' ? 'COPY' : 'LIMIT';
+    return { numberLabel, strategyLabel };
+  };
+
+  const formatOrderTag = (
+    order: Order,
+    position: number | null | undefined,
+    resolver: (order: Order) => number
+  ) => {
+    const index =
+      position != null && position >= 0 ? position : resolver(order);
+    return `#${index + 1}`;
+  };
+
+  const logOrderEvent = useCallback(
+    (
+      order: Order,
+      action: 'created' | 'updated' | 'deleted' | 'paused' | 'resumed',
+      position?: number
+    ) => {
+      const actionLabels: Record<typeof action, string> = {
+        created: 'Created',
+        updated: 'Updated',
+        deleted: 'Cancelled',
+        paused: 'Paused',
+        resumed: 'Resumed',
+      };
+      const tag = formatOrderTag(order, position, getOrderIndex);
+      pushLogEntry({
+        kind: 'order',
+        message: `${tag} ${actionLabels[action].toLowerCase()}`,
+        meta: {
+          orderId: order.id,
+          labelSnapshot: formatOrderLabelSnapshot(tag, order),
+          action,
+          strategy: order.strategy,
+        },
+      });
+    },
+    [getOrderIndex, pushLogEntry]
+  );
+
+  const triggerAutoBidSubmission = useCallback(
+    (details: {
+      order: Order;
+      source: 'copy_trade' | 'conditions';
+      auctionId?: string | null;
+      payload?: Record<string, unknown>;
+    }) => {
+      const tag = formatOrderTag(details.order, null, getOrderIndex);
+      const orderLabelSnapshot = formatOrderLabelSnapshot(tag, details.order);
+      const makerCollateral = details.payload?.makerCollateral as
+        | string
+        | undefined;
+      const submittedAmount = formatCollateralAmount(makerCollateral);
+      const submittedStatus = submittedAmount
+        ? `Submitted ${submittedAmount} ${collateralSymbol}`
+        : 'Submitted';
+      const submittedLabel = `${tag} bid ${submittedStatus}`;
+      pushLogEntry({
+        kind: 'system',
+        message: submittedLabel,
+        severity: 'success',
+        meta: {
+          orderId: details.order.id,
+          labelSnapshot: orderLabelSnapshot,
+          source: details.source,
+          auctionId: details.auctionId ?? null,
+          highlight: submittedStatus,
+        },
+      });
+      try {
+        const selectedBid = details.payload?.selectedBid as
+          | QuoteBid
+          | undefined;
+        if (selectedBid) {
+          const predictedOutcomes = (details.payload?.predictedOutcomes ||
+            []) as `0x${string}`[];
+          const resolver = details.payload?.resolver as
+            | `0x${string}`
+            | undefined;
+          const mintDraft = buildMintPredictionRequestData({
+            maker:
+              (address as `0x${string}`) ||
+              ('0x0000000000000000000000000000000000000000' as const),
+            selectedBid,
+            predictedOutcomes,
+            resolver,
+            makerCollateral,
+          });
+          if (!mintDraft) {
+            pushLogEntry({
+              kind: 'system',
+              message: `${tag} auto-bid payload incomplete`,
+              meta: {
+                orderId: details.order.id,
+                labelSnapshot: orderLabelSnapshot,
+              },
+              dedupeKey: `mint-draft:${details.order.id}:${
+                details.auctionId ?? 'na'
+              }`,
+            });
+          }
+        } else {
+          pushLogEntry({
+            kind: 'system',
+            message: `${tag} awaiting bid payload`,
+            meta: {
+              orderId: details.order.id,
+              labelSnapshot: orderLabelSnapshot,
+            },
+            dedupeKey: `await-bid:${details.order.id}:${
+              details.auctionId ?? 'na'
+            }`,
+          });
+        }
+      } catch (error) {
+        pushLogEntry({
+          kind: 'system',
+          message: `${tag} auto-bid submission stub failed: ${
+            (error as Error)?.message || 'unknown error'
+          }.`,
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+          },
+          dedupeKey: `auto-bid-error:${details.order.id}`,
+        });
+      }
+    },
+    [address, getOrderIndex, pushLogEntry]
+  );
+
+  useEffect(() => {
+    if (orders.length === 0) {
+      return;
+    }
+    let mutated = false;
+    const autoPaused: Order[] = [];
+    const updated = orders.map((order) => {
+      if (order.status === 'active' && order.expiration) {
+        const expiresAt = new Date(order.expiration).getTime();
+        if (Number.isFinite(expiresAt) && expiresAt <= now) {
+          mutated = true;
+          const nextOrder: Order = {
+            ...order,
+            status: 'paused',
+            expiration: null,
+            autoPausedAt: new Date(now).toISOString(),
+          };
+          autoPaused.push(nextOrder);
+          return nextOrder;
+        }
+      }
+      return order;
+    });
+    if (mutated) {
+      setOrders(updated);
+      autoPaused.forEach((order) =>
+        logOrderEvent(order, 'paused', getOrderIndex(order))
+      );
+    }
+  }, [getOrderIndex, logOrderEvent, now, orders]);
 
   const parsedIncrement = useMemo(() => {
     const next = Number(draft.increment);
@@ -659,7 +1319,12 @@ const AutoBid: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
+    const target = orders.find((order) => order.id === id);
+    const position = target ? getOrderIndex(target) : undefined;
     setOrders((prev) => prev.filter((order) => order.id !== id));
+    if (target) {
+      logOrderEvent(target, 'deleted', position);
+    }
     if (editingId === id) {
       resetDraft();
       setIsBuilderOpen(false);
@@ -667,20 +1332,49 @@ const AutoBid: React.FC = () => {
   };
 
   const toggleOrderStatus = (id: string) => {
+    const target = orders.find((order) => order.id === id);
+    if (!target) {
+      return;
+    }
+    const nextStatus: OrderStatus =
+      target.status === 'active' ? 'paused' : 'active';
+    const nextOrder: Order = {
+      ...target,
+      status: nextStatus,
+      autoPausedAt: nextStatus === 'active' ? null : target.autoPausedAt,
+    };
+    const position = getOrderIndex(target);
     setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== id) {
-          return order;
-        }
-        const nextStatus = order.status === 'active' ? 'paused' : 'active';
-        return {
-          ...order,
-          status: nextStatus,
-          autoPausedAt: nextStatus === 'active' ? null : order.autoPausedAt,
-        };
-      })
+      prev.map((order) => (order.id === id ? nextOrder : order))
+    );
+    logOrderEvent(
+      nextOrder,
+      nextStatus === 'active' ? 'resumed' : 'paused',
+      position
     );
   };
+
+  const applyOrderFilters = useCallback(
+    (order: Order) => {
+      if (!onApplyFilter) {
+        return;
+      }
+      const ids = Array.from(
+        new Set(
+          (order.conditionSelections ?? [])
+            .map((selection) => selection?.id)
+            .filter(
+              (id): id is string => typeof id === 'string' && id.length > 0
+            )
+        )
+      );
+      if (ids.length === 0) {
+        return;
+      }
+      onApplyFilter(ids);
+    },
+    [onApplyFilter]
+  );
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -747,56 +1441,225 @@ const AutoBid: React.FC = () => {
         : 'active',
     };
 
+    const position =
+      editingId && existingOrder
+        ? getOrderIndex(existingOrder)
+        : sortedOrders.length;
+
     setOrders((prev) =>
       editingId
         ? prev.map((order) => (order.id === editingId ? nextOrder : order))
         : [...prev, nextOrder]
     );
 
+    logOrderEvent(nextOrder, editingId ? 'updated' : 'created', position);
+
     setIsBuilderOpen(false);
   };
-
-  const sortedOrders = useMemo(() => {
-    return [...orders].sort((a, b) => {
-      const aTime = a.expiration
-        ? new Date(a.expiration).getTime()
-        : Number.POSITIVE_INFINITY;
-      const bTime = b.expiration
-        ? new Date(b.expiration).getTime()
-        : Number.POSITIVE_INFINITY;
-      const safeATime = Number.isFinite(aTime)
-        ? aTime
-        : Number.POSITIVE_INFINITY;
-      const safeBTime = Number.isFinite(bTime)
-        ? bTime
-        : Number.POSITIVE_INFINITY;
-      return safeATime - safeBTime;
-    });
-  }, [orders]);
 
   const strategyLabels: Record<OrderStrategy, string> = {
     conditions: 'Limit Order',
     copy_trade: 'Copy Trade',
   };
-  const strategyBadgeLabels: Record<OrderStrategy, string> = {
-    conditions: 'LIMIT',
-    copy_trade: 'COPY',
-  };
+  const handleCopyTradeMatches = useCallback(
+    (entry: AuctionFeedMessage) => {
+      const rawBids = resolveMessageField(entry?.data, 'bids');
+      const bids = Array.isArray(rawBids) ? rawBids : [];
+      if (bids.length === 0) {
+        return;
+      }
+      const activeCopyOrders = orders.filter(
+        (order) =>
+          order.strategy === 'copy_trade' &&
+          order.status === 'active' &&
+          !!order.copyTradeAddress
+      );
+      if (activeCopyOrders.length === 0) {
+        return;
+      }
+      const normalizedOrders = activeCopyOrders
+        .map((order) => ({
+          order,
+          address: normalizeAddress(order.copyTradeAddress),
+        }))
+        .filter((item) => Boolean(item.address)) as Array<{
+        order: Order;
+        address: string;
+      }>;
+      if (normalizedOrders.length === 0) {
+        return;
+      }
+      bids.forEach((bid: any) => {
+        const makerRaw = typeof bid?.maker === 'string' ? bid.maker : null;
+        const maker = normalizeAddress(makerRaw);
+        if (!maker) return;
+        const matched = normalizedOrders.find((item) => item.address === maker);
+        if (!matched) return;
+        const auctionId =
+          (typeof bid?.auctionId === 'string' && bid.auctionId) ||
+          entry.channel ||
+          null;
+        const signature =
+          typeof bid?.makerSignature === 'string' ? bid.makerSignature : null;
+        const tag = formatOrderTag(matched.order, null, getOrderIndex);
+        const increment =
+          typeof matched.order.increment === 'number' &&
+          Number.isFinite(matched.order.increment)
+            ? matched.order.increment
+            : null;
+        const readiness = evaluateAutoBidReadiness({
+          order: matched.order,
+          context: {
+            kind: 'copy_trade',
+            summary: tag,
+            auctionId,
+            estimatedSpend: increment,
+            dedupeSuffix: signature ?? maker,
+          },
+        });
+        if (!readiness.blocked) {
+          const quoteBid: QuoteBid = {
+            auctionId: auctionId ?? '',
+            maker:
+              (typeof bid?.maker === 'string' && (bid.maker as string)) ||
+              '0x0000000000000000000000000000000000000000',
+            makerWager: String(bid?.makerWager ?? '0'),
+            makerDeadline: Number(bid?.makerDeadline ?? 0),
+            makerSignature:
+              (typeof bid?.makerSignature === 'string' &&
+                (bid.makerSignature as string)) ||
+              '0x',
+            makerNonce: Number(bid?.makerNonce ?? 0),
+          };
+          const predictedOutcomesPayload = resolveMessageField(
+            entry?.data,
+            'predictedOutcomes'
+          );
+          triggerAutoBidSubmission({
+            order: matched.order,
+            source: 'copy_trade',
+            auctionId,
+            payload: {
+              selectedBid: quoteBid,
+              predictedOutcomes: Array.isArray(predictedOutcomesPayload)
+                ? (predictedOutcomesPayload as `0x${string}`[])
+                : [],
+              resolver:
+                (entry?.data as any)?.resolver ??
+                (entry?.data as any)?.payload?.resolver,
+              makerCollateral:
+                typeof bid?.makerWager === 'string'
+                  ? (bid.makerWager as string)
+                  : String(bid?.makerWager ?? '0'),
+            },
+          });
+        }
+      });
+    },
+    [
+      evaluateAutoBidReadiness,
+      getOrderIndex,
+      orders,
+      resolveMessageField,
+      triggerAutoBidSubmission,
+    ]
+  );
 
-  const describeConditionTargeting = (selections?: ConditionSelection[]) => {
-    if (!selections || selections.length === 0) return 'All questions';
-    const yesCount = selections.filter(
-      (selection) => selection.outcome === 'yes'
-    ).length;
-    const noCount = selections.length - yesCount;
-    if (noCount === 0) {
-      return `${yesCount} predicting Yes`;
+  const handleConditionMatches = useCallback(
+    (entry: AuctionFeedMessage) => {
+      const rawPredictions = resolveMessageField(
+        entry?.data,
+        'predictedOutcomes'
+      );
+      const predictedLegs = decodePredictedOutcomes(rawPredictions);
+      if (predictedLegs.length === 0) {
+        return;
+      }
+      const activeConditionOrders = orders.filter(
+        (order) =>
+          order.strategy === 'conditions' &&
+          order.status === 'active' &&
+          (order.conditionSelections?.length ?? 0) > 0
+      );
+      if (activeConditionOrders.length === 0) {
+        return;
+      }
+      activeConditionOrders.forEach((order) => {
+        const matchInfo = getConditionMatchInfo(order, predictedLegs);
+        if (!matchInfo) {
+          return;
+        }
+        const auctionId = entry.channel || null;
+        const tag = formatOrderTag(order, null, getOrderIndex);
+        const readiness = evaluateAutoBidReadiness({
+          order,
+          context: {
+            kind: 'conditions',
+            summary: tag,
+            auctionId,
+            estimatedSpend: null,
+            dedupeSuffix: matchInfo.inverted ? 'inv' : 'dir',
+          },
+        });
+        if (!readiness.blocked) {
+          triggerAutoBidSubmission({
+            order,
+            source: 'conditions',
+            auctionId,
+            payload: {
+              predictedOutcomes: Array.isArray(rawPredictions)
+                ? (rawPredictions as `0x${string}`[])
+                : [],
+              resolver:
+                (entry?.data as any)?.resolver ??
+                (entry?.data as any)?.payload?.resolver,
+            },
+          });
+        }
+      });
+    },
+    [
+      evaluateAutoBidReadiness,
+      getOrderIndex,
+      orders,
+      resolveMessageField,
+      triggerAutoBidSubmission,
+    ]
+  );
+
+  const handleAuctionMessage = useCallback(
+    (entry: AuctionFeedMessage) => {
+      if (!entry || typeof entry !== 'object') return;
+      if (entry.type === 'auction.bids') {
+        handleCopyTradeMatches(entry);
+      } else if (entry.type === 'auction.started') {
+        handleConditionMatches(entry);
+      }
+    },
+    [handleConditionMatches, handleCopyTradeMatches]
+  );
+
+  useEffect(() => {
+    if (!auctionMessages || auctionMessages.length === 0) {
+      return;
     }
-    if (yesCount === 0) {
-      return `${noCount} predicting No`;
+    for (const entry of auctionMessages) {
+      const key = typeof entry?.time === 'number' ? entry.time : null;
+      if (key == null) continue;
+      if (processedMessageIdsRef.current.has(key)) {
+        continue;
+      }
+      processedMessageIdsRef.current.add(key);
+      processedMessageQueueRef.current.push(key);
+      if (processedMessageQueueRef.current.length > 1200) {
+        const oldest = processedMessageQueueRef.current.shift();
+        if (oldest != null) {
+          processedMessageIdsRef.current.delete(oldest);
+        }
+      }
+      handleAuctionMessage(entry);
     }
-    return `${yesCount} Yes · ${noCount} No`;
-  };
+  }, [auctionMessages, handleAuctionMessage]);
 
   const describeAutoPauseStatus = useCallback(
     (order: Order) => {
@@ -815,10 +1678,6 @@ const AutoBid: React.FC = () => {
     },
     [now]
   );
-
-  // Approval dialog is controlled via context; no event listeners needed
-
-  // removed balance dialog URLs
 
   return (
     <div className="border border-border/60 rounded-lg bg-brand-black text-brand-white h-full flex flex-col min-h-0 overflow-hidden">
@@ -863,215 +1722,382 @@ const AutoBid: React.FC = () => {
           </div>
         </div>
 
-        <div className="px-1">
-          <section className="rounded-md py-4 flex-1 min-h-0 flex flex-col bg-muted/5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Orders
-                </p>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button
-                  type="button"
-                  className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent-gold underline decoration-dotted decoration-accent-gold/70 underline-offset-4 transition-colors hover:text-accent-gold/80"
-                  onClick={() => {
-                    resetDraft();
-                    setIsBuilderOpen(true);
-                  }}
-                >
-                  Create Order
-                </button>
-              </div>
-            </div>
-            <div className="mt-2 flex-1 min-h-0 overflow-y-auto">
-              {orders.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                  Create an order to see it here.
+        <div className="flex flex-col flex-1 min-h-0 gap-2">
+          <div className="px-1 flex flex-col flex-1 min-h-0">
+            <section className="relative rounded-md py-4 flex-1 min-h-0 flex flex-col bg-muted/5">
+              <div className="flex flex-row flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Orders
+                  </p>
                 </div>
-              ) : (
-                <ul className="space-y-3">
-                  {sortedOrders.map((order) => {
-                    const isActive = order.status === 'active';
-                    return (
-                      <li
-                        key={order.id}
-                        className="rounded-md border border-border/60 bg-background p-3"
-                      >
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div className="space-y-1 w-full">
-                            <div className="flex w-full items-start gap-2 mb-1.5">
-                              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleOrderStatus(order.id)}
-                                  className={cn(
-                                    'group/order-toggle relative inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                                    order.status === 'active'
-                                      ? cn(
-                                          YES_BADGE_BASE_CLASSES,
-                                          YES_BADGE_HOVER_CLASSES,
-                                          YES_BADGE_SHADOW
-                                        )
-                                      : cn(
-                                          'border-border/40 bg-transparent text-muted-foreground/70',
-                                          YES_BADGE_HOVER_CLASSES
-                                        )
-                                  )}
-                                  aria-label={
-                                    order.status === 'active'
-                                      ? 'Pause order'
-                                      : 'Resume order'
-                                  }
-                                >
-                                  <Play
-                                    className={cn(
-                                      'h-2.5 w-2.5 transition-all duration-200',
-                                      isActive
-                                        ? 'text-green-600 opacity-95 group-hover/order-toggle:text-muted-foreground/80 group-hover/order-toggle:opacity-0'
-                                        : 'text-green-600 opacity-0 group-hover/order-toggle:opacity-100'
+                <div className="flex items-center gap-2 self-auto">
+                  <button
+                    type="button"
+                    className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent-gold underline decoration-dotted decoration-accent-gold/70 underline-offset-4 transition-colors hover:text-accent-gold/80"
+                    onClick={() => {
+                      resetDraft();
+                      setIsBuilderOpen(true);
+                    }}
+                  >
+                    Create Order
+                  </button>
+                </div>
+              </div>
+              <div className="relative mt-2 flex-1 min-h-0">
+                <div
+                  ref={ordersScrollRef}
+                  className="h-full overflow-y-auto pr-1"
+                >
+                  {orders.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                      Create an order to see it here.
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {sortedOrders.map((order, index) => {
+                        const isActive = order.status === 'active';
+                        return (
+                          <li
+                            key={order.id}
+                            className="rounded-md border border-border/60 bg-background p-3"
+                          >
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                              <div className="space-y-1 w-full">
+                                <div className="flex w-full items-start gap-2 mb-1.5">
+                                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                                    <Badge
+                                      variant="secondary"
+                                      className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] h-6 px-3 inline-flex items-center rounded-full border border-border/60 gap-1.5"
+                                    >
+                                      <span className="font-medium">
+                                        {
+                                          getStrategyBadgeLabel(order, index)
+                                            .numberLabel
+                                        }
+                                      </span>
+                                      <span
+                                        aria-hidden
+                                        className="h-3.5 w-[2px] rounded-full bg-border/80"
+                                      />
+                                      <span className="text-muted-foreground/80 font-normal tracking-tight">
+                                        {
+                                          getStrategyBadgeLabel(order, index)
+                                            .strategyLabel
+                                        }
+                                      </span>
+                                    </Badge>
+                                    {order.strategy === 'copy_trade' ? (
+                                      <span className="text-sm font-mono font-medium text-brand-white">
+                                        {`+${formatFiveSigFigs(
+                                          order.increment ?? 0
+                                        )} ${collateralSymbol}`}
+                                      </span>
+                                    ) : (
+                                      <span className="text-sm font-mono font-semibold text-ethena">
+                                        {`${formatPercentChance(order.odds / 100)} chance`}
+                                      </span>
                                     )}
-                                    aria-hidden
-                                  />
-                                  <Pause
-                                    className={cn(
-                                      'absolute h-2.5 w-2.5 transition-all duration-200',
-                                      isActive
-                                        ? 'text-muted-foreground opacity-0 group-hover/order-toggle:text-muted-foreground group-hover/order-toggle:opacity-100'
-                                        : 'text-muted-foreground/90 opacity-100 group-hover/order-toggle:text-green-600 group-hover/order-toggle:opacity-0'
+                                  </div>
+                                  <div className="ml-auto flex items-center justify-end self-start gap-2">
+                                    {onApplyFilter &&
+                                    order.strategy === 'conditions' &&
+                                    (order.conditionSelections?.length ?? 0) >
+                                      0 ? (
+                                      <TooltipProvider delayDuration={150}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              type="button"
+                                              aria-label="Apply filter"
+                                              onClick={() =>
+                                                applyOrderFilters(order)
+                                              }
+                                              className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:border-border hover:text-brand-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            >
+                                              <Filter
+                                                className="h-3.5 w-3.5"
+                                                aria-hidden
+                                              />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">
+                                            Apply Filter
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        toggleOrderStatus(order.id)
+                                      }
+                                      className={cn(
+                                        'group/order-toggle relative inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                                        order.status === 'active'
+                                          ? cn(
+                                              YES_BADGE_BASE_CLASSES,
+                                              YES_BADGE_HOVER_CLASSES,
+                                              YES_BADGE_SHADOW
+                                            )
+                                          : cn(
+                                              'border-border/40 bg-transparent text-muted-foreground/70',
+                                              YES_BADGE_HOVER_CLASSES
+                                            )
+                                      )}
+                                      aria-label={
+                                        order.status === 'active'
+                                          ? 'Pause order'
+                                          : 'Resume order'
+                                      }
+                                    >
+                                      <Play
+                                        className={cn(
+                                          'h-2.5 w-2.5 transition-all duration-200',
+                                          isActive
+                                            ? 'text-green-600 opacity-95 group-hover/order-toggle:text-muted-foreground/80 group-hover/order-toggle:opacity-0'
+                                            : 'text-green-600 opacity-0 group-hover/order-toggle:opacity-100'
+                                        )}
+                                        aria-hidden
+                                      />
+                                      <Pause
+                                        className={cn(
+                                          'absolute h-2.5 w-2.5 transition-all duration-200',
+                                          isActive
+                                            ? 'text-muted-foreground opacity-0 group-hover/order-toggle:text-muted-foreground group-hover/order-toggle:opacity-100'
+                                            : 'text-muted-foreground/90 opacity-100 group-hover/order-toggle:text-green-600 group-hover/order-toggle:opacity-0'
+                                        )}
+                                        aria-hidden
+                                      />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEdit(order)}
+                                      className="inline-flex size-6 items-center justify-center rounded-full border border-border/60 bg-transparent text-muted-foreground transition-colors hover:border-border hover:text-brand-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                      aria-label="Edit order"
+                                    >
+                                      <Pencil className="h-2.5 w-2.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {order.strategy === 'copy_trade' ? (
+                                  <>
+                                    {order.copyTradeAddress ? (
+                                      <div className="flex items-center gap-2 py-1.5">
+                                        <EnsAvatar
+                                          address={order.copyTradeAddress}
+                                          width={16}
+                                          height={16}
+                                          rounded={false}
+                                          className="rounded-[3px]"
+                                        />
+                                        <AddressDisplay
+                                          address={order.copyTradeAddress}
+                                          compact
+                                          className="text-brand-white [&_.font-mono]:text-brand-white"
+                                        />
+                                      </div>
+                                    ) : null}
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="h-3 w-3" aria-hidden />
+                                      <span>
+                                        {describeAutoPauseStatus(order)}
+                                      </span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    {order.conditionSelections &&
+                                    order.conditionSelections.length > 0 ? (
+                                      <div className="space-y-1 py-1.5">
+                                        {order.conditionSelections.map(
+                                          (selection) => {
+                                            const categorySlug =
+                                              conditionCategoryMap[
+                                                selection.id
+                                              ] ?? undefined;
+                                            const Icon =
+                                              getCategoryIcon(categorySlug);
+                                            const color =
+                                              getCategoryStyle(
+                                                categorySlug
+                                              )?.color;
+                                            const label =
+                                              conditionLabelById[
+                                                selection.id
+                                              ] ?? selection.id;
+                                            return (
+                                              <div
+                                                key={selection.id}
+                                                className="flex w-full items-center gap-2 text-xs"
+                                              >
+                                                <span
+                                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full shrink-0"
+                                                  style={{
+                                                    backgroundColor: withAlpha(
+                                                      color ||
+                                                        'hsl(var(--muted))',
+                                                      0.14
+                                                    ),
+                                                  }}
+                                                >
+                                                  <Icon
+                                                    className="h-3 w-3"
+                                                    style={{
+                                                      color: color || 'inherit',
+                                                      strokeWidth: 1,
+                                                    }}
+                                                  />
+                                                </span>
+                                                <span className="font-mono text-xs text-brand-white leading-tight flex-1 min-w-0 break-words">
+                                                  {label}
+                                                </span>
+                                                <span
+                                                  className={cn(
+                                                    'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-mono font-medium border',
+                                                    selection.outcome === 'yes'
+                                                      ? YES_BADGE_BASE_CLASSES
+                                                      : NO_BADGE_BASE_CLASSES
+                                                  )}
+                                                >
+                                                  {selection.outcome === 'yes'
+                                                    ? 'Yes'
+                                                    : 'No'}
+                                                </span>
+                                              </div>
+                                            );
+                                          }
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p className="py-1.5 text-xs text-muted-foreground">
+                                        {describeConditionTargeting(
+                                          order.conditionSelections
+                                        )}
+                                      </p>
                                     )}
-                                    aria-hidden
-                                  />
-                                </button>
-                                <Badge
-                                  variant="secondary"
-                                  className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] h-6 px-3 inline-flex items-center rounded-full border border-border/60"
-                                >
-                                  {strategyBadgeLabels[order.strategy]}
-                                </Badge>
-                                <span className="text-sm font-mono font-medium text-brand-white">
-                                  {order.strategy === 'copy_trade'
-                                    ? `+${formatFiveSigFigs(
-                                        order.increment ?? 0
-                                      )} ${collateralSymbol}`
-                                    : `${formatPercentChance(order.odds / 100)} odds`}
-                                </span>
-                              </div>
-                              <div className="ml-auto flex items-center justify-end self-start">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEdit(order)}
-                                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border/60 bg-transparent text-muted-foreground transition-colors hover:border-border hover:text-brand-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                  aria-label="Edit order"
-                                >
-                                  <Pencil className="h-2.5 w-2.5" />
-                                </button>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="h-3 w-3" aria-hidden />
+                                      <span>
+                                        {describeAutoPauseStatus(order)}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </div>
-                            {order.strategy === 'copy_trade' ? (
-                              <>
-                                {order.copyTradeAddress ? (
-                                  <div className="flex items-center gap-2 py-1.5">
-                                    <EnsAvatar
-                                      address={order.copyTradeAddress}
-                                      width={16}
-                                      height={16}
-                                      rounded={false}
-                                      className="rounded-[3px]"
-                                    />
-                                    <AddressDisplay
-                                      address={order.copyTradeAddress}
-                                      compact
-                                      className="text-brand-white [&_.font-mono]:text-brand-white"
-                                    />
-                                  </div>
-                                ) : null}
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" aria-hidden />
-                                  <span>{describeAutoPauseStatus(order)}</span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                {order.conditionSelections &&
-                                order.conditionSelections.length > 0 ? (
-                                  <div className="space-y-1 py-1.5">
-                                    {order.conditionSelections.map(
-                                      (selection) => {
-                                        const categorySlug =
-                                          conditionCategoryMap[selection.id] ??
-                                          undefined;
-                                        const Icon =
-                                          getCategoryIcon(categorySlug);
-                                        const color =
-                                          getCategoryStyle(categorySlug)?.color;
-                                        const label =
-                                          conditionLabelById[selection.id] ??
-                                          selection.id;
-                                        return (
-                                          <div
-                                            key={selection.id}
-                                            className="flex w-full items-center gap-2 text-xs"
-                                          >
-                                            <span
-                                              className="inline-flex h-5 w-5 items-center justify-center rounded-full shrink-0"
-                                              style={{
-                                                backgroundColor: withAlpha(
-                                                  color || 'hsl(var(--muted))',
-                                                  0.14
-                                                ),
-                                              }}
-                                            >
-                                              <Icon
-                                                className="h-3 w-3"
-                                                style={{
-                                                  color: color || 'inherit',
-                                                  strokeWidth: 1,
-                                                }}
-                                              />
-                                            </span>
-                                            <span className="font-mono text-xs text-brand-white leading-tight flex-1 min-w-0 break-words">
-                                              {label}
-                                            </span>
-                                            <span
-                                              className={cn(
-                                                'inline-flex items-center rounded px-2 py-0.5 text-[11px] font-mono font-medium border',
-                                                selection.outcome === 'yes'
-                                                  ? YES_BADGE_BASE_CLASSES
-                                                  : NO_BADGE_BASE_CLASSES
-                                              )}
-                                            >
-                                              {selection.outcome === 'yes'
-                                                ? 'Yes'
-                                                : 'No'}
-                                            </span>
-                                          </div>
-                                        );
-                                      }
-                                    )}
-                                  </div>
-                                ) : (
-                                  <p className="py-1.5 text-xs text-muted-foreground">
-                                    {describeConditionTargeting(
-                                      order.conditionSelections
-                                    )}
-                                  </p>
-                                )}
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" aria-hidden />
-                                  <span>{describeAutoPauseStatus(order)}</span>
-                                </div>
-                              </>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    'pointer-events-none absolute inset-x-0 bottom-0 h-8 rounded-b-md bg-gradient-to-t from-brand-black/80 via-brand-black/40 to-transparent transition-opacity duration-200',
+                    showOrdersScrollShadow ? 'opacity-100' : 'opacity-0'
+                  )}
+                />
+              </div>
+            </section>
+          </div>
+
+          {logs.length > 0 ? (
+            <div className="px-1 flex flex-col justify-end animate-in fade-in duration-200">
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                Logs
+              </div>
+              <section className="rounded-md border border-border/60 bg-muted/5 p-1 flex flex-col min-h-[140px]">
+                <div className="flex-1 min-h-0">
+                  <div className="h-36 overflow-y-auto pr-1">
+                    <ul className="space-y-1">
+                      {logs.map((entry, index) => {
+                        const cleanedMessage = entry.message
+                          .replace(/^\s*\d{1,2}:\d{2}:\d{2}\s*·?\s*/, '')
+                          .replace(/\s+/g, ' ')
+                          .trim();
+                        const severityClass =
+                          LOG_SEVERITY_CLASSES[entry.severity ?? 'info'] ||
+                          LOG_SEVERITY_CLASSES.info;
+                        const highlightText =
+                          typeof entry.meta?.highlight === 'string'
+                            ? entry.meta.highlight
+                            : null;
+                        const derivedLabel =
+                          typeof entry.meta?.orderId === 'string'
+                            ? (orderLabelById[entry.meta.orderId] ?? null)
+                            : null;
+                        const storedSnapshot =
+                          typeof entry.meta?.labelSnapshot === 'string'
+                            ? entry.meta.labelSnapshot
+                            : null;
+                        const resolvedOrderLabel =
+                          derivedLabel ?? storedSnapshot ?? null;
+                        const messageWithoutLegacyTag = cleanedMessage
+                          .replace(/^#\d+\s*/, '')
+                          .trimStart();
+                        const displayMessage = resolvedOrderLabel
+                          ? `${resolvedOrderLabel} ${messageWithoutLegacyTag}`.trim()
+                          : cleanedMessage;
+                        const highlightIndex =
+                          highlightText &&
+                          displayMessage.includes(highlightText)
+                            ? displayMessage.indexOf(highlightText)
+                            : -1;
+                        const hasHighlight = highlightIndex >= 0;
+                        const beforeText = hasHighlight
+                          ? displayMessage.slice(0, highlightIndex)
+                          : displayMessage;
+                        const afterText =
+                          hasHighlight && highlightText
+                            ? displayMessage.slice(
+                                highlightIndex + highlightText.length
+                              )
+                            : '';
+                        const baseMessageClass = hasHighlight
+                          ? 'text-brand-white/90'
+                          : severityClass;
+                        return (
+                          <li
+                            key={entry.id}
+                            className={cn(
+                              'flex items-center gap-2 text-[11px] font-mono whitespace-nowrap pr-1 rounded-sm px-2 py-1',
+                              index % 2 === 1 ? 'bg-muted/30' : ''
                             )}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                          >
+                            <span className="text-muted-foreground/70 shrink-0">
+                              {formatLogDisplayTime(entry.createdAt)}
+                            </span>
+                            <span
+                              className={cn(
+                                'flex min-w-0 items-center gap-0.5 truncate',
+                                baseMessageClass
+                              )}
+                            >
+                              <span className="truncate">{beforeText}</span>
+                              {hasHighlight && highlightText ? (
+                                <>
+                                  <span className="shrink-0 whitespace-pre">
+                                    {' '}
+                                  </span>
+                                  <span
+                                    className={cn('shrink-0', severityClass)}
+                                  >
+                                    {highlightText}
+                                  </span>
+                                  <span className="truncate">{afterText}</span>
+                                </>
+                              ) : null}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
+          ) : null}
         </div>
       </div>
 
@@ -1326,7 +2352,7 @@ const AutoBid: React.FC = () => {
                         />
                         <span>
                           This will only execute if all of these predictions are
-                          requested together. Consider seperate orders.
+                          requested together.
                         </span>
                       </p>
                     ) : null}
@@ -1347,10 +2373,34 @@ const AutoBid: React.FC = () => {
                         return (
                           <div className="flex items-end justify-between gap-4">
                             <div className="flex flex-col gap-0.5">
-                              <span className="text-[11px] font-mono uppercase tracking-tight text-muted-foreground">
-                                Odds
-                              </span>
-                              <span className="font-mono text-sm text-brand-white leading-tight">
+                              <div className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-tight text-muted-foreground">
+                                <span>Odds</span>
+                                <TooltipProvider delayDuration={150}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        aria-label="Odds help"
+                                        className="text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border rounded-sm"
+                                      >
+                                        <HelpCircle
+                                          className="h-3.5 w-3.5"
+                                          aria-hidden
+                                        />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      align="start"
+                                      className="max-w-[220px] text-xs"
+                                    >
+                                      Orders with higher odds are more likely to
+                                      be processed
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <span className="font-mono text-sm font-light text-ethena leading-tight">
                                 {formatPercentChance(safeValue / 100)} chance
                               </span>
                             </div>

@@ -9,6 +9,8 @@ import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import { Info } from 'lucide-react';
 import type { AuctionBid } from '~/lib/auction/useAuctionBids';
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 type Props = {
   bids: AuctionBid[];
   refreshMs?: number;
@@ -69,6 +71,10 @@ const AuctionRequestChart: React.FC<Props> = ({
     }
   })();
 
+  const normalizedTaker = taker?.toLowerCase();
+  const showRequester =
+    !!normalizedTaker && normalizedTaker !== ZERO_ADDRESS.toLowerCase();
+
   return (
     <div className="md:col-span-2 h-full min-h-0 flex flex-col">
       <div className="text-xs mt-0 mb-1">
@@ -96,20 +102,22 @@ const AuctionRequestChart: React.FC<Props> = ({
             {collateralAssetTicker}
           </span>
           <span className="text-muted-foreground">wager request</span>
-          <div className="w-full sm:w-auto inline-flex items-center gap-1 min-w-0">
-            <span className="text-muted-foreground">from</span>
-            <div className="inline-flex items-center gap-1 min-w-0">
-              <EnsAvatar
-                address={taker || ''}
-                className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
-                width={16}
-                height={16}
-              />
-              <div className="min-w-0">
-                <AddressDisplay address={taker || ''} compact />
+          {showRequester ? (
+            <div className="w-full sm:w-auto inline-flex items-center gap-1 min-w-0">
+              <span className="text-muted-foreground">from</span>
+              <div className="inline-flex items-center gap-1 min-w-0">
+                <EnsAvatar
+                  address={taker || ''}
+                  className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
+                  width={16}
+                  height={16}
+                />
+                <div className="min-w-0">
+                  <AddressDisplay address={taker || ''} compact />
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
         </div>
         <div />
       </div>

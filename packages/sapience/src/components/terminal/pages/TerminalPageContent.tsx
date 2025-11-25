@@ -46,6 +46,22 @@ const TerminalPageContent: React.FC = () => {
   const [selectedConditionIds, setSelectedConditionIds] = useState<string[]>(
     []
   );
+  const handleApplyOrderFilters = useCallback(
+    (conditionIds: string[]) => {
+      const normalized = Array.from(
+        new Set(
+          conditionIds.filter(
+            (id): id is string => typeof id === 'string' && id.length > 0
+          )
+        )
+      );
+      if (normalized.length === 0) {
+        return;
+      }
+      setSelectedConditionIds(normalized);
+    },
+    [setSelectedConditionIds]
+  );
 
   const togglePin = useCallback((auctionId: string | null) => {
     if (!auctionId) return;
@@ -711,11 +727,11 @@ const TerminalPageContent: React.FC = () => {
       <div className="h-full min-h-0">
         <div className="relative w-full max-w-full overflow-visible flex flex-col lg:flex-row items-start">
           {isCompact ? (
-            <div className="block lg:hidden">
-              <AutoBid />
+            <div className="block w-full lg:hidden mt-6 mb-8">
+              <AutoBid onApplyFilter={handleApplyOrderFilters} />
             </div>
           ) : null}
-          <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-16 lg:pb-0 h-full min-h-0">
+          <div className="w-full lg:w-auto flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-6 lg:pb-0 h-full min-h-0">
             <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black flex flex-col h-full min-h-0 lg:h-[calc(100dvh-120px)]">
               <div className="flex-none">
                 <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
@@ -917,10 +933,10 @@ const TerminalPageContent: React.FC = () => {
             </div>
           </div>
           {!isMobile ? (
-            <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6 lg:mb-8">
+            <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6">
               <div className="rounded-none shadow-lg overflow-hidden lg:h-[calc(100dvh-120px)]">
                 <div className="h-full overflow-y-auto">
-                  <AutoBid />
+                  <AutoBid onApplyFilter={handleApplyOrderFilters} />
                 </div>
               </div>
             </div>

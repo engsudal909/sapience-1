@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
@@ -141,6 +141,51 @@ export default function BetslipParlayForm({
     });
   }, [bids, parlayWagerAmount, nowMs]);
 
+  const triggerAuctionRequest = useCallback(() => {
+    if (!requestQuotes) return;
+    if (!selectedTakerAddress) return;
+    if (!parlaySelections || parlaySelections.length === 0) return;
+    if (takerAddress && takerNonce === undefined) return;
+    if (Object.keys(methods.formState.errors).length > 0) return;
+
+    const wagerStr = parlayWagerAmount || '0';
+
+    try {
+      const decimals = Number.isFinite(collateralDecimals as number)
+        ? (collateralDecimals as number)
+        : 18;
+      const wagerWei = parseUnits(wagerStr, decimals).toString();
+      const outcomes = parlaySelections.map((s) => ({
+        marketId: s.conditionId || '0',
+        prediction: !!s.prediction,
+      }));
+      const payload = buildAuctionStartPayload(outcomes, chainId);
+      const params: AuctionParams = {
+        wager: wagerWei,
+        resolver: payload.resolver,
+        predictedOutcomes: payload.predictedOutcomes,
+        taker: selectedTakerAddress,
+        takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
+        chainId: chainId,
+      };
+
+      requestQuotes(params);
+      setLastQuoteRequestMs(Date.now());
+    } catch {
+      // ignore formatting errors
+    }
+  }, [
+    requestQuotes,
+    selectedTakerAddress,
+    parlaySelections,
+    takerAddress,
+    takerNonce,
+    methods.formState.errors,
+    parlayWagerAmount,
+    collateralDecimals,
+    chainId,
+  ]);
+
   const showNoBidsHint =
     !bestBid &&
     lastQuoteRequestMs != null &&
@@ -197,49 +242,8 @@ export default function BetslipParlayForm({
 
   // Trigger RFQ quote requests when selections or wager change
   useEffect(() => {
-    if (!requestQuotes) return;
-    if (!selectedTakerAddress) return;
-    if (!parlaySelections || parlaySelections.length === 0) return;
-    // If a wallet is connected, require a real takerNonce before broadcasting RFQ
-    if (takerAddress && takerNonce === undefined) return;
-    // Don't request quotes if there are form validation errors
-    if (Object.keys(methods.formState.errors).length > 0) return;
-    const wagerStr = parlayWagerAmount || '0';
-    try {
-      const decimals = Number.isFinite(collateralDecimals as number)
-        ? (collateralDecimals as number)
-        : 18;
-      const wagerWei = parseUnits(wagerStr, decimals).toString();
-      const outcomes = parlaySelections.map((s) => ({
-        // Use the conditionId directly as marketId (already encoded claim:endTime)
-        marketId: s.conditionId || '0',
-        prediction: !!s.prediction,
-      }));
-      const payload = buildAuctionStartPayload(outcomes, chainId);
-      const params: AuctionParams = {
-        wager: wagerWei,
-        resolver: payload.resolver,
-        predictedOutcomes: payload.predictedOutcomes,
-        taker: selectedTakerAddress,
-        takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
-        chainId: chainId,
-      };
-      requestQuotes(params);
-      setLastQuoteRequestMs(Date.now());
-    } catch {
-      // ignore formatting errors
-    }
-  }, [
-    requestQuotes,
-    parlaySelections,
-    parlayWagerAmount,
-    collateralDecimals,
-    selectedTakerAddress,
-    takerNonce,
-    takerAddress,
-    chainId,
-    methods.formState.errors,
-  ]);
+    triggerAuctionRequest();
+  }, [triggerAuctionRequest]);
 
   return (
     <FormProvider {...methods}>
@@ -407,12 +411,13 @@ export default function BetslipParlayForm({
                 />
                 <Button
                   className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
-                  disabled={true}
-                  type="submit"
+                  disabled={!showNoBidsHint}
+                  type="button"
                   size="lg"
                   variant="default"
+                  onClick={() => showNoBidsHint && triggerAuctionRequest()}
                 >
-                  Waiting for Bids...
+                  {showNoBidsHint ? 'Request Bids' : 'Waiting for Bids...'}
                 </Button>
                 <div className="mt-1 py-1 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-foreground">

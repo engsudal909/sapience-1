@@ -24,14 +24,14 @@ const Slider = React.forwardRef<
       />
     </SliderPrimitive.Track>
     <SliderPrimitive.Thumb
-      className="relative flex h-9 w-[16px] items-center justify-center rounded-sm border cursor-pointer ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed"
+      className="relative flex h-7 w-[14px] items-center justify-center rounded-sm border cursor-pointer ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed"
       style={{
         backgroundColor: 'hsl(var(--brand-black, var(--background)))',
         borderColor: 'hsl(var(--foreground, var(--brand-white)))',
       }}
     >
       <span
-        className="pointer-events-none flex h-full w-[5px] items-center justify-between"
+        className="pointer-events-none flex h-full w-[4px] items-center justify-between"
         aria-hidden
       >
         <span

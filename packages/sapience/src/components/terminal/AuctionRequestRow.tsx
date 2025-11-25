@@ -10,6 +10,7 @@ import {
   keccak256,
   getAddress,
   decodeAbiParameters,
+  formatEther,
 } from 'viem';
 import { Pin, ChevronDown } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
@@ -155,6 +156,121 @@ const AuctionRequestRow: React.FC<Props> = ({
     () => (numBids === 1 ? '1 BID' : `${numBids} BIDS`),
     [numBids]
   );
+
+  const bestBidSummary = useMemo(() => {
+    try {
+      if (!Array.isArray(bids) || bids.length === 0) return null;
+      const nowMs = Date.now();
+      const active = bids.filter((b) => {
+        const deadlineSec = Number(b?.makerDeadline || 0);
+        if (!Number.isFinite(deadlineSec) || deadlineSec <= 0) return true;
+        return deadlineSec * 1000 > nowMs;
+      });
+      if (active.length === 0) return null;
+      const best = active.reduce((prev, curr) => {
+        try {
+          const currVal = BigInt(String(curr?.makerWager ?? '0'));
+          const prevVal = BigInt(String(prev?.makerWager ?? '0'));
+          return currVal > prevVal ? curr : prev;
+        } catch {
+          return prev;
+        }
+      }, active[0]);
+      const makerBid = (() => {
+        try {
+          return BigInt(String(best?.makerWager ?? '0'));
+        } catch {
+          return 0n;
+        }
+      })();
+      const requester = (() => {
+        try {
+          return BigInt(String(takerWager ?? '0'));
+        } catch {
+          return 0n;
+        }
+      })();
+      const total = makerBid + requester;
+
+      let bidDisplay = '—';
+      let toWinDisplay = '—';
+      try {
+        const bidNum = Number(formatEther(makerBid));
+        if (Number.isFinite(bidNum)) {
+          bidDisplay = bidNum.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        }
+      } catch {
+        /* noop */
+      }
+      try {
+        const toWinNum = Number(formatEther(total));
+        if (Number.isFinite(toWinNum)) {
+          toWinDisplay = toWinNum.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        }
+      } catch {
+        /* noop */
+      }
+
+      let pct: number | null = null;
+      try {
+        if (total > 0n) {
+          const pctTimes100 = Number((makerBid * 10000n) / total);
+          pct = Math.round(pctTimes100 / 100);
+        }
+      } catch {
+        pct = null;
+      }
+      return {
+        bidDisplay,
+        toWinDisplay,
+        pct,
+      };
+    } catch {
+      return null;
+    }
+  }, [bids, takerWager]);
+
+  const takerWagerDisplay = useMemo(() => {
+    try {
+      if (!takerWager) return null;
+      const requester = BigInt(String(takerWager));
+      const requesterNum = Number(formatEther(requester));
+      if (!Number.isFinite(requesterNum)) return null;
+      return requesterNum.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      return null;
+    }
+  }, [takerWager]);
+
+  const summaryWrapperClass =
+    'text-[11px] sm:text-xs whitespace-nowrap flex-shrink-0 flex items-center gap-2 text-muted-foreground';
+
+  const primaryAmountText = bestBidSummary
+    ? bestBidSummary.bidDisplay === '—'
+      ? '—'
+      : `${bestBidSummary.bidDisplay} ${collateralAssetTicker}`
+    : takerWagerDisplay
+      ? `${takerWagerDisplay} ${collateralAssetTicker}`
+      : '—';
+  const secondaryAmountText = bestBidSummary
+    ? bestBidSummary.toWinDisplay === '—'
+      ? '—'
+      : `${bestBidSummary.toWinDisplay} ${collateralAssetTicker}`
+    : null;
+  const hasBestBid = Boolean(bestBidSummary);
+  const chanceText =
+    hasBestBid && typeof bestBidSummary?.pct === 'number'
+      ? `${bestBidSummary?.pct}% chance`
+      : null;
 
   // Pulse highlight when a new bid is received
   const prevBidsRef = useRef<number>(0);
@@ -497,12 +613,30 @@ const AuctionRequestRow: React.FC<Props> = ({
         'px-4 py-3 relative group h-full min-h-0 border-b border-border/60'
       }
     >
-      <div className="flex items-center justify-between gap-2 min-h-[28px]">
+      <div className="flex items-center justify-between gap-3 min-h-[28px] flex-wrap sm:flex-nowrap">
         <div className="flex-1 min-w-0">
           {/* label removed */}
           <div className={'mb-0'}>{predictionsContent}</div>
         </div>
-        <div className="inline-flex items-center gap-2">
+        <div className={summaryWrapperClass}>
+          <span className="font-mono text-brand-white tabular-nums">
+            {primaryAmountText}
+          </span>
+          {hasBestBid ? (
+            <>
+              <span className="text-muted-foreground">to win</span>
+              <span className="font-mono text-brand-white tabular-nums">
+                {secondaryAmountText ?? '—'}
+              </span>
+            </>
+          ) : null}
+          {chanceText ? (
+            <span className="font-mono text-ethena tabular-nums text-right min-w-[90px] -ml-1">
+              {chanceText}
+            </span>
+          ) : null}
+        </div>
+        <div className="inline-flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
             onClick={() =>
