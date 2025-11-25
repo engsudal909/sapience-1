@@ -20,8 +20,8 @@ import {
   withAlpha,
 } from '../utils';
 import { cn, formatFiveSigFigs } from '~/lib/utils/util';
-import { formatPercentChance } from '~/lib/format/percentChance';
 import EnsAvatar from '~/components/shared/EnsAvatar';
+import PercentChance from '~/components/shared/PercentChance';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
@@ -116,13 +116,16 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 </span>
               </Badge>
               {order.strategy === 'copy_trade' ? (
-                <span className="text-sm font-mono font-medium text-brand-white">
+                <span className="text-sm font-mono font-normal text-brand-white">
                   {`+${formatFiveSigFigs(order.increment ?? 0)} ${collateralSymbol}`}
                 </span>
               ) : (
-                <span className="text-sm font-mono font-semibold text-ethena">
-                  {`${formatPercentChance(order.odds / 100)} chance`}
-                </span>
+                <PercentChance
+                  probability={order.odds / 100}
+                  showLabel
+                  label="chance"
+                  className="text-sm font-mono font-normal text-ethena"
+                />
               )}
             </div>
             <div className="ml-auto flex items-center justify-end self-start gap-2">

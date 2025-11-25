@@ -35,6 +35,7 @@ import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
+import PercentChance from '~/components/shared/PercentChance';
 
 type Props = {
   uiTx: UiTransaction;
@@ -48,6 +49,8 @@ type Props = {
   collateralAssetTicker: string;
   onTogglePin?: (auctionId: string | null) => void;
   isPinned?: boolean;
+  isExpanded?: boolean;
+  onToggleExpanded?: (auctionId: string | null) => void;
 };
 
 const AuctionRequestRow: React.FC<Props> = ({
@@ -62,6 +65,8 @@ const AuctionRequestRow: React.FC<Props> = ({
   collateralAssetTicker,
   onTogglePin,
   isPinned,
+  isExpanded: isExpandedProp,
+  onToggleExpanded,
 }) => {
   const { bids } = useAuctionBids(auctionId);
   const { address } = useAccount();
@@ -146,7 +151,9 @@ const AuctionRequestRow: React.FC<Props> = ({
         enabled: Boolean(PREDICTION_MARKET_ADDRESS && taker),
       },
     });
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Use controlled expanded state if provided, otherwise fall back to local state
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const isExpanded = isExpandedProp ?? localExpanded;
   const [highlightNewBid, setHighlightNewBid] = useState(false);
   const numBids = useMemo(
     () => (Array.isArray(bids) ? bids.length : 0),
@@ -267,10 +274,6 @@ const AuctionRequestRow: React.FC<Props> = ({
       : `${bestBidSummary.toWinDisplay} ${collateralAssetTicker}`
     : null;
   const hasBestBid = Boolean(bestBidSummary);
-  const chanceText =
-    hasBestBid && typeof bestBidSummary?.pct === 'number'
-      ? `${bestBidSummary?.pct}% chance`
-      : null;
 
   // Pulse highlight when a new bid is received
   const prevBidsRef = useRef<number>(0);
@@ -630,31 +633,36 @@ const AuctionRequestRow: React.FC<Props> = ({
               </span>
             </>
           ) : null}
-          {chanceText ? (
-            <span className="font-mono text-ethena tabular-nums text-right min-w-[90px] -ml-1">
-              {chanceText}
-            </span>
+          {hasBestBid && typeof bestBidSummary?.pct === 'number' ? (
+            <PercentChance
+              probability={bestBidSummary.pct / 100}
+              showLabel
+              label="chance"
+              className="font-mono text-ethena tabular-nums text-right min-w-[90px] -ml-0.5"
+            />
           ) : null}
         </div>
         <div className="inline-flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
-            onClick={() =>
-              setIsExpanded((v) => {
-                const next = !v;
-                try {
-                  window.dispatchEvent(new Event('terminal.row.toggled'));
-                  window.dispatchEvent(
-                    new Event(
-                      next ? 'terminal.row.expanded' : 'terminal.row.collapsed'
-                    )
-                  );
-                } catch {
-                  void 0;
-                }
-                return next;
-              })
-            }
+            onClick={() => {
+              const next = !isExpanded;
+              try {
+                window.dispatchEvent(new Event('terminal.row.toggled'));
+                window.dispatchEvent(
+                  new Event(
+                    next ? 'terminal.row.expanded' : 'terminal.row.collapsed'
+                  )
+                );
+              } catch {
+                void 0;
+              }
+              if (onToggleExpanded) {
+                onToggleExpanded(auctionId);
+              } else {
+                setLocalExpanded(next);
+              }
+            }}
             className={
               highlightNewBid
                 ? 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-[hsl(var(--accent-gold)/0.7)] bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 transition-colors duration-300 ease-out bg-[hsl(var(--accent-gold)/0.06)] text-accent-gold'

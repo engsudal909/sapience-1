@@ -1,9 +1,9 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsMobile, useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { decodeAbiParameters, parseUnits, erc20Abi } from 'viem';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
@@ -30,6 +30,107 @@ import bidsHub from '~/lib/auction/useAuctionBidsHub';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
+// Horizontal predictions scroller with right gradient (mirrors UserParlaysTable)
+// Extracted as memoized component to prevent recreation on parent renders
+type PredictionsScrollerLeg = {
+  id: `0x${string}`;
+  title: string;
+  categorySlug: string | null;
+  choice: 'Yes' | 'No';
+};
+
+const PredictionsScroller = memo(function PredictionsScroller({
+  legs,
+}: {
+  legs: PredictionsScrollerLeg[];
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [showRightGradient, setShowRightGradient] = useState(false);
+
+  const updateGradientVisibility = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) {
+      setShowRightGradient(false);
+      return;
+    }
+    const canScroll = el.scrollWidth > el.clientWidth + 1;
+    if (!canScroll) {
+      setShowRightGradient(false);
+      return;
+    }
+    const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+    setShowRightGradient(!atEnd);
+  }, []);
+
+  useEffect(() => {
+    updateGradientVisibility();
+    const el = containerRef.current;
+    if (!el) return;
+    const onScroll = () => updateGradientVisibility();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const onResize = () => updateGradientVisibility();
+    window.addEventListener('resize', onResize);
+    const ro = new ResizeObserver(() => updateGradientVisibility());
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      ro.disconnect();
+    };
+  }, [updateGradientVisibility]);
+
+  return (
+    <div className="relative w-full max-w-full">
+      <div
+        ref={containerRef}
+        className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex items-center gap-3 md:gap-4 pr-16 flex-nowrap">
+          {legs.map((leg, i) => (
+            <div
+              key={i}
+              className="inline-flex h-7 items-center gap-3 shrink-0"
+            >
+              <MarketBadge
+                label={String(leg.title)}
+                size={28}
+                categorySlug={leg.categorySlug || undefined}
+                color={
+                  leg.categorySlug
+                    ? getCategoryStyle(leg.categorySlug)?.color
+                    : undefined
+                }
+              />
+              <ConditionTitleLink
+                conditionId={leg.id}
+                title={String(leg.title)}
+                className="text-sm"
+                clampLines={1}
+              />
+              <span
+                className={
+                  leg.choice === 'Yes'
+                    ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
+                    : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
+                }
+              >
+                {leg.choice}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {showRightGradient && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-black to-transparent"
+        />
+      )}
+    </div>
+  );
+});
+
 const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
   const chainId = useChainIdFromLocalStorage();
@@ -38,6 +139,9 @@ const TerminalPageContent: React.FC = () => {
   const isCompact = useIsBelow(1024);
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);
+  const [expandedAuctions, setExpandedAuctions] = useState<Set<string>>(
+    new Set()
+  );
   const [minWager, setMinWager] = useState<string>('1');
   const [minBids, setMinBids] = useState<string>('0');
   const [selectedCategorySlugs, setSelectedCategorySlugs] = useState<string[]>(
@@ -72,6 +176,19 @@ const TerminalPageContent: React.FC = () => {
     });
   }, []);
 
+  const toggleExpanded = useCallback((auctionId: string | null) => {
+    if (!auctionId) return;
+    setExpandedAuctions((prev) => {
+      const next = new Set(prev);
+      if (next.has(auctionId)) {
+        next.delete(auctionId);
+      } else {
+        next.add(auctionId);
+      }
+      return next;
+    });
+  }, []);
+
   const displayMessages = useMemo(() => {
     return [...messages].sort((a, b) => Number(b.time) - Number(a.time));
   }, [messages]);
@@ -93,8 +210,15 @@ const TerminalPageContent: React.FC = () => {
   }, []);
 
   // Cached decoder for predicted outcomes keyed by auctionId + makerNonce
+  // Stores { data, accessedAt } for time-based LRU pruning
   const decodeCacheRef = useRef<
-    Map<string, Array<{ marketId: `0x${string}`; prediction: boolean }>>
+    Map<
+      string,
+      {
+        data: Array<{ marketId: `0x${string}`; prediction: boolean }>;
+        accessedAt: number;
+      }
+    >
   >(new Map());
   const getDecodedPredictedOutcomes = useCallback(
     (m: {
@@ -107,7 +231,11 @@ const TerminalPageContent: React.FC = () => {
           m?.data?.makerNonce ?? 'n'
         )}`;
         const cached = decodeCacheRef.current.get(cacheKey);
-        if (cached) return cached;
+        if (cached) {
+          // Update access time on cache hit
+          cached.accessedAt = Date.now();
+          return cached.data;
+        }
         const arr = Array.isArray(m?.data?.predictedOutcomes)
           ? (m.data.predictedOutcomes as string[])
           : [];
@@ -135,7 +263,10 @@ const TerminalPageContent: React.FC = () => {
           marketId: o.marketId,
           prediction: !!o.prediction,
         }));
-        decodeCacheRef.current.set(cacheKey, legs);
+        decodeCacheRef.current.set(cacheKey, {
+          data: legs,
+          accessedAt: Date.now(),
+        });
         return legs;
       } catch {
         return [];
@@ -166,6 +297,22 @@ const TerminalPageContent: React.FC = () => {
       latestStartedByAuction: latestStarted,
     };
   }, [auctionAndBidMessages, getAuctionId]);
+
+  // Prune decode cache every 60s - remove entries not accessed in 2 hours
+  useEffect(() => {
+    const DECODE_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - DECODE_CACHE_TTL_MS;
+      for (const [cacheKey, entry] of Array.from(
+        decodeCacheRef.current.entries()
+      )) {
+        if (entry.accessedAt < cutoff) {
+          decodeCacheRef.current.delete(cacheKey);
+        }
+      }
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Collect unique conditionIds from auction.started messages for enrichment
   const conditionIds = useMemo(() => {
@@ -215,12 +362,26 @@ const TerminalPageContent: React.FC = () => {
   } = useConditionsByIds(conditionIds);
 
   // Preserve previously resolved condition names to avoid flicker when query key changes
+  // LRU-style capped at 2000 entries to prevent unbounded growth while being generous
+  const CONDITION_CACHE_MAX = 2000;
   const stickyConditionMapRef = useRef<Map<string, any>>(new Map());
   useEffect(() => {
     try {
       for (const c of conditions || []) {
-        if (c && typeof c.id === 'string')
+        if (c && typeof c.id === 'string') {
+          // Delete and re-add to update LRU order (Maps maintain insertion order)
+          stickyConditionMapRef.current.delete(c.id);
           stickyConditionMapRef.current.set(c.id, c);
+        }
+      }
+      // Prune oldest entries if over capacity
+      while (stickyConditionMapRef.current.size > CONDITION_CACHE_MAX) {
+        const oldestKey = stickyConditionMapRef.current.keys().next().value;
+        if (oldestKey !== undefined) {
+          stickyConditionMapRef.current.delete(oldestKey);
+        } else {
+          break;
+        }
       }
     } catch {
       /* noop */
@@ -237,102 +398,6 @@ const TerminalPageContent: React.FC = () => {
 
   // Categories for multi-select
   const { data: categories = [] } = useCategories();
-
-  // Horizontal predictions scroller with right gradient (mirrors UserParlaysTable)
-  const PredictionsScroller: React.FC<{
-    legs: Array<{
-      id: `0x${string}`;
-      title: string;
-      categorySlug: string | null;
-      choice: 'Yes' | 'No';
-    }>;
-  }> = ({ legs }) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const [showRightGradient, setShowRightGradient] = useState(false);
-
-    const updateGradientVisibility = useCallback(() => {
-      const el = containerRef.current;
-      if (!el) {
-        setShowRightGradient(false);
-        return;
-      }
-      const canScroll = el.scrollWidth > el.clientWidth + 1;
-      if (!canScroll) {
-        setShowRightGradient(false);
-        return;
-      }
-      const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
-      setShowRightGradient(!atEnd);
-    }, []);
-
-    useEffect(() => {
-      updateGradientVisibility();
-      const el = containerRef.current;
-      if (!el) return;
-      const onScroll = () => updateGradientVisibility();
-      el.addEventListener('scroll', onScroll, { passive: true });
-      const onResize = () => updateGradientVisibility();
-      window.addEventListener('resize', onResize);
-      const ro = new ResizeObserver(() => updateGradientVisibility());
-      ro.observe(el);
-      return () => {
-        el.removeEventListener('scroll', onScroll);
-        window.removeEventListener('resize', onResize);
-        ro.disconnect();
-      };
-    }, [updateGradientVisibility]);
-
-    return (
-      <div className="relative w-full max-w-full">
-        <div
-          ref={containerRef}
-          className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          <div className="flex items-center gap-3 md:gap-4 pr-16 flex-nowrap">
-            {legs.map((leg, i) => (
-              <div
-                key={i}
-                className="inline-flex h-7 items-center gap-3 shrink-0"
-              >
-                <MarketBadge
-                  label={String(leg.title)}
-                  size={28}
-                  categorySlug={leg.categorySlug || undefined}
-                  color={
-                    leg.categorySlug
-                      ? getCategoryStyle(leg.categorySlug)?.color
-                      : undefined
-                  }
-                />
-                <ConditionTitleLink
-                  conditionId={leg.id}
-                  title={String(leg.title)}
-                  className="text-sm"
-                  clampLines={1}
-                />
-                <span
-                  className={
-                    leg.choice === 'Yes'
-                      ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
-                      : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
-                  }
-                >
-                  {leg.choice}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {showRightGradient && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-black to-transparent"
-          />
-        )}
-      </div>
-    );
-  };
 
   function renderPredictionsCell(m: { type: string; data: any }) {
     try {
@@ -656,6 +721,18 @@ const TerminalPageContent: React.FC = () => {
     };
   }, []);
 
+  // Prune stale row observers when row count shrinks
+  useEffect(() => {
+    const rowCount = unpinnedRows.length;
+    for (const [idx, ro] of Array.from(rowObserversRef.current.entries())) {
+      if (idx >= rowCount) {
+        ro.disconnect();
+        rowObserversRef.current.delete(idx);
+        rowElsRef.current.delete(idx);
+      }
+    }
+  }, [unpinnedRows.length]);
+
   // Re-measure virtual items when a row toggles/animates to ensure layout pushes down
   useEffect(() => {
     const remeasure = () => {
@@ -827,47 +904,39 @@ const TerminalPageContent: React.FC = () => {
                 ) : (
                   <div>
                     <>
-                      {hasLoadedConditionsOnce && (
-                        <AnimatePresence initial={false} mode="sync">
-                          {pinnedRows.map((row, idx) => {
-                            const auctionId = row.id;
-                            const m = row.m;
-                            const rowKey = `auction-pinned-${auctionId ?? idx}`;
-                            return (
-                              <motion.div
-                                key={rowKey}
-                                layout
-                                initial={{ opacity: 0, y: -6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 6 }}
-                                transition={{ duration: 0.14, ease: 'easeOut' }}
-                              >
-                                <AuctionRequestRow
-                                  uiTx={toUiTx(m)}
-                                  predictionsContent={renderPredictionsCell(m)}
-                                  auctionId={auctionId}
-                                  takerWager={String(m?.data?.wager ?? '0')}
-                                  taker={m?.data?.taker || null}
-                                  resolver={m?.data?.resolver || null}
-                                  predictedOutcomes={
-                                    Array.isArray(m?.data?.predictedOutcomes)
-                                      ? (m?.data?.predictedOutcomes as string[])
-                                      : []
-                                  }
-                                  takerNonce={(() => {
-                                    const raw = m?.data?.takerNonce;
-                                    const n = Number(raw);
-                                    return Number.isFinite(n) ? n : null;
-                                  })()}
-                                  collateralAssetTicker={collateralAssetTicker}
-                                  onTogglePin={togglePin}
-                                  isPinned={true}
-                                />
-                              </motion.div>
-                            );
-                          })}
-                        </AnimatePresence>
-                      )}
+                      {hasLoadedConditionsOnce &&
+                        pinnedRows.map((row, idx) => {
+                          const auctionId = row.id;
+                          const m = row.m;
+                          const rowKey = `auction-pinned-${auctionId ?? idx}`;
+                          return (
+                            <div key={rowKey}>
+                              <AuctionRequestRow
+                                uiTx={toUiTx(m)}
+                                predictionsContent={renderPredictionsCell(m)}
+                                auctionId={auctionId}
+                                takerWager={String(m?.data?.wager ?? '0')}
+                                taker={m?.data?.taker || null}
+                                resolver={m?.data?.resolver || null}
+                                predictedOutcomes={
+                                  Array.isArray(m?.data?.predictedOutcomes)
+                                    ? (m?.data?.predictedOutcomes as string[])
+                                    : []
+                                }
+                                takerNonce={(() => {
+                                  const raw = m?.data?.takerNonce;
+                                  const n = Number(raw);
+                                  return Number.isFinite(n) ? n : null;
+                                })()}
+                                collateralAssetTicker={collateralAssetTicker}
+                                onTogglePin={togglePin}
+                                isPinned={true}
+                                isExpanded={expandedAuctions.has(auctionId)}
+                                onToggleExpanded={toggleExpanded}
+                              />
+                            </div>
+                          );
+                        })}
 
                       {hasLoadedConditionsOnce && (
                         <div
@@ -919,6 +988,8 @@ const TerminalPageContent: React.FC = () => {
                                     }
                                     onTogglePin={togglePin}
                                     isPinned={false}
+                                    isExpanded={expandedAuctions.has(auctionId)}
+                                    onToggleExpanded={toggleExpanded}
                                   />
                                 )}
                               </div>

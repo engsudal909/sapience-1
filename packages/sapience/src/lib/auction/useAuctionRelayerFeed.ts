@@ -13,6 +13,9 @@ export type AuctionFeedMessage = {
   data: unknown;
 };
 
+// 30-minute staleness threshold for subscription pruning
+const SUBSCRIPTION_TTL_MS = 30 * 60 * 1000;
+
 export function useAuctionRelayerFeed(options?: {
   observeVaultQuotes?: boolean;
 }) {
@@ -21,7 +24,8 @@ export function useAuctionRelayerFeed(options?: {
   // Settings apiBaseUrl default already includes "/auction" path
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
   const [messages, setMessages] = useState<AuctionFeedMessage[]>([]);
-  const subscribedAuctionsRef = useRef<Set<string>>(new Set());
+  // Track subscription time to enable pruning of stale subscriptions
+  const subscribedAuctionsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (!wsUrl) return;
@@ -31,7 +35,7 @@ export function useAuctionRelayerFeed(options?: {
 
     const offOpen = client.addOpenListener(() => {
       // Resubscribe to all auctions on reconnect
-      for (const id of Array.from(subscribedAuctionsRef.current)) {
+      for (const id of Array.from(subscribedAuctionsRef.current.keys())) {
         client.send({ type: 'auction.subscribe', payload: { auctionId: id } });
       }
       Sentry.addBreadcrumb({
@@ -74,11 +78,18 @@ export function useAuctionRelayerFeed(options?: {
             (msg?.auctionId as string) ||
             null;
           if (subscribeAuctionId) {
-            subscribedAuctionsRef.current.add(subscribeAuctionId);
+            subscribedAuctionsRef.current.set(subscribeAuctionId, now);
             client.send({
               type: 'auction.subscribe',
               payload: { auctionId: subscribeAuctionId },
             });
+          }
+        }
+
+        // Update last activity for existing subscriptions on bid activity
+        if (type === 'auction.bids' && channel) {
+          if (subscribedAuctionsRef.current.has(channel)) {
+            subscribedAuctionsRef.current.set(channel, now);
           }
         }
       } catch (_err) {
@@ -86,10 +97,27 @@ export function useAuctionRelayerFeed(options?: {
       }
     });
 
+    // Prune stale subscriptions every 60 seconds
+    const pruneTimer = setInterval(() => {
+      const cutoff = Date.now() - SUBSCRIPTION_TTL_MS;
+      for (const [id, subscribedAt] of Array.from(
+        subscribedAuctionsRef.current.entries()
+      )) {
+        if (subscribedAt < cutoff) {
+          subscribedAuctionsRef.current.delete(id);
+          client.send({
+            type: 'auction.unsubscribe',
+            payload: { auctionId: id },
+          });
+        }
+      }
+    }, 60_000);
+
     return () => {
       if (observeVaultQuotes) client.send({ type: 'vault_quote.unobserve' });
       offMsg();
       offOpen();
+      clearInterval(pruneTimer);
     };
   }, [wsUrl, observeVaultQuotes]);
 
