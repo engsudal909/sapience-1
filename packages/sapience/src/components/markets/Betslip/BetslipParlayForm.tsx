@@ -103,11 +103,11 @@ export default function BetslipParlayForm({
     name: 'wagerAmount',
   });
 
-  // Check if wager is over 1M for rainbow effect
-  const isWagerOver1M = useMemo(() => {
+  // Apply rainbow hover effect only for wagers over 1k
+  const isRainbowHoverEnabled = useMemo(() => {
     if (!parlayWagerAmount) return false;
     const wagerNum = Number(parlayWagerAmount);
-    return !Number.isNaN(wagerNum) && wagerNum >= 1000000;
+    return !Number.isNaN(wagerNum) && wagerNum > 1000;
   }, [parlayWagerAmount]);
 
   const bestBid = useMemo(() => {
@@ -371,8 +371,10 @@ export default function BetslipParlayForm({
                   className="mb-3"
                 />
                 <Button
-                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed ${
-                    isWagerOver1M ? 'betslip-submit' : ''
+                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 cursor-pointer disabled:cursor-not-allowed ${
+                    isRainbowHoverEnabled
+                      ? 'betslip-submit hover:text-brand-white'
+                      : ''
                   }`}
                   disabled={
                     isSubmitting ||
@@ -410,7 +412,11 @@ export default function BetslipParlayForm({
                   className="mb-3"
                 />
                 <Button
-                  className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
+                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 cursor-pointer disabled:cursor-not-allowed ${
+                    isRainbowHoverEnabled
+                      ? 'betslip-submit hover:text-brand-white'
+                      : ''
+                  }`}
                   disabled={!showNoBidsHint}
                   type="button"
                   size="lg"
