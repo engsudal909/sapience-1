@@ -49,4 +49,3 @@ export type OrderDraft = {
 export type AutoBidProps = {
   onApplyFilter?: (conditionIds: string[]) => void;
 };
-

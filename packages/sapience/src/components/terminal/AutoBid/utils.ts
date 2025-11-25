@@ -380,4 +380,3 @@ export const resolveMessageField = (
   }
   return undefined;
 };
-

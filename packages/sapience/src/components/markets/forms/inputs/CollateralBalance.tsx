@@ -1,7 +1,8 @@
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { useEffect } from 'react';
-import { useAccount, useBalance } from 'wagmi';
+import { useAccount } from 'wagmi';
 import LottieLoader from '~/components/shared/LottieLoader';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 
 interface CollateralBalanceProps {
   collateralSymbol?: string;
@@ -12,35 +13,26 @@ interface CollateralBalanceProps {
 }
 
 export default function CollateralBalance({
-  collateralAddress,
   onSetWagerAmount,
   chainId,
 }: CollateralBalanceProps) {
   const { address: accountAddress, isConnected } = useAccount();
 
   const {
-    data: balanceData,
+    balance: numericBalance,
     isLoading: isBalanceLoading,
     refetch: refetchBalance,
-  } = useBalance({
+  } = useCollateralBalance({
     address: accountAddress,
-    token: collateralAddress,
     chainId,
-    query: {
-      enabled:
-        isConnected && !!accountAddress && !!collateralAddress && !!chainId,
-    },
+    enabled: isConnected && !!accountAddress && !!chainId,
   });
 
-  const fetchedBalance = balanceData?.formatted ?? '0';
-
   useEffect(() => {
-    if (isConnected && !!accountAddress && !!collateralAddress && !!chainId) {
+    if (isConnected && !!accountAddress && !!chainId) {
       refetchBalance();
     }
-  }, [isConnected, accountAddress, collateralAddress, chainId, refetchBalance]);
-
-  const numericBalance = parseFloat(fetchedBalance);
+  }, [isConnected, accountAddress, chainId, refetchBalance]);
 
   const handleSetWager = (percentage: number) => {
     if (onSetWagerAmount && numericBalance > 0) {
@@ -99,7 +91,7 @@ export default function CollateralBalance({
     );
   }
 
-  if (!collateralAddress || !chainId) {
+  if (!chainId) {
     return null;
   }
 

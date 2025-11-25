@@ -191,4 +191,3 @@ export function useAutoBidOrders(logOrderEvent: LogOrderEventFn) {
     createEmptyDraft,
   };
 }
-

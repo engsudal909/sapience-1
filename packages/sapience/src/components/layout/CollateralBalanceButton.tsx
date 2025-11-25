@@ -1,9 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo } from 'react';
-import { useReadContract, useBalance } from 'wagmi';
-import { erc20Abi, formatUnits } from 'viem';
 import { useWallets } from '@privy-io/react-auth';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
@@ -14,13 +11,8 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { formatFiveSigFigs } from '~/lib/utils/util';
-import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import {
-  COLLATERAL_SYMBOLS,
-  CHAIN_ID_ETHEREAL,
-  CHAIN_ID_ETHEREAL_TESTNET,
-} from '@sapience/sdk/constants';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 
 interface CollateralBalanceButtonProps {
   onClick?: () => void;
@@ -36,69 +28,14 @@ export default function CollateralBalanceButton({
   const { wallets } = useWallets();
   const connectedWallet = wallets[0];
   const chainId = useChainIdFromLocalStorage();
-  const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
-
   const accountAddress = connectedWallet?.address as `0x${string}` | undefined;
 
-  // Determine if we should use native balance (for Ethereal chains) or ERC20 token
-  const isEtherealChain =
-    chainId === CHAIN_ID_ETHEREAL || chainId === CHAIN_ID_ETHEREAL_TESTNET;
-
-  // Native balance for Ethereal chains
-  const { data: nativeBalance } = useBalance({
+  const { balance, symbol } = useCollateralBalance({
     address: accountAddress,
     chainId,
-    query: { enabled: Boolean(accountAddress) && isEtherealChain },
   });
 
-  // ERC20 token balance for other chains
-  const collateralAssetAddress = DEFAULT_COLLATERAL_ASSET;
-
-  const { data: decimals } = useReadContract({
-    abi: erc20Abi,
-    address: collateralAssetAddress,
-    functionName: 'decimals',
-    chainId,
-    query: { enabled: Boolean(accountAddress) && !isEtherealChain },
-  });
-
-  const { data: tokenBalance } = useReadContract({
-    abi: erc20Abi,
-    address: collateralAssetAddress,
-    functionName: 'balanceOf',
-    args: accountAddress ? [accountAddress] : undefined,
-    chainId,
-    query: { enabled: Boolean(accountAddress) && !isEtherealChain },
-  });
-
-  const formattedBalance = useMemo(() => {
-    try {
-      if (isEtherealChain) {
-        // Use native balance for Ethereal chains
-        if (!nativeBalance) return `0 ${collateralSymbol}`;
-        const num = Number(nativeBalance.formatted);
-        if (Number.isNaN(num)) return `0 ${collateralSymbol}`;
-        return `${formatFiveSigFigs(num)} ${collateralSymbol}`;
-      } else {
-        // Use ERC20 token balance for other chains
-        const dec =
-          typeof decimals === 'number' ? decimals : Number(decimals ?? 18);
-        if (!tokenBalance) return `0 ${collateralSymbol}`;
-        const human = formatUnits(tokenBalance, dec);
-        const num = Number(human);
-        if (Number.isNaN(num)) return `0 ${collateralSymbol}`;
-        return `${formatFiveSigFigs(num)} ${collateralSymbol}`;
-      }
-    } catch {
-      return `0 ${collateralSymbol}`;
-    }
-  }, [
-    isEtherealChain,
-    nativeBalance,
-    tokenBalance,
-    decimals,
-    collateralSymbol,
-  ]);
+  const formattedBalance = `${formatFiveSigFigs(balance)} ${symbol}`;
 
   return (
     <div className={`flex w-fit mx-3 md:mx-0 mt-0 ${className ?? ''}`}>
@@ -147,7 +84,7 @@ export default function CollateralBalanceButton({
               >
                 Discord
               </a>{' '}
-              to request {collateralSymbol}
+              to request {symbol}
             </span>
           </TooltipContent>
         </Tooltip>

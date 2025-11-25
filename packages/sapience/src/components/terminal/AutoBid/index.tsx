@@ -2,15 +2,14 @@
 
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { formatUnits } from 'viem';
 import { predictionMarket } from '@sapience/sdk/contracts';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
-import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
 import { useAuctionRelayerFeed } from '~/lib/auction/useAuctionRelayerFeed';
@@ -35,9 +34,18 @@ import OrderBuilderDialog from './components/OrderBuilderDialog';
 const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
   const { address } = useAccount();
   const chainId = useChainIdFromLocalStorage();
-  const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const { messages: auctionMessages } = useAuctionRelayerFeed();
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
+
+  const {
+    balance,
+    symbol: collateralSymbol,
+    decimals: tokenDecimals,
+  } = useCollateralBalance({
+    address,
+    chainId,
+    enabled: Boolean(address),
+  });
 
   const COLLATERAL_ADDRESS = DEFAULT_COLLATERAL_ASSET as
     | `0x${string}`
@@ -45,23 +53,6 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
   const SPENDER_ADDRESS = predictionMarket[chainId]?.address as
     | `0x${string}`
     | undefined;
-
-  const { data: decimals } = useReadContract({
-    abi: erc20Abi,
-    address: COLLATERAL_ADDRESS,
-    functionName: 'decimals',
-    chainId: chainId,
-    query: { enabled: Boolean(COLLATERAL_ADDRESS) },
-  });
-
-  const { data: rawBalance } = useReadContract({
-    abi: erc20Abi,
-    address: COLLATERAL_ADDRESS,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: chainId,
-    query: { enabled: Boolean(address && COLLATERAL_ADDRESS) },
-  });
 
   const { openApproval } = useApprovalDialog();
   const [spenderAddressInput] = useState<string>(
@@ -93,25 +84,9 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     });
   }, [conditionCatalog]);
 
-  const tokenDecimals = useMemo(() => {
-    try {
-      return typeof decimals === 'number' ? decimals : Number(decimals ?? 18);
-    } catch {
-      return 18;
-    }
-  }, [decimals]);
-
   const balanceDisplay = useMemo(() => {
-    try {
-      if (!rawBalance) return '0';
-      const human = Number(
-        formatUnits(rawBalance as unknown as bigint, tokenDecimals)
-      );
-      return formatFiveSigFigs(human);
-    } catch {
-      return '0';
-    }
-  }, [rawBalance, tokenDecimals]);
+    return formatFiveSigFigs(balance);
+  }, [balance]);
 
   const { allowance } = useTokenApproval({
     tokenAddress: COLLATERAL_ADDRESS,
