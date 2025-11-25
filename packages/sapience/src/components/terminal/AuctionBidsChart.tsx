@@ -239,6 +239,7 @@ const AuctionBidsChart: React.FC<Props> = ({
             }}
           />
           <Tooltip
+            cursor={false}
             content={({ active, payload }) => {
               if (!active || !payload || payload.length === 0) return null;
               const p: any = payload[0]?.payload || {};

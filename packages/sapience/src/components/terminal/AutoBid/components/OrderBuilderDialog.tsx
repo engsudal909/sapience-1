@@ -588,7 +588,8 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
                       />
                       <span>
                         This will only execute if all of these predictions are
-                        requested together.
+                        requested together. You win if any of these predictions
+                        are correct.
                       </span>
                     </p>
                   ) : null}
