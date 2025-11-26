@@ -196,6 +196,8 @@ export function useAuctionMatching({
     async (details: {
       order: Order;
       source: 'copy_trade' | 'conditions';
+      /** For conditions: whether the match is inverted (opposite side) */
+      inverted?: boolean;
       auctionId?: string | null;
       /** Auction context from the feed message */
       auctionContext?: {
@@ -250,7 +252,11 @@ export function useAuctionMatching({
           // Formula: makerWager = (probability * takerWager) / (1 - probability)
           // This gives us the exact odds we want
           const takerWagerBigInt = BigInt(takerWager || '0');
-          const probability = (details.order.odds ?? 50) / 100; // odds is stored as percentage (0-100)
+          const rawProbability = (details.order.odds ?? 50) / 100; // odds is stored as percentage (0-100)
+          // Invert probability for opposite-side matches (single-leg orders matching the other side)
+          const probability = details.inverted
+            ? 1 - rawProbability
+            : rawProbability;
 
           if (probability >= 1 || probability <= 0) {
             // Invalid probability, skip
@@ -671,6 +677,7 @@ export function useAuctionMatching({
           void triggerAutoBidSubmission({
             order,
             source: 'conditions',
+            inverted: matchInfo.inverted,
             auctionId,
             auctionContext: {
               takerWager: takerWagerStr,
