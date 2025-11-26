@@ -1,12 +1,6 @@
 import type React from 'react';
-import { Clock, Filter, Pause, Pencil, Play } from 'lucide-react';
+import { Clock, Pause, Pencil, Play } from 'lucide-react';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
 import type { Order, ConditionSelection } from '../types';
 import {
   YES_BADGE_BASE_CLASSES,
@@ -35,8 +29,6 @@ export type OrderCardProps = {
   describeAutoPauseStatus: (order: Order) => string;
   onToggleStatus: (id: string) => void;
   onEdit: (order: Order) => void;
-  onApplyFilter?: (order: Order) => void;
-  showFilterButton?: boolean;
 };
 
 const OrderCard: React.FC<OrderCardProps> = ({
@@ -48,8 +40,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
   describeAutoPauseStatus,
   onToggleStatus,
   onEdit,
-  onApplyFilter,
-  showFilterButton = false,
 }) => {
   const isActive = order.status === 'active';
   const { numberLabel, strategyLabel } = getStrategyBadgeLabel(order, index);
@@ -129,26 +119,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
               )}
             </div>
             <div className="ml-auto flex items-center justify-end self-start gap-2">
-              {showFilterButton &&
-              onApplyFilter &&
-              order.strategy === 'conditions' &&
-              (order.conditionSelections?.length ?? 0) > 0 ? (
-                <TooltipProvider delayDuration={150}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Apply filter"
-                        onClick={() => onApplyFilter(order)}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:border-border hover:text-brand-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        <Filter className="h-2.5 w-2.5" aria-hidden />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Apply Filter</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null}
               <button
                 type="button"
                 onClick={() => onToggleStatus(order.id)}

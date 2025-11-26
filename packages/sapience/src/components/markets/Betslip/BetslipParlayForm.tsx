@@ -41,7 +41,10 @@ interface BetslipParlayFormProps {
   error?: string | null;
   chainId?: number;
   bids?: QuoteBid[];
-  requestQuotes?: (params: AuctionParams | null) => void;
+  requestQuotes?: (
+    params: AuctionParams | null,
+    options?: { forceRefresh?: boolean }
+  ) => void;
   // Collateral token configuration from useSubmitParlay hook
   collateralToken?: `0x${string}`;
   collateralSymbol?: string;
@@ -141,58 +144,71 @@ export default function BetslipParlayForm({
     });
   }, [bids, parlayWagerAmount, nowMs]);
 
+  // Check if we received bids but they've all expired
+  const allBidsExpired = bids.length > 0 && !bestBid;
+
+  // Check if we recently made a request (within 3 seconds) - show "Waiting for Bids..." during cooldown
+  const recentlyRequested =
+    lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 3000;
+
   // Derive a stable dependency for form validation state
   const hasFormErrors = Object.keys(methods.formState.errors).length > 0;
 
-  const triggerAuctionRequest = useCallback(() => {
-    if (!requestQuotes) return;
-    if (!selectedTakerAddress) return;
-    if (!parlaySelections || parlaySelections.length === 0) return;
-    if (takerAddress && takerNonce === undefined) return;
-    if (hasFormErrors) return;
+  const triggerAuctionRequest = useCallback(
+    (options?: { forceRefresh?: boolean }) => {
+      if (!requestQuotes) return;
+      if (!selectedTakerAddress) return;
+      if (!parlaySelections || parlaySelections.length === 0) return;
+      if (takerAddress && takerNonce === undefined) return;
+      if (hasFormErrors) return;
 
-    const wagerStr = parlayWagerAmount || '0';
+      const wagerStr = parlayWagerAmount || '0';
 
-    try {
-      const decimals = Number.isFinite(collateralDecimals as number)
-        ? (collateralDecimals as number)
-        : 18;
-      const wagerWei = parseUnits(wagerStr, decimals).toString();
-      const outcomes = parlaySelections.map((s) => ({
-        marketId: s.conditionId || '0',
-        prediction: !!s.prediction,
-      }));
-      const payload = buildAuctionStartPayload(outcomes, chainId);
-      const params: AuctionParams = {
-        wager: wagerWei,
-        resolver: payload.resolver,
-        predictedOutcomes: payload.predictedOutcomes,
-        taker: selectedTakerAddress,
-        takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
-        chainId: chainId,
-      };
+      try {
+        const decimals = Number.isFinite(collateralDecimals as number)
+          ? (collateralDecimals as number)
+          : 18;
+        const wagerWei = parseUnits(wagerStr, decimals).toString();
+        const outcomes = parlaySelections.map((s) => ({
+          marketId: s.conditionId || '0',
+          prediction: !!s.prediction,
+        }));
+        const payload = buildAuctionStartPayload(outcomes, chainId);
+        const params: AuctionParams = {
+          wager: wagerWei,
+          resolver: payload.resolver,
+          predictedOutcomes: payload.predictedOutcomes,
+          taker: selectedTakerAddress,
+          takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
+          chainId: chainId,
+        };
 
-      requestQuotes(params);
-      setLastQuoteRequestMs(Date.now());
-    } catch {
-      // ignore formatting errors
-    }
-  }, [
-    requestQuotes,
-    selectedTakerAddress,
-    parlaySelections,
-    takerAddress,
-    takerNonce,
-    hasFormErrors,
-    parlayWagerAmount,
-    collateralDecimals,
-    chainId,
-  ]);
+        requestQuotes(params, options);
+        setLastQuoteRequestMs(Date.now());
+      } catch {
+        // ignore formatting errors
+      }
+    },
+    [
+      requestQuotes,
+      selectedTakerAddress,
+      parlaySelections,
+      takerAddress,
+      takerNonce,
+      hasFormErrors,
+      parlayWagerAmount,
+      collateralDecimals,
+      chainId,
+    ]
+  );
 
+  // Show "Request Bids" button when:
+  // 1. No valid bids exist (never received or all expired)
+  // 2. Not in the 3-second cooldown period after making a request
   const showNoBidsHint =
     !bestBid &&
-    lastQuoteRequestMs != null &&
-    nowMs - lastQuoteRequestMs >= 3000;
+    !recentlyRequested &&
+    (allBidsExpired || lastQuoteRequestMs != null);
 
   // Crossfade between disclaimer and hint when bids may not arrive
   const HINT_FADE_MS = 300;
@@ -424,7 +440,10 @@ export default function BetslipParlayForm({
                   type="button"
                   size="lg"
                   variant="default"
-                  onClick={() => showNoBidsHint && triggerAuctionRequest()}
+                  onClick={() =>
+                    showNoBidsHint &&
+                    triggerAuctionRequest({ forceRefresh: true })
+                  }
                 >
                   {showNoBidsHint ? 'Request Bids' : 'Waiting for Bids...'}
                 </Button>

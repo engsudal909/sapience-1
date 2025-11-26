@@ -246,10 +246,50 @@ export function useAuctionMatching({
           );
           makerWagerWei = copiedWei + incrementWei;
         } else {
-          // For conditions strategy: use a default or configured amount
-          // For now, use a sensible minimum or the order's configured amount
-          const defaultAmount = details.order.increment || 1;
-          makerWagerWei = parseUnits(String(defaultAmount), tokenDecimals);
+          // For conditions strategy: calculate wager based on probability threshold
+          // Formula: makerWager = (probability * takerWager) / (1 - probability)
+          // This gives us the exact odds we want
+          const takerWagerBigInt = BigInt(takerWager || '0');
+          const probability = (details.order.odds ?? 50) / 100; // odds is stored as percentage (0-100)
+
+          if (probability >= 1 || probability <= 0) {
+            // Invalid probability, skip
+            pushLogEntry({
+              kind: 'system',
+              message: `${tag} bid skipped, invalid probability threshold`,
+              severity: 'warning',
+              meta: {
+                orderId: details.order.id,
+                labelSnapshot: orderLabelSnapshot,
+                probability: details.order.odds,
+              },
+              dedupeKey: `prob:${details.order.id}:${details.auctionId}`,
+            });
+            return;
+          }
+
+          // Calculate using bigint math with precision scaling to avoid floating point errors
+          // makerWager = (probability * takerWager) / (1 - probability)
+          const PRECISION = 10000n;
+          const probabilityScaled = BigInt(Math.round(probability * 10000));
+          const numerator = probabilityScaled * takerWagerBigInt;
+          const denominator = PRECISION - probabilityScaled;
+
+          if (denominator <= 0n || numerator <= 0n) {
+            pushLogEntry({
+              kind: 'system',
+              message: `${tag} bid skipped, cannot calculate wager amount`,
+              severity: 'warning',
+              meta: {
+                orderId: details.order.id,
+                labelSnapshot: orderLabelSnapshot,
+              },
+              dedupeKey: `calc:${details.order.id}:${details.auctionId}`,
+            });
+            return;
+          }
+
+          makerWagerWei = numerator / denominator;
         }
       } catch {
         pushLogEntry({
@@ -599,12 +639,23 @@ export function useAuctionMatching({
           return;
         }
         const tag = formatOrderTag(order, null, getOrderIndex);
-        // For conditions strategy, the bid amount is order.increment (or default 1)
-        const estimatedSpend =
-          typeof order.increment === 'number' &&
-          Number.isFinite(order.increment)
-            ? order.increment
-            : 1;
+        // For conditions strategy, calculate estimated spend based on probability threshold
+        // Formula: makerWager = (probability * takerWager) / (1 - probability)
+        let estimatedSpend = 1;
+        try {
+          const probability = (order.odds ?? 50) / 100;
+          if (probability > 0 && probability < 1) {
+            const takerWagerNum = Number(
+              formatUnits(BigInt(takerWagerStr || '0'), tokenDecimals)
+            );
+            if (Number.isFinite(takerWagerNum) && takerWagerNum > 0) {
+              estimatedSpend =
+                (probability * takerWagerNum) / (1 - probability);
+            }
+          }
+        } catch {
+          // Fallback to default
+        }
         const readiness = evaluateAutoBidReadiness({
           order,
           context: {
@@ -632,7 +683,13 @@ export function useAuctionMatching({
         }
       });
     },
-    [evaluateAutoBidReadiness, getOrderIndex, orders, triggerAutoBidSubmission]
+    [
+      evaluateAutoBidReadiness,
+      getOrderIndex,
+      orders,
+      tokenDecimals,
+      triggerAutoBidSubmission,
+    ]
   );
 
   const handleAuctionMessage = useCallback(

@@ -33,6 +33,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/dialog';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from './ApprovalDialogContext';
@@ -51,6 +52,7 @@ const ApprovalDialog: React.FC = () => {
   const chainId = useChainIdFromLocalStorage();
   const { address } = useAccount();
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
+  const { toast } = useToast();
 
   const isEtherealChain =
     chainId === CHAIN_ID_ETHEREAL || chainId === CHAIN_ID_ETHEREAL_TESTNET;
@@ -241,7 +243,21 @@ const ApprovalDialog: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = useCallback(async () => {
-    if (!COLLATERAL_ADDRESS || !SPENDER_ADDRESS || !approveAmount) return;
+    if (!COLLATERAL_ADDRESS || !SPENDER_ADDRESS || !approveAmount) {
+      console.error('Missing required parameters:', {
+        COLLATERAL_ADDRESS,
+        SPENDER_ADDRESS,
+        approveAmount,
+      });
+      toast({
+        title: 'Configuration Error',
+        description:
+          'Unable to submit approval. Please try refreshing the page.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -274,7 +290,9 @@ const ApprovalDialog: React.FC = () => {
               value: 0n,
             },
           ],
-        });
+          // Enable fallback for wallets that don't support EIP-5792
+          experimental_fallback: true,
+        } as any);
       } else {
         // Just approve
         await approve();
@@ -293,8 +311,16 @@ const ApprovalDialog: React.FC = () => {
           refetchErc20();
         }
       }, 2000);
-    } catch {
-      // Error handled by toast in approve()
+    } catch (error) {
+      // Show error to user - approve() logs but doesn't toast
+      console.error('Approval failed:', error);
+      toast({
+        title: 'Approval Failed',
+        description:
+          error instanceof Error ? error.message : 'Failed to submit approval',
+        variant: 'destructive',
+        duration: 5000,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -314,6 +340,7 @@ const ApprovalDialog: React.FC = () => {
     refetchNative,
     refetchWusde,
     refetchErc20,
+    toast,
   ]);
 
   const isProcessing = isApproving || isSendingCalls || isSubmitting;
@@ -364,6 +391,7 @@ const ApprovalDialog: React.FC = () => {
               !approveAmount ||
               isProcessing ||
               !COLLATERAL_ADDRESS ||
+              !SPENDER_ADDRESS ||
               hasInsufficientBalance ||
               isPermitLoading ||
               isRestricted ||

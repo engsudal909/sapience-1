@@ -147,7 +147,7 @@ export function useAuctionStart() {
   // Debounced send of auction.start when params change
   const debounceTimer = useRef<number | null>(null);
   const requestQuotes = useCallback(
-    (params: AuctionParams | null) => {
+    (params: AuctionParams | null, options?: { forceRefresh?: boolean }) => {
       if (!params || !wsUrl) return;
       const requestPayload = {
         wager: params.wager,
@@ -162,7 +162,10 @@ export function useAuctionStart() {
         type: 'auction.start',
         payload: requestPayload,
       });
-      if (inflightRef.current === key) return;
+      // Skip deduplication when forceRefresh is true (e.g., user clicked "Request Bids")
+      if (inflightRef.current === key && !options?.forceRefresh) return;
+      // Clear inflight key when forcing refresh to allow the new request
+      if (options?.forceRefresh) inflightRef.current = '';
 
       if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
       debounceTimer.current = window.setTimeout(async () => {

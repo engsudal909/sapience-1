@@ -32,7 +32,7 @@ import OrdersList from './components/OrdersList';
 import LogsPanel from './components/LogsPanel';
 import OrderBuilderDialog from './components/OrderBuilderDialog';
 
-const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
+const AutoBid: React.FC<AutoBidProps> = () => {
   const { address } = useAccount();
   const chainId = useChainIdFromLocalStorage();
   const { messages: auctionMessages } = useAuctionRelayerFeed();
@@ -311,28 +311,6 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
     [now]
   );
 
-  const applyOrderFilters = useCallback(
-    (order: Order) => {
-      if (!onApplyFilter) {
-        return;
-      }
-      const ids = Array.from(
-        new Set(
-          (order.conditionSelections ?? [])
-            .map((selection) => selection?.id)
-            .filter(
-              (id): id is string => typeof id === 'string' && id.length > 0
-            )
-        )
-      );
-      if (ids.length === 0) {
-        return;
-      }
-      onApplyFilter(ids);
-    },
-    [onApplyFilter]
-  );
-
   const handleEdit = useCallback(
     (order: Order) => {
       const draft = createDraftFromOrder(order);
@@ -426,9 +404,7 @@ const AutoBid: React.FC<AutoBidProps> = ({ onApplyFilter }) => {
             describeAutoPauseStatus={describeAutoPauseStatus}
             onToggleStatus={toggleOrderStatus}
             onEdit={handleEdit}
-            onApplyFilter={onApplyFilter ? applyOrderFilters : undefined}
             onCreateOrder={handleCreateOrder}
-            showFilterButton={Boolean(onApplyFilter)}
           />
 
           <LogsPanel logs={logs} orderLabelById={orderLabelById} />

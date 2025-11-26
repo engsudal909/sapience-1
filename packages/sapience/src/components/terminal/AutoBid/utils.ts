@@ -228,21 +228,30 @@ export const getConditionMatchInfo = (
     id: normalizeHexId(selection.id),
   }));
 
+  // The auction's prediction is the MAKER's prediction.
+  // The UI shows the INVERTED value (what the taker/bidder would bet).
+  // If maker predicted true (Yes), the UI shows "No" (taker bets No).
+  // So if user wants Yes, we match when maker predicted false (UI shows Yes).
   const directMatch = normalizedSelections.every((selection) => {
     if (!selection.id) return false;
     if (!legsMap.has(selection.id)) return false;
     const wantsYes = selection.outcome === 'yes';
-    return legsMap.get(selection.id) === wantsYes;
+    const makerPrediction = legsMap.get(selection.id);
+    // Match when the UI display matches: makerPrediction=false shows Yes, makerPrediction=true shows No
+    return makerPrediction !== wantsYes;
   });
   if (directMatch) {
     return { inverted: false };
   }
 
+  // For single-selection orders, also check for inverted match (opposite side)
   if (normalizedSelections.length === 1) {
     const selection = normalizedSelections[0];
     if (selection.id && legsMap.has(selection.id)) {
       const wantsYes = selection.outcome === 'yes';
-      if (legsMap.get(selection.id) !== wantsYes) {
+      const makerPrediction = legsMap.get(selection.id);
+      // Inverted match: when makerPrediction === wantsYes (opposite of direct match)
+      if (makerPrediction === wantsYes) {
         return { inverted: true };
       }
     }

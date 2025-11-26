@@ -1,14 +1,13 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   AreaChart,
   CartesianGrid,
   ReferenceLine,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -37,6 +36,16 @@ const AuctionBidsChart: React.FC<Props> = ({
   collateralAssetTicker,
 }) => {
   const [nowMs, setNowMs] = useState<number>(Date.now());
+  const [hoveredBid, setHoveredBid] = useState<{
+    x: number;
+    y: number;
+    data: {
+      amount: number;
+      makerAddress: string;
+      endMs: number;
+    };
+  } | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
   const takerEth = (() => {
     try {
       return Number(formatEther(BigInt(String(takerWager ?? '0'))));
@@ -155,8 +164,123 @@ const AuctionBidsChart: React.FC<Props> = ({
 
   const seriesColor = useMemo(() => 'hsl(var(--ethena))', []);
 
+  // Find the best (highest) active bid at a given x-coordinate (time)
+  const findBestBidAtTime = useCallback(
+    (timeMs: number) => {
+      const activeBids = series.filter(
+        (s) => timeMs >= s.start && timeMs <= s.end
+      );
+      if (activeBids.length === 0) return null;
+
+      // Find the highest bid
+      let best = activeBids[0];
+      for (const bid of activeBids) {
+        if (bid.data[0].amount > best.data[0].amount) {
+          best = bid;
+        }
+      }
+      return best.data[0];
+    },
+    [series]
+  );
+
+  // Handle mouse move to show custom tooltip (throttled for performance)
+  const lastMoveRef = useRef<number>(0);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // Throttle to ~60fps
+      const now = performance.now();
+      if (now - lastMoveRef.current < 16) return;
+      lastMoveRef.current = now;
+
+      const container = chartRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Chart area starts after Y axis (56px) and has padding (8px right, 0 left)
+      const chartLeft = 56;
+      const chartRight = rect.width - 8;
+      const chartWidth = chartRight - chartLeft;
+      const chartTop = 8;
+      const chartBottom = rect.height - 20; // Account for X axis
+
+      // Only show tooltip when hovering in the chart area
+      if (
+        mouseX < chartLeft ||
+        mouseX > chartRight ||
+        mouseY < chartTop ||
+        mouseY > chartBottom
+      ) {
+        setHoveredBid(null);
+        return;
+      }
+
+      // Map mouse X to time
+      const relativeX = (mouseX - chartLeft) / chartWidth;
+      const timeRange = xDomain[1] - xDomain[0];
+      const timeMs = xDomain[0] + relativeX * timeRange;
+
+      const bidData = findBestBidAtTime(timeMs);
+      if (bidData) {
+        setHoveredBid({
+          x: e.clientX,
+          y: e.clientY,
+          data: {
+            amount: bidData.amount,
+            makerAddress: bidData.makerAddress || '',
+            endMs: bidData.endMs || 0,
+          },
+        });
+      } else {
+        setHoveredBid(null);
+      }
+    },
+    [xDomain, findBestBidAtTime]
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredBid(null);
+  }, []);
+
+  // Calculate tooltip position to keep it in viewport
+  const tooltipStyle = useMemo(() => {
+    if (!hoveredBid) return {};
+    const tooltipWidth = 280;
+    const tooltipHeight = 80;
+    const offset = 12;
+
+    let left = hoveredBid.x + offset;
+    let top = hoveredBid.y - tooltipHeight - offset;
+
+    // Keep tooltip in viewport horizontally
+    if (left + tooltipWidth > window.innerWidth - 8) {
+      left = hoveredBid.x - tooltipWidth - offset;
+    }
+
+    // Keep tooltip in viewport vertically
+    if (top < 8) {
+      top = hoveredBid.y + offset;
+    }
+
+    return {
+      position: 'fixed' as const,
+      left,
+      top,
+      zIndex: 50,
+      pointerEvents: 'none' as const,
+    };
+  }, [hoveredBid]);
+
   return (
-    <div className="h-full w-full">
+    <div
+      ref={chartRef}
+      className="h-full w-full relative cursor-crosshair"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -238,41 +362,6 @@ const AuctionBidsChart: React.FC<Props> = ({
               });
             }}
           />
-          <Tooltip
-            cursor={false}
-            content={({ active, payload }) => {
-              if (!active || !payload || payload.length === 0) return null;
-              const p: any = payload[0]?.payload || {};
-              const takerAmount = Number(p?.takerAmountEth || p?.amount || 0);
-              const total = Number.isFinite(takerAmount)
-                ? takerAmount + (Number.isFinite(takerEth) ? takerEth : 0)
-                : 0;
-              const pct =
-                Number.isFinite(takerAmount) &&
-                Number.isFinite(total) &&
-                total > 0
-                  ? Math.round((takerAmount / total) * 100)
-                  : undefined;
-              const endMs = Number(p?.endMs || 0);
-              const timeNode =
-                Number.isFinite(endMs) && endMs > 0 ? (
-                  <ExpiresInLabel endMs={endMs} nowMs={nowMs} />
-                ) : undefined;
-              return (
-                <div className="rounded-md bg-background border border-border px-3 py-2.5">
-                  <TradePopoverContent
-                    leftAddress={String(p?.makerAddress || '')}
-                    rightAddress={String(taker || '')}
-                    takerAmountEth={takerAmount}
-                    totalAmountEth={total}
-                    percent={pct}
-                    ticker={collateralAssetTicker}
-                    timeNode={timeNode}
-                  />
-                </div>
-              );
-            }}
-          />
           {series.map((s) => {
             const isNew =
               nowMs - s.start < Math.max(300, Math.min(1200, refreshMs * 2));
@@ -307,6 +396,40 @@ const AuctionBidsChart: React.FC<Props> = ({
           />
         </AreaChart>
       </ResponsiveContainer>
+
+      {/* Custom tooltip that shows best bid at hovered position */}
+      {hoveredBid && (
+        <div
+          style={tooltipStyle}
+          className="rounded-md bg-background border border-border px-3 py-2.5 shadow-lg animate-in fade-in-0 zoom-in-95 duration-100"
+        >
+          <TradePopoverContent
+            leftAddress={hoveredBid.data.makerAddress}
+            rightAddress={String(taker || '')}
+            takerAmountEth={hoveredBid.data.amount}
+            totalAmountEth={
+              hoveredBid.data.amount +
+              (Number.isFinite(takerEth) ? takerEth : 0)
+            }
+            percent={
+              hoveredBid.data.amount + takerEth > 0
+                ? Math.round(
+                    (hoveredBid.data.amount /
+                      (hoveredBid.data.amount + takerEth)) *
+                      100
+                  )
+                : undefined
+            }
+            ticker={collateralAssetTicker}
+            timeNode={
+              hoveredBid.data.endMs > 0 ? (
+                <ExpiresInLabel endMs={hoveredBid.data.endMs} nowMs={nowMs} />
+              ) : undefined
+            }
+          />
+        </div>
+      )}
+
       <style jsx>{`
         :global(.now-ref-line .recharts-reference-line-line) {
           stroke-dasharray: 1 3;

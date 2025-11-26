@@ -13,9 +13,7 @@ export type OrdersListProps = {
   describeAutoPauseStatus: (order: Order) => string;
   onToggleStatus: (id: string) => void;
   onEdit: (order: Order) => void;
-  onApplyFilter?: (order: Order) => void;
   onCreateOrder: () => void;
-  showFilterButton?: boolean;
 };
 
 const OrdersList: React.FC<OrdersListProps> = ({
@@ -27,9 +25,7 @@ const OrdersList: React.FC<OrdersListProps> = ({
   describeAutoPauseStatus,
   onToggleStatus,
   onEdit,
-  onApplyFilter,
   onCreateOrder,
-  showFilterButton = false,
 }) => {
   const ordersScrollRef = useRef<HTMLDivElement | null>(null);
   const [showOrdersScrollShadow, setShowOrdersScrollShadow] = useState(false);
@@ -100,8 +96,6 @@ const OrdersList: React.FC<OrdersListProps> = ({
                     describeAutoPauseStatus={describeAutoPauseStatus}
                     onToggleStatus={onToggleStatus}
                     onEdit={onEdit}
-                    onApplyFilter={onApplyFilter}
-                    showFilterButton={showFilterButton}
                   />
                 ))}
               </ul>

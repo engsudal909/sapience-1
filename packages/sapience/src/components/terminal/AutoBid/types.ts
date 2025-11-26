@@ -46,6 +46,4 @@ export type OrderDraft = {
   odds: number;
 };
 
-export type AutoBidProps = {
-  onApplyFilter?: (conditionIds: string[]) => void;
-};
+export type AutoBidProps = Record<string, never>;
