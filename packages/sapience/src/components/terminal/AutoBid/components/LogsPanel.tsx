@@ -54,7 +54,13 @@ const LogsPanel: React.FC<LogsPanelProps> = ({ logs, orderLabelById }) => {
                   formattedPrefix && verb
                     ? `${orderLabel ?? formattedPrefix} ${verb}`
                     : '';
-                const suffix = highlight || entry.message;
+                // Don't show suffix if it's the same as the verb (avoids "paused paused")
+                const suffix =
+                  highlight && highlight !== verb
+                    ? highlight
+                    : !prefix
+                      ? entry.message
+                      : '';
 
                 return (
                   <li

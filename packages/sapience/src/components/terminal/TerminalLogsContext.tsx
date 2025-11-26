@@ -227,6 +227,8 @@ export function TerminalLogsProvider({
         severity,
         meta: {
           ...meta,
+          formattedPrefix: prefix,
+          verb: 'bid',
           highlight,
           source,
         },
