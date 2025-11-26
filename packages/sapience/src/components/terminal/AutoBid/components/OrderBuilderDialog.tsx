@@ -89,6 +89,8 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
   const [isDurationExpanded, setIsDurationExpanded] = useState(false);
   const [isPayoutPopoverOpen, setIsPayoutPopoverOpen] = useState(false);
   const [examplePayoutInput, setExamplePayoutInput] = useState('');
+  const [isOddsPopoverOpen, setIsOddsPopoverOpen] = useState(false);
+  const [oddsPercentInput, setOddsPercentInput] = useState('');
 
   // Reset draft when dialog opens or initialDraft changes
   useEffect(() => {
@@ -103,6 +105,11 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
     const parsed = Number(examplePayoutInput);
     return Number.isFinite(parsed) && parsed >= 100;
   }, [examplePayoutInput]);
+
+  const isOddsPercentInputValid = useMemo(() => {
+    const parsed = Number(oddsPercentInput);
+    return Number.isFinite(parsed) && parsed >= 1 && parsed <= 99;
+  }, [oddsPercentInput]);
 
   const examplePayout = useMemo(() => {
     const odds = clampConditionOdds(draft.odds);
@@ -120,6 +127,13 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
       setExamplePayoutInput(normalized.toFixed(2));
     }
   }, [isPayoutPopoverOpen, examplePayout]);
+
+  useEffect(() => {
+    if (isOddsPopoverOpen) {
+      const currentOdds = clampConditionOdds(draft.odds);
+      setOddsPercentInput(String(currentOdds));
+    }
+  }, [isOddsPopoverOpen, draft.odds]);
 
   const parsedIncrement = useMemo(() => {
     const next = Number(draft.increment);
@@ -238,6 +252,15 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
     const nextOdds = Math.round((EXAMPLE_ODDS_STAKE * 100) / parsed);
     handleOrderOddsChange(clampConditionOdds(nextOdds));
     setIsPayoutPopoverOpen(false);
+  };
+
+  const applyOddsPercentInput = () => {
+    const parsed = Number(oddsPercentInput);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 99) {
+      return;
+    }
+    handleOrderOddsChange(clampConditionOdds(Math.round(parsed)));
+    setIsOddsPopoverOpen(false);
   };
 
   const handleConditionRemove = (conditionId: string) => {
@@ -637,9 +660,61 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
                                 </Tooltip>
                               </TooltipProvider>
                             </div>
-                            <span className="font-mono text-sm font-light text-ethena leading-tight">
-                              {formatPercentChance(safeValue / 100)} chance
-                            </span>
+                            <Popover
+                              open={isOddsPopoverOpen}
+                              onOpenChange={setIsOddsPopoverOpen}
+                            >
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="font-mono text-sm font-light text-ethena leading-tight underline decoration-dotted decoration-ethena/60 underline-offset-2 hover:text-ethena/80 hover:decoration-ethena/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border rounded-sm"
+                                >
+                                  {formatPercentChance(safeValue / 100)} chance
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="start"
+                                className="w-48 p-2"
+                              >
+                                <div className="flex flex-col gap-1.5">
+                                  <Label className="text-xs">Odds</Label>
+                                  <div className="flex">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={99}
+                                      value={oddsPercentInput}
+                                      onChange={(event) =>
+                                        setOddsPercentInput(
+                                          event.target.value.trim()
+                                        )
+                                      }
+                                      onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                          event.preventDefault();
+                                          applyOddsPercentInput();
+                                        }
+                                      }}
+                                      placeholder="10"
+                                      inputMode="decimal"
+                                      className="h-8 text-sm rounded-r-none border-r-0 flex-1"
+                                    />
+                                    <div className="inline-flex items-center rounded-md rounded-l-none border border-input border-l-0 bg-muted/40 px-2 text-xs text-muted-foreground whitespace-nowrap">
+                                      % chance
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    className="w-full mt-2"
+                                    disabled={!isOddsPercentInputValid}
+                                    onClick={applyOddsPercentInput}
+                                  >
+                                    Update Odds
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                           <div className="text-right">
                             <p className="text-[11px] font-mono uppercase tracking-tight text-muted-foreground">
@@ -657,37 +732,39 @@ const OrderBuilderDialog: React.FC<OrderBuilderDialogProps> = ({
                                   {payoutDisplay} USDe
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent
-                                align="end"
-                                className="w-64 p-3 space-y-2"
-                              >
-                                <div className="space-y-2">
+                              <PopoverContent align="end" className="w-48 p-2">
+                                <div className="flex flex-col gap-1.5">
                                   <Label className="text-xs">
                                     Example <em>To Win</em> Amount
                                   </Label>
-                                  <Input
-                                    type="number"
-                                    min={100}
-                                    value={examplePayoutInput}
-                                    onChange={(event) =>
-                                      setExamplePayoutInput(
-                                        event.target.value.trim()
-                                      )
-                                    }
-                                    onKeyDown={(event) => {
-                                      if (event.key === 'Enter') {
-                                        event.preventDefault();
-                                        applyExamplePayoutInput();
+                                  <div className="flex">
+                                    <Input
+                                      type="number"
+                                      min={100}
+                                      value={examplePayoutInput}
+                                      onChange={(event) =>
+                                        setExamplePayoutInput(
+                                          event.target.value.trim()
+                                        )
                                       }
-                                    }}
-                                    placeholder="0.00"
-                                    inputMode="decimal"
-                                    className="h-8 text-sm"
-                                  />
+                                      onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                          event.preventDefault();
+                                          applyExamplePayoutInput();
+                                        }
+                                      }}
+                                      placeholder="0.00"
+                                      inputMode="decimal"
+                                      className="h-8 text-sm rounded-r-none border-r-0 flex-1"
+                                    />
+                                    <div className="inline-flex items-center rounded-md rounded-l-none border border-input border-l-0 bg-muted/40 px-2 text-xs text-muted-foreground">
+                                      USDe
+                                    </div>
+                                  </div>
                                   <Button
                                     type="button"
-                                    size="sm"
-                                    className="w-full"
+                                    size="xs"
+                                    className="w-full mt-2"
                                     disabled={!isExamplePayoutInputValid}
                                     onClick={applyExamplePayoutInput}
                                   >
