@@ -244,8 +244,10 @@ export const getConditionMatchInfo = (
     return { inverted: false };
   }
 
-  // For single-selection orders, also check for inverted match (opposite side)
-  if (normalizedSelections.length === 1) {
+  // For single-selection orders matching single-leg auctions, also check for inverted match.
+  // Inverted matching only works when both have exactly one leg (same market) because
+  // you can't "invert" just one leg of a multi-leg parlay.
+  if (normalizedSelections.length === 1 && legsMap.size === 1) {
     const selection = normalizedSelections[0];
     if (selection.id && legsMap.has(selection.id)) {
       const wantsYes = selection.outcome === 'yes';
