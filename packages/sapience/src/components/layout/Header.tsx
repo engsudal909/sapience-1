@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  usePrivy,
-  useWallets,
-  useConnectOrCreateWallet,
-} from '@privy-io/react-auth';
+import { usePrivy } from '@privy-io/react-auth';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
   DropdownMenu,
@@ -47,6 +43,7 @@ import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import ReferralsDialog from '~/components/shared/ReferralsDialog';
 import RequiredReferralCodeDialog from '~/components/shared/RequiredReferralCodeDialog';
+import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
 
 const USER_REFERRAL_STATUS_QUERY = `
   query UserReferralStatus($wallet: String!) {
@@ -196,10 +193,9 @@ const NavLinks = ({
 
 const Header = () => {
   const { ready, hasConnectedWallet, connectedWallet } = useConnectedWallet();
-  const { wallets } = useWallets();
-  const { logout } = usePrivy();
-  const { connectOrCreateWallet } = useConnectOrCreateWallet({});
+  const { logout, authenticated } = usePrivy();
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
+  const { openConnectDialog } = useConnectDialog();
   const { disconnect } = useDisconnect();
   const [isScrolled, setIsScrolled] = useState(false);
   const thresholdRef = useRef(12);
@@ -321,51 +317,35 @@ const Header = () => {
     };
   }, [ready, hasConnectedWallet, connectedWallet?.address]);
 
-  const hasDisconnect = (
-    x: unknown
-  ): x is { disconnect: () => Promise<void> | void } =>
-    typeof (x as { disconnect?: unknown }).disconnect === 'function';
-
   const handleLogout = async () => {
+    // Clear app-specific localStorage items first
     try {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem('sapience.chat.token');
         window.localStorage.removeItem('sapience.chat.tokenExpiresAt');
-        try {
-          window.dispatchEvent(new Event('sapience:chat_logout'));
-        } catch {
-          /* noop */
-        }
+        window.dispatchEvent(new Event('sapience:chat_logout'));
       }
     } catch {
       /* noop */
     }
-    // Proactively disconnect any connected wallets (wagmi + Privy wallet instances)
+
+    // Disconnect wagmi connections (external wallets like Rabby)
+    // This must be called explicitly since Privy logout doesn't handle
+    // connections made directly through wagmi
     try {
       disconnect?.();
     } catch {
       /* noop */
     }
-    try {
-      if (Array.isArray(wallets)) {
-        for (const w of wallets) {
-          try {
-            // Some wallet connectors expose a disconnect method
-            if (hasDisconnect(w)) {
-              await Promise.resolve(w.disconnect());
-            }
-          } catch {
-            /* noop */
-          }
-        }
+
+    // Only call Privy logout if user is authenticated with Privy
+    // (skip for external wallet connections like Rabby that bypass Privy)
+    if (authenticated) {
+      try {
+        await logout();
+      } catch {
+        /* noop */
       }
-    } catch {
-      /* noop */
-    }
-    try {
-      await logout();
-    } catch {
-      /* noop */
     }
   };
 
@@ -559,7 +539,10 @@ const Header = () => {
                         <span>Referrals</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={handleLogout}
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          handleLogout();
+                        }}
                         className="flex items-center cursor-pointer"
                       >
                         <LogOut className="mr-0.5 opacity-75 h-4 w-4" />
@@ -577,13 +560,7 @@ const Header = () => {
               {/* Address now displayed inside the black default button on desktop */}
               {ready && !hasConnectedWallet && (
                 <Button
-                  onClick={() => {
-                    try {
-                      connectOrCreateWallet();
-                    } catch {
-                      /* noop */
-                    }
-                  }}
+                  onClick={openConnectDialog}
                   className="bg-primary hover:bg-primary/90 rounded-md h-10 md:h-9 w-auto px-4 ml-1.5 md:ml-0 gap-2"
                 >
                   <span>Log in</span>

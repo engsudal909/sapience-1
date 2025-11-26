@@ -17,9 +17,9 @@ import {
 } from '@sapience/sdk/ui/components/ui/tooltip';
 import { Vault } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { parseUnits } from 'viem';
 import { useAccount } from 'wagmi';
+import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
 import Link from 'next/link';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
@@ -33,7 +33,7 @@ import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdic
 
 const VaultsPageContent = () => {
   const { isConnected } = useAccount();
-  const { connectOrCreateWallet } = useConnectOrCreateWallet({});
+  const { openConnectDialog } = useConnectDialog();
   // Constants for vault integration - use chain ID from localStorage
   const VAULT_CHAIN_ID = useChainIdFromLocalStorage();
   const VAULT_ADDRESS = passiveLiquidityVault[VAULT_CHAIN_ID]?.address;
@@ -387,11 +387,7 @@ const VaultsPageContent = () => {
             }
             onClick={async () => {
               if (!isConnected) {
-                try {
-                  await Promise.resolve(connectOrCreateWallet?.());
-                } catch {
-                  // ignore wallet connect errors
-                }
+                openConnectDialog();
                 return;
               }
               setPendingAction('deposit');
@@ -505,11 +501,7 @@ const VaultsPageContent = () => {
             }
             onClick={async () => {
               if (!isConnected) {
-                try {
-                  await Promise.resolve(connectOrCreateWallet?.());
-                } catch {
-                  // ignore wallet connect errors
-                }
+                openConnectDialog();
                 return;
               }
               setPendingAction('withdraw');

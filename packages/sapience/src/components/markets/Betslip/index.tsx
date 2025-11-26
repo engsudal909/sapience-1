@@ -17,7 +17,6 @@ import {
 import { useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { sapienceAbi } from '@sapience/sdk/queries/client/abi';
 import Image from 'next/image';
 import { useEffect, useMemo, type CSSProperties } from 'react';
@@ -42,6 +41,7 @@ import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { BetslipContent } from '~/components/markets/Betslip/BetslipContent';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
+import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
 import { getQuoteParamsFromPosition } from '~/hooks/forms/useMultiQuoter';
 import type { useQuoter } from '~/hooks/forms/useQuoter';
 import { generateQuoteQueryKey } from '~/hooks/forms/useQuoter';
@@ -86,7 +86,7 @@ const Betslip = ({
   const isParlayMode = externalParlayMode;
   const isCompact = useIsBelow(1024);
   const { hasConnectedWallet } = useConnectedWallet();
-  const { connectOrCreateWallet } = useConnectOrCreateWallet({});
+  const { openConnectDialog } = useConnectDialog();
   const { address } = useAccount();
   const { sendCalls, isPending: isPendingWriteContract } =
     useSapienceWriteContract({
@@ -559,11 +559,7 @@ const Betslip = ({
 
   const handleIndividualSubmit = () => {
     if (!hasConnectedWallet) {
-      try {
-        connectOrCreateWallet();
-      } catch (error) {
-        console.error('connectOrCreateWallet failed', error);
-      }
+      openConnectDialog();
       return;
     }
 
@@ -825,11 +821,7 @@ const Betslip = ({
 
   const handleParlaySubmit = () => {
     if (!hasConnectedWallet) {
-      try {
-        connectOrCreateWallet();
-      } catch (error) {
-        console.error('connectOrCreateWallet failed', error);
-      }
+      openConnectDialog();
       return;
     }
 

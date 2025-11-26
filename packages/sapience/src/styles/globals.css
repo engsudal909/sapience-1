@@ -232,6 +232,21 @@
       background-position: 50% 400%;
     }
   }
+
+  /* Shimmer sweep animation for deposit banner */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 4s ease-in-out infinite;
+    animation-delay: 2s;
+  }
 }
 
 @layer components {

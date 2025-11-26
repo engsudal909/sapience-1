@@ -73,6 +73,70 @@ export const POSITIONS_QUERY = /* GraphQL */ `
   }
 `;
 
+// GraphQL query to fetch all positions for a user (no market filter)
+export const USER_POSITIONS_QUERY = /* GraphQL */ `
+  query UserPositions($owner: String!) {
+    positions(where: { owner: { equals: $owner } }) {
+      id
+      positionId
+      owner
+      baseToken
+      quoteToken
+      collateral
+      borrowedBaseToken
+      borrowedQuoteToken
+      isLP
+      isSettled
+      createdAt
+      highPriceTick
+      lowPriceTick
+      lpBaseToken
+      lpQuoteToken
+      market {
+        id
+        marketId
+        startTimestamp
+        endTimestamp
+        settled
+        settlementPriceD18
+        question
+        optionName
+        marketParamsUniswappositionmanager
+        marketGroup {
+          id
+          chainId
+          address
+          question
+          collateralSymbol
+          collateralDecimals
+          marketParamsUniswappositionmanager
+          markets {
+            id
+          }
+          baseTokenName
+          resource {
+            name
+            slug
+          }
+        }
+      }
+      transactions {
+        id
+        type
+        createdAt
+        collateral
+        collateralTransfer {
+          collateral
+        }
+        event {
+          transactionHash
+          logData
+        }
+      }
+    }
+  }
+`;
+
 // GraphQL query to fetch all positions by market group (no owner filter)
 export const ALL_POSITIONS_QUERY = /* GraphQL */ `
   query AllPositions($marketAddress: String) {
@@ -207,6 +271,34 @@ export function useAllPositions({ marketAddress }: { marketAddress?: string }) {
       return data.positions || [];
     },
     enabled: Boolean(marketAddress),
+    staleTime: 30000,
+    refetchInterval: 10000,
+  });
+}
+
+/**
+ * Hook to fetch all positions for a user across all markets (no market filter)
+ * Used for calculating total margin in useEffectiveBalance
+ */
+export function useUserPositions({ address }: { address?: string }) {
+  return useQuery<PositionType[]>({
+    queryKey: ['user-positions', address],
+    queryFn: async () => {
+      if (!address || address.trim() === '') {
+        return [];
+      }
+
+      type PositionsQueryResult = {
+        positions: PositionType[];
+      };
+
+      const data = await graphqlRequest<PositionsQueryResult>(
+        USER_POSITIONS_QUERY,
+        { owner: address.toLowerCase() }
+      );
+      return data.positions || [];
+    },
+    enabled: Boolean(address) && address?.trim() !== '',
     staleTime: 30000,
     refetchInterval: 10000,
   });

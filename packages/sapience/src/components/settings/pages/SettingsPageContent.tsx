@@ -33,6 +33,8 @@ export const CHAIN_ID_ARBITRUM = '42161';
 export const CHAIN_ID_ETHEREAL = '5064014';
 const CHAIN_ID_STORAGE_KEY = 'sapience.settings.selectedChainId';
 const RPC_STORAGE_KEY = 'sapience.settings.selectedRpcURL';
+const SESSION_MODE_STORAGE_KEY = 'sapience.settings.sessionMode';
+const SESSION_LENGTH_STORAGE_KEY = 'sapience.settings.sessionLengthHours';
 
 type SettingFieldProps = {
   id: string;
@@ -201,6 +203,10 @@ const SettingsPageContent = () => {
   const [selectedChain, setSelectedChain] = useState<
     'arbitrum' | 'ethereal' | null
   >(null);
+  const [sessionMode, setSessionMode] = useState<'every' | 'periodically'>(
+    'periodically'
+  );
+  const [sessionLengthHours, setSessionLengthHours] = useState<number>(24);
   const { ready, exportWallet } = usePrivy();
   const { wallets } = useWallets();
   const activeWallet = (
@@ -231,6 +237,23 @@ const SettingsPageContent = () => {
     setRpcInput(
       window.localStorage.getItem(RPC_STORAGE_KEY) || defaults.rpcURL
     );
+
+    // Initialize session settings from localStorage
+    const storedSessionMode = window.localStorage.getItem(
+      SESSION_MODE_STORAGE_KEY
+    );
+    if (storedSessionMode === 'every' || storedSessionMode === 'periodically') {
+      setSessionMode(storedSessionMode);
+    }
+    const storedSessionLength = window.localStorage.getItem(
+      SESSION_LENGTH_STORAGE_KEY
+    );
+    if (storedSessionLength) {
+      const parsed = parseInt(storedSessionLength, 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        setSessionLengthHours(parsed);
+      }
+    }
   }, []);
 
   // Update RPC input, selected chain ID, and persisted RPC override when the selection changes
@@ -359,7 +382,7 @@ const SettingsPageContent = () => {
 
         {!hydrated ? (
           <div className="h-[720px] flex items-center justify-center">
-            <LottieLoader width={48} height={48} />
+            <LottieLoader width={24} height={24} />
           </div>
         ) : (
           <Tabs
@@ -410,6 +433,68 @@ const SettingsPageContent = () => {
               <Card className="bg-background">
                 <CardContent className="p-8">
                   <div className="space-y-6">
+                    <div className="grid gap-2">
+                      <Label htmlFor="session-mode">Transaction Signing</Label>
+                      <div id="session-mode">
+                        <Tabs
+                          value={sessionMode}
+                          onValueChange={(v) => {
+                            const next = v as 'every' | 'periodically';
+                            setSessionMode(next);
+                            try {
+                              window.localStorage.setItem(
+                                SESSION_MODE_STORAGE_KEY,
+                                next
+                              );
+                            } catch {
+                              // no-op
+                            }
+                          }}
+                        >
+                          <SegmentedTabsList>
+                            <TabsTrigger value="every">
+                              Sign every transaction
+                            </TabsTrigger>
+                            <TabsTrigger value="periodically">
+                              Sign periodically
+                            </TabsTrigger>
+                          </SegmentedTabsList>
+                        </Tabs>
+                      </div>
+                    </div>
+
+                    {sessionMode === 'periodically' ? (
+                      <div className="grid gap-2">
+                        <Label htmlFor="session-length">Session Duration</Label>
+                        <div className="flex w-fit">
+                          <Input
+                            id="session-length"
+                            type="number"
+                            min={1}
+                            value={sessionLengthHours}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!Number.isNaN(val) && val > 0) {
+                                setSessionLengthHours(val);
+                                try {
+                                  window.localStorage.setItem(
+                                    SESSION_LENGTH_STORAGE_KEY,
+                                    String(val)
+                                  );
+                                } catch {
+                                  // no-op
+                                }
+                              }
+                            }}
+                            className="w-[100px] rounded-r-none border-r-0"
+                          />
+                          <span className="inline-flex items-center h-10 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-sm text-muted-foreground whitespace-nowrap">
+                            hours
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="grid gap-2">
                       <Label htmlFor="chain-selector">Chain</Label>
                       <div id="chain-selector">

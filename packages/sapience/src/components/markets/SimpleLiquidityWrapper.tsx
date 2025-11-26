@@ -1,4 +1,3 @@
-import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import {
   Tabs,
   TabsList,
@@ -12,6 +11,7 @@ import { CreateLiquidityForm, ModifyLiquidityForm } from './forms';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useMarketPage } from '~/lib/context/MarketPageProvider';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
+import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
 
 interface SimpleLiquidityWrapperProps {
   positionId?: string;
@@ -23,7 +23,7 @@ const SimpleLiquidityWrapper: React.FC<SimpleLiquidityWrapperProps> = ({
   onActionComplete,
 }) => {
   const { isConnected, address } = useAccount();
-  const { connectOrCreateWallet } = useConnectOrCreateWallet();
+  const { openConnectDialog } = useConnectDialog();
   const [modifyMode, setModifyMode] = useState<'add' | 'remove'>('add');
 
   // Fetch permit/geofence status once at the wrapper level
@@ -71,9 +71,8 @@ const SimpleLiquidityWrapper: React.FC<SimpleLiquidityWrapperProps> = ({
   const position = positionId ? getPositionById(positionId) : null;
   const hasPosition = !!position;
 
-  const handleConnectWallet = async () => {
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    await connectOrCreateWallet();
+  const handleConnectWallet = () => {
+    openConnectDialog();
   };
 
   const handleSuccess = () => {

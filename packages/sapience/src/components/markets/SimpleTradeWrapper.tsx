@@ -1,4 +1,3 @@
-import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import type React from 'react';
 import { useAccount } from 'wagmi';
 
@@ -7,6 +6,7 @@ import type { TradeFormMarketDetails } from './forms/CreateTradeForm';
 import { useMarketPage } from '~/lib/context/MarketPageProvider';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
 import { PositionKind } from '~/hooks/contract/usePositions';
+import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
 
 interface SimpleTradeWrapperProps {
   positionId?: string;
@@ -18,7 +18,7 @@ const SimpleTradeWrapper: React.FC<SimpleTradeWrapperProps> = ({
   onActionComplete,
 }) => {
   const { isConnected } = useAccount();
-  const { connectOrCreateWallet } = useConnectOrCreateWallet();
+  const { openConnectDialog } = useConnectDialog();
 
   const {
     collateralAssetTicker,
@@ -36,9 +36,8 @@ const SimpleTradeWrapper: React.FC<SimpleTradeWrapperProps> = ({
   const position = positionId ? getPositionById(positionId) : null;
   const hasPosition = !!position && position.kind === PositionKind.Trade;
 
-  const handleConnectWallet = async () => {
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    await connectOrCreateWallet();
+  const handleConnectWallet = () => {
+    openConnectDialog();
   };
 
   const handleSuccess = () => {
