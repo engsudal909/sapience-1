@@ -83,7 +83,7 @@ export function useAutoBidOrders(logOrderEvent: LogOrderEventFn) {
     const map: Record<string, string> = {};
     sortedOrders.forEach((order, index) => {
       const tag = `#${index + 1}`;
-      map[order.id] = formatOrderLabelSnapshot(tag, order);
+      map[order.id] = formatOrderLabelSnapshot(tag);
     });
     return map;
   }, [sortedOrders]);

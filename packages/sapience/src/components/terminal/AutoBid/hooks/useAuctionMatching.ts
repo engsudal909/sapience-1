@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { parseUnits, formatUnits } from 'viem';
 import type { Order } from '../types';
-import type { PushLogEntryParams } from './useAutoBidLogs';
+import type { PushLogEntryParams } from '~/components/terminal/TerminalLogsContext';
 import {
   decodePredictedOutcomes,
   formatOrderLabelSnapshot,
@@ -15,6 +15,12 @@ import type {
   BidSubmissionParams,
   BidSubmissionResult,
 } from '~/hooks/auction/useBidSubmission';
+
+// Cache and deduplication limits
+const MAX_AUCTION_CACHE_SIZE = 200;
+const MAX_PROCESSED_BIDS_SIZE = 500;
+const MAX_PROCESSED_MESSAGES = 1200;
+const BID_EXPIRY_SECONDS = 60;
 
 /** Cached auction context from auction.started messages */
 type AuctionContext = {
@@ -62,13 +68,11 @@ export function useAuctionMatching({
   const auctionContextCacheRef = useRef<Map<string, AuctionContext>>(new Map());
   // Track insertion order for LRU eviction
   const auctionContextKeysRef = useRef<string[]>([]);
-  const MAX_AUCTION_CACHE_SIZE = 200;
 
   // Track processed bids by (orderId + auctionId + bidSignature) to avoid duplicate submissions
   // when the same bid appears in multiple auction.bids messages
   const processedBidsRef = useRef<Set<string>>(new Set());
   const processedBidsQueueRef = useRef<string[]>([]);
-  const MAX_PROCESSED_BIDS_SIZE = 500;
 
   const evaluateAutoBidReadiness = useCallback(
     (details: {
@@ -88,10 +92,7 @@ export function useAuctionMatching({
       }`;
 
       const orderTag = formatOrderTag(details.order, null, getOrderIndex);
-      const orderLabelSnapshot = formatOrderLabelSnapshot(
-        orderTag,
-        details.order
-      );
+      const orderLabelSnapshot = formatOrderLabelSnapshot(orderTag);
 
       if (isPermitLoading) {
         pushLogEntry({
@@ -100,6 +101,8 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: orderTag,
+            highlight: 'compliance check pending; holding auto-bid',
           },
           dedupeKey: `permit:${dedupeBase}`,
         });
@@ -127,6 +130,8 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: orderTag,
+            verb: 'bid',
             requiredSpend,
             balanceValue,
             highlight: statusMessage,
@@ -152,6 +157,8 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: orderTag,
+            verb: 'bid',
             requiredSpend,
             allowanceValue,
             highlight: statusMessage,
@@ -172,6 +179,8 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: orderTag,
+            verb: 'bid',
             highlight: statusMessage,
           },
           dedupeKey: `geofence:${dedupeBase}`,
@@ -191,6 +200,18 @@ export function useAuctionMatching({
       pushLogEntry,
     ]
   );
+
+  // Helper to mark a bid as processed (called on successful signature)
+  const markBidProcessed = useCallback((dedupeKey: string) => {
+    if (processedBidsRef.current.has(dedupeKey)) return;
+    processedBidsRef.current.add(dedupeKey);
+    processedBidsQueueRef.current.push(dedupeKey);
+    // Evict oldest entries if cache exceeds limit
+    while (processedBidsQueueRef.current.length > MAX_PROCESSED_BIDS_SIZE) {
+      const oldest = processedBidsQueueRef.current.shift();
+      if (oldest) processedBidsRef.current.delete(oldest);
+    }
+  }, []);
 
   const triggerAutoBidSubmission = useCallback(
     async (details: {
@@ -212,9 +233,11 @@ export function useAuctionMatching({
         copiedBidWager: string; // wei string from the bid we're copying
         increment: number; // human-readable increment from order config
       };
+      /** Dedupe key to mark as processed on successful signature */
+      dedupeKey?: string;
     }) => {
       const tag = formatOrderTag(details.order, null, getOrderIndex);
-      const orderLabelSnapshot = formatOrderLabelSnapshot(tag, details.order);
+      const orderLabelSnapshot = formatOrderLabelSnapshot(tag);
 
       // Validate required auction context
       if (!details.auctionId || !details.auctionContext) {
@@ -225,6 +248,9 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: tag,
+            verb: 'bid',
+            highlight: 'skipped, missing auction context',
           },
           dedupeKey: `context:${details.order.id}:${details.auctionId ?? 'na'}`,
         });
@@ -267,6 +293,9 @@ export function useAuctionMatching({
               meta: {
                 orderId: details.order.id,
                 labelSnapshot: orderLabelSnapshot,
+                formattedPrefix: tag,
+                verb: 'bid',
+                highlight: 'skipped, invalid probability threshold',
                 probability: details.order.odds,
               },
               dedupeKey: `prob:${details.order.id}:${details.auctionId}`,
@@ -289,6 +318,9 @@ export function useAuctionMatching({
               meta: {
                 orderId: details.order.id,
                 labelSnapshot: orderLabelSnapshot,
+                formattedPrefix: tag,
+                verb: 'bid',
+                highlight: 'skipped, cannot calculate wager amount',
               },
               dedupeKey: `calc:${details.order.id}:${details.auctionId}`,
             });
@@ -305,6 +337,9 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: tag,
+            verb: 'bid',
+            highlight: 'skipped, invalid bid amount',
           },
           dedupeKey: `amount:${details.order.id}:${details.auctionId}`,
         });
@@ -319,55 +354,16 @@ export function useAuctionMatching({
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: tag,
+            verb: 'bid',
+            highlight: 'skipped, zero bid amount',
           },
           dedupeKey: `zero:${details.order.id}:${details.auctionId}`,
         });
         return;
       }
 
-      // Final safety check: verify balance and allowance before signing
-      // This is a belt-and-suspenders check in case values changed between
-      // the readiness check and now
-      const bidAmountHuman = Number(formatUnits(makerWagerWei, tokenDecimals));
-
-      if (balanceValue < bidAmountHuman) {
-        const statusMessage = 'Insufficient account balance';
-        pushLogEntry({
-          kind: 'system',
-          message: `${tag} bid ${statusMessage}`,
-          severity: 'warning',
-          meta: {
-            orderId: details.order.id,
-            labelSnapshot: orderLabelSnapshot,
-            requiredSpend: bidAmountHuman,
-            balanceValue,
-            highlight: statusMessage,
-          },
-          dedupeKey: `balance-final:${details.order.id}:${details.auctionId}`,
-        });
-        return;
-      }
-
-      if (allowanceValue < bidAmountHuman) {
-        const statusMessage = 'Insufficient spend approved';
-        pushLogEntry({
-          kind: 'system',
-          message: `${tag} bid ${statusMessage}`,
-          severity: 'warning',
-          meta: {
-            orderId: details.order.id,
-            labelSnapshot: orderLabelSnapshot,
-            requiredSpend: bidAmountHuman,
-            allowanceValue,
-            highlight: statusMessage,
-          },
-          dedupeKey: `allowance-final:${details.order.id}:${details.auctionId}`,
-        });
-        return;
-      }
-
-      // Default expiry: 60 seconds (reasonable for auto-bids)
-      const expirySeconds = 60;
+      const expirySeconds = BID_EXPIRY_SECONDS;
 
       try {
         // Actually submit the bid using the shared hook
@@ -395,7 +391,11 @@ export function useAuctionMatching({
               : 'Submitted';
 
         if (result.signature) {
-          // Bid was signed and sent - log as success regardless of ack status
+          // Bid was signed and sent - mark as processed to prevent retries
+          if (details.dedupeKey) {
+            markBidProcessed(details.dedupeKey);
+          }
+          // Log as success regardless of ack status
           pushLogEntry({
             kind: 'system',
             message: `${tag} bid ${submittedStatus}`,
@@ -403,6 +403,8 @@ export function useAuctionMatching({
             meta: {
               orderId: details.order.id,
               labelSnapshot: orderLabelSnapshot,
+              formattedPrefix: tag,
+              verb: 'bid',
               source: details.source,
               auctionId: details.auctionId,
               highlight: submittedStatus,
@@ -412,39 +414,46 @@ export function useAuctionMatching({
           });
         } else {
           // Log failed submission (signature was rejected or other error)
+          const errorHighlight = result.error || 'Unknown error';
           pushLogEntry({
             kind: 'system',
-            message: `${tag} bid ${result.error || 'Unknown error'}`,
+            message: `${tag} bid ${errorHighlight}`,
             severity: 'error',
             meta: {
               orderId: details.order.id,
               labelSnapshot: orderLabelSnapshot,
+              formattedPrefix: tag,
+              verb: 'bid',
               source: details.source,
               auctionId: details.auctionId,
+              highlight: errorHighlight,
               error: result.error,
             },
             dedupeKey: `failed:${details.order.id}:${details.auctionId}`,
           });
         }
       } catch (error) {
+        const errorHighlight = (error as Error)?.message || 'Unknown error';
         pushLogEntry({
           kind: 'system',
-          message: `${tag} bid ${(error as Error)?.message || 'Unknown error'}`,
+          message: `${tag} bid ${errorHighlight}`,
           severity: 'error',
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
+            formattedPrefix: tag,
+            verb: 'bid',
+            highlight: errorHighlight,
           },
           dedupeKey: `error:${details.order.id}:${details.auctionId ?? 'na'}`,
         });
       }
     },
     [
-      allowanceValue,
-      balanceValue,
       collateralSymbol,
       formatCollateralAmount,
       getOrderIndex,
+      markBidProcessed,
       pushLogEntry,
       submitBid,
       tokenDecimals,
@@ -543,18 +552,7 @@ export function useAuctionMatching({
           },
         });
         if (!readiness.blocked) {
-          // Mark this bid as processed BEFORE submission to prevent race conditions
-          processedBidsRef.current.add(bidDedupeKey);
-          processedBidsQueueRef.current.push(bidDedupeKey);
-          // Evict oldest entries if cache exceeds limit
-          while (
-            processedBidsQueueRef.current.length > MAX_PROCESSED_BIDS_SIZE
-          ) {
-            const oldest = processedBidsQueueRef.current.shift();
-            if (oldest) processedBidsRef.current.delete(oldest);
-          }
-
-          // Fire and forget - don't await to avoid blocking the loop
+          // Fire and forget - dedupe key is marked on successful signature
           void triggerAutoBidSubmission({
             order: matched.order,
             source: 'copy_trade',
@@ -564,6 +562,7 @@ export function useAuctionMatching({
               copiedBidWager: String(bid?.makerWager ?? '0'),
               increment: matched.order.increment ?? 1,
             },
+            dedupeKey: bidDedupeKey,
           });
         }
       });
@@ -662,6 +661,14 @@ export function useAuctionMatching({
         } catch {
           // Fallback to default
         }
+        // Create a unique key for this bid to prevent duplicate submissions
+        const bidDedupeKey = `conditions:${order.id}:${auctionId}:${matchInfo.inverted ? 'inv' : 'dir'}`;
+
+        // Skip if we've already processed this exact bid for this order
+        if (processedBidsRef.current.has(bidDedupeKey)) {
+          return;
+        }
+
         const readiness = evaluateAutoBidReadiness({
           order,
           context: {
@@ -673,7 +680,7 @@ export function useAuctionMatching({
           },
         });
         if (!readiness.blocked) {
-          // Fire and forget - don't await to avoid blocking the loop
+          // Fire and forget - dedupe key is marked on successful signature
           void triggerAutoBidSubmission({
             order,
             source: 'conditions',
@@ -686,6 +693,7 @@ export function useAuctionMatching({
               predictedOutcomes: predictedOutcomesArr,
               resolver: resolverAddr as `0x${string}`,
             },
+            dedupeKey: bidDedupeKey,
           });
         }
       });
@@ -724,7 +732,7 @@ export function useAuctionMatching({
       }
       processedMessageIdsRef.current.add(key);
       processedMessageQueueRef.current.push(key);
-      if (processedMessageQueueRef.current.length > 1200) {
+      if (processedMessageQueueRef.current.length > MAX_PROCESSED_MESSAGES) {
         const oldest = processedMessageQueueRef.current.shift();
         if (oldest != null) {
           processedMessageIdsRef.current.delete(oldest);

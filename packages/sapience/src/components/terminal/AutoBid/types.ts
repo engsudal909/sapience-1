@@ -7,6 +7,8 @@ export type AutoBidLogMeta = Record<string, unknown> & {
   highlight?: string;
   orderId?: string;
   labelSnapshot?: string;
+  verb?: string;
+  formattedPrefix?: string;
 };
 
 export type AutoBidLogEntry = {

@@ -195,12 +195,16 @@ const AutoBid: React.FC<AutoBidProps> = () => {
         position,
         (o) => orderIndexMapRef.current.get(o.id) ?? 0
       );
+      const verb = actionLabels[action].toLowerCase();
       pushLogEntry({
         kind: 'order',
-        message: `${tag} ${actionLabels[action].toLowerCase()}`,
+        message: `${tag} ${verb}`,
         meta: {
           orderId: order.id,
-          labelSnapshot: formatOrderLabelSnapshot(tag, order),
+          labelSnapshot: formatOrderLabelSnapshot(tag),
+          formattedPrefix: tag,
+          verb,
+          highlight: verb,
           action,
           strategy: order.strategy,
         },

@@ -48,8 +48,6 @@ export type BidSubmissionResult = {
 export interface UseBidSubmissionOptions {
   /** Called when signature is rejected by user */
   onSignatureRejected?: (error: Error) => void;
-  /** Called when submission fails */
-  onSubmissionFailed?: (error: Error) => void;
 }
 
 export interface UseBidSubmissionResult {
@@ -76,7 +74,7 @@ export interface UseBidSubmissionResult {
 export function useBidSubmission(
   options: UseBidSubmissionOptions = {}
 ): UseBidSubmissionResult {
-  const { onSignatureRejected, onSubmissionFailed } = options;
+  const { onSignatureRejected } = options;
   const { address } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
   const chainId = useChainIdFromLocalStorage();
@@ -268,7 +266,6 @@ export function useBidSubmission(
       wsUrl,
       signTypedDataAsync,
       onSignatureRejected,
-      onSubmissionFailed,
     ]
   );
 

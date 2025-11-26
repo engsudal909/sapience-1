@@ -17,6 +17,10 @@ import type {
 } from './AutoBid/types';
 import { readLogsFromStorage, writeLogsToStorage } from './AutoBid/storage';
 
+// Deduplication and storage limits
+const MAX_LOG_DEDUPE_KEYS = 400;
+const MAX_STORED_LOGS = 200;
+
 export type LogSource = 'autobid' | 'manual';
 
 export type PushLogEntryParams = {
@@ -105,7 +109,7 @@ export function TerminalLogsProvider({
       }
       keys.add(dedupeKey);
       logKeyQueueRef.current.push(dedupeKey);
-      if (logKeyQueueRef.current.length > 400) {
+      if (logKeyQueueRef.current.length > MAX_LOG_DEDUPE_KEYS) {
         const oldest = logKeyQueueRef.current.shift();
         if (oldest) {
           keys.delete(oldest);
@@ -122,7 +126,7 @@ export function TerminalLogsProvider({
         severity: rest.severity ?? 'info',
         meta: rest.meta ?? null,
       };
-      return [next, ...prev].slice(0, 200);
+      return [next, ...prev].slice(0, MAX_STORED_LOGS);
     });
   }, []);
 

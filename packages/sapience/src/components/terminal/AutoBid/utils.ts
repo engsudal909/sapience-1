@@ -353,7 +353,7 @@ export const createEmptyDraft = (): OrderDraft => ({
   odds: DEFAULT_CONDITION_ODDS,
 });
 
-export const formatOrderLabelSnapshot = (tag: string, _order: Order) => {
+export const formatOrderLabelSnapshot = (tag: string) => {
   return tag;
 };
 
