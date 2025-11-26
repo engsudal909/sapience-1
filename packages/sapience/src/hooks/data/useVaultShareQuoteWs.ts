@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Address } from 'viem';
 import { useSettings } from '../../lib/context/SettingsContext';
 import { toAuctionWsUrl } from '../../lib/ws';
+import { getSharedAuctionWsClient } from '../../lib/ws/AuctionWsClient';
 
 export interface VaultShareWsQuotePayload {
   chainId: number;
@@ -33,7 +34,6 @@ export function useVaultShareQuoteWs(
     updatedAtMs: Date.now(),
     source: 'fallback',
   });
-  const wsRef = useRef<WebSocket | null>(null);
   const lastValidQuoteRef = useRef<VaultShareWsQuote | null>(null);
   const { apiBaseUrl } = useSettings();
 
@@ -41,54 +41,57 @@ export function useVaultShareQuoteWs(
     if (!chainId || !vaultAddress) {
       return null;
     }
-    const url = toAuctionWsUrl(apiBaseUrl);
-    if (url) {
-      try {
-        const u = new URL(url);
-        u.searchParams.set('v', '1');
-        const finalUrl = u.toString();
-        return finalUrl;
-      } catch {
-        return url;
-      }
-    }
-    return null;
+    return toAuctionWsUrl(apiBaseUrl);
   }, [apiBaseUrl, chainId, vaultAddress]);
 
   useEffect(() => {
     if (!wsUrl || !chainId || !vaultAddress) {
       return;
     }
-    let closed = false;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+
+    const client = getSharedAuctionWsClient(wsUrl);
 
     // Restore last valid quote if available to prevent flashing to 0
     if (lastValidQuoteRef.current) {
       setQuote(lastValidQuoteRef.current);
     }
 
-    ws.onopen = () => {
+    // Send subscription message
+    const sendSubscribe = () => {
       try {
         const message = {
           type: 'vault_quote.subscribe',
           payload: { chainId, vaultAddress },
         };
-        ws.send(JSON.stringify(message));
+        client.send(message);
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[VaultWS] Subscribed to vault quote:', {
+            chainId,
+            vaultAddress,
+          });
+        }
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
-          console.error('[VaultWS] Error sending message:', error);
+          console.error('[VaultWS] Error sending subscribe message:', error);
         }
       }
     };
-    ws.onmessage = (ev) => {
+
+    // Subscribe immediately (shared client queues if not connected yet)
+    sendSubscribe();
+
+    // Handle incoming messages
+    const handleMessage = (msg: unknown) => {
       try {
-        const data = JSON.parse(ev.data as string);
+        const data = msg as {
+          type?: string;
+          payload?: VaultShareWsQuotePayload;
+        };
         if (process.env.NODE_ENV !== 'production') {
           console.debug('[VaultWS] Message received:', data);
         }
         if (data?.type === 'vault_quote.update' && data?.payload) {
-          const p = data.payload as VaultShareWsQuotePayload;
+          const p = data.payload;
           if (process.env.NODE_ENV !== 'production') {
             console.debug('[VaultWS] Vault quote received:', {
               chainId: p.chainId,
@@ -125,32 +128,33 @@ export function useVaultShareQuoteWs(
         }
       }
     };
-    ws.onerror = (e) => {
+
+    // Handle reconnection - resubscribe when connection reopens
+    const handleOpen = () => {
       if (process.env.NODE_ENV !== 'production') {
-        console.debug('[VaultWS] Error', e);
+        console.debug('[VaultWS] Connection opened, resubscribing');
       }
-      // keep fallback
-    };
-    ws.onclose = (ev) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[VaultWS] Closed', { code: ev.code, reason: ev.reason });
-      }
-      if (!closed) {
-        // keep fallback
-      }
+      sendSubscribe();
     };
 
+    const offMessage = client.addMessageListener(handleMessage);
+    const offOpen = client.addOpenListener(handleOpen);
+
     return () => {
-      closed = true;
+      offMessage();
+      offOpen();
+      // Send unsubscribe message on cleanup
       try {
+        client.send({
+          type: 'vault_quote.unsubscribe',
+          payload: { chainId, vaultAddress },
+        });
         if (process.env.NODE_ENV !== 'production') {
-          console.debug('[VaultWS] Disposing socket');
+          console.debug('[VaultWS] Unsubscribed from vault quote');
         }
-        ws.close();
       } catch {
         /* noop */
       }
-      wsRef.current = null;
     };
   }, [wsUrl, chainId, vaultAddress]);
 

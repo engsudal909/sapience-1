@@ -35,7 +35,10 @@ interface BetslipContentProps {
   // Auction integration (provided by parent to share a single WS connection)
   auctionId?: string | null;
   bids?: QuoteBid[];
-  requestQuotes?: (params: AuctionParams | null) => void;
+  requestQuotes?: (
+    params: AuctionParams | null,
+    options?: { forceRefresh?: boolean }
+  ) => void;
   // Collateral configuration from useSubmitParlay hook
   collateralToken?: `0x${string}`;
   collateralSymbol?: string;

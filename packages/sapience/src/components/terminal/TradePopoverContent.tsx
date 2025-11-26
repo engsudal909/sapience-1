@@ -44,23 +44,21 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
       <div className="space-y-1">
         <div className="flex items-baseline justify-between">
           <span className="align-baseline">
-            <span className="font-mono font-semibold text-brand-white">
+            <span className="font-mono font-normal text-brand-white">
               {takerStr} {ticker}
             </span>{' '}
             <span className="text-muted-foreground">to win</span>{' '}
-            <span className="font-mono font-semibold text-brand-white">
+            <span className="font-mono font-normal text-brand-white">
               {toWinStr} {ticker}
             </span>
           </span>
-          {typeof percent === 'number' ? (
+          {typeof percent === 'number' && (
             <PercentChance
               probability={percent / 100}
               showLabel={true}
               label="Chance"
               className="font-mono text-brand-white ml-2"
             />
-          ) : (
-            <span />
           )}
         </div>
         <div className="flex items-center justify-between mt-0">

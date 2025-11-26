@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { cn } from '~/lib/utils/util';
 
 interface YesNoSplitButtonProps {
@@ -16,8 +17,10 @@ interface YesNoSplitButtonProps {
   yesOddsText?: string;
   noOddsText?: string;
   // Optional custom primary labels
-  yesLabel?: string;
-  noLabel?: string;
+  yesLabel?: ReactNode;
+  noLabel?: ReactNode;
+  // Optional class applied to the primary label text
+  labelClassName?: string;
 }
 
 /**
@@ -37,6 +40,7 @@ export default function YesNoSplitButton({
   noOddsText,
   yesLabel,
   noLabel,
+  labelClassName,
 }: YesNoSplitButtonProps) {
   const hasOdds = Boolean(yesOddsText || noOddsText);
   const sizeClasses =
@@ -69,7 +73,9 @@ export default function YesNoSplitButton({
       >
         {hasOdds ? (
           <span className="flex flex-col items-center justify-center translate-y-[1px]">
-            <span className="leading-none whitespace-nowrap">
+            <span
+              className={cn('leading-none whitespace-nowrap', labelClassName)}
+            >
               {yesLabel ?? 'Yes'}
             </span>
             {yesOddsText ? (
@@ -79,7 +85,7 @@ export default function YesNoSplitButton({
             ) : null}
           </span>
         ) : (
-          (yesLabel ?? 'Yes')
+          <span className={cn(labelClassName)}>{yesLabel ?? 'Yes'}</span>
         )}
       </button>
       <button
@@ -96,7 +102,9 @@ export default function YesNoSplitButton({
       >
         {hasOdds ? (
           <span className="flex flex-col items-center justify-center translate-y-[1px]">
-            <span className="leading-none whitespace-nowrap">
+            <span
+              className={cn('leading-none whitespace-nowrap', labelClassName)}
+            >
               {noLabel ?? 'No'}
             </span>
             {noOddsText ? (
@@ -106,7 +114,7 @@ export default function YesNoSplitButton({
             ) : null}
           </span>
         ) : (
-          (noLabel ?? 'No')
+          <span className={cn(labelClassName)}>{noLabel ?? 'No'}</span>
         )}
       </button>
     </div>

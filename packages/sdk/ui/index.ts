@@ -10,6 +10,7 @@ export * from './components/ui/label';
 export * from './components/ui/tabs';
 export * from './components/ui/tooltip';
 export * from './components/ui/textarea';
+export * from './components/ui/hover-card';
 export * from './components/TradeForm';
 export * from './components/LiquidityForm';
 export * from './components/NumberDisplay';

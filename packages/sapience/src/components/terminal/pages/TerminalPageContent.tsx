@@ -1,8 +1,9 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useIsMobile, useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
+import { motion } from 'framer-motion';
 import { decodeAbiParameters, parseUnits, erc20Abi } from 'viem';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
@@ -11,6 +12,7 @@ import AuctionRequestRow from '~/components/terminal/AuctionRequestRow';
 import AutoBid from '~/components/terminal/AutoBid';
 import { ApprovalDialogProvider } from '~/components/terminal/ApprovalDialogContext';
 import ApprovalDialog from '~/components/terminal/ApprovalDialog';
+import { TerminalLogsProvider } from '~/components/terminal/TerminalLogsContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useCategories } from '~/hooks/graphql/useMarketGroups';
 
@@ -29,12 +31,118 @@ import bidsHub from '~/lib/auction/useAuctionBidsHub';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
+// Horizontal predictions scroller with right gradient (mirrors UserParlaysTable)
+// Extracted as memoized component to prevent recreation on parent renders
+type PredictionsScrollerLeg = {
+  id: `0x${string}`;
+  title: string;
+  categorySlug: string | null;
+  choice: 'Yes' | 'No';
+};
+
+const PredictionsScroller = memo(function PredictionsScroller({
+  legs,
+}: {
+  legs: PredictionsScrollerLeg[];
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [showRightGradient, setShowRightGradient] = useState(false);
+
+  const updateGradientVisibility = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) {
+      setShowRightGradient(false);
+      return;
+    }
+    const canScroll = el.scrollWidth > el.clientWidth + 1;
+    if (!canScroll) {
+      setShowRightGradient(false);
+      return;
+    }
+    const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+    setShowRightGradient(!atEnd);
+  }, []);
+
+  useEffect(() => {
+    updateGradientVisibility();
+    const el = containerRef.current;
+    if (!el) return;
+    const onScroll = () => updateGradientVisibility();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const onResize = () => updateGradientVisibility();
+    window.addEventListener('resize', onResize);
+    const ro = new ResizeObserver(() => updateGradientVisibility());
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      ro.disconnect();
+    };
+  }, [updateGradientVisibility]);
+
+  return (
+    <div className="relative w-full max-w-full">
+      <div
+        ref={containerRef}
+        className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex items-center gap-3 md:gap-4 pr-16 flex-nowrap">
+          {legs.map((leg, i) => (
+            <div
+              key={i}
+              className="inline-flex h-7 items-center gap-3 shrink-0"
+            >
+              <MarketBadge
+                label={String(leg.title)}
+                size={28}
+                categorySlug={leg.categorySlug || undefined}
+                color={
+                  leg.categorySlug
+                    ? getCategoryStyle(leg.categorySlug)?.color
+                    : undefined
+                }
+              />
+              <ConditionTitleLink
+                conditionId={leg.id}
+                title={String(leg.title)}
+                className="text-sm"
+                clampLines={1}
+              />
+              <span
+                className={
+                  leg.choice === 'Yes'
+                    ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
+                    : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
+                }
+              >
+                {leg.choice}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {showRightGradient && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-black to-transparent"
+        />
+      )}
+    </div>
+  );
+});
+
 const TerminalPageContent: React.FC = () => {
   const { messages } = useAuctionRelayerFeed({ observeVaultQuotes: false });
   const chainId = useChainIdFromLocalStorage();
   const collateralAssetTicker = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
+  const isMobile = useIsMobile();
+  const isCompact = useIsBelow(1024);
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);
+  const [expandedAuctions, setExpandedAuctions] = useState<Set<string>>(
+    new Set()
+  );
   const [minWager, setMinWager] = useState<string>('1');
   const [minBids, setMinBids] = useState<string>('0');
   const [selectedCategorySlugs, setSelectedCategorySlugs] = useState<string[]>(
@@ -43,13 +151,25 @@ const TerminalPageContent: React.FC = () => {
   const [selectedConditionIds, setSelectedConditionIds] = useState<string[]>(
     []
   );
-
   const togglePin = useCallback((auctionId: string | null) => {
     if (!auctionId) return;
     setPinnedAuctions((prev) => {
       const exists = prev.includes(auctionId);
       if (exists) return prev.filter((id) => id !== auctionId);
       return [...prev, auctionId];
+    });
+  }, []);
+
+  const toggleExpanded = useCallback((auctionId: string | null) => {
+    if (!auctionId) return;
+    setExpandedAuctions((prev) => {
+      const next = new Set(prev);
+      if (next.has(auctionId)) {
+        next.delete(auctionId);
+      } else {
+        next.add(auctionId);
+      }
+      return next;
     });
   }, []);
 
@@ -74,8 +194,15 @@ const TerminalPageContent: React.FC = () => {
   }, []);
 
   // Cached decoder for predicted outcomes keyed by auctionId + makerNonce
+  // Stores { data, accessedAt } for time-based LRU pruning
   const decodeCacheRef = useRef<
-    Map<string, Array<{ marketId: `0x${string}`; prediction: boolean }>>
+    Map<
+      string,
+      {
+        data: Array<{ marketId: `0x${string}`; prediction: boolean }>;
+        accessedAt: number;
+      }
+    >
   >(new Map());
   const getDecodedPredictedOutcomes = useCallback(
     (m: {
@@ -88,7 +215,11 @@ const TerminalPageContent: React.FC = () => {
           m?.data?.makerNonce ?? 'n'
         )}`;
         const cached = decodeCacheRef.current.get(cacheKey);
-        if (cached) return cached;
+        if (cached) {
+          // Update access time on cache hit
+          cached.accessedAt = Date.now();
+          return cached.data;
+        }
         const arr = Array.isArray(m?.data?.predictedOutcomes)
           ? (m.data.predictedOutcomes as string[])
           : [];
@@ -116,7 +247,10 @@ const TerminalPageContent: React.FC = () => {
           marketId: o.marketId,
           prediction: !!o.prediction,
         }));
-        decodeCacheRef.current.set(cacheKey, legs);
+        decodeCacheRef.current.set(cacheKey, {
+          data: legs,
+          accessedAt: Date.now(),
+        });
         return legs;
       } catch {
         return [];
@@ -147,6 +281,22 @@ const TerminalPageContent: React.FC = () => {
       latestStartedByAuction: latestStarted,
     };
   }, [auctionAndBidMessages, getAuctionId]);
+
+  // Prune decode cache every 60s - remove entries not accessed in 2 hours
+  useEffect(() => {
+    const DECODE_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - DECODE_CACHE_TTL_MS;
+      for (const [cacheKey, entry] of Array.from(
+        decodeCacheRef.current.entries()
+      )) {
+        if (entry.accessedAt < cutoff) {
+          decodeCacheRef.current.delete(cacheKey);
+        }
+      }
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Collect unique conditionIds from auction.started messages for enrichment
   const conditionIds = useMemo(() => {
@@ -196,12 +346,26 @@ const TerminalPageContent: React.FC = () => {
   } = useConditionsByIds(conditionIds);
 
   // Preserve previously resolved condition names to avoid flicker when query key changes
+  // LRU-style capped at 2000 entries to prevent unbounded growth while being generous
+  const CONDITION_CACHE_MAX = 2000;
   const stickyConditionMapRef = useRef<Map<string, any>>(new Map());
   useEffect(() => {
     try {
       for (const c of conditions || []) {
-        if (c && typeof c.id === 'string')
+        if (c && typeof c.id === 'string') {
+          // Delete and re-add to update LRU order (Maps maintain insertion order)
+          stickyConditionMapRef.current.delete(c.id);
           stickyConditionMapRef.current.set(c.id, c);
+        }
+      }
+      // Prune oldest entries if over capacity
+      while (stickyConditionMapRef.current.size > CONDITION_CACHE_MAX) {
+        const oldestKey = stickyConditionMapRef.current.keys().next().value;
+        if (oldestKey !== undefined) {
+          stickyConditionMapRef.current.delete(oldestKey);
+        } else {
+          break;
+        }
       }
     } catch {
       /* noop */
@@ -218,102 +382,6 @@ const TerminalPageContent: React.FC = () => {
 
   // Categories for multi-select
   const { data: categories = [] } = useCategories();
-
-  // Horizontal predictions scroller with right gradient (mirrors UserParlaysTable)
-  const PredictionsScroller: React.FC<{
-    legs: Array<{
-      id: `0x${string}`;
-      title: string;
-      categorySlug: string | null;
-      choice: 'Yes' | 'No';
-    }>;
-  }> = ({ legs }) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const [showRightGradient, setShowRightGradient] = useState(false);
-
-    const updateGradientVisibility = useCallback(() => {
-      const el = containerRef.current;
-      if (!el) {
-        setShowRightGradient(false);
-        return;
-      }
-      const canScroll = el.scrollWidth > el.clientWidth + 1;
-      if (!canScroll) {
-        setShowRightGradient(false);
-        return;
-      }
-      const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
-      setShowRightGradient(!atEnd);
-    }, []);
-
-    useEffect(() => {
-      updateGradientVisibility();
-      const el = containerRef.current;
-      if (!el) return;
-      const onScroll = () => updateGradientVisibility();
-      el.addEventListener('scroll', onScroll, { passive: true });
-      const onResize = () => updateGradientVisibility();
-      window.addEventListener('resize', onResize);
-      const ro = new ResizeObserver(() => updateGradientVisibility());
-      ro.observe(el);
-      return () => {
-        el.removeEventListener('scroll', onScroll);
-        window.removeEventListener('resize', onResize);
-        ro.disconnect();
-      };
-    }, [updateGradientVisibility]);
-
-    return (
-      <div className="relative w-full max-w-full">
-        <div
-          ref={containerRef}
-          className="overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          <div className="flex items-center gap-3 md:gap-4 pr-16 flex-nowrap">
-            {legs.map((leg, i) => (
-              <div
-                key={i}
-                className="inline-flex h-7 items-center gap-3 shrink-0"
-              >
-                <MarketBadge
-                  label={String(leg.title)}
-                  size={28}
-                  categorySlug={leg.categorySlug || undefined}
-                  color={
-                    leg.categorySlug
-                      ? getCategoryStyle(leg.categorySlug)?.color
-                      : undefined
-                  }
-                />
-                <ConditionTitleLink
-                  conditionId={leg.id}
-                  title={String(leg.title)}
-                  className="text-sm"
-                  clampLines={1}
-                />
-                <span
-                  className={
-                    leg.choice === 'Yes'
-                      ? 'px-2 py-1 text-xs font-medium font-mono border border-green-500/40 bg-green-500/10 text-green-600 rounded'
-                      : 'px-2 py-1 text-xs font-medium font-mono border border-red-500/40 bg-red-500/10 text-red-600 rounded'
-                  }
-                >
-                  {leg.choice}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {showRightGradient && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-brand-black to-transparent"
-          />
-        )}
-      </div>
-    );
-  };
 
   function renderPredictionsCell(m: { type: string; data: any }) {
     try {
@@ -511,7 +579,9 @@ const TerminalPageContent: React.FC = () => {
 
       const matchesCondition =
         selectedConditionIds.length === 0 ||
-        legConditionIds.some((id) => !!id && selectedConditionIds.includes(id));
+        selectedConditionIds.every((selectedId) =>
+          legConditionIds.includes(selectedId)
+        );
       if (!matchesCondition) return false;
 
       try {
@@ -637,6 +707,18 @@ const TerminalPageContent: React.FC = () => {
     };
   }, []);
 
+  // Prune stale row observers when row count shrinks
+  useEffect(() => {
+    const rowCount = unpinnedRows.length;
+    for (const [idx, ro] of Array.from(rowObserversRef.current.entries())) {
+      if (idx >= rowCount) {
+        ro.disconnect();
+        rowObserversRef.current.delete(idx);
+        rowElsRef.current.delete(idx);
+      }
+    }
+  }, [unpinnedRows.length]);
+
   // Re-measure virtual items when a row toggles/animates to ensure layout pushes down
   useEffect(() => {
     const remeasure = () => {
@@ -704,168 +786,121 @@ const TerminalPageContent: React.FC = () => {
   }
 
   return (
-    <ApprovalDialogProvider>
-      <div className="px-4 md:px-6 pt-4 md:pt-0 pb-4 md:pb-6 h-full min-h-0">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0">
-          <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black lg:col-span-3 flex flex-col h-full min-h-0 md:max-h-[85vh]">
-            <div className="flex-none">
-              <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
-                <div className="flex items-center gap-4">
-                  <div className="eyebrow text-foreground hidden md:block">
-                    Filters
-                  </div>
-                  <div className="grid gap-3 grid-cols-2 md:grid-cols-4 flex-1">
-                    {/* Categories */}
-                    <div className="flex flex-col md:col-span-1">
-                      <CategoryFilter
-                        items={
-                          (categories || []).map((c) => ({
-                            value: c.slug,
-                            label: c.name || c.slug,
-                          })) as MultiSelectItem[]
-                        }
-                        selected={selectedCategorySlugs}
-                        onChange={setSelectedCategorySlugs}
-                      />
-                    </div>
-
-                    {/* Conditions with mode */}
-                    <div className="flex flex-col md:col-span-1">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <ConditionsFilter
+    <TerminalLogsProvider>
+      <ApprovalDialogProvider>
+        <div className="h-full min-h-0">
+          <div className="relative w-full max-w-full overflow-visible flex flex-col lg:flex-row items-start">
+            {isCompact ? (
+              <div className="block w-full lg:hidden mt-6 mb-8">
+                <AutoBid />
+              </div>
+            ) : null}
+            <div className="w-full lg:w-auto flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-6 lg:pb-0 h-full min-h-0">
+              <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black flex flex-col h-full min-h-0 lg:h-[calc(100dvh-120px)]">
+                <div className="flex-none">
+                  <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
+                    <div className="flex items-center gap-4">
+                      <div className="eyebrow text-foreground hidden md:block">
+                        Filters
+                      </div>
+                      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 flex-1">
+                        {/* Categories */}
+                        <div className="flex flex-col md:col-span-1">
+                          <CategoryFilter
                             items={
-                              (conditions || []).map((c) => ({
-                                value: c.id,
-                                label:
-                                  (c.shortName as string) ||
-                                  (c.question as string) ||
-                                  c.id,
+                              (categories || []).map((c) => ({
+                                value: c.slug,
+                                label: c.name || c.slug,
                               })) as MultiSelectItem[]
                             }
-                            selected={selectedConditionIds}
-                            onChange={setSelectedConditionIds}
-                            categoryById={Object.fromEntries(
-                              (conditions || []).map((c) => [
-                                c.id,
-                                c?.category?.slug ?? null,
-                              ])
-                            )}
+                            selected={selectedCategorySlugs}
+                            onChange={setSelectedCategorySlugs}
                           />
                         </div>
+
+                        {/* Conditions with mode */}
+                        <div className="flex flex-col md:col-span-1">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <ConditionsFilter
+                                items={
+                                  (conditions || []).map((c) => ({
+                                    value: c.id,
+                                    label:
+                                      (c.shortName as string) ||
+                                      (c.question as string) ||
+                                      c.id,
+                                  })) as MultiSelectItem[]
+                                }
+                                selected={selectedConditionIds}
+                                onChange={setSelectedConditionIds}
+                                categoryById={Object.fromEntries(
+                                  (conditions || []).map((c) => [
+                                    c.id,
+                                    c?.category?.slug ?? null,
+                                  ])
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Minimum Bids */}
+                        <div className="flex flex-col md:col-span-1">
+                          <MinBidsFilter
+                            value={minBids}
+                            onChange={setMinBids}
+                          />
+                        </div>
+
+                        {/* Minimum Wager */}
+                        <div className="flex flex-col md:col-span-1">
+                          <MinWagerFilter
+                            value={minWager}
+                            onChange={setMinWager}
+                          />
+                        </div>
+
+                        {/* Addresses filter removed */}
                       </div>
                     </div>
-
-                    {/* Minimum Bids */}
-                    <div className="flex flex-col md:col-span-1">
-                      <MinBidsFilter value={minBids} onChange={setMinBids} />
-                    </div>
-
-                    {/* Minimum Wager */}
-                    <div className="flex flex-col md:col-span-1">
-                      <MinWagerFilter value={minWager} onChange={setMinWager} />
-                    </div>
-
-                    {/* Addresses filter removed */}
                   </div>
                 </div>
-              </div>
-            </div>
-            <div
-              ref={scrollAreaRef}
-              className="flex-1 min-h-0 overflow-y-auto flex flex-col"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-            >
-              {auctionAndBidMessages.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center py-24">
-                  <div className="flex flex-col items-center">
-                    <span className="inline-flex items-center gap-1 text-brand-white font-mono">
-                      <span className="inline-block h-[6px] w-[6px] rounded-full bg-brand-white opacity-80 animate-ping mr-1.5" />
-                      <span>Listening for messages...</span>
-                    </span>
-                    <p className="mt-2 text-xs text-brand-white/70">
-                      <a
-                        href="/markets"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80"
-                      >
-                        Make a prediction
-                      </a>{' '}
-                      to see an auction here.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <>
-                    {hasLoadedConditionsOnce && (
-                      <AnimatePresence initial={false} mode="sync">
-                        {pinnedRows.map((row, idx) => {
-                          const auctionId = row.id;
-                          const m = row.m;
-                          const rowKey = `auction-pinned-${auctionId ?? idx}`;
-                          return (
-                            <motion.div
-                              key={rowKey}
-                              layout
-                              initial={{ opacity: 0, y: -6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 6 }}
-                              transition={{ duration: 0.14, ease: 'easeOut' }}
-                            >
-                              <AuctionRequestRow
-                                uiTx={toUiTx(m)}
-                                predictionsContent={renderPredictionsCell(m)}
-                                auctionId={auctionId}
-                                takerWager={String(m?.data?.wager ?? '0')}
-                                taker={m?.data?.taker || null}
-                                resolver={m?.data?.resolver || null}
-                                predictedOutcomes={
-                                  Array.isArray(m?.data?.predictedOutcomes)
-                                    ? (m?.data?.predictedOutcomes as string[])
-                                    : []
-                                }
-                                takerNonce={(() => {
-                                  const raw = m?.data?.takerNonce;
-                                  const n = Number(raw);
-                                  return Number.isFinite(n) ? n : null;
-                                })()}
-                                collateralAssetTicker={collateralAssetTicker}
-                                onTogglePin={togglePin}
-                                isPinned={true}
-                              />
-                            </motion.div>
-                          );
-                        })}
-                      </AnimatePresence>
-                    )}
-
-                    {hasLoadedConditionsOnce && (
-                      <div
-                        style={{
-                          height: virtualizer.getTotalSize(),
-                          position: 'relative',
-                        }}
-                      >
-                        {virtualizer.getVirtualItems().map((vi) => {
-                          const row = unpinnedRows[vi.index];
-                          const auctionId = row?.id;
-                          const m = row?.m;
-                          return (
-                            <div
-                              key={vi.key}
-                              data-index={vi.index}
-                              ref={attachRowRef(vi.index)}
-                              style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                transform: `translateY(${vi.start}px)`,
-                              }}
-                            >
-                              {row && (
+                <div
+                  ref={scrollAreaRef}
+                  className="flex-1 min-h-0 overflow-y-auto flex flex-col"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  {auctionAndBidMessages.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center py-24">
+                      <div className="flex flex-col items-center">
+                        <span className="inline-flex items-center gap-1 text-brand-white font-mono">
+                          <span className="inline-block h-[6px] w-[6px] rounded-full bg-brand-white opacity-80 animate-ping mr-1.5" />
+                          <span>Listening for messages...</span>
+                        </span>
+                        <p className="mt-2 text-xs text-brand-white/70">
+                          <a
+                            href="/markets"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 hover:decoration-brand-white/80"
+                          >
+                            Make a prediction
+                          </a>{' '}
+                          to see an auction here.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <>
+                        {hasLoadedConditionsOnce &&
+                          pinnedRows.map((row, idx) => {
+                            const auctionId = row.id;
+                            const m = row.m;
+                            const rowKey = `auction-pinned-${auctionId ?? idx}`;
+                            return (
+                              <div key={rowKey}>
                                 <AuctionRequestRow
                                   uiTx={toUiTx(m)}
                                   predictionsContent={renderPredictionsCell(m)}
@@ -885,26 +920,97 @@ const TerminalPageContent: React.FC = () => {
                                   })()}
                                   collateralAssetTicker={collateralAssetTicker}
                                   onTogglePin={togglePin}
-                                  isPinned={false}
+                                  isPinned={true}
+                                  isExpanded={expandedAuctions.has(auctionId)}
+                                  onToggleExpanded={toggleExpanded}
                                 />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
+                              </div>
+                            );
+                          })}
+
+                        {hasLoadedConditionsOnce && (
+                          <div
+                            style={{
+                              height: virtualizer.getTotalSize(),
+                              position: 'relative',
+                            }}
+                          >
+                            {virtualizer.getVirtualItems().map((vi) => {
+                              const row = unpinnedRows[vi.index];
+                              const auctionId = row?.id;
+                              const m = row?.m;
+                              return (
+                                <div
+                                  key={vi.key}
+                                  data-index={vi.index}
+                                  ref={attachRowRef(vi.index)}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    transform: `translateY(${vi.start}px)`,
+                                  }}
+                                >
+                                  {row && (
+                                    <AuctionRequestRow
+                                      uiTx={toUiTx(m)}
+                                      predictionsContent={renderPredictionsCell(
+                                        m
+                                      )}
+                                      auctionId={auctionId}
+                                      takerWager={String(m?.data?.wager ?? '0')}
+                                      taker={m?.data?.taker || null}
+                                      resolver={m?.data?.resolver || null}
+                                      predictedOutcomes={
+                                        Array.isArray(
+                                          m?.data?.predictedOutcomes
+                                        )
+                                          ? (m?.data
+                                              ?.predictedOutcomes as string[])
+                                          : []
+                                      }
+                                      takerNonce={(() => {
+                                        const raw = m?.data?.takerNonce;
+                                        const n = Number(raw);
+                                        return Number.isFinite(n) ? n : null;
+                                      })()}
+                                      collateralAssetTicker={
+                                        collateralAssetTicker
+                                      }
+                                      onTogglePin={togglePin}
+                                      isPinned={false}
+                                      isExpanded={expandedAuctions.has(
+                                        auctionId
+                                      )}
+                                      onToggleExpanded={toggleExpanded}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
+            {!isMobile ? (
+              <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6">
+                <div className="rounded-none shadow-lg overflow-hidden lg:h-[calc(100dvh-120px)]">
+                  <div className="h-full overflow-y-auto">
+                    <AutoBid />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
-          <div className="flex flex-col gap-6 lg:col-span-1 h-full min-h-0">
-            <AutoBid />
-          </div>
+          <ApprovalDialog />
         </div>
-        <ApprovalDialog />
-      </div>
-    </ApprovalDialogProvider>
+      </ApprovalDialogProvider>
+    </TerminalLogsProvider>
   );
 };
 

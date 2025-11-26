@@ -5,26 +5,17 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   parseUnits,
-  encodeAbiParameters,
-  parseAbiParameters,
-  keccak256,
-  getAddress,
   decodeAbiParameters,
+  formatEther,
+  formatUnits,
 } from 'viem';
 import { Pin, ChevronDown } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
 import { useAuctionBids } from '~/lib/auction/useAuctionBids';
 import AuctionRequestInfo from '~/components/terminal/AuctionRequestInfo';
 import AuctionRequestChart from '~/components/terminal/AuctionRequestChart';
-import {
-  useAccount,
-  useSignTypedData,
-  useReadContract,
-  useReadContracts,
-} from 'wagmi';
+import { useAccount, useReadContract, useReadContracts } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
-import { useSettings } from '~/lib/context/SettingsContext';
-import { toAuctionWsUrl } from '~/lib/ws';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { predictionMarketAbi } from '@sapience/sdk';
@@ -32,8 +23,10 @@ import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
 import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
-import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
+import { useTerminalLogsOptional } from '~/components/terminal/TerminalLogsContext';
+import { useBidPreflight, useBidSubmission } from '~/hooks/auction';
+import PercentChance from '~/components/shared/PercentChance';
 
 type Props = {
   uiTx: UiTransaction;
@@ -47,6 +40,8 @@ type Props = {
   collateralAssetTicker: string;
   onTogglePin?: (auctionId: string | null) => void;
   isPinned?: boolean;
+  isExpanded?: boolean;
+  onToggleExpanded?: (auctionId: string | null) => void;
 };
 
 const AuctionRequestRow: React.FC<Props> = ({
@@ -61,19 +56,37 @@ const AuctionRequestRow: React.FC<Props> = ({
   collateralAssetTicker,
   onTogglePin,
   isPinned,
+  isExpanded: isExpandedProp,
+  onToggleExpanded,
 }) => {
   const { bids } = useAuctionBids(auctionId);
   const { address } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
-  const { apiBaseUrl } = useSettings();
-  const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
   const chainId = useChainIdFromLocalStorage();
-  const verifyingContract = predictionMarket[chainId]?.address as
-    | `0x${string}`
-    | undefined;
   const { toast } = useToast();
   const { openApproval } = useApprovalDialog();
+  const terminalLogs = useTerminalLogsOptional();
+
+  // Use shared preflight hook for chain switching, balance, and allowance validation
+  const { runPreflight, tokenDecimals: _preflightDecimals } = useBidPreflight({
+    onError: (errorMessage) => {
+      toast({
+        title: 'Validation Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Use shared bid submission hook for signing and WebSocket submission
+  const { submitBid: submitBidToWs } = useBidSubmission({
+    onSignatureRejected: (error) => {
+      toast({
+        title: 'Signature rejected',
+        description: error.message,
+      });
+    },
+  });
   // Resolve collateral token from PredictionMarket config (fallback to default constant)
   const PREDICTION_MARKET_ADDRESS = predictionMarket[chainId]?.address;
   const predictionMarketConfigRead = useReadContracts({
@@ -118,21 +131,6 @@ const AuctionRequestRow: React.FC<Props> = ({
       return 18;
     }
   }, [tokenDecimalsData]);
-  // Read allowance for connected address -> PredictionMarket
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    abi: erc20Abi,
-    address: COLLATERAL_ADDRESS,
-    functionName: 'allowance',
-    args: [
-      (address as `0x${string}`) ||
-        '0x0000000000000000000000000000000000000000',
-      verifyingContract as `0x${string}`,
-    ],
-    chainId: chainId,
-    query: {
-      enabled: Boolean(address && COLLATERAL_ADDRESS && verifyingContract),
-    },
-  });
   // Read taker nonce on-chain for the provided taker address
   const { data: takerNonceOnChain, refetch: refetchTakerNonce } =
     useReadContract({
@@ -145,7 +143,9 @@ const AuctionRequestRow: React.FC<Props> = ({
         enabled: Boolean(PREDICTION_MARKET_ADDRESS && taker),
       },
     });
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Use controlled expanded state if provided, otherwise fall back to local state
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const isExpanded = isExpandedProp ?? localExpanded;
   const [highlightNewBid, setHighlightNewBid] = useState(false);
   const numBids = useMemo(
     () => (Array.isArray(bids) ? bids.length : 0),
@@ -155,6 +155,117 @@ const AuctionRequestRow: React.FC<Props> = ({
     () => (numBids === 1 ? '1 BID' : `${numBids} BIDS`),
     [numBids]
   );
+
+  const bestBidSummary = useMemo(() => {
+    try {
+      if (!Array.isArray(bids) || bids.length === 0) return null;
+      const nowMs = Date.now();
+      const active = bids.filter((b) => {
+        const deadlineSec = Number(b?.makerDeadline || 0);
+        if (!Number.isFinite(deadlineSec) || deadlineSec <= 0) return false;
+        return deadlineSec * 1000 > nowMs;
+      });
+      if (active.length === 0) return null;
+      const best = active.reduce((prev, curr) => {
+        try {
+          const currVal = BigInt(String(curr?.makerWager ?? '0'));
+          const prevVal = BigInt(String(prev?.makerWager ?? '0'));
+          return currVal > prevVal ? curr : prev;
+        } catch {
+          return prev;
+        }
+      }, active[0]);
+      const makerBid = (() => {
+        try {
+          return BigInt(String(best?.makerWager ?? '0'));
+        } catch {
+          return 0n;
+        }
+      })();
+      const requester = (() => {
+        try {
+          return BigInt(String(takerWager ?? '0'));
+        } catch {
+          return 0n;
+        }
+      })();
+      const total = makerBid + requester;
+
+      let bidDisplay = '—';
+      let toWinDisplay = '—';
+      try {
+        const bidNum = Number(formatEther(makerBid));
+        if (Number.isFinite(bidNum)) {
+          bidDisplay = bidNum.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        }
+      } catch {
+        /* noop */
+      }
+      try {
+        const toWinNum = Number(formatEther(total));
+        if (Number.isFinite(toWinNum)) {
+          toWinDisplay = toWinNum.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        }
+      } catch {
+        /* noop */
+      }
+
+      let pct: number | null = null;
+      try {
+        if (total > 0n) {
+          const pctTimes100 = Number((makerBid * 10000n) / total);
+          pct = Math.round(pctTimes100 / 100);
+        }
+      } catch {
+        pct = null;
+      }
+      return {
+        bidDisplay,
+        toWinDisplay,
+        pct,
+      };
+    } catch {
+      return null;
+    }
+  }, [bids, takerWager]);
+
+  const takerWagerDisplay = useMemo(() => {
+    try {
+      if (!takerWager) return null;
+      const requester = BigInt(String(takerWager));
+      const requesterNum = Number(formatEther(requester));
+      if (!Number.isFinite(requesterNum)) return null;
+      return requesterNum.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      return null;
+    }
+  }, [takerWager]);
+
+  const summaryWrapperClass =
+    'text-[11px] sm:text-xs whitespace-nowrap flex-shrink-0 flex items-center gap-2 text-muted-foreground';
+
+  const primaryAmountText = bestBidSummary
+    ? bestBidSummary.bidDisplay === '—'
+      ? '—'
+      : `${bestBidSummary.bidDisplay} ${collateralAssetTicker}`
+    : takerWagerDisplay
+      ? `${takerWagerDisplay} ${collateralAssetTicker}`
+      : '—';
+  const secondaryAmountText = bestBidSummary
+    ? bestBidSummary.toWinDisplay === '—'
+      ? '—'
+      : `${bestBidSummary.toWinDisplay} ${collateralAssetTicker}`
+    : null;
+  const hasBestBid = Boolean(bestBidSummary);
 
   // Pulse highlight when a new bid is received
   const prevBidsRef = useRef<number>(0);
@@ -268,10 +379,12 @@ const AuctionRequestRow: React.FC<Props> = ({
           openApproval(String(data.amount || ''));
           return;
         }
-        // Amount in display units -> wei (token decimals) and allowance check FIRST
+
+        // Parse amount
         const decimalsToUse = Number.isFinite(tokenDecimals)
           ? tokenDecimals
           : 18;
+        const amountNum = Number(data.amount || '0');
         const makerWagerWei = parseUnits(
           String(data.amount || '0'),
           decimalsToUse
@@ -284,26 +397,52 @@ const AuctionRequestRow: React.FC<Props> = ({
           return;
         }
 
-        // Ensure sufficient ERC20 allowance to PredictionMarket
-        try {
-          const fresh = await Promise.resolve(refetchAllowance?.());
-          const currentAllowance = (fresh?.data ?? allowance ?? 0n) as bigint;
-          if (currentAllowance < makerWagerWei) {
+        // Run preflight checks: chain switch, balance, allowance
+        const preflightResult = await runPreflight(amountNum);
+
+        if (!preflightResult.canProceed) {
+          // Log the issue to terminal logs
+          if (preflightResult.blockedReason === 'insufficient_balance') {
+            terminalLogs?.pushBidLog({
+              source: 'manual',
+              action: 'insufficient_balance',
+              amount: data.amount,
+              collateralSymbol: collateralAssetTicker,
+              meta: {
+                requiredAmount: amountNum,
+                balanceValue: preflightResult.details?.balanceValue,
+                auctionId,
+              },
+              dedupeKey: `manual-balance:${auctionId}:${Date.now()}`,
+            });
+            toast({
+              title: 'Insufficient balance',
+              description: 'You do not have enough balance to place this bid.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          if (preflightResult.blockedReason === 'insufficient_allowance') {
+            // Just open the approval dialog - no need to log
             openApproval(String(data.amount || ''));
             return;
           }
-        } catch {
-          // If allowance check fails, open approval dialog anyway with requested amount
-          openApproval(String(data.amount || ''));
+
+          if (preflightResult.blockedReason === 'chain_switch_failed') {
+            // Error already shown via onError callback
+            return;
+          }
+
+          // Wallet not connected or other issue
           return;
         }
 
-        // Ensure essential auction context (after allowance handling)
+        // Ensure essential auction context (after preflight checks)
         const encodedPredicted =
           Array.isArray(predictedOutcomes) && predictedOutcomes[0]
             ? (predictedOutcomes[0] as `0x${string}`)
             : undefined;
-        const makerAddr = typeof maker === 'string' ? maker : undefined;
         const resolverAddr =
           typeof resolver === 'string' ? resolver : undefined;
         const takerWagerWei = (() => {
@@ -328,17 +467,17 @@ const AuctionRequestRow: React.FC<Props> = ({
         }
         if (
           !encodedPredicted ||
-          !makerAddr ||
           !resolverAddr ||
           takerNonceVal === undefined ||
-          takerWagerWei <= 0n
+          takerWagerWei <= 0n ||
+          !taker
         ) {
           const missing: string[] = [];
           if (!encodedPredicted) missing.push('predicted outcomes');
-          if (!makerAddr) missing.push('maker');
           if (!resolverAddr) missing.push('resolver');
           if (takerNonceVal === undefined) missing.push('maker nonce');
           if (takerWagerWei <= 0n) missing.push('taker wager');
+          if (!taker) missing.push('taker');
           toast({
             title: 'Request not ready',
             description:
@@ -350,124 +489,66 @@ const AuctionRequestRow: React.FC<Props> = ({
           return;
         }
 
-        const nowSec = Math.floor(Date.now() / 1000);
-        const requested = Math.max(0, Number(data.expirySeconds || 0));
-        const clampedExpiry = (() => {
-          const end = Number(maxEndTimeSec || 0);
-          if (!Number.isFinite(end) || end <= 0) return requested;
-          const remaining = Math.max(0, end - nowSec);
-          return Math.min(requested, remaining);
-        })();
-        const makerDeadline = nowSec + clampedExpiry;
-
-        // Build inner message hash (bytes, uint256, uint256, address, address, uint256, uint256)
-        const innerMessageHash = keccak256(
-          encodeAbiParameters(
-            parseAbiParameters(
-              'bytes, uint256, uint256, address, address, uint256, uint256'
-            ),
-            [
-              encodedPredicted,
-              makerWagerWei,
-              takerWagerWei,
-              getAddress(resolverAddr as `0x${string}`),
-              getAddress(taker as `0x${string}`),
-              BigInt(makerDeadline),
-              BigInt(takerNonceVal),
-            ]
-          )
-        );
-
-        // EIP-712 domain and types per SignatureProcessor
-        if (!verifyingContract) {
-          toast({
-            title: 'Signing failed',
-            description: 'Missing verifying contract',
-            variant: 'destructive' as any,
-          });
-          return;
-        }
-        const domain = {
-          name: 'SignatureProcessor',
-          version: '1',
-          chainId: chainId,
-          verifyingContract,
-        } as const;
-        const types = {
-          Approve: [
-            { name: 'messageHash', type: 'bytes32' },
-            { name: 'owner', type: 'address' },
-          ],
-        } as const;
-        const message = {
-          messageHash: innerMessageHash,
-          owner: getAddress(maker),
-        } as const;
-
-        // Sign typed data via wagmi/viem
-        let makerSignature: `0x${string}` | null = null;
-        try {
-          makerSignature = await signTypedDataAsync({
-            domain,
-            types,
-            primaryType: 'Approve',
-            message,
-          });
-        } catch (e: any) {
-          toast({
-            title: 'Signature rejected',
-            description: String(e?.message || e),
-          });
-          return;
-        }
-        if (!makerSignature) {
-          toast({
-            title: 'Signing failed',
-            description: 'No signature returned',
-            variant: 'destructive' as any,
-          });
-          return;
-        }
-
-        // Build bid payload
-        const payload = {
+        // Use shared bid submission hook for signing and WebSocket
+        const result = await submitBidToWs({
           auctionId,
-          maker,
-          makerDeadline,
-          makerNonce: takerNonceVal,
-          makerSignature,
-          makerWager: makerWagerWei.toString(),
-        };
+          makerWager: makerWagerWei,
+          takerWager: takerWagerWei,
+          predictedOutcomes: [encodedPredicted],
+          resolver: resolverAddr as `0x${string}`,
+          taker: taker as `0x${string}`,
+          takerNonce: takerNonceVal,
+          expirySeconds: data.expirySeconds,
+          maxEndTimeSec: maxEndTimeSec ?? undefined,
+        });
 
-        // Send over shared Auction WS and await ack
-        if (!wsUrl) {
-          toast({
-            title: 'Unable to submit',
-            description: 'Realtime connection not configured',
-            variant: 'destructive' as any,
+        if (result.success) {
+          // Calculate total to win (makerWager + takerWager)
+          const totalWei = makerWagerWei + takerWagerWei;
+          const decimalsForFormat = Number.isFinite(tokenDecimals)
+            ? tokenDecimals
+            : 18;
+          const toWinFormatted = Number(
+            formatUnits(totalWei, decimalsForFormat)
+          ).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
           });
-          return;
-        }
-        const client = getSharedAuctionWsClient(wsUrl);
-        let acked = false;
-        try {
-          await client.sendWithAck('bid.submit', payload, { timeoutMs: 12000 });
-          acked = true;
-        } catch (e: any) {
-          if (String(e?.message) !== 'ack_timeout') throw e;
-        }
-        try {
-          window.dispatchEvent(new Event('auction.bid.submitted'));
-        } catch {
-          void 0;
-        }
-        if (acked) {
+
+          // Log successful bid to terminal logs
+          terminalLogs?.pushBidLog({
+            source: 'manual',
+            action: 'submitted',
+            amount: data.amount,
+            toWinAmount: toWinFormatted,
+            collateralSymbol: collateralAssetTicker,
+            meta: {
+              auctionId,
+              makerWager: makerWagerWei.toString(),
+              takerWager: takerWagerWei.toString(),
+            },
+          });
           toast({
             title: 'Bid submitted',
             description: 'Your bid was submitted successfully.',
           });
+        } else {
+          // Error handling is done via hook callbacks, but log the error
+          terminalLogs?.pushBidLog({
+            source: 'manual',
+            action: 'error',
+            meta: { auctionId },
+            customMessage: `You bid ${result.error || 'Unknown error'}`,
+          });
         }
-      } catch {
+      } catch (e) {
+        // Log error to terminal logs
+        terminalLogs?.pushBidLog({
+          source: 'manual',
+          action: 'error',
+          meta: { auctionId },
+          customMessage: `You bid ${e instanceof Error ? e.message : 'Unknown error'}`,
+        });
         toast({
           title: 'Bid failed',
           description: 'Unable to submit bid',
@@ -484,10 +565,16 @@ const AuctionRequestRow: React.FC<Props> = ({
       takerNonce,
       address,
       connectOrCreateWallet,
-      wsUrl,
-      verifyingContract,
-      signTypedDataAsync,
+      runPreflight,
+      submitBidToWs,
+      terminalLogs,
+      collateralAssetTicker,
       toast,
+      openApproval,
+      tokenDecimals,
+      maxEndTimeSec,
+      refetchTakerNonce,
+      takerNonceOnChain,
     ]
   );
 
@@ -497,30 +584,53 @@ const AuctionRequestRow: React.FC<Props> = ({
         'px-4 py-3 relative group h-full min-h-0 border-b border-border/60'
       }
     >
-      <div className="flex items-center justify-between gap-2 min-h-[28px]">
+      <div className="flex items-center justify-between gap-3 min-h-[28px] flex-wrap sm:flex-nowrap">
         <div className="flex-1 min-w-0">
           {/* label removed */}
           <div className={'mb-0'}>{predictionsContent}</div>
         </div>
-        <div className="inline-flex items-center gap-2">
+        <div className={summaryWrapperClass}>
+          <span className="font-mono text-brand-white tabular-nums">
+            {primaryAmountText}
+          </span>
+          {hasBestBid ? (
+            <>
+              <span className="text-muted-foreground">to win</span>
+              <span className="font-mono text-brand-white tabular-nums">
+                {secondaryAmountText ?? '—'}
+              </span>
+            </>
+          ) : null}
+          {hasBestBid && typeof bestBidSummary?.pct === 'number' ? (
+            <PercentChance
+              probability={bestBidSummary.pct / 100}
+              showLabel
+              label="chance"
+              className="font-mono text-ethena tabular-nums text-right min-w-[90px] -ml-0.5"
+            />
+          ) : null}
+        </div>
+        <div className="inline-flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
-            onClick={() =>
-              setIsExpanded((v) => {
-                const next = !v;
-                try {
-                  window.dispatchEvent(new Event('terminal.row.toggled'));
-                  window.dispatchEvent(
-                    new Event(
-                      next ? 'terminal.row.expanded' : 'terminal.row.collapsed'
-                    )
-                  );
-                } catch {
-                  void 0;
-                }
-                return next;
-              })
-            }
+            onClick={() => {
+              const next = !isExpanded;
+              try {
+                window.dispatchEvent(new Event('terminal.row.toggled'));
+                window.dispatchEvent(
+                  new Event(
+                    next ? 'terminal.row.expanded' : 'terminal.row.collapsed'
+                  )
+                );
+              } catch {
+                void 0;
+              }
+              if (onToggleExpanded) {
+                onToggleExpanded(auctionId);
+              } else {
+                setLocalExpanded(next);
+              }
+            }}
             className={
               highlightNewBid
                 ? 'inline-flex items-center justify-center h-6 px-2 rounded-md border border-[hsl(var(--accent-gold)/0.7)] bg-background hover:bg-accent hover:text-accent-foreground text-[10px] flex-shrink-0 transition-colors duration-300 ease-out bg-[hsl(var(--accent-gold)/0.06)] text-accent-gold'
