@@ -54,6 +54,11 @@ const AuctionBidsChart: React.FC<Props> = ({
   } | null>(null);
   // Track if mouse is over the popover content (for sticky behavior)
   const [isOverPopover, setIsOverPopover] = useState(false);
+  // Preserve last displayed data to prevent empty popover during transitions
+  const lastDisplayedBidRef = useRef<typeof hoveredBid>(null);
+  if (hoveredBid) {
+    lastDisplayedBidRef.current = hoveredBid;
+  }
   const chartRef = useRef<HTMLDivElement>(null);
   const takerEth = (() => {
     try {
@@ -292,8 +297,12 @@ const AuctionBidsChart: React.FC<Props> = ({
     setHoveredBid(null);
   }, []);
 
-  // Determine if HoverCard should be open
-  const isHoverCardOpen = Boolean(hoveredBid) || isOverPopover;
+  // Use current or last displayed bid for popover content
+  const displayBidData =
+    hoveredBid || (isOverPopover ? lastDisplayedBidRef.current : null);
+
+  // Determine if HoverCard should be open (only when we have data to show)
+  const isHoverCardOpen = Boolean(displayBidData);
 
   return (
     <div
@@ -391,7 +400,7 @@ const AuctionBidsChart: React.FC<Props> = ({
           {series.map((s) => {
             const isNew =
               nowMs - s.start < Math.max(300, Math.min(1200, refreshMs * 2));
-            const isHovered = hoveredBid?.seriesKey === s.key;
+            const isHovered = displayBidData?.seriesKey === s.key;
             return (
               <Area
                 key={s.key}
@@ -430,7 +439,10 @@ const AuctionBidsChart: React.FC<Props> = ({
         <HoverCardTrigger asChild>
           <div
             className="absolute w-0 h-0"
-            style={{ left: hoveredBid?.x ?? 0, top: hoveredBid?.y ?? 0 }}
+            style={{
+              left: displayBidData?.x ?? 0,
+              top: displayBidData?.y ?? 0,
+            }}
           />
         </HoverCardTrigger>
         <HoverCardContent
@@ -442,30 +454,30 @@ const AuctionBidsChart: React.FC<Props> = ({
           onMouseEnter={handlePopoverMouseEnter}
           onMouseLeave={handlePopoverMouseLeave}
         >
-          {hoveredBid && (
+          {displayBidData && (
             <div className="px-3 py-2.5">
               <TradePopoverContent
-                leftAddress={hoveredBid.data.makerAddress}
+                leftAddress={displayBidData.data.makerAddress}
                 rightAddress={String(taker || '')}
-                takerAmountEth={hoveredBid.data.amount}
+                takerAmountEth={displayBidData.data.amount}
                 totalAmountEth={
-                  hoveredBid.data.amount +
+                  displayBidData.data.amount +
                   (Number.isFinite(takerEth) ? takerEth : 0)
                 }
                 percent={
-                  hoveredBid.data.amount + takerEth > 0
+                  displayBidData.data.amount + takerEth > 0
                     ? Math.round(
-                        (hoveredBid.data.amount /
-                          (hoveredBid.data.amount + takerEth)) *
+                        (displayBidData.data.amount /
+                          (displayBidData.data.amount + takerEth)) *
                           100
                       )
                     : undefined
                 }
                 ticker={collateralAssetTicker}
                 timeNode={
-                  hoveredBid.data.endMs > 0 ? (
+                  displayBidData.data.endMs > 0 ? (
                     <ExpiresInLabel
-                      endMs={hoveredBid.data.endMs}
+                      endMs={displayBidData.data.endMs}
                       nowMs={nowMs}
                     />
                   ) : undefined

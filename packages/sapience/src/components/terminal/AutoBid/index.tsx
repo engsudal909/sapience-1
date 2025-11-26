@@ -158,7 +158,7 @@ const AutoBid: React.FC<AutoBidProps> = () => {
       }
       try {
         const human = Number(formatUnits(BigInt(value), tokenDecimals));
-        return formatFiveSigFigs(human);
+        return human.toFixed(2);
       } catch {
         return null;
       }
