@@ -86,13 +86,6 @@ const AuctionRequestRow: React.FC<Props> = ({
         description: error.message,
       });
     },
-    onSubmissionFailed: (error) => {
-      toast({
-        title: 'Submission failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
   });
   // Resolve collateral token from PredictionMarket config (fallback to default constant)
   const PREDICTION_MARKET_ADDRESS = predictionMarket[chainId]?.address;
