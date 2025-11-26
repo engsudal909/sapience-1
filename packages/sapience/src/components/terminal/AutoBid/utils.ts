@@ -228,38 +228,33 @@ export const getConditionMatchInfo = (
     id: normalizeHexId(selection.id),
   }));
 
-  // The auction's prediction is the MAKER's prediction.
-  // The UI shows the INVERTED value (what the taker/bidder would bet).
-  // If maker predicted true (Yes), the UI shows "No" (taker bets No).
-  // So if user wants Yes, we match when maker predicted false (UI shows Yes).
-  const directMatch = normalizedSelections.every((selection) => {
-    if (!selection.id) return false;
-    if (!legsMap.has(selection.id)) return false;
-    const wantsYes = selection.outcome === 'yes';
-    const makerPrediction = legsMap.get(selection.id);
-    // Match when the UI display matches: makerPrediction=false shows Yes, makerPrediction=true shows No
-    return makerPrediction !== wantsYes;
-  });
-  if (directMatch) {
-    return { inverted: false };
-  }
-
-  // For single-selection orders, also check for inverted match against any auction
-  // containing that market. When matching a multi-leg parlay, the user bids conservatively
-  // using their single-condition odds, but wins if ANY leg fails (more favorable).
+  // SINGLE-CONDITION: Always match if market exists in auction.
+  // Direction (direct vs inverted) determined by comparing sides.
+  // - Direct (inverted: false): requester prediction opposite of bidder's desired outcome
+  // - Inverted (inverted: true): requester prediction same as bidder's desired outcome
+  // Both are mathematically valid bets at the stated odds (or 1-odds for inverted).
   if (normalizedSelections.length === 1) {
     const selection = normalizedSelections[0];
-    if (selection.id && legsMap.has(selection.id)) {
-      const wantsYes = selection.outcome === 'yes';
-      const makerPrediction = legsMap.get(selection.id);
-      // Inverted match: when makerPrediction === wantsYes (opposite of direct match)
-      if (makerPrediction === wantsYes) {
-        return { inverted: true };
-      }
+    if (!selection.id || !legsMap.has(selection.id)) {
+      return null;
     }
+    const wantsYes = selection.outcome === 'yes';
+    const requesterPrediction = legsMap.get(selection.id)!;
+    return { inverted: requesterPrediction === wantsYes };
   }
 
-  return null;
+  // MULTI-CONDITION: Only direct match allowed.
+  // All order conditions must exist in auction with opposite predictions.
+  // Inverted matching is not supported for multi-condition orders because
+  // the odds semantics don't cleanly invert for compound predictions.
+  const directMatch = normalizedSelections.every((selection) => {
+    if (!selection.id || !legsMap.has(selection.id)) return false;
+    const wantsYes = selection.outcome === 'yes';
+    const requesterPrediction = legsMap.get(selection.id);
+    return requesterPrediction !== wantsYes;
+  });
+
+  return directMatch ? { inverted: false } : null;
 };
 
 export const describeConditionTargeting = (
