@@ -604,9 +604,12 @@ export function createAuctionWebSocketServer() {
           // Subscribe this client to the auction channel
           subscribeToAuction(auctionId, ws, auctionSubscriptions);
 
+          // Echo back request ID for client-side correlation
+          const requestId =
+            (msg as { id?: string }).id || (payload as { id?: string }).id;
           send(ws, {
             type: 'auction.ack',
-            payload: { auctionId },
+            payload: requestId ? { auctionId, id: requestId } : { auctionId },
           });
 
           // Broadcast the auction.started to bots/listeners (all clients for now)

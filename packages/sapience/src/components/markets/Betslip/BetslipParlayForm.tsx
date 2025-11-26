@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
@@ -41,7 +41,10 @@ interface BetslipParlayFormProps {
   error?: string | null;
   chainId?: number;
   bids?: QuoteBid[];
-  requestQuotes?: (params: AuctionParams | null) => void;
+  requestQuotes?: (
+    params: AuctionParams | null,
+    options?: { forceRefresh?: boolean }
+  ) => void;
   // Collateral token configuration from useSubmitParlay hook
   collateralToken?: `0x${string}`;
   collateralSymbol?: string;
@@ -103,11 +106,11 @@ export default function BetslipParlayForm({
     name: 'wagerAmount',
   });
 
-  // Check if wager is over 1M for rainbow effect
-  const isWagerOver1M = useMemo(() => {
+  // Apply rainbow hover effect only for wagers over 1k
+  const isRainbowHoverEnabled = useMemo(() => {
     if (!parlayWagerAmount) return false;
     const wagerNum = Number(parlayWagerAmount);
-    return !Number.isNaN(wagerNum) && wagerNum >= 1000000;
+    return !Number.isNaN(wagerNum) && wagerNum > 1000;
   }, [parlayWagerAmount]);
 
   const bestBid = useMemo(() => {
@@ -141,10 +144,71 @@ export default function BetslipParlayForm({
     });
   }, [bids, parlayWagerAmount, nowMs]);
 
+  // Check if we received bids but they've all expired
+  const allBidsExpired = bids.length > 0 && !bestBid;
+
+  // Check if we recently made a request (within 3 seconds) - show "Waiting for Bids..." during cooldown
+  const recentlyRequested =
+    lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 3000;
+
+  // Derive a stable dependency for form validation state
+  const hasFormErrors = Object.keys(methods.formState.errors).length > 0;
+
+  const triggerAuctionRequest = useCallback(
+    (options?: { forceRefresh?: boolean }) => {
+      if (!requestQuotes) return;
+      if (!selectedTakerAddress) return;
+      if (!parlaySelections || parlaySelections.length === 0) return;
+      if (takerAddress && takerNonce === undefined) return;
+      if (hasFormErrors) return;
+
+      const wagerStr = parlayWagerAmount || '0';
+
+      try {
+        const decimals = Number.isFinite(collateralDecimals as number)
+          ? (collateralDecimals as number)
+          : 18;
+        const wagerWei = parseUnits(wagerStr, decimals).toString();
+        const outcomes = parlaySelections.map((s) => ({
+          marketId: s.conditionId || '0',
+          prediction: !!s.prediction,
+        }));
+        const payload = buildAuctionStartPayload(outcomes, chainId);
+        const params: AuctionParams = {
+          wager: wagerWei,
+          resolver: payload.resolver,
+          predictedOutcomes: payload.predictedOutcomes,
+          taker: selectedTakerAddress,
+          takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
+          chainId: chainId,
+        };
+
+        requestQuotes(params, options);
+        setLastQuoteRequestMs(Date.now());
+      } catch {
+        // ignore formatting errors
+      }
+    },
+    [
+      requestQuotes,
+      selectedTakerAddress,
+      parlaySelections,
+      takerAddress,
+      takerNonce,
+      hasFormErrors,
+      parlayWagerAmount,
+      collateralDecimals,
+      chainId,
+    ]
+  );
+
+  // Show "Request Bids" button when:
+  // 1. No valid bids exist (never received or all expired)
+  // 2. Not in the 3-second cooldown period after making a request
   const showNoBidsHint =
     !bestBid &&
-    lastQuoteRequestMs != null &&
-    nowMs - lastQuoteRequestMs >= 3000;
+    !recentlyRequested &&
+    (allBidsExpired || lastQuoteRequestMs != null);
 
   // Crossfade between disclaimer and hint when bids may not arrive
   const HINT_FADE_MS = 300;
@@ -197,49 +261,8 @@ export default function BetslipParlayForm({
 
   // Trigger RFQ quote requests when selections or wager change
   useEffect(() => {
-    if (!requestQuotes) return;
-    if (!selectedTakerAddress) return;
-    if (!parlaySelections || parlaySelections.length === 0) return;
-    // If a wallet is connected, require a real takerNonce before broadcasting RFQ
-    if (takerAddress && takerNonce === undefined) return;
-    // Don't request quotes if there are form validation errors
-    if (Object.keys(methods.formState.errors).length > 0) return;
-    const wagerStr = parlayWagerAmount || '0';
-    try {
-      const decimals = Number.isFinite(collateralDecimals as number)
-        ? (collateralDecimals as number)
-        : 18;
-      const wagerWei = parseUnits(wagerStr, decimals).toString();
-      const outcomes = parlaySelections.map((s) => ({
-        // Use the conditionId directly as marketId (already encoded claim:endTime)
-        marketId: s.conditionId || '0',
-        prediction: !!s.prediction,
-      }));
-      const payload = buildAuctionStartPayload(outcomes, chainId);
-      const params: AuctionParams = {
-        wager: wagerWei,
-        resolver: payload.resolver,
-        predictedOutcomes: payload.predictedOutcomes,
-        taker: selectedTakerAddress,
-        takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
-        chainId: chainId,
-      };
-      requestQuotes(params);
-      setLastQuoteRequestMs(Date.now());
-    } catch {
-      // ignore formatting errors
-    }
-  }, [
-    requestQuotes,
-    parlaySelections,
-    parlayWagerAmount,
-    collateralDecimals,
-    selectedTakerAddress,
-    takerNonce,
-    takerAddress,
-    chainId,
-    methods.formState.errors,
-  ]);
+    triggerAuctionRequest();
+  }, [triggerAuctionRequest]);
 
   return (
     <FormProvider {...methods}>
@@ -367,8 +390,10 @@ export default function BetslipParlayForm({
                   className="mb-3"
                 />
                 <Button
-                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed ${
-                    isWagerOver1M ? 'betslip-submit' : ''
+                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 cursor-pointer disabled:cursor-not-allowed ${
+                    isRainbowHoverEnabled
+                      ? 'betslip-submit hover:text-brand-white'
+                      : ''
                   }`}
                   disabled={
                     isSubmitting ||
@@ -406,13 +431,21 @@ export default function BetslipParlayForm({
                   className="mb-3"
                 />
                 <Button
-                  className="w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 hover:text-brand-white cursor-pointer disabled:cursor-not-allowed betslip-submit"
-                  disabled={true}
-                  type="submit"
+                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 cursor-pointer disabled:cursor-not-allowed ${
+                    isRainbowHoverEnabled
+                      ? 'betslip-submit hover:text-brand-white'
+                      : ''
+                  }`}
+                  disabled={!showNoBidsHint}
+                  type="button"
                   size="lg"
                   variant="default"
+                  onClick={() =>
+                    showNoBidsHint &&
+                    triggerAuctionRequest({ forceRefresh: true })
+                  }
                 >
-                  Waiting for Bids...
+                  {showNoBidsHint ? 'Request Bids' : 'Waiting for Bids...'}
                 </Button>
                 <div className="mt-1 py-1 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-foreground">

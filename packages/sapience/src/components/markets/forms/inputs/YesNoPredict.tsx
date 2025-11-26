@@ -1,9 +1,7 @@
-import { Label } from '@sapience/sdk/ui/components/ui/label';
-import Slider from '@sapience/sdk/ui/components/ui/slider';
 import { useFormContext } from 'react-hook-form';
 import { useState, useEffect } from 'react';
 import { priceToSqrtPriceX96 } from '~/lib/utils/util';
-import { formatPercentChance } from '~/lib/format/percentChance';
+import ForecastOddsSlider from '~/components/shared/ForecastOddsSlider';
 
 interface YesNoPredictProps {
   name?: string;
@@ -15,7 +13,7 @@ export default function YesNoPredict({
   disabled = false,
 }: YesNoPredictProps) {
   const { register, setValue } = useFormContext();
-  const [sliderValue, setSliderValue] = useState([50]); // Default to 50%
+  const [sliderValue, setSliderValue] = useState(50); // Default to 50%
 
   // Calculate the sqrtPriceX96 value based on slider percentage
   const calculateSqrtPriceX96 = (percentage: number) => {
@@ -26,35 +24,20 @@ export default function YesNoPredict({
 
   // Update form value when slider changes
   useEffect(() => {
-    const sqrtPriceX96Value = calculateSqrtPriceX96(sliderValue[0]);
+    const sqrtPriceX96Value = calculateSqrtPriceX96(sliderValue);
     setValue(name, sqrtPriceX96Value, { shouldValidate: true });
   }, [sliderValue, name, setValue]);
 
   return (
     <div className="space-y-4">
-      <div>
-        {/* Slider for fine-tuning */}
-        <div className="space-y-2.5 pt-3">
-          <Label className="text-base font-mono">
-            <span className="font-normal">Forecast:</span>{' '}
-            <span className="font-medium">
-              {formatPercentChance(sliderValue[0] / 100)} Chance
-            </span>
-          </Label>
-          <Slider
-            value={sliderValue}
-            onValueChange={setSliderValue}
-            max={100}
-            min={0}
-            step={1}
-            className="w-full"
-            disabled={disabled}
-          />
-        </div>
-
-        {/* Hidden input for form submission */}
-        <input type="hidden" {...register(name)} />
-      </div>
+      <ForecastOddsSlider
+        value={sliderValue}
+        onChange={setSliderValue}
+        disabled={disabled}
+        label="Forecast"
+      />
+      {/* Hidden input for form submission */}
+      <input type="hidden" {...register(name)} />
     </div>
   );
 }

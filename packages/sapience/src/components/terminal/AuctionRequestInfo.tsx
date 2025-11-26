@@ -111,7 +111,7 @@ const BestBid: React.FC<BestBidProps> = ({
                   className="w-[min(520px,90vw)] rounded-md bg-background border border-border px-3 py-2.5"
                 >
                   <TradePopoverContent
-                    leftAddress={lastBid?.taker || ''}
+                    leftAddress={lastBid?.maker || ''}
                     rightAddress={uiTx?.position?.owner || ''}
                     takerAmountEth={lastTrade.takerNum}
                     totalAmountEth={lastTrade.totalNum}
@@ -220,14 +220,14 @@ const BestBid: React.FC<BestBidProps> = ({
                           <div className="flex items-center gap-2 min-w-0 text-muted-foreground">
                             <div className="inline-flex items-center gap-1 min-w-0">
                               <EnsAvatar
-                                address={b?.taker || ''}
+                                address={b?.maker || ''}
                                 className="w-4 h-4 rounded-sm ring-1 ring-border/50 shrink-0"
                                 width={16}
                                 height={16}
                               />
                               <div className="min-w-0">
                                 <AddressDisplay
-                                  address={b?.taker || ''}
+                                  address={b?.maker || ''}
                                   compact
                                 />
                               </div>

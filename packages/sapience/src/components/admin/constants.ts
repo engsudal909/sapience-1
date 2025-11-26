@@ -16,6 +16,8 @@ export const CHAIN_ID_ETHEREAL = SDK_CHAIN_ID_ETHEREAL;
 export const DEFAULT_COLLATERAL_ASSET =
   collateralToken[SDK_DEFAULT_CHAIN_ID]?.address;
 
+export const GAS_RESERVE = 0.5;
+
 // Admin-specific constants
 export const DEFAULT_OWNER = '0xdb5Af497A73620d881561eDb508012A5f84e9BA2';
 export const DEFAULT_BOND_CURRENCY =
@@ -38,4 +40,3 @@ export const DEFAULT_MAX_PRICE_TICK = '0';
 export const DEFAULT_FACTORY_ADDRESS =
   '0xc85375AdC34e5358371f48Cd74BAb24f74Af28A9';
 export const DEFAULT_BASE_TOKEN_NAME = 'Yes';
-// Note: DEFAULT_QUOTE_TOKEN_NAME removed - use useCollateralSymbol hook for dynamic values
