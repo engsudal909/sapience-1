@@ -169,7 +169,7 @@ const AuctionRequestRow: React.FC<Props> = ({
       const nowMs = Date.now();
       const active = bids.filter((b) => {
         const deadlineSec = Number(b?.makerDeadline || 0);
-        if (!Number.isFinite(deadlineSec) || deadlineSec <= 0) return true;
+        if (!Number.isFinite(deadlineSec) || deadlineSec <= 0) return false;
         return deadlineSec * 1000 > nowMs;
       });
       if (active.length === 0) return null;
