@@ -53,19 +53,19 @@ contract MockPredictionMarket {
         // Create a mock prediction NFT for the deposited amount
         uint256 tokenId = nextTokenId++;
         
-        // Create prediction data where the vault is the maker
+        // Create prediction data where the vault is the requester
         predictions[tokenId] = IPredictionStructs.PredictionData({
             predictionId: tokenId,
-            makerNftTokenId: tokenId,
-            takerNftTokenId: 0,
-            makerCollateral: amount,
-            takerCollateral: 0,
+            requesterNftTokenId: tokenId,
+            responderNftTokenId: 0,
+            requesterCollateral: amount,
+            responderCollateral: 0,
             encodedPredictedOutcomes: "",
             resolver: address(this),
-            maker: msg.sender,
-            taker: address(0), // No taker for this mock
+            requester: msg.sender,
+            responder: address(0), // No responder for this mock
             settled: false,
-            makerWon: false
+            requesterWon: false
         });
         
         // Mint NFT to the depositor
@@ -85,7 +85,7 @@ contract MockPredictionMarket {
         
         while (remainingToRemove > 0 && tokens.length > 0) {
             uint256 tokenId = tokens[tokens.length - 1];
-            uint256 collateral = predictions[tokenId].makerCollateral;
+            uint256 collateral = predictions[tokenId].requesterCollateral;
             
             if (collateral <= remainingToRemove) {
                 // Remove entire NFT
@@ -95,7 +95,7 @@ contract MockPredictionMarket {
                 tokens.pop();
             } else {
                 // Partially reduce collateral
-                predictions[tokenId].makerCollateral -= remainingToRemove;
+                predictions[tokenId].requesterCollateral -= remainingToRemove;
                 remainingToRemove = 0;
             }
         }
@@ -110,19 +110,19 @@ contract MockPredictionMarket {
         // Create a mock prediction NFT for the deposited amount
         uint256 tokenId = nextTokenId++;
         
-        // Create prediction data where the vault is the maker
+        // Create prediction data where the vault is the requester
         predictions[tokenId] = IPredictionStructs.PredictionData({
             predictionId: tokenId,
             resolver: address(this),
-            maker: vault, // The vault is the maker since it's deploying funds
-            taker: address(0), // No taker for this mock
+            requester: vault, // The vault is the requester since it's deploying funds
+            responder: address(0), // No responder for this mock
             encodedPredictedOutcomes: "",
-            makerNftTokenId: tokenId,
-            takerNftTokenId: 0,
-            makerCollateral: amount,
-            takerCollateral: 0,
+            requesterNftTokenId: tokenId,
+            responderNftTokenId: 0,
+            requesterCollateral: amount,
+            responderCollateral: 0,
             settled: false,
-            makerWon: false
+            requesterWon: false
         });
         
         // Mint NFT to the vault (since the vault is the one deploying funds)
@@ -158,11 +158,11 @@ contract MockPredictionMarket {
         uint256[] memory tokens = ownedTokens[user];
         for (uint256 i = 0; i < tokens.length; i++) {
             IPredictionStructs.PredictionData memory prediction = predictions[tokens[i]];
-            if (prediction.maker == user) {
-                totalCollateral += prediction.makerCollateral;
+            if (prediction.requester == user) {
+                totalCollateral += prediction.requesterCollateral;
             }
-            if (prediction.taker == user) {
-                totalCollateral += prediction.takerCollateral;
+            if (prediction.responder == user) {
+                totalCollateral += prediction.responderCollateral;
             }
         }
         return totalCollateral;

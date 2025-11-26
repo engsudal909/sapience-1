@@ -33,23 +33,23 @@ contract PredictionMarket is
     // ============ Custom Errors ============
     error InvalidCollateralToken();
     error InvalidMinCollateral();
-    error MakerIsNotCaller();
+    error RequesterIsNotCaller();
     error InvalidEncodedPredictedOutcomes();
     error PredictionAlreadySettled();
     error CollateralBelowMinimum();
-    error MakerCollateralMustBeGreaterThanZero();
-    error TakerCollateralMustBeGreaterThanZero();
-    error InvalidTakerSignature();
+    error RequesterCollateralMustBeGreaterThanZero();
+    error ResponderCollateralMustBeGreaterThanZero();
+    error InvalidResponderSignature();
     error InvalidMarketsAccordingToResolver();
     error PredictionNotFound();
     error PredictionResolutionFailed();
-    error MakerAndTakerAreDifferent();
+    error RequesterAndResponderAreDifferent();
     error PredictionDoesNotExist();
-    error TakerDeadlineExpired();
+    error ResponderDeadlineExpired();
     error TransferFailed();
     error OrderNotFound();
     error OrderExpired();
-    error InvalidMakerNonce();
+    error InvalidRequesterNonce();
     error NotOwner();
     error TransferNotAllowed();
     error TransferInProcess();
@@ -59,21 +59,21 @@ contract PredictionMarket is
 
     // ============ Counters ============
     uint256 private _predictionIdCounter; // Single ID for both requests and predictions
-    uint256 private _nftTokenIdCounter; // Single counter for both maker and taker NFTs
+    uint256 private _nftTokenIdCounter; // Single counter for both requester and responder NFTs
 
     // ============ Mappings ============
     mapping(uint256 => IPredictionStructs.PredictionData) private predictions;
 
     mapping(uint256 => uint256) private nftToPredictionId; // nftTokenId => predictionId
 
-    // Auxiliary mappings to track all nft by maker and taker
-    mapping(address => EnumerableSet.UintSet) private nftByMakerAddress;
-    mapping(address => EnumerableSet.UintSet) private nftByTakerAddress;
+    // Auxiliary mappings to track all nft by requester and responder
+    mapping(address => EnumerableSet.UintSet) private nftByRequesterAddress;
+    mapping(address => EnumerableSet.UintSet) private nftByResponderAddress;
 
     // Mapping to track total collateral deposited by each user
     mapping(address => uint256) private userCollateralDeposits;
 
-    // Sequential nonce for replay protection per maker address
+    // Sequential nonce for replay protection per requester address
     mapping(address => uint256) public nonces;
 
     // ============ Limit Order ============
@@ -82,7 +82,7 @@ contract PredictionMarket is
     mapping(uint256 => IPredictionStructs.LimitOrderData)
         private unfilledOrders;
     
-    mapping(address => EnumerableSet.UintSet) private unfilledOrdersByMaker;
+    mapping(address => EnumerableSet.UintSet) private unfilledOrdersByRequester;
     
     EnumerableSet.UintSet private unfilledOrderIds;
 
@@ -117,90 +117,90 @@ contract PredictionMarket is
     )
         external
         nonReentrant
-        returns (uint256 makerNftTokenId, uint256 takerNftTokenId)
+        returns (uint256 requesterNftTokenId, uint256 responderNftTokenId)
     {
         // 1- Initial checks
-        if (mintPredictionRequestData.maker != msg.sender)
-            revert MakerIsNotCaller();
-        if (mintPredictionRequestData.takerDeadline < block.timestamp)
-            revert TakerDeadlineExpired();
+        if (mintPredictionRequestData.requester != msg.sender)
+            revert RequesterIsNotCaller();
+        if (mintPredictionRequestData.responderDeadline < block.timestamp)
+            revert ResponderDeadlineExpired();
 
-        if (mintPredictionRequestData.makerCollateral < config.minCollateral)
+        if (mintPredictionRequestData.requesterCollateral < config.minCollateral)
             revert CollateralBelowMinimum();
-        if (mintPredictionRequestData.makerCollateral == 0)
-            revert MakerCollateralMustBeGreaterThanZero();
-        if (mintPredictionRequestData.takerCollateral == 0)
-            revert TakerCollateralMustBeGreaterThanZero();
+        if (mintPredictionRequestData.requesterCollateral == 0)
+            revert RequesterCollateralMustBeGreaterThanZero();
+        if (mintPredictionRequestData.responderCollateral == 0)
+            revert ResponderCollateralMustBeGreaterThanZero();
         if (mintPredictionRequestData.encodedPredictedOutcomes.length == 0)
             revert InvalidEncodedPredictedOutcomes();
 
-        // 2- Confirm the taker signature is valid for this prediction (hash of predicted outcomes, taker collateral and maker collateral, resolver and maker address)
-        //    and enforce per-maker nonce replay protection
-        if (mintPredictionRequestData.makerNonce != nonces[mintPredictionRequestData.maker]) {
-            revert InvalidMakerNonce();
+        // 2- Confirm the responder signature is valid for this prediction (hash of predicted outcomes, responder collateral and requester collateral, resolver and requester address)
+        //    and enforce per-requester nonce replay protection
+        if (mintPredictionRequestData.requesterNonce != nonces[mintPredictionRequestData.requester]) {
+            revert InvalidRequesterNonce();
         }
-        // Increment the maker nonce
-        nonces[mintPredictionRequestData.maker]++;
+        // Increment the requester nonce
+        nonces[mintPredictionRequestData.requester]++;
         bytes32 messageHash = keccak256(
             abi.encode(
                 mintPredictionRequestData.encodedPredictedOutcomes,
-                mintPredictionRequestData.takerCollateral,
-                mintPredictionRequestData.makerCollateral,
+                mintPredictionRequestData.responderCollateral,
+                mintPredictionRequestData.requesterCollateral,
                 mintPredictionRequestData.resolver,
-                mintPredictionRequestData.maker,
-                mintPredictionRequestData.takerDeadline,
-                mintPredictionRequestData.makerNonce
+                mintPredictionRequestData.requester,
+                mintPredictionRequestData.responderDeadline,
+                mintPredictionRequestData.requesterNonce
             )
         );
 
         if (
             !_isApprovalValid(
                 messageHash,
-                mintPredictionRequestData.taker,
-                mintPredictionRequestData.takerSignature
+                mintPredictionRequestData.responder,
+                mintPredictionRequestData.responderSignature
             )
         ) {
             // Not valid signature for EOA (ERC-712),
             // Check if it's a contract that implements ERC-1271
             try
-                IERC1271(mintPredictionRequestData.taker).isValidSignature(
+                IERC1271(mintPredictionRequestData.responder).isValidSignature(
                     messageHash,
-                    mintPredictionRequestData.takerSignature
+                    mintPredictionRequestData.responderSignature
                 )
             returns (bytes4 magicValue) {
                 if (magicValue != IERC1271.isValidSignature.selector) {
-                    revert InvalidTakerSignature();
+                    revert InvalidResponderSignature();
                 }
             } catch {
-                // Using the try-catch to handle the case where the taker is not a contract that implements ERC-1271
-                revert InvalidTakerSignature();
+                // Using the try-catch to handle the case where the responder is not a contract that implements ERC-1271
+                revert InvalidResponderSignature();
             }
         }
 
         // 3- Collect collateral
         _safeTransferIn(
             config.collateralToken,
-            mintPredictionRequestData.maker,
-            mintPredictionRequestData.makerCollateral
+            mintPredictionRequestData.requester,
+            mintPredictionRequestData.requesterCollateral
         );
         _safeTransferIn(
             config.collateralToken,
-            mintPredictionRequestData.taker,
-            mintPredictionRequestData.takerCollateral
+            mintPredictionRequestData.responder,
+            mintPredictionRequestData.responderCollateral
         );
 
         // 4- Create prediction using internal function
-        (makerNftTokenId, takerNftTokenId) = _createPrediction(
+        (requesterNftTokenId, responderNftTokenId) = _createPrediction(
             mintPredictionRequestData.encodedPredictedOutcomes,
             mintPredictionRequestData.resolver,
-            mintPredictionRequestData.maker,
-            mintPredictionRequestData.taker,
-            mintPredictionRequestData.makerCollateral,
-            mintPredictionRequestData.takerCollateral,
+            mintPredictionRequestData.requester,
+            mintPredictionRequestData.responder,
+            mintPredictionRequestData.requesterCollateral,
+            mintPredictionRequestData.responderCollateral,
             mintPredictionRequestData.refCode
         );
 
-        return (makerNftTokenId, takerNftTokenId);
+        return (requesterNftTokenId, responderNftTokenId);
     }
 
     function burn(uint256 tokenId, bytes32 refCode) external nonReentrant {
@@ -214,11 +214,11 @@ contract PredictionMarket is
         ];
 
         // 2- Initial checks
-        if (prediction.maker == address(0)) revert PredictionNotFound();
-        if (prediction.taker == address(0)) revert PredictionNotFound();
+        if (prediction.requester == address(0)) revert PredictionNotFound();
+        if (prediction.responder == address(0)) revert PredictionNotFound();
         if (prediction.settled) revert PredictionAlreadySettled();
 
-        // 3- Ask resolver if markets are settled, and if prediction succeeded or not, it means maker won
+        // 3- Ask resolver if markets are settled, and if prediction succeeded or not, it means requester won
         (bool isResolved, , bool parlaySuccess) = IPredictionMarketResolver(
             prediction.resolver
         ).getPredictionResolution(prediction.encodedPredictedOutcomes);
@@ -226,32 +226,32 @@ contract PredictionMarket is
         if (!isResolved) revert PredictionResolutionFailed();
 
         // 4- Send collateral to winner
-        uint256 payout = prediction.makerCollateral +
-            prediction.takerCollateral;
-        address winner = parlaySuccess ? prediction.maker : prediction.taker;
+        uint256 payout = prediction.requesterCollateral +
+            prediction.responderCollateral;
+        address winner = parlaySuccess ? prediction.requester : prediction.responder;
 
         _safeTransferOut(config.collateralToken, winner, payout);
 
         // 4.1- Update user collateral deposits tracking
-        userCollateralDeposits[prediction.maker] -= prediction.makerCollateral;
-        userCollateralDeposits[prediction.taker] -= prediction.takerCollateral;
+        userCollateralDeposits[prediction.requester] -= prediction.requesterCollateral;
+        userCollateralDeposits[prediction.responder] -= prediction.responderCollateral;
 
         // 5- Set the prediction state (identify who won and set as closed)
         prediction.settled = true;
-        prediction.makerWon = parlaySuccess;
+        prediction.requesterWon = parlaySuccess;
 
         // 6- Burn NFTs
-        _burn(prediction.makerNftTokenId);
-        _burn(prediction.takerNftTokenId);
+        _burn(prediction.requesterNftTokenId);
+        _burn(prediction.responderNftTokenId);
 
         emit PredictionBurned(
-            prediction.maker,
-            prediction.taker,
+            prediction.requester,
+            prediction.responder,
             prediction.encodedPredictedOutcomes,
-            prediction.makerNftTokenId,
-            prediction.takerNftTokenId,
+            prediction.requesterNftTokenId,
+            prediction.responderNftTokenId,
             payout,
-            prediction.makerWon,
+            prediction.requesterWon,
             refCode
         );
     }
@@ -270,32 +270,32 @@ contract PredictionMarket is
         ];
 
         // 2- Initial checks
-        if (prediction.maker == address(0)) revert PredictionNotFound();
-        if (prediction.taker == address(0)) revert PredictionNotFound();
+        if (prediction.requester == address(0)) revert PredictionNotFound();
+        if (prediction.responder == address(0)) revert PredictionNotFound();
         if (prediction.settled) revert PredictionAlreadySettled();
 
-        if (prediction.maker != prediction.taker)
-            revert MakerAndTakerAreDifferent();
-        if (prediction.maker != msg.sender) revert NotOwner();
+        if (prediction.requester != prediction.responder)
+            revert RequesterAndResponderAreDifferent();
+        if (prediction.requester != msg.sender) revert NotOwner();
 
-        // 3- Set as settled and maker won and send the collateral to the maker
+        // 3- Set as settled and requester won and send the collateral to the requester
         prediction.settled = true;
-        prediction.makerWon = true;
-        uint256 payout = prediction.makerCollateral +
-            prediction.takerCollateral;
-        _safeTransferOut(config.collateralToken, prediction.maker, payout);
+        prediction.requesterWon = true;
+        uint256 payout = prediction.requesterCollateral +
+            prediction.responderCollateral;
+        _safeTransferOut(config.collateralToken, prediction.requester, payout);
 
         // 3.1- Update user collateral deposits tracking
-        userCollateralDeposits[prediction.maker] -= prediction.makerCollateral;
-        userCollateralDeposits[prediction.taker] -= prediction.takerCollateral;
+        userCollateralDeposits[prediction.requester] -= prediction.requesterCollateral;
+        userCollateralDeposits[prediction.responder] -= prediction.responderCollateral;
 
         // 4- Burn NFTs
-        _burn(prediction.makerNftTokenId);
-        _burn(prediction.takerNftTokenId);
+        _burn(prediction.requesterNftTokenId);
+        _burn(prediction.responderNftTokenId);
 
         emit PredictionConsolidated(
-            prediction.makerNftTokenId,
-            prediction.takerNftTokenId,
+            prediction.requesterNftTokenId,
+            prediction.responderNftTokenId,
             payout,
             refCode
         );
@@ -306,20 +306,20 @@ contract PredictionMarket is
     function placeOrder(
         IPredictionStructs.OrderRequestData calldata orderRequestData
     ) external nonReentrant returns (uint256 orderId) {
-        address maker = msg.sender;
+        address requester = msg.sender;
 
-        if (orderRequestData.makerCollateral == 0)
-            revert MakerCollateralMustBeGreaterThanZero();
-        if (orderRequestData.takerCollateral == 0)
-            revert TakerCollateralMustBeGreaterThanZero();
-        if (orderRequestData.makerCollateral < config.minCollateral)
+        if (orderRequestData.requesterCollateral == 0)
+            revert RequesterCollateralMustBeGreaterThanZero();
+        if (orderRequestData.responderCollateral == 0)
+            revert ResponderCollateralMustBeGreaterThanZero();
+        if (orderRequestData.requesterCollateral < config.minCollateral)
             revert CollateralBelowMinimum();
 
         // 1- Transfer collateral to the contract
         _safeTransferIn(
             config.collateralToken,
-            maker,
-            orderRequestData.makerCollateral
+            requester,
+            orderRequestData.requesterCollateral
         );
 
         orderId = orderIdCounter++;
@@ -327,23 +327,23 @@ contract PredictionMarket is
         // 2- Store order request data
         unfilledOrders[orderId] = IPredictionStructs.LimitOrderData({
             orderId: orderId,
-            makerCollateral: orderRequestData.makerCollateral,
-            takerCollateral: orderRequestData.takerCollateral,
+            requesterCollateral: orderRequestData.requesterCollateral,
+            responderCollateral: orderRequestData.responderCollateral,
             orderDeadline: orderRequestData.orderDeadline,
             encodedPredictedOutcomes: orderRequestData.encodedPredictedOutcomes,
             resolver: orderRequestData.resolver,
-            maker: maker,
-            taker: address(0)
+            requester: requester,
+            responder: address(0)
         });
-        unfilledOrdersByMaker[maker].add(orderId);
+        unfilledOrdersByRequester[requester].add(orderId);
         unfilledOrderIds.add(orderId);
         emit OrderPlaced(
-            maker,
+            requester,
             orderId,
             orderRequestData.encodedPredictedOutcomes,
             orderRequestData.resolver,
-            orderRequestData.makerCollateral,
-            orderRequestData.takerCollateral,
+            orderRequestData.requesterCollateral,
+            orderRequestData.responderCollateral,
             orderRequestData.refCode
         );
     }
@@ -355,34 +355,34 @@ contract PredictionMarket is
         if (order.orderId != orderId) revert OrderNotFound();
         if (order.orderDeadline < block.timestamp) revert OrderExpired();
 
-        // 3- Transfer collateral to the taker
-        address taker = msg.sender;
-        _safeTransferIn(config.collateralToken, taker, order.takerCollateral);
+        // 3- Transfer collateral to the responder
+        address responder = msg.sender;
+        _safeTransferIn(config.collateralToken, responder, order.responderCollateral);
 
         // 4- Create prediction using internal function
         _createPrediction(
             bytes(order.encodedPredictedOutcomes),
             order.resolver,
-            order.maker,
-            taker,
-            order.makerCollateral,
-            order.takerCollateral,
+            order.requester,
+            responder,
+            order.requesterCollateral,
+            order.responderCollateral,
             refCode
         );
 
         // 5- Set the order as filled and remove from tracking
         order.orderId = 0; // zero means no order
         unfilledOrderIds.remove(orderId);
-        unfilledOrdersByMaker[order.maker].remove(orderId);
+        unfilledOrdersByRequester[order.requester].remove(orderId);
 
         // 6- emit event
         emit OrderFilled(
             orderId,
-            order.maker,
-            taker,
+            order.requester,
+            responder,
             order.encodedPredictedOutcomes,
-            order.makerCollateral,
-            order.takerCollateral,
+            order.requesterCollateral,
+            order.responderCollateral,
             refCode
         );
     }
@@ -392,24 +392,24 @@ contract PredictionMarket is
             orderId
         ];
         if (order.orderId != orderId) revert OrderNotFound();
-        if (order.maker != msg.sender) revert MakerIsNotCaller();
+        if (order.requester != msg.sender) revert RequesterIsNotCaller();
 
         _safeTransferOut(
             config.collateralToken,
-            order.maker,
-            order.makerCollateral
+            order.requester,
+            order.requesterCollateral
         );
 
         order.orderId = 0; // zero means no order
         unfilledOrderIds.remove(orderId);
-        unfilledOrdersByMaker[order.maker].remove(orderId);
+        unfilledOrdersByRequester[order.requester].remove(orderId);
 
         emit OrderCancelled(
             orderId,
-            order.maker,
+            order.requester,
             order.encodedPredictedOutcomes,
-            order.makerCollateral,
-            order.takerCollateral
+            order.requesterCollateral,
+            order.responderCollateral
         );
     }
 
@@ -427,10 +427,10 @@ contract PredictionMarket is
         return unfilledOrderIds.length();
     }
 
-    function getUnfilledOrderByMaker(
-        address maker
+    function getUnfilledOrderByRequester(
+        address requester
     ) external view returns (uint256[] memory) {
-        return unfilledOrdersByMaker[maker].values();
+        return unfilledOrdersByRequester[requester].values();
     }
 
     // ============ View Functions ============
@@ -458,28 +458,28 @@ contract PredictionMarket is
     }
 
     /**
-     * @notice Get all NFT IDs where `account` is the maker or taker
-     * @dev Includes both unfilled and filled orders. Canceled orders are excluded (maker reset to address(0)).
+     * @notice Get all NFT IDs where `account` is the requester or responder
+     * @dev Includes both unfilled and filled orders. Canceled orders are excluded (requester reset to address(0)).
      * @param account Address to filter by
      */
     function getOwnedPredictions(
         address account
     ) external view returns (uint256[] memory nftTokenIds) {
-        // Get all nft by maker
-        uint256[] memory makerNftTokenIds = nftByMakerAddress[account].values();
-        uint256 makerNftTokenIdsLength = makerNftTokenIds.length;
+        // Get all nft by requester
+        uint256[] memory requesterNftTokenIds = nftByRequesterAddress[account].values();
+        uint256 requesterNftTokenIdsLength = requesterNftTokenIds.length;
 
-        // Get all nft by taker
-        uint256[] memory takerNftTokenIds = nftByTakerAddress[account].values();
-        uint256 takerNftTokenIdsLength = takerNftTokenIds.length;
+        // Get all nft by responder
+        uint256[] memory responderNftTokenIds = nftByResponderAddress[account].values();
+        uint256 responderNftTokenIdsLength = responderNftTokenIds.length;
 
-        uint256 totalCount = makerNftTokenIdsLength + takerNftTokenIdsLength;
+        uint256 totalCount = requesterNftTokenIdsLength + responderNftTokenIdsLength;
         nftTokenIds = new uint256[](totalCount);
 
         for (uint256 i = 0; i < totalCount; i++) {
-            nftTokenIds[i] = i < makerNftTokenIdsLength
-                ? makerNftTokenIds[i]
-                : takerNftTokenIds[i - makerNftTokenIdsLength];
+            nftTokenIds[i] = i < requesterNftTokenIdsLength
+                ? requesterNftTokenIds[i]
+                : responderNftTokenIds[i - requesterNftTokenIdsLength];
         }
     }
 
@@ -487,8 +487,8 @@ contract PredictionMarket is
         address account
     ) external view returns (uint256 count) {
         return
-            nftByMakerAddress[account].length() +
-            nftByTakerAddress[account].length();
+            nftByRequesterAddress[account].length() +
+            nftByResponderAddress[account].length();
     }
 
     /**
@@ -524,8 +524,8 @@ contract PredictionMarket is
     /**
      * @dev Override ERC721 ownership update to keep auxiliary mappings and prediction parties in sync
      * @notice When an NFT is transferred, this updates:
-     *   - The maker/taker in the prediction data
-     *   - The role-based NFT ownership indexes (nftByMakerAddress, nftByTakerAddress)
+     *   - The requester/responder in the prediction data
+     *   - The role-based NFT ownership indexes (nftByRequesterAddress, nftByResponderAddress)
      *   - User collateral deposit tracking (for user-to-user transfers)
      */
     function _update(address to, uint256 tokenId, address auth)
@@ -542,44 +542,44 @@ contract PredictionMarket is
 
         IPredictionStructs.PredictionData storage prediction = predictions[predictionId];
 
-        bool isMakerToken = tokenId == prediction.makerNftTokenId;
-        bool isTakerToken = tokenId == prediction.takerNftTokenId;
+        bool isRequesterToken = tokenId == prediction.requesterNftTokenId;
+        bool isResponderToken = tokenId == prediction.responderNftTokenId;
 
         // Keep role-based NFT ownership indexes in sync
         if (from != address(0)) {
-            if (isMakerToken) {
-                nftByMakerAddress[from].remove(tokenId);
+            if (isRequesterToken) {
+                nftByRequesterAddress[from].remove(tokenId);
             }
-            if (isTakerToken) {
-                nftByTakerAddress[from].remove(tokenId);
+            if (isResponderToken) {
+                nftByResponderAddress[from].remove(tokenId);
             }
         }
         if (to != address(0)) {
-            if (isMakerToken) {
-                nftByMakerAddress[to].add(tokenId);
+            if (isRequesterToken) {
+                nftByRequesterAddress[to].add(tokenId);
             }
-            if (isTakerToken) {
-                nftByTakerAddress[to].add(tokenId);
+            if (isResponderToken) {
+                nftByResponderAddress[to].add(tokenId);
             }
         }
 
         // Update prediction parties on transfers (not on burn)
         if (to != address(0)) {
-            if (isMakerToken) {
-                prediction.maker = to;
-            } else if (isTakerToken) {
-                prediction.taker = to;
+            if (isRequesterToken) {
+                prediction.requester = to;
+            } else if (isResponderToken) {
+                prediction.responder = to;
             }
         }
 
         // Move collateral deposit attribution on user-to-user transfers only
         if (from != address(0) && to != address(0)) {
-            if (isMakerToken) {
-                userCollateralDeposits[from] -= prediction.makerCollateral;
-                userCollateralDeposits[to] += prediction.makerCollateral;
-            } else if (isTakerToken) {
-                userCollateralDeposits[from] -= prediction.takerCollateral;
-                userCollateralDeposits[to] += prediction.takerCollateral;
+            if (isRequesterToken) {
+                userCollateralDeposits[from] -= prediction.requesterCollateral;
+                userCollateralDeposits[to] += prediction.requesterCollateral;
+            } else if (isResponderToken) {
+                userCollateralDeposits[from] -= prediction.responderCollateral;
+                userCollateralDeposits[to] += prediction.responderCollateral;
             }
         }
 
@@ -594,8 +594,8 @@ contract PredictionMarket is
 
     function _isPrediction(uint256 id) internal view returns (bool) {
         return
-            predictions[id].maker != address(0) &&
-            predictions[id].taker != address(0);
+            predictions[id].requester != address(0) &&
+            predictions[id].responder != address(0);
     }
 
     /**
@@ -623,23 +623,23 @@ contract PredictionMarket is
      * @notice This is called by both mint() and fillOrder()
      * @param encodedPredictedOutcomes Encoded prediction outcomes for resolver validation
      * @param resolver Address of the resolver contract
-     * @param maker Address of the maker (prediction creator)
-     * @param taker Address of the taker (counterparty)
-     * @param makerCollateral Amount of collateral from maker
-     * @param takerCollateral Amount of collateral from taker
+     * @param requester Address of the requester (prediction creator)
+     * @param responder Address of the responder (counterparty)
+     * @param requesterCollateral Amount of collateral from requester
+     * @param responderCollateral Amount of collateral from responder
      * @param refCode Reference code for tracking
-     * @return makerNftTokenId The NFT token ID for the maker
-     * @return takerNftTokenId The NFT token ID for the taker
+     * @return requesterNftTokenId The NFT token ID for the requester
+     * @return responderNftTokenId The NFT token ID for the responder
      */
     function _createPrediction(
         bytes memory encodedPredictedOutcomes,
         address resolver,
-        address maker,
-        address taker,
-        uint256 makerCollateral,
-        uint256 takerCollateral,
+        address requester,
+        address responder,
+        uint256 requesterCollateral,
+        uint256 responderCollateral,
         bytes32 refCode
-    ) internal returns (uint256 makerNftTokenId, uint256 takerNftTokenId) {
+    ) internal returns (uint256 requesterNftTokenId, uint256 responderNftTokenId) {
         // 1- Ask resolver if markets are OK
         (bool isValid, ) = IPredictionMarketResolver(resolver)
             .validatePredictionMarkets(encodedPredictedOutcomes);
@@ -649,44 +649,44 @@ contract PredictionMarket is
         // 2- Set the prediction data
         uint256 predictionId = _predictionIdCounter++;
 
-        makerNftTokenId = _nftTokenIdCounter++;
-        takerNftTokenId = _nftTokenIdCounter++;
+        requesterNftTokenId = _nftTokenIdCounter++;
+        responderNftTokenId = _nftTokenIdCounter++;
         predictions[predictionId] = IPredictionStructs.PredictionData({
             predictionId: predictionId,
-            makerNftTokenId: makerNftTokenId,
-            takerNftTokenId: takerNftTokenId,
-            makerCollateral: makerCollateral,
-            takerCollateral: takerCollateral,
+            requesterNftTokenId: requesterNftTokenId,
+            responderNftTokenId: responderNftTokenId,
+            requesterCollateral: requesterCollateral,
+            responderCollateral: responderCollateral,
             encodedPredictedOutcomes: encodedPredictedOutcomes,
             resolver: resolver,
-            maker: maker,
-            taker: taker,
+            requester: requester,
+            responder: responder,
             settled: false,
-            makerWon: false
+            requesterWon: false
         });
 
         // 3- Update user collateral deposits tracking
-        userCollateralDeposits[maker] += makerCollateral;
-        userCollateralDeposits[taker] += takerCollateral;
+        userCollateralDeposits[requester] += requesterCollateral;
+        userCollateralDeposits[responder] += responderCollateral;
 
         // 4- Set NFT mappings before minting (needed for _update override)
-        nftToPredictionId[makerNftTokenId] = predictionId;
-        nftToPredictionId[takerNftTokenId] = predictionId;
+        nftToPredictionId[requesterNftTokenId] = predictionId;
+        nftToPredictionId[responderNftTokenId] = predictionId;
 
         // 5- Mint NFTs
-        _safeMint(maker, makerNftTokenId);
-        _safeMint(taker, takerNftTokenId);
+        _safeMint(requester, requesterNftTokenId);
+        _safeMint(responder, responderNftTokenId);
 
         // 6- Emit prediction minted event
         emit PredictionMinted(
-            maker,
-            taker,
+            requester,
+            responder,
             encodedPredictedOutcomes,
-            makerNftTokenId,
-            takerNftTokenId,
-            makerCollateral,
-            takerCollateral,
-            makerCollateral + takerCollateral,
+            requesterNftTokenId,
+            responderNftTokenId,
+            requesterCollateral,
+            responderCollateral,
+            requesterCollateral + responderCollateral,
             refCode
         );
     }

@@ -11,61 +11,61 @@ interface IPredictionEvents {
     // ============ Events ============
 
     event PredictionMinted(
-        address indexed maker,
-        address indexed taker,
+        address indexed requester,
+        address indexed responder,
         bytes encodedPredictedOutcomes,
-        uint256 makerNftTokenId,
-        uint256 takerNftTokenId,
-        uint256 makerCollateral, // locked in the pool from maker
-        uint256 takerCollateral, // delta paid by taker to reach the payout amount
+        uint256 requesterNftTokenId,
+        uint256 responderNftTokenId,
+        uint256 requesterCollateral, // locked in the pool from requester
+        uint256 responderCollateral, // delta paid by responder to reach the payout amount
         uint256 totalCollateral, // total payout to the winner,
         bytes32 refCode
     );
 
     event PredictionBurned(
-        address indexed maker,
-        address indexed taker,
+        address indexed requester,
+        address indexed responder,
         bytes encodedPredictedOutcomes,
-        uint256 makerNftTokenId,
-        uint256 takerNftTokenId,
+        uint256 requesterNftTokenId,
+        uint256 responderNftTokenId,
         uint256 totalCollateral,
-        bool makerWon,
+        bool requesterWon,
         bytes32 refCode
     );
 
     event PredictionConsolidated(
-        uint256 indexed makerNftTokenId,
-        uint256 indexed takerNftTokenId,
+        uint256 indexed requesterNftTokenId,
+        uint256 indexed responderNftTokenId,
         uint256 totalCollateral,
         bytes32 refCode
     );
 
     // ============ Limit Order Events ============
     event OrderPlaced(
-        address indexed maker,
+        address indexed requester,
         uint256 indexed orderId,
         bytes encodedPredictedOutcomes,
         address resolver,
-        uint256 makerCollateral,
-        uint256 takerCollateral,
+        uint256 requesterCollateral,
+        uint256 responderCollateral,
         bytes32 refCode
     );
 
     event OrderFilled(
         uint256 indexed orderId,
-        address indexed maker,
-        address indexed taker,
+        address indexed requester,
+        address indexed responder,
         bytes encodedPredictedOutcomes,
-        uint256 makerCollateral,
-        uint256 takerCollateral,
+        uint256 requesterCollateral,
+        uint256 responderCollateral,
         bytes32 refCode
     );
 
     event OrderCancelled(
         uint256 indexed orderId,
-        address indexed maker,
+        address indexed requester,
         bytes encodedPredictedOutcomes,
-        uint256 makerCollateral,
-        uint256 takerCollateral
+        uint256 requesterCollateral,
+        uint256 responderCollateral
     );
 }

@@ -21,7 +21,7 @@ contract PredictionMarketERC1271Test is Test {
     MockResolver public mockResolver;
     PassiveLiquidityVault public vault;
     
-    address public maker;
+    address public requester;
     address public vaultManager;
     address public vaultOwner;
     address public user1;
@@ -30,28 +30,28 @@ contract PredictionMarketERC1271Test is Test {
     uint256 public constant MANAGER_PRIVATE_KEY = 2;
     
     uint256 public constant MIN_COLLATERAL = 1000e18;
-    uint256 public constant MAKER_COLLATERAL = 2000e18;
-    uint256 public constant TAKER_COLLATERAL = 1500e18;
-    uint256 public constant TOTAL_COLLATERAL = MAKER_COLLATERAL + TAKER_COLLATERAL;
+    uint256 public constant REQUESTER_COLLATERAL = 2000e18;
+    uint256 public constant RESPONDER_COLLATERAL = 1500e18;
+    uint256 public constant TOTAL_COLLATERAL = REQUESTER_COLLATERAL + RESPONDER_COLLATERAL;
     
     bytes32 public constant REF_CODE = keccak256("test-ref-code");
     bytes public constant ENCODED_OUTCOMES = abi.encode("test-outcomes");
 
     event PredictionMinted(
-        address indexed maker,
-        address indexed taker,
+        address indexed requester,
+        address indexed responder,
         bytes encodedPredictedOutcomes,
-        uint256 makerNftTokenId,
-        uint256 takerNftTokenId,
-        uint256 makerCollateral,
-        uint256 takerCollateral,
+        uint256 requesterNftTokenId,
+        uint256 responderNftTokenId,
+        uint256 requesterCollateral,
+        uint256 responderCollateral,
         uint256 totalCollateral,
         bytes32 refCode
     );
 
     function setUp() public {
         // Create test accounts
-        maker = vm.addr(MAKER_PRIVATE_KEY);
+        requester = vm.addr(MAKER_PRIVATE_KEY);
         vaultManager = vm.addr(MANAGER_PRIVATE_KEY);
         vaultOwner = vm.addr(3);
         user1 = vm.addr(4);
@@ -78,12 +78,12 @@ contract PredictionMarketERC1271Test is Test {
         );
         
         // Mint tokens to test accounts
-        collateralToken.mint(maker, 10000e18);
+        collateralToken.mint(requester, 10000e18);
         collateralToken.mint(address(vault), 10000e18); // Vault has collateral
         collateralToken.mint(user1, 10000e18);
         
         // Approve prediction market to spend tokens
-        vm.prank(maker);
+        vm.prank(requester);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         // Vault approves prediction market (max 80% utilization = 8000e18)
@@ -96,7 +96,7 @@ contract PredictionMarketERC1271Test is Test {
     }
     
     /**
-     * @notice Helper to mint an initial prediction with vault as taker (consumes nonce 0)
+     * @notice Helper to mint an initial prediction with vault as responder (consumes nonce 0)
      */
     function _mintInitialPrediction() internal {
         address initialTaker = vm.addr(5);
@@ -104,14 +104,14 @@ contract PredictionMarketERC1271Test is Test {
         vm.prank(initialTaker);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
-        // Create signature for initial taker
+        // Create signature for initial responder
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 0 // This consumes nonce 0
             )
@@ -123,35 +123,35 @@ contract PredictionMarketERC1271Test is Test {
         IPredictionStructs.MintPredictionRequestData memory request = IPredictionStructs.MintPredictionRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
-            maker: maker,
-            taker: initialTaker,
-            makerNonce: 0,
-            takerSignature: abi.encodePacked(r, s, v),
-            takerDeadline: block.timestamp + 1 hours,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
+            requester: requester,
+            responder: initialTaker,
+            requesterNonce: 0,
+            responderSignature: abi.encodePacked(r, s, v),
+            responderDeadline: block.timestamp + 1 hours,
             refCode: keccak256("initial-setup")
         });
         
-        vm.prank(maker);
+        vm.prank(requester);
         predictionMarket.mint(request);
     }
 
     /**
-     * @notice Helper to create a mint request with vault as taker and manager signature
+     * @notice Helper to create a mint request with vault as responder and manager signature
      */
     function _createMintRequestWithVaultAsTaker() internal view returns (IPredictionStructs.MintPredictionRequestData memory) {
         // Read current nonce from the contract
-        uint256 currentNonce = predictionMarket.nonces(maker);
+        uint256 currentNonce = predictionMarket.nonces(requester);
         
         // Create the message hash that will be signed
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 currentNonce
             )
@@ -163,18 +163,18 @@ contract PredictionMarketERC1271Test is Test {
         
         // Sign the approval hash with the manager's private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(MANAGER_PRIVATE_KEY, approvalHash);
-        bytes memory takerSignature = abi.encodePacked(r, s, v);
+        bytes memory responderSignature = abi.encodePacked(r, s, v);
         
         return IPredictionStructs.MintPredictionRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
-            maker: maker,
-            taker: address(vault), // Vault is the taker
-            makerNonce: currentNonce,
-            takerSignature: takerSignature, // Signed by manager
-            takerDeadline: block.timestamp + 1 hours,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
+            requester: requester,
+            responder: address(vault), // Vault is the responder
+            requesterNonce: currentNonce,
+            responderSignature: responderSignature, // Signed by manager
+            responderDeadline: block.timestamp + 1 hours,
             refCode: REF_CODE
         });
     }
@@ -184,68 +184,68 @@ contract PredictionMarketERC1271Test is Test {
     function test_mint_withVaultAsTaker_managerSignature_succeeds() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
         
-        uint256 makerBalanceBefore = collateralToken.balanceOf(maker);
+        uint256 requesterBalanceBefore = collateralToken.balanceOf(requester);
         uint256 vaultBalanceBefore = collateralToken.balanceOf(address(vault));
         uint256 contractBalanceBefore = collateralToken.balanceOf(address(predictionMarket));
         
         // Expect event emission (NFT IDs start at 3 and 4 after initial prediction)
         vm.expectEmit(true, true, false, true);
         emit PredictionMinted(
-            maker,
+            requester,
             address(vault),
             ENCODED_OUTCOMES,
-            3, // makerNftTokenId (after initial prediction used 1 and 2)
-            4, // takerNftTokenId
-            MAKER_COLLATERAL,
-            TAKER_COLLATERAL,
+            3, // requesterNftTokenId (after initial prediction used 1 and 2)
+            4, // responderNftTokenId
+            REQUESTER_COLLATERAL,
+            RESPONDER_COLLATERAL,
             TOTAL_COLLATERAL,
             REF_CODE
         );
         
         // Mint prediction
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
         // Verify NFT IDs (starting after initial prediction NFTs 1 and 2)
-        assertEq(makerNftTokenId, 3);
-        assertEq(takerNftTokenId, 4);
+        assertEq(requesterNftTokenId, 3);
+        assertEq(responderNftTokenId, 4);
         
         // Verify collateral was transferred
-        assertEq(collateralToken.balanceOf(maker), makerBalanceBefore - MAKER_COLLATERAL);
-        assertEq(collateralToken.balanceOf(address(vault)), vaultBalanceBefore - TAKER_COLLATERAL);
+        assertEq(collateralToken.balanceOf(requester), requesterBalanceBefore - REQUESTER_COLLATERAL);
+        assertEq(collateralToken.balanceOf(address(vault)), vaultBalanceBefore - RESPONDER_COLLATERAL);
         assertEq(collateralToken.balanceOf(address(predictionMarket)), contractBalanceBefore + TOTAL_COLLATERAL);
         
         // Verify NFT ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), address(vault));
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), address(vault));
         
         // Verify prediction data
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(makerNftTokenId);
-        assertEq(prediction.maker, maker);
-        assertEq(prediction.taker, address(vault));
-        assertEq(prediction.makerCollateral, MAKER_COLLATERAL);
-        assertEq(prediction.takerCollateral, TAKER_COLLATERAL);
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(requesterNftTokenId);
+        assertEq(prediction.requester, requester);
+        assertEq(prediction.responder, address(vault));
+        assertEq(prediction.requesterCollateral, REQUESTER_COLLATERAL);
+        assertEq(prediction.responderCollateral, RESPONDER_COLLATERAL);
         assertFalse(prediction.settled);
         
-        // Verify user collateral deposits tracking (maker has initial + current prediction)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL * 2);
-        assertEq(predictionMarket.getUserCollateralDeposits(address(vault)), TAKER_COLLATERAL);
+        // Verify user collateral deposits tracking (requester has initial + current prediction)
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL * 2);
+        assertEq(predictionMarket.getUserCollateralDeposits(address(vault)), RESPONDER_COLLATERAL);
     }
 
     function test_mint_withVaultAsTaker_verifyERC1271Called() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
         
         // Get current nonce
-        uint256 currentNonce = predictionMarket.nonces(maker);
+        uint256 currentNonce = predictionMarket.nonces(requester);
         
         // Create the message hash to verify
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 currentNonce
             )
@@ -261,57 +261,57 @@ contract PredictionMarketERC1271Test is Test {
         assertEq(uint32(result), uint32(0x1626ba7e)); // IERC1271.isValidSignature.selector
         
         // Now mint with the same signature
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
         // Verify prediction was created
-        assertGt(makerNftTokenId, 0);
-        assertGt(takerNftTokenId, 0);
+        assertGt(requesterNftTokenId, 0);
+        assertGt(responderNftTokenId, 0);
     }
 
     function test_burn_withVaultAsTaker_vaultWins() public {
-        // First mint a prediction with vault as taker
+        // First mint a prediction with vault as responder
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        // Set resolver to return taker (vault) wins
+        // Set resolver to return responder (vault) wins
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, false);
         
         uint256 vaultBalanceBefore = collateralToken.balanceOf(address(vault));
         
         // Burn and vault should receive the winnings
         vm.prank(address(vault));
-        predictionMarket.burn(takerNftTokenId, REF_CODE);
+        predictionMarket.burn(responderNftTokenId, REF_CODE);
         
         // Verify vault received the total collateral
         assertEq(collateralToken.balanceOf(address(vault)), vaultBalanceBefore + TOTAL_COLLATERAL);
         
-        // Verify collateral deposits tracking was updated (maker still has initial prediction collateral)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
+        // Verify collateral deposits tracking was updated (requester still has initial prediction collateral)
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
         assertEq(predictionMarket.getUserCollateralDeposits(address(vault)), 0);
     }
 
     function test_burn_withVaultAsTaker_makerWins() public {
-        // First mint a prediction with vault as taker
+        // First mint a prediction with vault as responder
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        // Set resolver to return maker wins
+        // Set resolver to return requester wins
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, true);
         
-        uint256 makerBalanceBefore = collateralToken.balanceOf(maker);
+        uint256 requesterBalanceBefore = collateralToken.balanceOf(requester);
         
-        // Burn and maker should receive the winnings
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        // Burn and requester should receive the winnings
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
         
-        // Verify maker received the total collateral
-        assertEq(collateralToken.balanceOf(maker), makerBalanceBefore + TOTAL_COLLATERAL);
+        // Verify requester received the total collateral
+        assertEq(collateralToken.balanceOf(requester), requesterBalanceBefore + TOTAL_COLLATERAL);
         
-        // Verify collateral deposits tracking was updated (maker still has initial prediction collateral)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
+        // Verify collateral deposits tracking was updated (requester still has initial prediction collateral)
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
         assertEq(predictionMarket.getUserCollateralDeposits(address(vault)), 0);
     }
 
@@ -321,16 +321,16 @@ contract PredictionMarketERC1271Test is Test {
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
         
         // Get current nonce
-        uint256 currentNonce = predictionMarket.nonces(maker);
+        uint256 currentNonce = predictionMarket.nonces(requester);
         
         // Create a signature with wrong private key (not the manager)
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 currentNonce
             )
@@ -338,11 +338,11 @@ contract PredictionMarketERC1271Test is Test {
         
         bytes32 approvalHash = vault.getApprovalHash(messageHash, vaultManager);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(999, approvalHash); // Wrong key
-        request.takerSignature = abi.encodePacked(r, s, v);
+        request.responderSignature = abi.encodePacked(r, s, v);
         
-        // Should revert with InvalidTakerSignature
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.InvalidTakerSignature.selector);
+        // Should revert with InvalidResponderSignature
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.InvalidResponderSignature.selector);
         predictionMarket.mint(request);
     }
 
@@ -350,16 +350,16 @@ contract PredictionMarketERC1271Test is Test {
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
         
         // Get current nonce
-        uint256 currentNonce = predictionMarket.nonces(maker);
+        uint256 currentNonce = predictionMarket.nonces(requester);
         
         // Sign with a different key (not the vault manager)
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 currentNonce
             )
@@ -368,33 +368,33 @@ contract PredictionMarketERC1271Test is Test {
         bytes32 approvalHash = vault.getApprovalHash(messageHash, vaultManager);
         uint256 randomKey = 12345;
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(randomKey, approvalHash);
-        request.takerSignature = abi.encodePacked(r, s, v);
+        request.responderSignature = abi.encodePacked(r, s, v);
         
         // Should revert because signature is not from manager
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.InvalidTakerSignature.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.InvalidResponderSignature.selector);
         predictionMarket.mint(request);
     }
 
     // ============ Multiple Predictions with Vault Tests ============
 
     function test_multiplePredictions_withVaultAsTaker() public {
-        // First prediction with vault as taker
+        // First prediction with vault as responder
         IPredictionStructs.MintPredictionRequestData memory request1 = _createMintRequestWithVaultAsTaker();
-        vm.prank(maker);
-        (uint256 makerNftTokenId1, uint256 takerNftTokenId1) = predictionMarket.mint(request1);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId1, uint256 responderNftTokenId1) = predictionMarket.mint(request1);
         
         // Get the new nonce after first mint
-        uint256 currentNonce = predictionMarket.nonces(maker);
+        uint256 currentNonce = predictionMarket.nonces(requester);
         
-        // Second prediction with vault as taker (nonce has been incremented)
+        // Second prediction with vault as responder (nonce has been incremented)
         bytes32 messageHash2 = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 currentNonce
             )
@@ -406,46 +406,46 @@ contract PredictionMarketERC1271Test is Test {
         IPredictionStructs.MintPredictionRequestData memory request2 = IPredictionStructs.MintPredictionRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
-            maker: maker,
-            taker: address(vault),
-            makerNonce: currentNonce,
-            takerSignature: abi.encodePacked(r, s, v),
-            takerDeadline: block.timestamp + 1 hours,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
+            requester: requester,
+            responder: address(vault),
+            requesterNonce: currentNonce,
+            responderSignature: abi.encodePacked(r, s, v),
+            responderDeadline: block.timestamp + 1 hours,
             refCode: REF_CODE
         });
         
-        vm.prank(maker);
-        (uint256 makerNftTokenId2, uint256 takerNftTokenId2) = predictionMarket.mint(request2);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId2, uint256 responderNftTokenId2) = predictionMarket.mint(request2);
         
-        // Verify both predictions exist (maker has 3 total including the initial setup prediction)
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 3);
+        // Verify both predictions exist (requester has 3 total including the initial setup prediction)
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 3);
         assertEq(predictionMarket.getOwnedPredictionsCount(address(vault)), 2);
         
         // Verify NFT IDs are sequential (starting after initial prediction NFTs 1 and 2)
-        assertEq(makerNftTokenId1, 3);
-        assertEq(takerNftTokenId1, 4);
-        assertEq(makerNftTokenId2, 5);
-        assertEq(takerNftTokenId2, 6);
+        assertEq(requesterNftTokenId1, 3);
+        assertEq(responderNftTokenId1, 4);
+        assertEq(requesterNftTokenId2, 5);
+        assertEq(responderNftTokenId2, 6);
         
-        // Verify collateral tracking (maker has 3 total: 1 initial + 2 in this test)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL * 3);
-        assertEq(predictionMarket.getUserCollateralDeposits(address(vault)), TAKER_COLLATERAL * 2);
+        // Verify collateral tracking (requester has 3 total: 1 initial + 2 in this test)
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL * 3);
+        assertEq(predictionMarket.getUserCollateralDeposits(address(vault)), RESPONDER_COLLATERAL * 2);
     }
 
     // ============ Limit Order Tests with Vault ============
 
     function test_fillOrder_withVaultManager_succeeds() public {
-        // Maker places a limit order
-        vm.startPrank(maker);
+        // Requester places a limit order
+        vm.startPrank(requester);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         IPredictionStructs.OrderRequestData memory orderRequest = IPredictionStructs.OrderRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
             orderDeadline: block.timestamp + 1 hours,
             refCode: REF_CODE
         });
@@ -461,12 +461,12 @@ contract PredictionMarketERC1271Test is Test {
         predictionMarket.fillOrder(orderId, REF_CODE);
         vm.stopPrank();
         
-        // Verify prediction was created with vault manager as taker
+        // Verify prediction was created with vault manager as responder
         IPredictionStructs.LimitOrderData memory order = predictionMarket.getUnfilledOrder(orderId);
         assertEq(order.orderId, 0); // Order is filled (zeroed)
         
-        // Verify the prediction exists (maker has 2 total including initial prediction)
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 2);
+        // Verify the prediction exists (requester has 2 total including initial prediction)
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 2);
         assertEq(predictionMarket.getOwnedPredictionsCount(vaultManager), 1);
     }
 
@@ -481,8 +481,8 @@ contract PredictionMarketERC1271Test is Test {
         vault.setManager(newManager);
         
         // Try to mint with old manager's signature - should fail
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.InvalidTakerSignature.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.InvalidResponderSignature.selector);
         predictionMarket.mint(request);
     }
 
@@ -494,16 +494,16 @@ contract PredictionMarketERC1271Test is Test {
         vault.setManager(newManager);
         
         // Get current nonce
-        uint256 currentNonce = predictionMarket.nonces(maker);
+        uint256 currentNonce = predictionMarket.nonces(requester);
         
         // Create new signature with new manager using vault's EIP-712 domain
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 currentNonce
             )
@@ -515,22 +515,22 @@ contract PredictionMarketERC1271Test is Test {
         IPredictionStructs.MintPredictionRequestData memory request = IPredictionStructs.MintPredictionRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
-            maker: maker,
-            taker: address(vault),
-            makerNonce: currentNonce,
-            takerSignature: abi.encodePacked(r, s, v),
-            takerDeadline: block.timestamp + 1 hours,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
+            requester: requester,
+            responder: address(vault),
+            requesterNonce: currentNonce,
+            responderSignature: abi.encodePacked(r, s, v),
+            responderDeadline: block.timestamp + 1 hours,
             refCode: REF_CODE
         });
         
         // Should succeed with new manager's signature
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        assertGt(makerNftTokenId, 0);
-        assertGt(takerNftTokenId, 0);
+        assertGt(requesterNftTokenId, 0);
+        assertGt(responderNftTokenId, 0);
     }
 
     // ============ PassiveLiquidityVault.isValidSignature View Tests ============
@@ -673,13 +673,13 @@ contract PredictionMarketERC1271Test is Test {
         vm.prank(vaultManager);
         vault.processDeposit(user1);
         
-        // 2. Vault (via manager) becomes taker in prediction
+        // 2. Vault (via manager) becomes responder in prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createMintRequestWithVaultAsTaker();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        // 3. Verify vault owns the taker NFT
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), address(vault));
+        // 3. Verify vault owns the responder NFT
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), address(vault));
         
         // 4. Market resolves in vault's favor
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, false);
@@ -687,7 +687,7 @@ contract PredictionMarketERC1271Test is Test {
         // 5. Vault burns NFT and receives winnings
         uint256 vaultBalanceBefore = collateralToken.balanceOf(address(vault));
         vm.prank(vaultManager); // Manager can act on behalf of vault
-        predictionMarket.burn(takerNftTokenId, REF_CODE);
+        predictionMarket.burn(responderNftTokenId, REF_CODE);
         
         // 6. Verify vault received winnings
         uint256 vaultBalanceAfter = collateralToken.balanceOf(address(vault));

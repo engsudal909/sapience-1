@@ -23,19 +23,19 @@ contract PredictionMarketTransferRestrictionsTest is Test {
     MockResolver public mockResolver;
     PassiveLiquidityVault public vault;
     
-    address public maker;
-    address public taker;
+    address public requester;
+    address public responder;
     address public eoaUser;
     
     uint256 public constant MIN_COLLATERAL = 1000e18;
-    uint256 public constant MAKER_COLLATERAL = 2000e18;
-    uint256 public constant TAKER_COLLATERAL = 1500e18;
+    uint256 public constant REQUESTER_COLLATERAL = 2000e18;
+    uint256 public constant RESPONDER_COLLATERAL = 1500e18;
     
     bytes32 public constant REF_CODE = keccak256("test-ref-code");
     bytes public constant ENCODED_OUTCOMES = abi.encode("test-outcomes");
     
-    uint256 public makerNftTokenId;
-    uint256 public takerNftTokenId;
+    uint256 public requesterNftTokenId;
+    uint256 public responderNftTokenId;
 
     // Mock contract that implements ERC165 but not IPassiveLiquidityVault
     MockGenericContract public genericContract;
@@ -49,8 +49,8 @@ contract PredictionMarketTransferRestrictionsTest is Test {
         mockResolver = new MockResolver();
         
         // Create test accounts
-        maker = vm.addr(1);
-        taker = vm.addr(2);
+        requester = vm.addr(1);
+        responder = vm.addr(2);
         eoaUser = vm.addr(3);
         
         // Deploy prediction market
@@ -74,20 +74,20 @@ contract PredictionMarketTransferRestrictionsTest is Test {
         mockVault = new MockPassiveLiquidityVault();
         
         // Mint tokens to test accounts
-        collateralToken.mint(maker, 10000e18);
-        collateralToken.mint(taker, 10000e18);
+        collateralToken.mint(requester, 10000e18);
+        collateralToken.mint(responder, 10000e18);
         collateralToken.mint(eoaUser, 10000e18);
         
         // Approve prediction market to spend tokens
-        vm.prank(maker);
+        vm.prank(requester);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
-        vm.prank(taker);
+        vm.prank(responder);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         // Create a prediction to get NFTs for testing
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (makerNftTokenId, takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (requesterNftTokenId, responderNftTokenId) = predictionMarket.mint(request);
     }
 
     function _createValidMintRequest() internal view returns (IPredictionStructs.MintPredictionRequestData memory) {
@@ -95,32 +95,32 @@ contract PredictionMarketTransferRestrictionsTest is Test {
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                0 // makerNonce
+                0 // requesterNonce
             )
         );
         
         // Get the EIP-712 approval hash that needs to be signed
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, taker);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, responder);
         
-        // Sign the approval hash with the taker's private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, approvalHash); // Use key 2 for taker
-        bytes memory takerSignature = abi.encodePacked(r, s, v);
+        // Sign the approval hash with the responder's private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, approvalHash); // Use key 2 for responder
+        bytes memory responderSignature = abi.encodePacked(r, s, v);
         
         return IPredictionStructs.MintPredictionRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
-            maker: maker,
-            taker: taker,
-            makerNonce: 0,
-            takerSignature: takerSignature,
-            takerDeadline: block.timestamp + 1 hours,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
+            requester: requester,
+            responder: responder,
+            requesterNonce: 0,
+            responderSignature: responderSignature,
+            responderDeadline: block.timestamp + 1 hours,
             refCode: REF_CODE
         });
     }
@@ -129,173 +129,173 @@ contract PredictionMarketTransferRestrictionsTest is Test {
 
     function test_transferMakerNft_toEOA_succeeds() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Transfer to EOA
-        vm.prank(maker);
-        predictionMarket.transferFrom(maker, eoaUser, makerNftTokenId);
+        vm.prank(requester);
+        predictionMarket.transferFrom(requester, eoaUser, requesterNftTokenId);
         
         // Verify transfer succeeded
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), eoaUser);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), eoaUser);
         
-        // Verify prediction maker was updated
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(makerNftTokenId);
-        assertEq(prediction.maker, eoaUser);
+        // Verify prediction requester was updated
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(requesterNftTokenId);
+        assertEq(prediction.requester, eoaUser);
     }
 
     function test_transferTakerNft_toEOA_succeeds() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
         
         // Transfer to EOA
-        vm.prank(taker);
-        predictionMarket.transferFrom(taker, eoaUser, takerNftTokenId);
+        vm.prank(responder);
+        predictionMarket.transferFrom(responder, eoaUser, responderNftTokenId);
         
         // Verify transfer succeeded
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), eoaUser);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), eoaUser);
         
-        // Verify prediction taker was updated
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(takerNftTokenId);
-        assertEq(prediction.taker, eoaUser);
+        // Verify prediction responder was updated
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(responderNftTokenId);
+        assertEq(prediction.responder, eoaUser);
     }
 
     function test_transferMakerNft_toGenericContract_succeeds() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Transfer to generic contract
-        vm.prank(maker);
-        predictionMarket.transferFrom(maker, address(genericContract), makerNftTokenId);
+        vm.prank(requester);
+        predictionMarket.transferFrom(requester, address(genericContract), requesterNftTokenId);
         
         // Verify transfer succeeded
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), address(genericContract));
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), address(genericContract));
         
-        // Verify prediction maker was updated
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(makerNftTokenId);
-        assertEq(prediction.maker, address(genericContract));
+        // Verify prediction requester was updated
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(requesterNftTokenId);
+        assertEq(prediction.requester, address(genericContract));
     }
 
     function test_transferTakerNft_toGenericContract_succeeds() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
         
         // Transfer to generic contract
-        vm.prank(taker);
-        predictionMarket.transferFrom(taker, address(genericContract), takerNftTokenId);
+        vm.prank(responder);
+        predictionMarket.transferFrom(responder, address(genericContract), responderNftTokenId);
         
         // Verify transfer succeeded
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), address(genericContract));
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), address(genericContract));
         
-        // Verify prediction taker was updated
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(takerNftTokenId);
-        assertEq(prediction.taker, address(genericContract));
+        // Verify prediction responder was updated
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(responderNftTokenId);
+        assertEq(prediction.responder, address(genericContract));
     }
 
     function test_safeTransferMakerNft_toGenericContract_succeeds() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Safe transfer to generic contract
-        vm.prank(maker);
-        predictionMarket.safeTransferFrom(maker, address(genericContract), makerNftTokenId);
+        vm.prank(requester);
+        predictionMarket.safeTransferFrom(requester, address(genericContract), requesterNftTokenId);
         
         // Verify transfer succeeded
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), address(genericContract));
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), address(genericContract));
     }
 
     // ============ Failed Transfer Tests (to PassiveLiquidityVault) ============
 
     function test_transferMakerNft_toPassiveLiquidityVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Attempt transfer to PassiveLiquidityVault should revert
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.transferFrom(maker, address(vault), makerNftTokenId);
+        predictionMarket.transferFrom(requester, address(vault), requesterNftTokenId);
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
     }
 
     function test_transferTakerNft_toPassiveLiquidityVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
         
         // Attempt transfer to PassiveLiquidityVault should revert
-        vm.prank(taker);
+        vm.prank(responder);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.transferFrom(taker, address(vault), takerNftTokenId);
+        predictionMarket.transferFrom(responder, address(vault), responderNftTokenId);
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
     }
 
     function test_safeTransferMakerNft_toPassiveLiquidityVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Attempt safe transfer to PassiveLiquidityVault should revert
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.safeTransferFrom(maker, address(vault), makerNftTokenId);
+        predictionMarket.safeTransferFrom(requester, address(vault), requesterNftTokenId);
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
     }
 
     function test_safeTransferTakerNft_toPassiveLiquidityVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
         
         // Attempt safe transfer to PassiveLiquidityVault should revert
-        vm.prank(taker);
+        vm.prank(responder);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.safeTransferFrom(taker, address(vault), takerNftTokenId);
+        predictionMarket.safeTransferFrom(responder, address(vault), responderNftTokenId);
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
     }
 
     function test_safeTransferMakerNft_withData_toPassiveLiquidityVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Attempt safe transfer with data to PassiveLiquidityVault should revert
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.safeTransferFrom(maker, address(vault), makerNftTokenId, "0x");
+        predictionMarket.safeTransferFrom(requester, address(vault), requesterNftTokenId, "0x");
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
     }
 
     // ============ Mock Contract Tests ============
 
     function test_transferMakerNft_toMockVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
         
         // Attempt transfer to mock vault (implements IPassiveLiquidityVault) should revert
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.transferFrom(maker, address(mockVault), makerNftTokenId);
+        predictionMarket.transferFrom(requester, address(mockVault), requesterNftTokenId);
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
     }
 
     function test_transferTakerNft_toMockVault_reverts() public {
         // Verify initial ownership
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
         
         // Attempt transfer to mock vault (implements IPassiveLiquidityVault) should revert
-        vm.prank(taker);
+        vm.prank(responder);
         vm.expectRevert(PredictionMarket.TransferNotAllowed.selector);
-        predictionMarket.transferFrom(taker, address(mockVault), takerNftTokenId);
+        predictionMarket.transferFrom(responder, address(mockVault), responderNftTokenId);
         
         // Verify ownership unchanged
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
     }
 
     // ============ Interface Detection Tests ============
@@ -319,31 +319,31 @@ contract PredictionMarketTransferRestrictionsTest is Test {
 
     function test_transferToZeroAddress_revertsWithStandardERC721Error() public {
         // Transfer to zero address should revert with standard ERC721 error, not our custom error
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(); // ERC721InvalidReceiver error
-        predictionMarket.transferFrom(maker, address(0), makerNftTokenId);
+        predictionMarket.transferFrom(requester, address(0), requesterNftTokenId);
     }
 
     function test_transferFromZeroAddress_revertsWithStandardERC721Error() public {
         // Transfer from zero address should revert with standard ERC721 error, not our custom error
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(); // ERC721InvalidSender error
-        predictionMarket.transferFrom(address(0), maker, makerNftTokenId);
+        predictionMarket.transferFrom(address(0), requester, requesterNftTokenId);
     }
 
     function test_transferNonExistentToken_revertsWithStandardERC721Error() public {
         // Transfer non-existent token should revert with standard ERC721 error
         uint256 nonExistentTokenId = 999999;
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(); // ERC721NonexistentToken error
-        predictionMarket.transferFrom(maker, eoaUser, nonExistentTokenId);
+        predictionMarket.transferFrom(requester, eoaUser, nonExistentTokenId);
     }
 
     function test_transferWithoutApproval_revertsWithStandardERC721Error() public {
         // Transfer without approval should revert with standard ERC721 error
         vm.prank(eoaUser); // Not the owner
         vm.expectRevert(); // ERC721InsufficientApproval error
-        predictionMarket.transferFrom(maker, eoaUser, makerNftTokenId);
+        predictionMarket.transferFrom(requester, eoaUser, requesterNftTokenId);
     }
 }
 

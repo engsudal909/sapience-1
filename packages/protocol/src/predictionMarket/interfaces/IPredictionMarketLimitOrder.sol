@@ -12,9 +12,9 @@ interface IPredictionMarketLimitOrder {
 
     /**
      * @notice Place a new limit order
-     * @dev The caller becomes the maker. It will:
-     *   1- Validate collateral amounts (maker collateral >= minCollateral, both > 0)
-     *   2- Transfer maker collateral to the contract (maker must have approved)
+     * @dev The caller becomes the requester. It will:
+     *   1- Validate collateral amounts (requester collateral >= minCollateral, both > 0)
+     *   2- Transfer requester collateral to the contract (requester must have approved)
      *   3- Generate a unique order ID and store the order
      *   4- Add order to unfilled order tracking
      *   5- Emit an OrderPlaced event
@@ -27,11 +27,11 @@ interface IPredictionMarketLimitOrder {
 
     /**
      * @notice Fill an existing limit order
-     * @dev The caller becomes the taker. It will:
+     * @dev The caller becomes the responder. It will:
      *   1- Validate the order exists and is not expired
-     *   2- Transfer taker collateral to the contract (taker must have approved)
+     *   2- Transfer responder collateral to the contract (responder must have approved)
      *   3- Create a prediction using the order terms
-     *   4- Mint NFTs for both maker and taker
+     *   4- Mint NFTs for both requester and responder
      *   5- Mark the order as filled (removed from unfilled orders)
      *   6- Emit an OrderFilled event
      * @param orderId The order ID to fill
@@ -41,10 +41,10 @@ interface IPredictionMarketLimitOrder {
 
     /**
      * @notice Cancel an unfilled limit order
-     * @dev Only the order maker can cancel. It will:
+     * @dev Only the order requester can cancel. It will:
      *   1- Validate the order exists
-     *   2- Verify the caller is the order maker
-     *   3- Return the maker's collateral
+     *   2- Verify the caller is the order requester
+     *   3- Return the requester's collateral
      *   4- Mark the order as cancelled (removed from unfilled orders)
      *   5- Emit an OrderCancelled event
      * @param orderId The order ID to cancel
@@ -73,11 +73,11 @@ interface IPredictionMarketLimitOrder {
     function getUnfilledOrdersCount() external view returns (uint256);
 
     /**
-     * @notice Get unfilled orders by maker
-     * @param maker The maker
+     * @notice Get unfilled orders by requester
+     * @param requester The requester
      * @return orders The orders
      */
-    function getUnfilledOrderByMaker(
-        address maker
+    function getUnfilledOrderByRequester(
+        address requester
     ) external view returns (uint256[] memory);
 }

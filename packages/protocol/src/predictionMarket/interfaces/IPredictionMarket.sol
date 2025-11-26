@@ -21,11 +21,11 @@ interface IPredictionMarket is
     /**
      * @notice Consolidate a prediction NFT and release any remaining collateral
      * @dev it will:
-     *   1- identify the prediction based on the token id (can be the maker or taker NFT id)
-     *   2- confirm the maker and taker are the same
+     *   1- identify the prediction based on the token id (can be the requester or responder NFT id)
+     *   2- confirm the requester and responder are the same
      *   3- set the prediction as settled
-     *   4- set the maker as the winner
-     *   5- transfer the collateral to the maker
+     *   4- set the requester as the winner
+     *   5- transfer the collateral to the requester
      *   6- burn the two NFTs
      *   7- emit an event with the right information
      * @param tokenId The NFT token ID to consolidate
@@ -56,7 +56,7 @@ interface IPredictionMarket is
         returns (IPredictionStructs.PredictionData memory predictionData);
 
     /**
-     * @notice Get total number of NFT IDs where `account` is the maker or taker
+     * @notice Get total number of NFT IDs where `account` is the requester or responder
      * @param account Address to filter by
      */
     function getOwnedPredictionsCount(
@@ -64,7 +64,7 @@ interface IPredictionMarket is
     ) external view returns (uint256 count);
 
     /**
-     * @notice Get all NFT IDs where `account` is the maker or taker
+     * @notice Get all NFT IDs where `account` is the requester or responder
      * @param account Address to filter by
      */
     function getOwnedPredictions(
@@ -81,12 +81,12 @@ interface IPredictionMarket is
     ) external view returns (uint256);
 
     /**
-     * @notice Get the current nonce for a maker address
+     * @notice Get the current nonce for a requester address
      * @dev Nonces are used for replay protection in mint() signatures.
-     *      Each maker must use their current nonce when creating a new prediction.
+     *      Each requester must use their current nonce when creating a new prediction.
      *      The nonce is incremented after each successful mint() call.
-     * @param maker The maker address to query
-     * @return The current nonce value for the maker
+     * @param requester The requester address to query
+     * @return The current nonce value for the requester
      */
-    function nonces(address maker) external view returns (uint256);
+    function nonces(address requester) external view returns (uint256);
 }

@@ -17,44 +17,44 @@ contract PredictionMarketTest is Test {
     MockERC20 public collateralToken;
     MockResolver public mockResolver;
     
-    address public maker;
-    address public taker;
+    address public requester;
+    address public responder;
     address public unauthorizedUser;
     
     uint256 public constant MIN_COLLATERAL = 1000e18;
-    uint256 public constant MAKER_COLLATERAL = 2000e18;
-    uint256 public constant TAKER_COLLATERAL = 1500e18;
-    uint256 public constant TOTAL_COLLATERAL = MAKER_COLLATERAL + TAKER_COLLATERAL;
+    uint256 public constant REQUESTER_COLLATERAL = 2000e18;
+    uint256 public constant RESPONDER_COLLATERAL = 1500e18;
+    uint256 public constant TOTAL_COLLATERAL = REQUESTER_COLLATERAL + RESPONDER_COLLATERAL;
     
     bytes32 public constant REF_CODE = keccak256("test-ref-code");
     bytes public constant ENCODED_OUTCOMES = abi.encode("test-outcomes");
     
     event PredictionMinted(
-        address indexed maker,
-        address indexed taker,
+        address indexed requester,
+        address indexed responder,
         bytes encodedPredictedOutcomes,
-        uint256 makerNftTokenId,
-        uint256 takerNftTokenId,
-        uint256 makerCollateral,
-        uint256 takerCollateral,
+        uint256 requesterNftTokenId,
+        uint256 responderNftTokenId,
+        uint256 requesterCollateral,
+        uint256 responderCollateral,
         uint256 totalCollateral,
         bytes32 refCode
     );
     
     event PredictionBurned(
-        address indexed maker,
-        address indexed taker,
+        address indexed requester,
+        address indexed responder,
         bytes encodedPredictedOutcomes,
-        uint256 makerNftTokenId,
-        uint256 takerNftTokenId,
+        uint256 requesterNftTokenId,
+        uint256 responderNftTokenId,
         uint256 totalCollateral,
-        bool makerWon,
+        bool requesterWon,
         bytes32 refCode
     );
     
     event PredictionConsolidated(
-        uint256 indexed makerNftTokenId,
-        uint256 indexed takerNftTokenId,
+        uint256 indexed requesterNftTokenId,
+        uint256 indexed responderNftTokenId,
         uint256 totalCollateral,
         bytes32 refCode
     );
@@ -65,8 +65,8 @@ contract PredictionMarketTest is Test {
         mockResolver = new MockResolver();
         
         // Create test accounts with known private keys
-        maker = vm.addr(1);
-        taker = vm.addr(2);
+        requester = vm.addr(1);
+        responder = vm.addr(2);
         unauthorizedUser = vm.addr(3);
         
         // Deploy prediction market
@@ -78,14 +78,14 @@ contract PredictionMarketTest is Test {
         );
         
         // Mint tokens to test accounts
-        collateralToken.mint(maker, 10000e18);
-        collateralToken.mint(taker, 10000e18);
+        collateralToken.mint(requester, 10000e18);
+        collateralToken.mint(responder, 10000e18);
         collateralToken.mint(unauthorizedUser, 10000e18);
         
         // Approve prediction market to spend tokens
-        vm.prank(maker);
+        vm.prank(requester);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
-        vm.prank(taker);
+        vm.prank(responder);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         vm.prank(unauthorizedUser);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
@@ -96,32 +96,32 @@ contract PredictionMarketTest is Test {
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                0 // makerNonce
+                0 // requesterNonce
             )
         );
         
         // Get the EIP-712 approval hash that needs to be signed
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, taker);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, responder);
         
-        // Sign the approval hash with the taker's private key
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, approvalHash); // Use key 2 for taker
-        bytes memory takerSignature = abi.encodePacked(r, s, v);
+        // Sign the approval hash with the responder's private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, approvalHash); // Use key 2 for responder
+        bytes memory responderSignature = abi.encodePacked(r, s, v);
         
         return IPredictionStructs.MintPredictionRequestData({
             encodedPredictedOutcomes: ENCODED_OUTCOMES,
             resolver: address(mockResolver),
-            makerCollateral: MAKER_COLLATERAL,
-            takerCollateral: TAKER_COLLATERAL,
-            maker: maker,
-            taker: taker,
-            makerNonce: 0,
-            takerSignature: takerSignature,
-            takerDeadline: block.timestamp + 1 hours,
+            requesterCollateral: REQUESTER_COLLATERAL,
+            responderCollateral: RESPONDER_COLLATERAL,
+            requester: requester,
+            responder: responder,
+            requesterNonce: 0,
+            responderSignature: responderSignature,
+            responderDeadline: block.timestamp + 1 hours,
             refCode: REF_CODE
         });
     }
@@ -168,100 +168,100 @@ contract PredictionMarketTest is Test {
     function test_mint_success() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
         
-        uint256 makerBalanceBefore = collateralToken.balanceOf(maker);
-        uint256 takerBalanceBefore = collateralToken.balanceOf(taker);
+        uint256 requesterBalanceBefore = collateralToken.balanceOf(requester);
+        uint256 responderBalanceBefore = collateralToken.balanceOf(responder);
         uint256 contractBalanceBefore = collateralToken.balanceOf(address(predictionMarket));
         
         vm.expectEmit(true, true, false, true);
         emit PredictionMinted(
-            maker,
-            taker,
+            requester,
+            responder,
             ENCODED_OUTCOMES,
-            1, // makerNftTokenId
-            2, // takerNftTokenId
-            MAKER_COLLATERAL,
-            TAKER_COLLATERAL,
+            1, // requesterNftTokenId
+            2, // responderNftTokenId
+            REQUESTER_COLLATERAL,
+            RESPONDER_COLLATERAL,
             TOTAL_COLLATERAL,
             REF_CODE
         );
         
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
         // Verify NFT minting
-        assertEq(makerNftTokenId, 1);
-        assertEq(takerNftTokenId, 2);
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
+        assertEq(requesterNftTokenId, 1);
+        assertEq(responderNftTokenId, 2);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
         
         // Verify collateral transfers
-        assertEq(collateralToken.balanceOf(maker), makerBalanceBefore - MAKER_COLLATERAL);
-        assertEq(collateralToken.balanceOf(taker), takerBalanceBefore - TAKER_COLLATERAL);
+        assertEq(collateralToken.balanceOf(requester), requesterBalanceBefore - REQUESTER_COLLATERAL);
+        assertEq(collateralToken.balanceOf(responder), responderBalanceBefore - RESPONDER_COLLATERAL);
         assertEq(collateralToken.balanceOf(address(predictionMarket)), contractBalanceBefore + TOTAL_COLLATERAL);
         
         // Verify prediction data
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(makerNftTokenId);
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(requesterNftTokenId);
         assertEq(prediction.predictionId, 1); // First prediction now has ID 1
         assertEq(prediction.resolver, address(mockResolver));
-        assertEq(prediction.maker, maker);
-        assertEq(prediction.taker, taker);
-        assertEq(prediction.makerNftTokenId, makerNftTokenId);
-        assertEq(prediction.takerNftTokenId, takerNftTokenId);
-        assertEq(prediction.makerCollateral, MAKER_COLLATERAL);
-        assertEq(prediction.takerCollateral, TAKER_COLLATERAL);
+        assertEq(prediction.requester, requester);
+        assertEq(prediction.responder, responder);
+        assertEq(prediction.requesterNftTokenId, requesterNftTokenId);
+        assertEq(prediction.responderNftTokenId, responderNftTokenId);
+        assertEq(prediction.requesterCollateral, REQUESTER_COLLATERAL);
+        assertEq(prediction.responderCollateral, RESPONDER_COLLATERAL);
         assertFalse(prediction.settled);
-        assertFalse(prediction.makerWon);
+        assertFalse(prediction.requesterWon);
     }
     
     function test_mint_makerIsNotCaller() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
         
         vm.prank(unauthorizedUser);
-        vm.expectRevert(PredictionMarket.MakerIsNotCaller.selector);
+        vm.expectRevert(PredictionMarket.RequesterIsNotCaller.selector);
         predictionMarket.mint(request);
     }
     
-    function test_mint_takerDeadlineExpired() public {
+    function test_mint_responderDeadlineExpired() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.takerDeadline = block.timestamp - 1; // Expired deadline
+        request.responderDeadline = block.timestamp - 1; // Expired deadline
         
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.TakerDeadlineExpired.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.ResponderDeadlineExpired.selector);
         predictionMarket.mint(request);
     }
     
     function test_mint_collateralBelowMinimum() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.makerCollateral = MIN_COLLATERAL - 1;
+        request.requesterCollateral = MIN_COLLATERAL - 1;
         
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.CollateralBelowMinimum.selector);
         predictionMarket.mint(request);
     }
     
-    function test_mint_makerCollateralZero() public {
+    function test_mint_requesterCollateralZero() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.makerCollateral = 0;
+        request.requesterCollateral = 0;
         
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.CollateralBelowMinimum.selector);
         predictionMarket.mint(request);
     }
     
-    function test_mint_takerCollateralZero() public {
+    function test_mint_responderCollateralZero() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.takerCollateral = 0;
+        request.responderCollateral = 0;
         
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.TakerCollateralMustBeGreaterThanZero.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.ResponderCollateralMustBeGreaterThanZero.selector);
         predictionMarket.mint(request);
     }
     
     function test_mint_invalidTakerSignature() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.takerSignature = "invalid-signature";
+        request.responderSignature = "invalid-signature";
         
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(); // Will revert with ECDSAInvalidSignatureLength
         predictionMarket.mint(request);
     }
@@ -272,7 +272,7 @@ contract PredictionMarketTest is Test {
         // Make resolver return invalid
         mockResolver.setValidationResult(false, IPredictionMarketResolver.Error.INVALID_MARKET);
         
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.InvalidMarketsAccordingToResolver.selector);
         predictionMarket.mint(request);
     }
@@ -282,83 +282,83 @@ contract PredictionMarketTest is Test {
     function test_burn_success_makerWins() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        // Set resolver to return maker wins
+        // Set resolver to return requester wins
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, true);
         
-        uint256 makerBalanceBefore = collateralToken.balanceOf(maker);
+        uint256 requesterBalanceBefore = collateralToken.balanceOf(requester);
         uint256 contractBalanceBefore = collateralToken.balanceOf(address(predictionMarket));
         
         vm.expectEmit(true, true, false, true);
         emit PredictionBurned(
-            maker,
-            taker,
+            requester,
+            responder,
             ENCODED_OUTCOMES,
-            makerNftTokenId,
-            takerNftTokenId,
+            requesterNftTokenId,
+            responderNftTokenId,
             TOTAL_COLLATERAL,
-            true, // makerWon
+            true, // requesterWon
             REF_CODE
         );
         
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
         
         // Verify collateral payout
-        assertEq(collateralToken.balanceOf(maker), makerBalanceBefore + TOTAL_COLLATERAL);
+        assertEq(collateralToken.balanceOf(requester), requesterBalanceBefore + TOTAL_COLLATERAL);
         assertEq(collateralToken.balanceOf(address(predictionMarket)), contractBalanceBefore - TOTAL_COLLATERAL);
         
         // Verify NFTs are burned
         vm.expectRevert();
-        predictionMarket.ownerOf(makerNftTokenId);
+        predictionMarket.ownerOf(requesterNftTokenId);
         vm.expectRevert();
-        predictionMarket.ownerOf(takerNftTokenId);
+        predictionMarket.ownerOf(responderNftTokenId);
 
         // Role-based sets cleared
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 0);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 0);
     }
     
     function test_burn_success_takerWins() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        // Set resolver to return taker wins
+        // Set resolver to return responder wins
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, false);
         
-        uint256 takerBalanceBefore = collateralToken.balanceOf(taker);
+        uint256 responderBalanceBefore = collateralToken.balanceOf(responder);
         uint256 contractBalanceBefore = collateralToken.balanceOf(address(predictionMarket));
         
         vm.expectEmit(true, true, false, true);
         emit PredictionBurned(
-            maker,
-            taker,
+            requester,
+            responder,
             ENCODED_OUTCOMES,
-            makerNftTokenId,
-            takerNftTokenId,
+            requesterNftTokenId,
+            responderNftTokenId,
             TOTAL_COLLATERAL,
-            false, // makerWon
+            false, // requesterWon
             REF_CODE
         );
         
-        vm.prank(taker);
-        predictionMarket.burn(takerNftTokenId, REF_CODE);
+        vm.prank(responder);
+        predictionMarket.burn(responderNftTokenId, REF_CODE);
         
         // Verify collateral payout
-        assertEq(collateralToken.balanceOf(taker), takerBalanceBefore + TOTAL_COLLATERAL);
+        assertEq(collateralToken.balanceOf(responder), responderBalanceBefore + TOTAL_COLLATERAL);
         assertEq(collateralToken.balanceOf(address(predictionMarket)), contractBalanceBefore - TOTAL_COLLATERAL);
 
         // Role-based sets cleared
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 0);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 0);
     }
     
     function test_burn_predictionNotFound() public {
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.PredictionNotFound.selector);
         predictionMarket.burn(999, REF_CODE);
     }
@@ -366,129 +366,129 @@ contract PredictionMarketTest is Test {
     function test_burn_predictionResolutionFailed() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId,) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId,) = predictionMarket.mint(request);
         
         // Set resolver to return invalid resolution
         mockResolver.setResolutionResult(false, IPredictionMarketResolver.Error.MARKET_NOT_SETTLED, false);
         
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.PredictionResolutionFailed.selector);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
     }
 
     // ============ Consolidate Function Tests ============
     
     function test_consolidatePrediction_success() public {
-        // Create a prediction where maker and taker are the same
+        // Create a prediction where requester and responder are the same
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.taker = maker; // Same as maker
+        request.responder = requester; // Same as requester
         
-        // Create valid signature for maker as taker
+        // Create valid signature for requester as responder
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                0 // makerNonce
+                0 // requesterNonce
             )
         );
         
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, maker);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, approvalHash); // Use key 1 for maker
-        request.takerSignature = abi.encodePacked(r, s, v);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, requester);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, approvalHash); // Use key 1 for requester
+        request.responderSignature = abi.encodePacked(r, s, v);
         
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        uint256 makerBalanceBefore = collateralToken.balanceOf(maker);
+        uint256 requesterBalanceBefore = collateralToken.balanceOf(requester);
         uint256 contractBalanceBefore = collateralToken.balanceOf(address(predictionMarket));
         
         vm.expectEmit(true, true, false, true);
         emit PredictionConsolidated(
-            makerNftTokenId,
-            takerNftTokenId,
+            requesterNftTokenId,
+            responderNftTokenId,
             TOTAL_COLLATERAL,
             REF_CODE
         );
         
-        vm.prank(maker);
-        predictionMarket.consolidatePrediction(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.consolidatePrediction(requesterNftTokenId, REF_CODE);
         
         // Verify collateral payout
-        assertEq(collateralToken.balanceOf(maker), makerBalanceBefore + TOTAL_COLLATERAL);
+        assertEq(collateralToken.balanceOf(requester), requesterBalanceBefore + TOTAL_COLLATERAL);
         assertEq(collateralToken.balanceOf(address(predictionMarket)), contractBalanceBefore - TOTAL_COLLATERAL);
         
         // Verify NFTs are burned
         vm.expectRevert();
-        predictionMarket.ownerOf(makerNftTokenId);
+        predictionMarket.ownerOf(requesterNftTokenId);
         vm.expectRevert();
-        predictionMarket.ownerOf(takerNftTokenId);
+        predictionMarket.ownerOf(responderNftTokenId);
 
         // Role-based sets cleared
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 0);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 0);
     }
     
     function test_consolidatePrediction_makerAndTakerDifferent() public {
-        // First mint a normal prediction (maker != taker)
+        // First mint a normal prediction (requester != responder)
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId,) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId,) = predictionMarket.mint(request);
         
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.MakerAndTakerAreDifferent.selector);
-        predictionMarket.consolidatePrediction(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.RequesterAndResponderAreDifferent.selector);
+        predictionMarket.consolidatePrediction(requesterNftTokenId, REF_CODE);
     }
     
     function test_consolidatePrediction_predictionNotFound() public {
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(PredictionMarket.PredictionNotFound.selector);
         predictionMarket.consolidatePrediction(999, REF_CODE);
     }
     
     function test_consolidatePrediction_onlyOwnerCanCall() public {
-        // Create a prediction where maker and taker are the same
+        // Create a prediction where requester and responder are the same
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.taker = maker; // Same as maker
+        request.responder = requester; // Same as requester
         
-        // Create valid signature for maker as taker
+        // Create valid signature for requester as responder
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                0 // makerNonce
+                0 // requesterNonce
             )
         );
         
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, maker);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, approvalHash); // Use key 1 for maker
-        request.takerSignature = abi.encodePacked(r, s, v);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, requester);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, approvalHash); // Use key 1 for requester
+        request.responderSignature = abi.encodePacked(r, s, v);
         
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
         // Try to call consolidatePrediction from unauthorized user - should fail
         vm.prank(unauthorizedUser);
         vm.expectRevert(PredictionMarket.NotOwner.selector);
-        predictionMarket.consolidatePrediction(makerNftTokenId, REF_CODE);
+        predictionMarket.consolidatePrediction(requesterNftTokenId, REF_CODE);
         
-        // Try to call consolidatePrediction from taker (who is also maker in this case) - should succeed
-        vm.prank(maker);
-        predictionMarket.consolidatePrediction(makerNftTokenId, REF_CODE);
+        // Try to call consolidatePrediction from responder (who is also requester in this case) - should succeed
+        vm.prank(requester);
+        predictionMarket.consolidatePrediction(requesterNftTokenId, REF_CODE);
         
         // Verify NFTs are burned
         vm.expectRevert();
-        predictionMarket.ownerOf(makerNftTokenId);
+        predictionMarket.ownerOf(requesterNftTokenId);
         vm.expectRevert();
-        predictionMarket.ownerOf(takerNftTokenId);
+        predictionMarket.ownerOf(responderNftTokenId);
     }
 
     // ============ View Function Tests ============
@@ -502,20 +502,20 @@ contract PredictionMarketTest is Test {
     function test_getPrediction_success() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(makerNftTokenId);
+        IPredictionStructs.PredictionData memory prediction = predictionMarket.getPrediction(requesterNftTokenId);
         assertEq(prediction.predictionId, 1); // First prediction now has ID 1
         assertEq(prediction.resolver, address(mockResolver));
-        assertEq(prediction.maker, maker);
-        assertEq(prediction.taker, taker);
-        assertEq(prediction.makerNftTokenId, makerNftTokenId);
-        assertEq(prediction.takerNftTokenId, takerNftTokenId);
-        assertEq(prediction.makerCollateral, MAKER_COLLATERAL);
-        assertEq(prediction.takerCollateral, TAKER_COLLATERAL);
+        assertEq(prediction.requester, requester);
+        assertEq(prediction.responder, responder);
+        assertEq(prediction.requesterNftTokenId, requesterNftTokenId);
+        assertEq(prediction.responderNftTokenId, responderNftTokenId);
+        assertEq(prediction.requesterCollateral, REQUESTER_COLLATERAL);
+        assertEq(prediction.responderCollateral, RESPONDER_COLLATERAL);
         assertFalse(prediction.settled);
-        assertFalse(prediction.makerWon);
+        assertFalse(prediction.requesterWon);
     }
     
     function test_getPrediction_doesNotExist() public {
@@ -526,28 +526,28 @@ contract PredictionMarketTest is Test {
     function test_getOwnedPredictions() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        // Check maker's predictions
-        uint256[] memory makerPredictions = predictionMarket.getOwnedPredictions(maker);
-        assertEq(makerPredictions.length, 1);
-        assertEq(makerPredictions[0], makerNftTokenId);
+        // Check requester's predictions
+        uint256[] memory requesterPredictions = predictionMarket.getOwnedPredictions(requester);
+        assertEq(requesterPredictions.length, 1);
+        assertEq(requesterPredictions[0], requesterNftTokenId);
         
-        // Check taker's predictions
-        uint256[] memory takerPredictions = predictionMarket.getOwnedPredictions(taker);
-        assertEq(takerPredictions.length, 1);
-        assertEq(takerPredictions[0], takerNftTokenId);
+        // Check responder's predictions
+        uint256[] memory responderPredictions = predictionMarket.getOwnedPredictions(responder);
+        assertEq(responderPredictions.length, 1);
+        assertEq(responderPredictions[0], responderNftTokenId);
     }
     
     function test_getOwnedPredictionsCount() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 1);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 1);
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 1);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 1);
         assertEq(predictionMarket.getOwnedPredictionsCount(unauthorizedUser), 0);
     }
 
@@ -555,33 +555,33 @@ contract PredictionMarketTest is Test {
     
     function test_nftOwnershipAfterMint() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
-        assertEq(predictionMarket.balanceOf(maker), 1);
-        assertEq(predictionMarket.balanceOf(taker), 1);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
+        assertEq(predictionMarket.balanceOf(requester), 1);
+        assertEq(predictionMarket.balanceOf(responder), 1);
     }
     
     function test_nftBurningAfterBurn() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
         
         // Set resolver to return valid resolution
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, true);
         
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
         
         // Verify NFTs are burned
         vm.expectRevert();
-        predictionMarket.ownerOf(makerNftTokenId);
+        predictionMarket.ownerOf(requesterNftTokenId);
         vm.expectRevert();
-        predictionMarket.ownerOf(takerNftTokenId);
-        assertEq(predictionMarket.balanceOf(maker), 0);
-        assertEq(predictionMarket.balanceOf(taker), 0);
+        predictionMarket.ownerOf(responderNftTokenId);
+        assertEq(predictionMarket.balanceOf(requester), 0);
+        assertEq(predictionMarket.balanceOf(responder), 0);
     }
 
     // ============ Multiple Predictions Tests ============
@@ -589,96 +589,96 @@ contract PredictionMarketTest is Test {
     function test_multiplePredictions() public {
         // Mint first prediction
         IPredictionStructs.MintPredictionRequestData memory request1 = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId1, uint256 takerNftTokenId1) = predictionMarket.mint(request1);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId1, uint256 responderNftTokenId1) = predictionMarket.mint(request1);
         
-        // Mint second prediction with different taker
-        address taker2 = vm.addr(4); // Use key 4 for taker2
-        collateralToken.mint(taker2, 10000e18);
-        vm.prank(taker2);
+        // Mint second prediction with different responder
+        address responder2 = vm.addr(4); // Use key 4 for responder2
+        collateralToken.mint(responder2, 10000e18);
+        vm.prank(responder2);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         IPredictionStructs.MintPredictionRequestData memory request2 = _createValidMintRequest();
-        request2.taker = taker2;
-        request2.makerNonce = 1; // Nonce incremented after first mint
+        request2.responder = responder2;
+        request2.requesterNonce = 1; // Nonce incremented after first mint
         
-        // Create valid signature for taker2 with correct nonce
+        // Create valid signature for responder2 with correct nonce
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                1 // makerNonce
+                1 // requesterNonce
             )
         );
         
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, taker2);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(4, approvalHash); // Use key 4 for taker2
-        request2.takerSignature = abi.encodePacked(r, s, v);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, responder2);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(4, approvalHash); // Use key 4 for responder2
+        request2.responderSignature = abi.encodePacked(r, s, v);
         
-        vm.prank(maker);
-        (uint256 makerNftTokenId2, uint256 takerNftTokenId2) = predictionMarket.mint(request2);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId2, uint256 responderNftTokenId2) = predictionMarket.mint(request2);
         
         // Verify both predictions exist
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 2);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 1);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker2), 1);
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 2);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 1);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder2), 1);
         
         // Verify NFT IDs are sequential
-        assertEq(makerNftTokenId1, 1);
-        assertEq(takerNftTokenId1, 2);
-        assertEq(makerNftTokenId2, 3);
-        assertEq(takerNftTokenId2, 4);
+        assertEq(requesterNftTokenId1, 1);
+        assertEq(responderNftTokenId1, 2);
+        assertEq(requesterNftTokenId2, 3);
+        assertEq(responderNftTokenId2, 4);
     }
 
     // ============ Edge Cases and Error Conditions ============
     
     function test_insufficientCollateralBalance() public {
         // Create an account with insufficient balance
-        address poorMaker = vm.addr(5); // Use key 5 for poor maker
-        collateralToken.mint(poorMaker, MAKER_COLLATERAL - 1); // Less than required
-        vm.prank(poorMaker);
+        address poorRequester = vm.addr(5); // Use key 5 for poor requester
+        collateralToken.mint(poorRequester, REQUESTER_COLLATERAL - 1); // Less than required
+        vm.prank(poorRequester);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.maker = poorMaker;
+        request.requester = poorRequester;
         
-        vm.prank(poorMaker);
+        vm.prank(poorRequester);
         vm.expectRevert(); // ERC20 transfer will fail
         predictionMarket.mint(request);
     }
     
     function test_insufficientTakerCollateralBalance() public {
         // Create an account with insufficient balance
-        address poorTaker = vm.addr(6); // Use key 6 for poor taker
-        collateralToken.mint(poorTaker, TAKER_COLLATERAL - 1); // Less than required
-        vm.prank(poorTaker);
+        address poorResponder = vm.addr(6); // Use key 6 for poor responder
+        collateralToken.mint(poorResponder, RESPONDER_COLLATERAL - 1); // Less than required
+        vm.prank(poorResponder);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.taker = poorTaker;
+        request.responder = poorResponder;
         
-        // Create valid signature for poor taker
+        // Create valid signature for poor responder
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                0 // makerNonce
+                0 // requesterNonce
             )
         );
         
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, poorTaker);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(6, approvalHash); // Use key 6 for poor taker
-        request.takerSignature = abi.encodePacked(r, s, v);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, poorResponder);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(6, approvalHash); // Use key 6 for poor responder
+        request.responderSignature = abi.encodePacked(r, s, v);
         
-        vm.prank(maker);
+        vm.prank(requester);
         vm.expectRevert(); // ERC20 transfer will fail
         predictionMarket.mint(request);
     }
@@ -686,8 +686,8 @@ contract PredictionMarketTest is Test {
     function test_burnWithDifferentRefCode() public {
         // First mint a prediction
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId,) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId,) = predictionMarket.mint(request);
         
         // Set resolver to return valid resolution
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, true);
@@ -696,105 +696,105 @@ contract PredictionMarketTest is Test {
         
         vm.expectEmit(true, true, false, true);
         emit PredictionBurned(
-            maker,
-            taker,
+            requester,
+            responder,
             ENCODED_OUTCOMES,
-            makerNftTokenId,
-            makerNftTokenId + 1,
+            requesterNftTokenId,
+            requesterNftTokenId + 1,
             TOTAL_COLLATERAL,
             true,
             differentRefCode
         );
         
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, differentRefCode);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, differentRefCode);
     }
 
     function test_getUserCollateralDeposits() public {
         // Test initial state - no deposits
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), 0);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), 0);
 
         // Create a prediction
         IPredictionStructs.MintPredictionRequestData memory request1 = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request1);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request1);
 
         // Check deposits after mint
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL);
 
         // Create another prediction with the same users (with incremented nonce)
         IPredictionStructs.MintPredictionRequestData memory request2 = _createValidMintRequest();
-        request2.makerNonce = 1; // Nonce incremented after first mint
+        request2.requesterNonce = 1; // Nonce incremented after first mint
         
         // Re-create signature with new nonce
         bytes32 messageHash2 = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                1 // makerNonce
+                1 // requesterNonce
             )
         );
-        bytes32 approvalHash2 = predictionMarket.getApprovalHash(messageHash2, taker);
+        bytes32 approvalHash2 = predictionMarket.getApprovalHash(messageHash2, responder);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(2, approvalHash2);
-        request2.takerSignature = abi.encodePacked(r2, s2, v2);
+        request2.responderSignature = abi.encodePacked(r2, s2, v2);
         
-        vm.prank(maker);
-        (uint256 makerNftTokenId2, uint256 takerNftTokenId2) = predictionMarket.mint(request2);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId2, uint256 responderNftTokenId2) = predictionMarket.mint(request2);
 
         // Check deposits after second mint (should be cumulative)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL * 2);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL * 2);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL * 2);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL * 2);
 
         // Burn the first prediction
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
 
         // Check deposits after burn (should be reduced)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL);
 
         // Burn the second prediction
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId2, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId2, REF_CODE);
 
         // Check deposits after second burn (should be back to 0)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), 0);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), 0);
     }
 
     function test_getUserCollateralDeposits_consolidate() public {
         // Create a regular prediction first
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
 
         // Check deposits after mint
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL);
 
-        // For consolidation, we need maker and taker to be the same
+        // For consolidation, we need requester and responder to be the same
         // This is a complex scenario that requires special setup
         // For now, let's just test that the deposits are correctly tracked during burn
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
 
         // Check deposits after burn (should be back to 0)
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), 0);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), 0);
     }
 
     // ============ Nonce and Replay Protection Tests ============
 
     function test_nonces_initialValue() public view {
         // Initial nonce should be 0
-        assertEq(predictionMarket.nonces(maker), 0);
-        assertEq(predictionMarket.nonces(taker), 0);
+        assertEq(predictionMarket.nonces(requester), 0);
+        assertEq(predictionMarket.nonces(responder), 0);
         assertEq(predictionMarket.nonces(unauthorizedUser), 0);
     }
 
@@ -802,60 +802,60 @@ contract PredictionMarketTest is Test {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
         
         // Check nonce before mint
-        assertEq(predictionMarket.nonces(maker), 0);
+        assertEq(predictionMarket.nonces(requester), 0);
         
-        vm.prank(maker);
+        vm.prank(requester);
         predictionMarket.mint(request);
         
         // Check nonce after mint - should be incremented
-        assertEq(predictionMarket.nonces(maker), 1);
+        assertEq(predictionMarket.nonces(requester), 1);
     }
 
     function test_replayProtection_cannotReuseSameSignature() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
         
         // First mint - should succeed
-        vm.prank(maker);
-        (uint256 makerNftTokenId1, uint256 takerNftTokenId1) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId1, uint256 responderNftTokenId1) = predictionMarket.mint(request);
         
         // Verify first prediction was created successfully
-        assertEq(predictionMarket.ownerOf(makerNftTokenId1), maker);
-        assertEq(predictionMarket.ownerOf(takerNftTokenId1), taker);
-        assertEq(predictionMarket.nonces(maker), 1);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId1), requester);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId1), responder);
+        assertEq(predictionMarket.nonces(requester), 1);
         
         // Try to reuse the same request with the same signature - should fail
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.InvalidMakerNonce.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.InvalidRequesterNonce.selector);
         predictionMarket.mint(request);
         
         // Nonce should still be 1 (not incremented on failed attempt)
-        assertEq(predictionMarket.nonces(maker), 1);
+        assertEq(predictionMarket.nonces(requester), 1);
     }
 
     function test_replayProtection_mustUseSequentialNonces() public {
         // Try to use nonce 1 when current nonce is 0
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        request.makerNonce = 1; // Skip nonce 0
+        request.requesterNonce = 1; // Skip nonce 0
         
         // Create signature with wrong nonce
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
                 1 // Wrong nonce
             )
         );
         
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, taker);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, responder);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(2, approvalHash);
-        request.takerSignature = abi.encodePacked(r, s, v);
+        request.responderSignature = abi.encodePacked(r, s, v);
         
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.InvalidMakerNonce.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.InvalidRequesterNonce.selector);
         predictionMarket.mint(request);
     }
 
@@ -863,144 +863,144 @@ contract PredictionMarketTest is Test {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
         
         // First mint
-        vm.prank(maker);
-        (uint256 makerNftTokenId,) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId,) = predictionMarket.mint(request);
         
         // Burn the prediction
         mockResolver.setResolutionResult(true, IPredictionMarketResolver.Error.NO_ERROR, true);
-        vm.prank(maker);
-        predictionMarket.burn(makerNftTokenId, REF_CODE);
+        vm.prank(requester);
+        predictionMarket.burn(requesterNftTokenId, REF_CODE);
         
         // Try to reuse the same signature after burn - should fail
-        vm.prank(maker);
-        vm.expectRevert(PredictionMarket.InvalidMakerNonce.selector);
+        vm.prank(requester);
+        vm.expectRevert(PredictionMarket.InvalidRequesterNonce.selector);
         predictionMarket.mint(request);
     }
 
     function test_replayProtection_independentNoncesPerMaker() public {
-        address maker2 = vm.addr(10);
-        collateralToken.mint(maker2, 10000e18);
-        vm.prank(maker2);
+        address requester2 = vm.addr(10);
+        collateralToken.mint(requester2, 10000e18);
+        vm.prank(requester2);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         // Both makers start with nonce 0
-        assertEq(predictionMarket.nonces(maker), 0);
-        assertEq(predictionMarket.nonces(maker2), 0);
+        assertEq(predictionMarket.nonces(requester), 0);
+        assertEq(predictionMarket.nonces(requester2), 0);
         
-        // Maker 1 mints
+        // Requester 1 mints
         IPredictionStructs.MintPredictionRequestData memory request1 = _createValidMintRequest();
-        vm.prank(maker);
+        vm.prank(requester);
         predictionMarket.mint(request1);
         
-        // Maker 1 nonce incremented, maker 2 unchanged
-        assertEq(predictionMarket.nonces(maker), 1);
-        assertEq(predictionMarket.nonces(maker2), 0);
+        // Requester 1 nonce incremented, requester 2 unchanged
+        assertEq(predictionMarket.nonces(requester), 1);
+        assertEq(predictionMarket.nonces(requester2), 0);
         
-        // Maker 2 can still use nonce 0
-        address taker2 = vm.addr(11);
-        collateralToken.mint(taker2, 10000e18);
-        vm.prank(taker2);
+        // Requester 2 can still use nonce 0
+        address responder2 = vm.addr(11);
+        collateralToken.mint(responder2, 10000e18);
+        vm.prank(responder2);
         collateralToken.approve(address(predictionMarket), type(uint256).max);
         
         IPredictionStructs.MintPredictionRequestData memory request2 = _createValidMintRequest();
-        request2.maker = maker2;
-        request2.taker = taker2;
-        request2.makerNonce = 0; // Maker2's first nonce
+        request2.requester = requester2;
+        request2.responder = responder2;
+        request2.requesterNonce = 0; // Maker2's first nonce
         
-        // Create signature for maker2
+        // Create signature for requester2
         bytes32 messageHash = keccak256(
             abi.encode(
                 ENCODED_OUTCOMES,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(mockResolver),
-                maker2,
+                requester2,
                 block.timestamp + 1 hours,
-                0 // makerNonce for maker2
+                0 // requesterNonce for requester2
             )
         );
         
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, taker2);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, responder2);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(11, approvalHash);
-        request2.takerSignature = abi.encodePacked(r, s, v);
+        request2.responderSignature = abi.encodePacked(r, s, v);
         
-        vm.prank(maker2);
+        vm.prank(requester2);
         predictionMarket.mint(request2);
         
         // Both makers now have nonce 1
-        assertEq(predictionMarket.nonces(maker), 1);
-        assertEq(predictionMarket.nonces(maker2), 1);
+        assertEq(predictionMarket.nonces(requester), 1);
+        assertEq(predictionMarket.nonces(requester2), 1);
     }
 
     // ============ NFT Transfer Tests (role/mapping/deposit sync) ============
 
     function test_transfer_makerNft_updatesPredictionAndDeposits() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
 
         address newMaker = vm.addr(7);
 
         // Pre-assertions
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), maker);
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), requester);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
         assertEq(predictionMarket.getUserCollateralDeposits(newMaker), 0);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL);
 
-        // Transfer maker NFT to newMaker
-        vm.prank(maker);
-        predictionMarket.transferFrom(maker, newMaker, makerNftTokenId);
+        // Transfer requester NFT to newMaker
+        vm.prank(requester);
+        predictionMarket.transferFrom(requester, newMaker, requesterNftTokenId);
 
         // Ownership updated
-        assertEq(predictionMarket.ownerOf(makerNftTokenId), newMaker);
+        assertEq(predictionMarket.ownerOf(requesterNftTokenId), newMaker);
 
         // Prediction role updated
-        IPredictionStructs.PredictionData memory pAfter = predictionMarket.getPrediction(makerNftTokenId);
-        assertEq(pAfter.maker, newMaker);
-        assertEq(pAfter.taker, taker);
-        assertEq(pAfter.makerNftTokenId, makerNftTokenId);
-        assertEq(pAfter.takerNftTokenId, takerNftTokenId);
+        IPredictionStructs.PredictionData memory pAfter = predictionMarket.getPrediction(requesterNftTokenId);
+        assertEq(pAfter.requester, newMaker);
+        assertEq(pAfter.responder, responder);
+        assertEq(pAfter.requesterNftTokenId, requesterNftTokenId);
+        assertEq(pAfter.responderNftTokenId, responderNftTokenId);
 
-        // Deposits attribution moved from maker to newMaker
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), 0);
-        assertEq(predictionMarket.getUserCollateralDeposits(newMaker), MAKER_COLLATERAL);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL);
+        // Deposits attribution moved from requester to newMaker
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), 0);
+        assertEq(predictionMarket.getUserCollateralDeposits(newMaker), REQUESTER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL);
 
         // Owned prediction counts updated
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 0);
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 0);
         assertEq(predictionMarket.getOwnedPredictionsCount(newMaker), 1);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 1);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 1);
     }
 
     function test_transfer_takerNft_toMaker_resultsSingleOwnerAndMovesDeposits() public {
         IPredictionStructs.MintPredictionRequestData memory request = _createValidMintRequest();
-        vm.prank(maker);
-        (uint256 makerNftTokenId, uint256 takerNftTokenId) = predictionMarket.mint(request);
+        vm.prank(requester);
+        (uint256 requesterNftTokenId, uint256 responderNftTokenId) = predictionMarket.mint(request);
 
         // Pre-assertions
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), taker);
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), TAKER_COLLATERAL);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), responder);
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), RESPONDER_COLLATERAL);
 
-        // Transfer taker NFT to maker so maker ends up being both maker and taker
-        vm.prank(taker);
-        predictionMarket.transferFrom(taker, maker, takerNftTokenId);
+        // Transfer responder NFT to requester so requester ends up being both requester and responder
+        vm.prank(responder);
+        predictionMarket.transferFrom(responder, requester, responderNftTokenId);
 
         // Ownership updated
-        assertEq(predictionMarket.ownerOf(takerNftTokenId), maker);
+        assertEq(predictionMarket.ownerOf(responderNftTokenId), requester);
 
-        // Prediction party updated: taker becomes maker address
-        IPredictionStructs.PredictionData memory pAfter = predictionMarket.getPrediction(makerNftTokenId);
-        assertEq(pAfter.maker, maker);
-        assertEq(pAfter.taker, maker);
+        // Prediction party updated: responder becomes requester address
+        IPredictionStructs.PredictionData memory pAfter = predictionMarket.getPrediction(requesterNftTokenId);
+        assertEq(pAfter.requester, requester);
+        assertEq(pAfter.responder, requester);
 
-        // Deposits attribution moved from taker to maker
-        assertEq(predictionMarket.getUserCollateralDeposits(maker), MAKER_COLLATERAL + TAKER_COLLATERAL);
-        assertEq(predictionMarket.getUserCollateralDeposits(taker), 0);
+        // Deposits attribution moved from responder to requester
+        assertEq(predictionMarket.getUserCollateralDeposits(requester), REQUESTER_COLLATERAL + RESPONDER_COLLATERAL);
+        assertEq(predictionMarket.getUserCollateralDeposits(responder), 0);
 
-        // Owned predictions count for maker is now 2 (both NFTs), taker is 0
-        assertEq(predictionMarket.getOwnedPredictionsCount(maker), 2);
-        assertEq(predictionMarket.getOwnedPredictionsCount(taker), 0);
+        // Owned predictions count for requester is now 2 (both NFTs), responder is 0
+        assertEq(predictionMarket.getOwnedPredictionsCount(requester), 2);
+        assertEq(predictionMarket.getOwnedPredictionsCount(responder), 0);
     }
 
 }

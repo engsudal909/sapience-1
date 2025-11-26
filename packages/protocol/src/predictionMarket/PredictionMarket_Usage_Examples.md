@@ -76,12 +76,12 @@ The taker must sign an approval for the specific prediction using EIP-712. This 
 bytes32 messageHash = keccak256(
     abi.encode(
         encodedPredictedOutcomes,
-        takerCollateral,      // 200e6
-        makerCollateral,      // 1000e6
+        responderCollateral,      // 200e6
+        requesterCollateral,      // 1000e6
         resolver,             // address(resolver)
         maker,                // ana
-        takerDeadline,        // block.timestamp + 3600
-        makerNonce            // current nonce for ana
+        responderDeadline,        // block.timestamp + 3600
+        requesterNonce            // current nonce for ana
     )
 );
 
@@ -187,23 +187,23 @@ Ana calls the mint function with all the prediction data and Bob's signature:
 
 ```solidity
 // Ana creates the prediction by calling mint()
-(uint256 makerNftTokenId, uint256 takerNftTokenId) = market.mint(
+(uint256 requesterNftTokenId, uint256 responderNftTokenId) = market.mint(
     IPredictionStructs.MintPredictionRequestData({
         encodedPredictedOutcomes: encodedPredictionOutcomes,
         resolver: address(resolver),
-        makerCollateral: 1000e6,           // 1,000 USDC
-        takerCollateral: 200e6,            // 200 USDC
+        requesterCollateral: 1000e6,           // 1,000 USDC
+        responderCollateral: 200e6,            // 200 USDC
         maker: ana,
         taker: bob,
-        makerNonce: anaNonce,
-        takerSignature: bobSignature,
-        takerDeadline: block.timestamp + 3600,
+        requesterNonce: anaNonce,
+        responderSignature: bobSignature,
+        responderDeadline: block.timestamp + 3600,
         refCode: bytes32(0)
     })
 );
 
-console.log("Prediction created! Maker NFT ID:", makerNftTokenId);
-console.log("Taker NFT ID:", takerNftTokenId);
+console.log("Prediction created! Maker NFT ID:", requesterNftTokenId);
+console.log("Taker NFT ID:", responderNftTokenId);
 // Output: Prediction created! Maker NFT ID: 1
 // Output: Taker NFT ID: 2
 ```
@@ -222,15 +222,15 @@ After the prediction is created, you can query its details:
 
 ```solidity
 // Get prediction data using either NFT token ID
-IPredictionStructs.PredictionData memory predictionData = market.getPrediction(makerNftTokenId);
+IPredictionStructs.PredictionData memory predictionData = market.getPrediction(requesterNftTokenId);
 
 console.log("Maker:", predictionData.maker);
 console.log("Taker:", predictionData.taker);
-console.log("Maker NFT ID:", predictionData.makerNftTokenId);
-console.log("Taker NFT ID:", predictionData.takerNftTokenId);
-console.log("Maker Collateral:", predictionData.makerCollateral);
-console.log("Taker Collateral:", predictionData.takerCollateral);
-console.log("Total Payout:", predictionData.makerCollateral + predictionData.takerCollateral);
+console.log("Maker NFT ID:", predictionData.requesterNftTokenId);
+console.log("Taker NFT ID:", predictionData.responderNftTokenId);
+console.log("Maker Collateral:", predictionData.requesterCollateral);
+console.log("Taker Collateral:", predictionData.responderCollateral);
+console.log("Total Payout:", predictionData.requesterCollateral + predictionData.responderCollateral);
 console.log("Settled:", predictionData.settled);
 // Output: Maker: ana
 // Output: Taker: bob
@@ -251,20 +251,20 @@ After the markets resolve, the prediction can be settled by calling `burn()`:
 // The resolver checks if all markets are settled
 
 // Anyone can call burn to settle the prediction
-market.burn(makerNftTokenId, bytes32(0)); // Using maker NFT token ID and ref code
+market.burn(requesterNftTokenId, bytes32(0)); // Using maker NFT token ID and ref code
 
 // Check if prediction is settled
-IPredictionStructs.PredictionData memory settledPrediction = market.getPrediction(makerNftTokenId);
+IPredictionStructs.PredictionData memory settledPrediction = market.getPrediction(requesterNftTokenId);
 console.log("Prediction settled:", settledPrediction.settled);
-console.log("Maker won:", settledPrediction.makerWon);
+console.log("Maker won:", settledPrediction.requesterWon);
 // Output: Prediction settled: true
 // Output: Maker won: true (assuming Ana's predictions were correct)
 ```
 
 **What happens during burn:**
 - The resolver determines the outcome of all markets
-- If Ana's predictions were correct, she wins (makerWon = true)
-- If Ana's predictions were wrong, Bob (the taker) wins (makerWon = false)
+- If Ana's predictions were correct, she wins (requesterWon = true)
+- If Ana's predictions were wrong, Bob (the taker) wins (requesterWon = false)
 - The winning party receives the full payout (1,200 USDC)
 - Both NFTs are burned
 
@@ -286,7 +286,7 @@ If Ana's predictions were wrong, Bob (the taker) would win:
 
 ```solidity
 // Anyone can call burn (doesn't have to be the winner)
-market.burn(takerNftTokenId, bytes32(0));
+market.burn(responderNftTokenId, bytes32(0));
 
 // Bob's winnings are automatically transferred when burn() is called
 // The NFTs are burned and the payout is sent to his address
@@ -302,7 +302,7 @@ If Ana wants to trade against herself (useful for testing or closing positions):
 ```solidity
 // This only works if Ana owns BOTH the maker and taker NFTs
 // (e.g., she bought Bob's position or created it with herself as taker)
-market.consolidatePrediction(makerNftTokenId, bytes32(0));
+market.consolidatePrediction(requesterNftTokenId, bytes32(0));
 
 // This immediately settles the prediction with Ana as the winner
 // Both NFTs are burned and Ana receives the full payout
@@ -340,8 +340,8 @@ uint256 orderId = market.placeOrder(
         encodedPredictedOutcomes: encodedPredictionOutcomes,
         orderDeadline: block.timestamp + 86400, // 24 hours from now
         resolver: address(resolver),
-        makerCollateral: 1000e6,    // 1,000 USDC collateral
-        takerCollateral: 200e6,     // 200 USDC delta from taker
+        requesterCollateral: 1000e6,    // 1,000 USDC collateral
+        responderCollateral: 200e6,     // 200 USDC delta from taker
         maker: ana,                 // Ana's address
         refCode: bytes32(0)         // Reference code
     })
@@ -371,8 +371,8 @@ console.log("Total unfilled orders:", unfilledOrderIds.length);
 IPredictionStructs.LimitOrderData memory order = market.getUnfilledOrder(orderId);
 console.log("Order maker:", order.maker);
 console.log("Order deadline:", order.orderDeadline);
-console.log("Maker collateral:", order.makerCollateral);
-console.log("Taker collateral:", order.takerCollateral);
+console.log("Maker collateral:", order.requesterCollateral);
+console.log("Taker collateral:", order.responderCollateral);
 // Output: Order maker: ana
 // Output: Order deadline: 1703123456
 // Output: Maker collateral: 1000000000
@@ -416,10 +416,10 @@ IPredictionStructs.PredictionData memory prediction = market.getPrediction(anaNf
 
 console.log("Prediction maker:", prediction.maker);
 console.log("Prediction taker:", prediction.taker);
-console.log("Maker NFT ID:", prediction.makerNftTokenId);
-console.log("Taker NFT ID:", prediction.takerNftTokenId);
-console.log("Maker Collateral:", prediction.makerCollateral);
-console.log("Taker Collateral:", prediction.takerCollateral);
+console.log("Maker NFT ID:", prediction.requesterNftTokenId);
+console.log("Taker NFT ID:", prediction.responderNftTokenId);
+console.log("Maker Collateral:", prediction.requesterCollateral);
+console.log("Taker Collateral:", prediction.responderCollateral);
 // Output: Prediction maker: ana
 // Output: Prediction taker: bob
 // Output: Maker NFT ID: 3
@@ -464,7 +464,7 @@ market.burn(anaNftTokenId); // Using maker NFT token ID
 // Check settlement results
 IPredictionStructs.PredictionData memory settledPrediction = market.getPrediction(anaNftTokenId);
 console.log("Prediction settled:", settledPrediction.settled);
-console.log("Maker won:", settledPrediction.makerWon);
+console.log("Maker won:", settledPrediction.requesterWon);
 // Output: Prediction settled: true
 // Output: Maker won: true (assuming Ana's predictions were correct)
 ```
@@ -482,7 +482,7 @@ console.log("Total unfilled orders:", totalOrders);
 uint256[] memory allOrderIds = market.getUnfilledOrderIds();
 
 // Get orders placed by a specific maker
-uint256[] memory anaOrders = market.getUnfilledOrderByMaker(ana);
+uint256[] memory anaOrders = market.getUnfilledOrderByRequester(ana);
 console.log("Ana's unfilled orders:", anaOrders.length);
 
 // Get details of a specific order
@@ -500,8 +500,8 @@ event OrderPlaced(
     uint256 indexed orderId,
     bytes encodedPredictedOutcomes,
     address resolver,
-    uint256 makerCollateral,
-    uint256 takerCollateral,
+    uint256 requesterCollateral,
+    uint256 responderCollateral,
     bytes32 refCode
 );
 
@@ -511,8 +511,8 @@ event OrderFilled(
     address indexed maker,
     address indexed taker,
     bytes encodedPredictedOutcomes,
-    uint256 makerCollateral,
-    uint256 takerCollateral,
+    uint256 requesterCollateral,
+    uint256 responderCollateral,
     bytes32 refCode
 );
 
@@ -521,8 +521,8 @@ event OrderCancelled(
     uint256 indexed orderId,
     address indexed maker,
     bytes encodedPredictedOutcomes,
-    uint256 makerCollateral,
-    uint256 takerCollateral
+    uint256 requesterCollateral,
+    uint256 responderCollateral
 );
 ```
 

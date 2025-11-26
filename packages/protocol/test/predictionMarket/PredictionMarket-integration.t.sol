@@ -47,8 +47,8 @@ contract PredictionMarketSapienceIntegrationTest is Test {
 
     // Test accounts
     address public owner;
-    address public maker;
-    address public taker;
+    address public requester;
+    address public responder;
     address public marketCreator;
     
     // Private keys for signing
@@ -57,8 +57,8 @@ contract PredictionMarketSapienceIntegrationTest is Test {
 
     // Constants
     uint256 public constant MIN_COLLATERAL = 1000e18;
-    uint256 public constant MAKER_COLLATERAL = 2000e18;
-    uint256 public constant TAKER_COLLATERAL = 1500e18;
+    uint256 public constant REQUESTER_COLLATERAL = 2000e18;
+    uint256 public constant RESPONDER_COLLATERAL = 1500e18;
     uint256 public constant MIN_TRADE_SIZE = 10_000;
     uint256 public constant BOND_AMOUNT = 100 ether;
     uint256 public constant MAX_PREDICTION_MARKETS = 5;
@@ -91,8 +91,8 @@ contract PredictionMarketSapienceIntegrationTest is Test {
 
         // Create test accounts
         owner = makeAddr("owner");
-        maker = vm.addr(MAKER_PRIVATE_KEY);
-        taker = vm.addr(TAKER_PRIVATE_KEY);
+        requester = vm.addr(MAKER_PRIVATE_KEY);
+        responder = vm.addr(TAKER_PRIVATE_KEY);
         marketCreator = makeAddr("marketCreator");
 
         // Deploy prediction market collateral token (separate from Sapience collateral)
@@ -171,8 +171,8 @@ contract PredictionMarketSapienceIntegrationTest is Test {
         vm.stopPrank();
 
         // Setup test token balances
-        predictionCollateralToken.mint(maker, MAKER_COLLATERAL * 10);
-        predictionCollateralToken.mint(taker, TAKER_COLLATERAL * 10);
+        predictionCollateralToken.mint(requester, REQUESTER_COLLATERAL * 10);
+        predictionCollateralToken.mint(responder, RESPONDER_COLLATERAL * 10);
         
         // Skip bond currency minting for now - the test might not need it
         // or we can use a different approach to get bond currency tokens
@@ -203,7 +203,7 @@ contract PredictionMarketSapienceIntegrationTest is Test {
     }
 
     function test_fullIntegrationFlow_makerWins() public {
-        console.log("\n=== Testing Full Integration Flow - Maker Wins ===");
+        console.log("\n=== Testing Full Integration Flow - Requester Wins ===");
         
         // 1. Create prediction outcomes
         PredictionMarketSapienceResolver.PredictedOutcome[] memory outcomes = 
@@ -228,48 +228,48 @@ contract PredictionMarketSapienceIntegrationTest is Test {
         bytes memory encodedOutcomes = sapienceResolver.encodePredictionOutcomes(outcomes);
 
         // Log initial balances before prediction creation
-        uint256 initialMakerBalance = predictionCollateralToken.balanceOf(maker);
-        uint256 initialTakerBalance = predictionCollateralToken.balanceOf(taker);
+        uint256 initialMakerBalance = predictionCollateralToken.balanceOf(requester);
+        uint256 initialTakerBalance = predictionCollateralToken.balanceOf(responder);
 
         // 2. Create and mint prediction
         (uint256 makerNftId, uint256 takerNftId) = _createPrediction(encodedOutcomes);
 
         // Log balances after prediction creation to calculate deposits
-        uint256 finalMakerBalance = predictionCollateralToken.balanceOf(maker);
-        uint256 finalTakerBalance = predictionCollateralToken.balanceOf(taker);
+        uint256 finalMakerBalance = predictionCollateralToken.balanceOf(requester);
+        uint256 finalTakerBalance = predictionCollateralToken.balanceOf(responder);
 
         uint256 makerDeposit = initialMakerBalance - finalMakerBalance;
         uint256 takerDeposit = initialTakerBalance - finalTakerBalance;
 
-        console.log("Prediction created - Maker NFT:", makerNftId, "Taker NFT:", takerNftId);
-        console.log("Maker deposited:", makerDeposit, "collateral tokens");
-        console.log("Taker deposited:", takerDeposit, "collateral tokens");
+        console.log("Prediction created - Requester NFT:", makerNftId, "Responder NFT:", takerNftId);
+        console.log("Requester deposited:", makerDeposit, "collateral tokens");
+        console.log("Responder deposited:", takerDeposit, "collateral tokens");
 
-        // 3. Settle Sapience markets to match maker's predictions
+        // 3. Settle Sapience markets to match requester's predictions
         _settleMarket(marketGroup1, market1Id, true);  // Bitcoin YES
         _settleMarket(marketGroup2, market2Id, false); // Ethereum NO
 
-        // 4. Resolve prediction (maker should win)
-        uint256 makerBalanceBeforeBurn = predictionCollateralToken.balanceOf(maker);
+        // 4. Resolve prediction (requester should win)
+        uint256 makerBalanceBeforeBurn = predictionCollateralToken.balanceOf(requester);
         
         // Check what the resolver thinks about the prediction
         (bool isResolved, IPredictionMarketResolver.Error error, bool parlaySuccess) = sapienceResolver.getPredictionResolution(encodedOutcomes);
         
-        vm.prank(maker);
+        vm.prank(requester);
         predictionMarket.burn(makerNftId, keccak256("integration-test"));
 
-        uint256 makerBalanceAfterBurn = predictionCollateralToken.balanceOf(maker);
+        uint256 makerBalanceAfterBurn = predictionCollateralToken.balanceOf(requester);
         uint256 payout = makerBalanceAfterBurn - makerBalanceBeforeBurn;
 
-        // Verify maker won and received total collateral
-        assertEq(payout, MAKER_COLLATERAL + TAKER_COLLATERAL, "Maker should receive total collateral");
-        
-        console.log("Maker won! Payout:", payout);
+        // Verify requester won and received total collateral
+        assertEq(payout, REQUESTER_COLLATERAL + RESPONDER_COLLATERAL, "Requester should receive total collateral");
+
+        console.log("Requester won! Payout:", payout);
         console.log("=== Integration Test Complete ===\n");
     }
 
     function test_fullIntegrationFlow_takerWins() public {
-        console.log("\n=== Testing Full Integration Flow - Taker Wins ===");
+        console.log("\n=== Testing Full Integration Flow - Responder Wins ===");
         
         // 1. Create prediction outcomes (same as before)
         PredictionMarketSapienceResolver.PredictedOutcome[] memory outcomes = 
@@ -294,37 +294,37 @@ contract PredictionMarketSapienceIntegrationTest is Test {
         bytes memory encodedOutcomes = sapienceResolver.encodePredictionOutcomes(outcomes);
 
         // Log initial balances before prediction creation
-        uint256 initialMakerBalance = predictionCollateralToken.balanceOf(maker);
-        uint256 initialTakerBalance = predictionCollateralToken.balanceOf(taker);
+        uint256 initialMakerBalance = predictionCollateralToken.balanceOf(requester);
+        uint256 initialTakerBalance = predictionCollateralToken.balanceOf(responder);
 
         // 2. Create and mint prediction
         (uint256 makerNftId, uint256 takerNftId) = _createPrediction(encodedOutcomes);
 
         // Log balances after prediction creation to calculate deposits
-        uint256 finalMakerBalance = predictionCollateralToken.balanceOf(maker);
-        uint256 finalTakerBalance = predictionCollateralToken.balanceOf(taker);
+        uint256 finalMakerBalance = predictionCollateralToken.balanceOf(requester);
+        uint256 finalTakerBalance = predictionCollateralToken.balanceOf(responder);
 
         uint256 makerDeposit = initialMakerBalance - finalMakerBalance;
         uint256 takerDeposit = initialTakerBalance - finalTakerBalance;
 
-        console.log("Maker deposited:", makerDeposit, "collateral tokens");
-        console.log("Taker deposited:", takerDeposit, "collateral tokens");
+        console.log("Requester deposited:", makerDeposit, "collateral tokens");
+        console.log("Responder deposited:", takerDeposit, "collateral tokens");
 
-        // 3. Settle Sapience markets opposite to maker's predictions
-        _settleMarket(marketGroup1, market1Id, false); // Bitcoin NO (maker predicted YES)
-        _settleMarket(marketGroup2, market2Id, true);  // Ethereum YES (maker predicted NO)
+        // 3. Settle Sapience markets opposite to requester's predictions
+        _settleMarket(marketGroup1, market1Id, false); // Bitcoin NO (requester predicted YES)
+        _settleMarket(marketGroup2, market2Id, true);  // Ethereum YES (requester predicted NO)
 
-        // 4. Resolve prediction (taker should win)
-        uint256 takerBalanceBeforeBurn = predictionCollateralToken.balanceOf(taker);
+        // 4. Resolve prediction (responder should win)
+        uint256 takerBalanceBeforeBurn = predictionCollateralToken.balanceOf(responder);
         
-        vm.prank(taker);
+        vm.prank(responder);
         predictionMarket.burn(takerNftId, keccak256("integration-test"));
 
-        uint256 takerBalanceAfterBurn = predictionCollateralToken.balanceOf(taker);
+        uint256 takerBalanceAfterBurn = predictionCollateralToken.balanceOf(responder);
         uint256 payout = takerBalanceAfterBurn - takerBalanceBeforeBurn;
 
-        // Verify taker won and received total collateral
-        assertEq(payout, MAKER_COLLATERAL + TAKER_COLLATERAL, "Taker should receive total collateral");
+        // Verify responder won and received total collateral
+        assertEq(payout, REQUESTER_COLLATERAL + RESPONDER_COLLATERAL, "Taker should receive total collateral");
         
         console.log("Taker won! Payout:", payout);
         console.log("=== Integration Test Complete ===\n");
@@ -391,45 +391,45 @@ contract PredictionMarketSapienceIntegrationTest is Test {
         bytes memory encodedOutcomes
     ) internal returns (uint256 makerNftId, uint256 takerNftId) {
         // Approve collateral
-        vm.prank(maker);
-        predictionCollateralToken.approve(address(predictionMarket), MAKER_COLLATERAL);
+        vm.prank(requester);
+        predictionCollateralToken.approve(address(predictionMarket), REQUESTER_COLLATERAL);
         
-        vm.prank(taker);
-        predictionCollateralToken.approve(address(predictionMarket), TAKER_COLLATERAL);
+        vm.prank(responder);
+        predictionCollateralToken.approve(address(predictionMarket), RESPONDER_COLLATERAL);
 
         // Create mint request
         bytes32 messageHash = keccak256(
             abi.encode(
                 encodedOutcomes,
-                TAKER_COLLATERAL,
-                MAKER_COLLATERAL,
+                RESPONDER_COLLATERAL,
+                REQUESTER_COLLATERAL,
                 address(sapienceResolver),
-                maker,
+                requester,
                 block.timestamp + 1 hours,
-                0 // makerNonce
+                0 // requesterNonce
             )
         );
 
-        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, taker);
+        bytes32 approvalHash = predictionMarket.getApprovalHash(messageHash, responder);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(TAKER_PRIVATE_KEY, approvalHash);
-        bytes memory takerSignature = abi.encodePacked(r, s, v);
+        bytes memory responderSignature = abi.encodePacked(r, s, v);
 
         IPredictionStructs.MintPredictionRequestData memory mintRequest = 
             IPredictionStructs.MintPredictionRequestData({
                 encodedPredictedOutcomes: encodedOutcomes,
                 resolver: address(sapienceResolver),
-                maker: maker,
-                taker: taker,
-                makerCollateral: MAKER_COLLATERAL,
-                takerCollateral: TAKER_COLLATERAL,
-                makerNonce: 0,
-                takerDeadline: block.timestamp + 1 hours,
-                takerSignature: takerSignature,
+                requester: requester,
+                responder: responder,
+                requesterCollateral: REQUESTER_COLLATERAL,
+                responderCollateral: RESPONDER_COLLATERAL,
+                requesterNonce: 0,
+                responderDeadline: block.timestamp + 1 hours,
+                responderSignature: responderSignature,
                 refCode: keccak256("integration-test")
             });
 
         // Mint prediction
-        vm.prank(maker);
+        vm.prank(requester);
         return predictionMarket.mint(mintRequest);
     }
 
