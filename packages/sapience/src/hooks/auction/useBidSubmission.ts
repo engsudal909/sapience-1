@@ -243,24 +243,9 @@ export function useBidSubmission(
         makerWager: makerWager.toString(),
       };
 
-      // Send over shared Auction WS and await ack
+      // Send over shared Auction WS (fire and forget - no ack wait)
       const client = getSharedAuctionWsClient(wsUrl);
-      let acked = false;
-      try {
-        await client.sendWithAck('bid.submit', payload, { timeoutMs: 12000 });
-        acked = true;
-      } catch (e: any) {
-        if (String(e?.message) !== 'ack_timeout') {
-          const error =
-            e instanceof Error ? e : new Error(String(e?.message || e));
-          onSubmissionFailed?.(error);
-          return {
-            success: false,
-            error: `Submission failed: ${error.message}`,
-          };
-        }
-        // ack_timeout is treated as a soft failure, bid may still be received
-      }
+      client.send({ type: 'bid.submit', payload });
 
       // Dispatch event for UI updates
       try {
@@ -269,18 +254,9 @@ export function useBidSubmission(
         void 0;
       }
 
-      if (acked) {
-        return {
-          success: true,
-          signature: makerSignature,
-          makerDeadline,
-        };
-      }
-
-      // Timeout case - uncertain if bid was received
+      // Bid was signed and sent - return success
       return {
-        success: false,
-        error: 'Bid submission timed out',
+        success: true,
         signature: makerSignature,
         makerDeadline,
       };

@@ -196,7 +196,7 @@ export function useBidPreflight(
           details: {
             requiredAmount,
             allowanceValue,
-            message: 'Insufficient approved spend',
+            message: 'Insufficient spend approved',
           },
         };
       }
@@ -265,7 +265,7 @@ export function useBidPreflight(
           details: {
             requiredAmount,
             allowanceValue,
-            message: 'Insufficient approved spend',
+            message: 'Insufficient spend approved',
           },
         };
       }

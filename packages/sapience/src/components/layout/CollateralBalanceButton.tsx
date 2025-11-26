@@ -10,7 +10,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 
@@ -18,6 +17,28 @@ interface CollateralBalanceButtonProps {
   onClick?: () => void;
   className?: string;
   buttonClassName?: string;
+}
+
+/**
+ * Formats a balance as dollar-like: max 2 decimal places, no trailing zeros.
+ * e.g. 1234.567 → "1234.57", 100.00 → "100", 50.10 → "50.1"
+ */
+function formatDollarLikeBalance(value: number | string): string {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '0';
+
+  // Round to 2 decimal places
+  const rounded = Math.round(num * 100) / 100;
+
+  // Format without trailing zeros
+  if (Number.isInteger(rounded)) {
+    return rounded.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  return rounded.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 }
 
 export default function CollateralBalanceButton({
@@ -35,7 +56,7 @@ export default function CollateralBalanceButton({
     chainId,
   });
 
-  const formattedBalance = `${formatFiveSigFigs(balance)} ${symbol}`;
+  const formattedBalance = `${formatDollarLikeBalance(balance)} ${symbol}`;
 
   return (
     <div className={`flex w-fit mx-3 md:mx-0 mt-0 ${className ?? ''}`}>

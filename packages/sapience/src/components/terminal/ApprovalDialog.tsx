@@ -91,14 +91,6 @@ const ApprovalDialog: React.FC = () => {
     query: { enabled: Boolean(COLLATERAL_ADDRESS) },
   });
 
-  const { data: tokenSymbolRaw } = useReadContract({
-    abi: erc20AbiLocal,
-    address: COLLATERAL_ADDRESS,
-    functionName: 'symbol',
-    chainId: chainId,
-    query: { enabled: Boolean(COLLATERAL_ADDRESS) },
-  });
-
   // Read native USDe balance (for Ethereal chain)
   const { data: nativeBalance, refetch: refetchNative } = useBalance({
     address,
@@ -210,10 +202,6 @@ const ApprovalDialog: React.FC = () => {
       return '0';
     }
   }, [allowance, tokenDecimals]);
-  const tokenSymbol =
-    typeof tokenSymbolRaw === 'string' && tokenSymbolRaw
-      ? tokenSymbolRaw
-      : 'USDe';
 
   // Calculate how much wrapping is needed
   const { needsWrapping, wrapAmount } = useMemo(() => {
@@ -249,7 +237,7 @@ const ApprovalDialog: React.FC = () => {
   }, [isEtherealChain, approveAmount, wusdeValue, nativeValue, tokenDecimals]);
 
   // useSendCalls for batching wrap + approve
-  const { sendCalls, isPending: isSendingCalls } = useSendCalls();
+  const { sendCallsAsync, isPending: isSendingCalls } = useSendCalls();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = useCallback(async () => {
@@ -272,7 +260,7 @@ const ApprovalDialog: React.FC = () => {
           args: [SPENDER_ADDRESS, approveAmountWei],
         });
 
-        sendCalls({
+        await sendCallsAsync({
           chainId,
           calls: [
             {
@@ -291,6 +279,9 @@ const ApprovalDialog: React.FC = () => {
         // Just approve
         await approve();
       }
+
+      // Close the dialog after successful submission
+      setOpen(false);
 
       // Refetch balances and allowance
       setTimeout(() => {
@@ -316,8 +307,9 @@ const ApprovalDialog: React.FC = () => {
     needsWrapping,
     wrapAmount,
     chainId,
-    sendCalls,
+    sendCallsAsync,
     approve,
+    setOpen,
     refetchAllowance,
     refetchNative,
     refetchWusde,
@@ -353,15 +345,15 @@ const ApprovalDialog: React.FC = () => {
               className="h-10 pr-20"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-              {tokenSymbol}
+              USDe
             </span>
           </div>
 
           {/* Account Balance Display */}
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground !mt-2">
             <span>Account Balance: </span>
             <span className="text-brand-white font-mono">
-              {effectiveBalanceDisplay} {tokenSymbol}
+              {effectiveBalanceDisplay} USDe
             </span>
           </div>
 
@@ -395,7 +387,7 @@ const ApprovalDialog: React.FC = () => {
           !hasInsufficientBalance &&
           Number(approveAmount || '0') < Number(requiredAmount) ? (
             <div className="text-[11px] text-amber-500">
-              Enter at least {requiredAmount} {tokenSymbol}
+              Enter at least {requiredAmount} USDe
             </div>
           ) : null}
 

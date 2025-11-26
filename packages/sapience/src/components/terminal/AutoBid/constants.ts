@@ -4,7 +4,7 @@ export const AUTO_BID_STORAGE_KEY = 'sapience:autoBidOrders';
 export const AUTO_BID_LOGS_KEY = 'sapience:autoBidLogs';
 
 export const LOG_SEVERITY_CLASSES: Record<AutoBidLogSeverity, string> = {
-  success: 'text-emerald-300',
+  success: 'text-emerald-500',
   warning: 'text-amber-300',
   error: 'text-rose-400',
   info: 'text-brand-white/90',

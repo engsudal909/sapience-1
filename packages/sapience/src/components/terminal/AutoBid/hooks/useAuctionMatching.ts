@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import type { Order } from '../types';
 import type { PushLogEntryParams } from './useAutoBidLogs';
 import {
@@ -64,6 +64,12 @@ export function useAuctionMatching({
   const auctionContextKeysRef = useRef<string[]>([]);
   const MAX_AUCTION_CACHE_SIZE = 200;
 
+  // Track processed bids by (orderId + auctionId + bidSignature) to avoid duplicate submissions
+  // when the same bid appears in multiple auction.bids messages
+  const processedBidsRef = useRef<Set<string>>(new Set());
+  const processedBidsQueueRef = useRef<string[]>([]);
+  const MAX_PROCESSED_BIDS_SIZE = 500;
+
   const evaluateAutoBidReadiness = useCallback(
     (details: {
       order: Order;
@@ -125,7 +131,8 @@ export function useAuctionMatching({
             balanceValue,
             highlight: statusMessage,
           },
-          dedupeKey: `balance:${dedupeBase}`,
+          // Dedupe per order + auction only (not per bid) so it shows once per auction attempt
+          dedupeKey: `balance:${details.order.id}:${details.context.auctionId ?? 'none'}`,
         });
         return { blocked: true as const, reason: 'balance' as const };
       }
@@ -137,7 +144,7 @@ export function useAuctionMatching({
           : allowanceValue <= 0;
 
       if (insufficientAllowance) {
-        const statusMessage = 'Insufficient approved spend';
+        const statusMessage = 'Insufficient spend approved';
         pushLogEntry({
           kind: 'system',
           message: `${orderTag} bid ${statusMessage}`,
@@ -149,7 +156,8 @@ export function useAuctionMatching({
             allowanceValue,
             highlight: statusMessage,
           },
-          dedupeKey: `allowance:${dedupeBase}`,
+          // Dedupe per order + auction only (not per bid) so it shows once per auction attempt
+          dedupeKey: `allowance:${details.order.id}:${details.context.auctionId ?? 'none'}`,
         });
         return { blocked: true as const, reason: 'allowance' as const };
       }
@@ -210,7 +218,7 @@ export function useAuctionMatching({
       if (!details.auctionId || !details.auctionContext) {
         pushLogEntry({
           kind: 'system',
-          message: `${tag} bid skipped: missing auction context`,
+          message: `${tag} bid skipped, missing auction context`,
           severity: 'warning',
           meta: {
             orderId: details.order.id,
@@ -246,7 +254,7 @@ export function useAuctionMatching({
       } catch {
         pushLogEntry({
           kind: 'system',
-          message: `${tag} bid skipped: invalid bid amount`,
+          message: `${tag} bid skipped, invalid bid amount`,
           severity: 'warning',
           meta: {
             orderId: details.order.id,
@@ -260,13 +268,54 @@ export function useAuctionMatching({
       if (makerWagerWei <= 0n) {
         pushLogEntry({
           kind: 'system',
-          message: `${tag} bid skipped: zero bid amount`,
+          message: `${tag} bid skipped, zero bid amount`,
           severity: 'warning',
           meta: {
             orderId: details.order.id,
             labelSnapshot: orderLabelSnapshot,
           },
           dedupeKey: `zero:${details.order.id}:${details.auctionId}`,
+        });
+        return;
+      }
+
+      // Final safety check: verify balance and allowance before signing
+      // This is a belt-and-suspenders check in case values changed between
+      // the readiness check and now
+      const bidAmountHuman = Number(formatUnits(makerWagerWei, tokenDecimals));
+
+      if (balanceValue < bidAmountHuman) {
+        const statusMessage = 'Insufficient account balance';
+        pushLogEntry({
+          kind: 'system',
+          message: `${tag} bid ${statusMessage}`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+            requiredSpend: bidAmountHuman,
+            balanceValue,
+            highlight: statusMessage,
+          },
+          dedupeKey: `balance-final:${details.order.id}:${details.auctionId}`,
+        });
+        return;
+      }
+
+      if (allowanceValue < bidAmountHuman) {
+        const statusMessage = 'Insufficient spend approved';
+        pushLogEntry({
+          kind: 'system',
+          message: `${tag} bid ${statusMessage}`,
+          severity: 'warning',
+          meta: {
+            orderId: details.order.id,
+            labelSnapshot: orderLabelSnapshot,
+            requiredSpend: bidAmountHuman,
+            allowanceValue,
+            highlight: statusMessage,
+          },
+          dedupeKey: `allowance-final:${details.order.id}:${details.auctionId}`,
         });
         return;
       }
@@ -292,14 +341,15 @@ export function useAuctionMatching({
         const totalWei = makerWagerWei + takerWagerBigInt;
         const toWinAmount = formatCollateralAmount(totalWei.toString());
 
-        if (result.success) {
-          // Log successful submission with "to win" format
-          const submittedStatus =
-            makerAmount && toWinAmount
-              ? `${makerAmount} ${collateralSymbol} to win ${toWinAmount} ${collateralSymbol}`
-              : makerAmount
-                ? `${makerAmount} ${collateralSymbol}`
-                : 'Submitted';
+        const submittedStatus =
+          makerAmount && toWinAmount
+            ? `${makerAmount} ${collateralSymbol} to win ${toWinAmount} ${collateralSymbol}`
+            : makerAmount
+              ? `${makerAmount} ${collateralSymbol}`
+              : 'Submitted';
+
+        if (result.signature) {
+          // Bid was signed and sent - log as success regardless of ack status
           pushLogEntry({
             kind: 'system',
             message: `${tag} bid ${submittedStatus}`,
@@ -315,10 +365,10 @@ export function useAuctionMatching({
             },
           });
         } else {
-          // Log failed submission
+          // Log failed submission (signature was rejected or other error)
           pushLogEntry({
             kind: 'system',
-            message: `${tag} bid failed: ${result.error || 'Unknown error'}`,
+            message: `${tag} bid ${result.error || 'Unknown error'}`,
             severity: 'error',
             meta: {
               orderId: details.order.id,
@@ -333,9 +383,7 @@ export function useAuctionMatching({
       } catch (error) {
         pushLogEntry({
           kind: 'system',
-          message: `${tag} bid error: ${
-            (error as Error)?.message || 'unknown error'
-          }`,
+          message: `${tag} bid ${(error as Error)?.message || 'Unknown error'}`,
           severity: 'error',
           meta: {
             orderId: details.order.id,
@@ -346,6 +394,8 @@ export function useAuctionMatching({
       }
     },
     [
+      allowanceValue,
+      balanceValue,
       collateralSymbol,
       formatCollateralAmount,
       getOrderIndex,
@@ -406,23 +456,58 @@ export function useAuctionMatching({
 
         const signature =
           typeof bid?.makerSignature === 'string' ? bid.makerSignature : null;
+
+        // Create a unique key for this bid to prevent duplicate submissions
+        // when the same bid appears in multiple auction.bids messages
+        const bidDedupeKey = `${matched.order.id}:${auctionId}:${signature ?? `${maker}:${bid?.makerWager ?? '0'}`}`;
+
+        // Skip if we've already processed this exact bid for this order
+        if (processedBidsRef.current.has(bidDedupeKey)) {
+          return;
+        }
+
         const tag = formatOrderTag(matched.order, null, getOrderIndex);
         const increment =
           typeof matched.order.increment === 'number' &&
           Number.isFinite(matched.order.increment)
             ? matched.order.increment
-            : null;
+            : 1;
+
+        // Calculate the full bid amount for allowance checking (copiedWager + increment)
+        // This ensures we don't prompt for signature if allowance is insufficient
+        const copiedWagerWei = BigInt(String(bid?.makerWager ?? '0'));
+        let estimatedSpend: number;
+        try {
+          const incrementWei = parseUnits(String(increment), tokenDecimals);
+          const totalWei = copiedWagerWei + incrementWei;
+          estimatedSpend = Number(formatUnits(totalWei, tokenDecimals));
+        } catch {
+          // Fallback to just increment if parsing fails
+          estimatedSpend = increment;
+        }
+
         const readiness = evaluateAutoBidReadiness({
           order: matched.order,
           context: {
             kind: 'copy_trade',
             summary: tag,
             auctionId,
-            estimatedSpend: increment,
+            estimatedSpend,
             dedupeSuffix: signature ?? maker,
           },
         });
         if (!readiness.blocked) {
+          // Mark this bid as processed BEFORE submission to prevent race conditions
+          processedBidsRef.current.add(bidDedupeKey);
+          processedBidsQueueRef.current.push(bidDedupeKey);
+          // Evict oldest entries if cache exceeds limit
+          while (
+            processedBidsQueueRef.current.length > MAX_PROCESSED_BIDS_SIZE
+          ) {
+            const oldest = processedBidsQueueRef.current.shift();
+            if (oldest) processedBidsRef.current.delete(oldest);
+          }
+
           // Fire and forget - don't await to avoid blocking the loop
           void triggerAutoBidSubmission({
             order: matched.order,
@@ -437,7 +522,13 @@ export function useAuctionMatching({
         }
       });
     },
-    [evaluateAutoBidReadiness, getOrderIndex, orders, triggerAutoBidSubmission]
+    [
+      evaluateAutoBidReadiness,
+      getOrderIndex,
+      orders,
+      tokenDecimals,
+      triggerAutoBidSubmission,
+    ]
   );
 
   const handleConditionMatches = useCallback(
@@ -508,13 +599,19 @@ export function useAuctionMatching({
           return;
         }
         const tag = formatOrderTag(order, null, getOrderIndex);
+        // For conditions strategy, the bid amount is order.increment (or default 1)
+        const estimatedSpend =
+          typeof order.increment === 'number' &&
+          Number.isFinite(order.increment)
+            ? order.increment
+            : 1;
         const readiness = evaluateAutoBidReadiness({
           order,
           context: {
             kind: 'conditions',
             summary: tag,
             auctionId,
-            estimatedSpend: null,
+            estimatedSpend,
             dedupeSuffix: matchInfo.inverted ? 'inv' : 'dir',
           },
         });

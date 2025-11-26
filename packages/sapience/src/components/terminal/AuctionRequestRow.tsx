@@ -431,18 +431,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           }
 
           if (preflightResult.blockedReason === 'insufficient_allowance') {
-            terminalLogs?.pushBidLog({
-              source: 'manual',
-              action: 'insufficient_allowance',
-              amount: data.amount,
-              collateralSymbol: collateralAssetTicker,
-              meta: {
-                requiredAmount: amountNum,
-                allowanceValue: preflightResult.details?.allowanceValue,
-                auctionId,
-              },
-              dedupeKey: `manual-allowance:${auctionId}:${Date.now()}`,
-            });
+            // Just open the approval dialog - no need to log
             openApproval(String(data.amount || ''));
             return;
           }
@@ -556,7 +545,7 @@ const AuctionRequestRow: React.FC<Props> = ({
             source: 'manual',
             action: 'error',
             meta: { auctionId },
-            customMessage: `Your bid failed: ${result.error || 'Unknown error'}`,
+            customMessage: `You bid ${result.error || 'Unknown error'}`,
           });
         }
       } catch (e) {
@@ -565,7 +554,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           source: 'manual',
           action: 'error',
           meta: { auctionId },
-          customMessage: `Your bid failed: ${e instanceof Error ? e.message : 'Unknown error'}`,
+          customMessage: `You bid ${e instanceof Error ? e.message : 'Unknown error'}`,
         });
         toast({
           title: 'Bid failed',

@@ -79,7 +79,13 @@ const OrdersList: React.FC<OrdersListProps> = ({
           <div ref={ordersScrollRef} className="h-full overflow-y-auto pr-1">
             {orders.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                Create an order to see it here.
+                <button
+                  type="button"
+                  onClick={onCreateOrder}
+                  className="gold-link"
+                >
+                  Create an order
+                </button>
               </div>
             ) : (
               <ul className="space-y-3">

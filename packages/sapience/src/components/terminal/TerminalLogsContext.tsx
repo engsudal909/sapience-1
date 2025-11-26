@@ -199,9 +199,9 @@ export function TerminalLogsProvider({
           highlight = 'Insufficient account balance';
           break;
         case 'insufficient_allowance':
-          message = `${prefix} bid Insufficient approved spend`;
+          message = `${prefix} bid Insufficient spend approved`;
           severity = 'warning';
-          highlight = 'Insufficient approved spend';
+          highlight = 'Insufficient spend approved';
           break;
         case 'ready':
           message = `${prefix} ready for bid`;
