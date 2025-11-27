@@ -303,7 +303,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           Array.isArray(predictedOutcomes) && predictedOutcomes[0]
             ? (predictedOutcomes[0] as `0x${string}`)
             : undefined;
-        const takerAddr = typeof taker === 'string' ? taker : undefined;
+        const makerAddr = typeof maker === 'string' ? maker : undefined;
         const resolverAddr =
           typeof resolver === 'string' ? resolver : undefined;
         const takerWagerWei = (() => {
@@ -328,14 +328,14 @@ const AuctionRequestRow: React.FC<Props> = ({
         }
         if (
           !encodedPredicted ||
-          !takerAddr ||
+          !makerAddr ||
           !resolverAddr ||
           takerNonceVal === undefined ||
           takerWagerWei <= 0n
         ) {
           const missing: string[] = [];
           if (!encodedPredicted) missing.push('predicted outcomes');
-          if (!takerAddr) missing.push('taker');
+          if (!makerAddr) missing.push('maker');
           if (!resolverAddr) missing.push('resolver');
           if (takerNonceVal === undefined) missing.push('maker nonce');
           if (takerWagerWei <= 0n) missing.push('taker wager');
@@ -368,10 +368,10 @@ const AuctionRequestRow: React.FC<Props> = ({
             ),
             [
               encodedPredicted,
-              makerWagerWei,
               takerWagerWei,
+              makerWagerWei,
               getAddress(resolverAddr as `0x${string}`),
-              getAddress(takerAddr),
+              getAddress(makerAddr),
               BigInt(makerDeadline),
               BigInt(takerNonceVal),
             ]
@@ -436,7 +436,7 @@ const AuctionRequestRow: React.FC<Props> = ({
           makerDeadline,
           makerNonce: takerNonceVal,
           makerSignature,
-          makerWager: makerWagerWei.toString(),
+          makerWager: takerWagerWei.toString(),
         };
 
         // Send over shared Auction WS and await ack
