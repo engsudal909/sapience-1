@@ -11,6 +11,12 @@ type Props = {
   selected: string[];
   onChange: (values: string[]) => void;
   categoryById?: Record<string, string | null | undefined>;
+  placeholder?: string;
+  triggerClassName?: string;
+  alwaysShowPlaceholder?: boolean;
+  size?: 'default' | 'compact';
+  matchTriggerWidth?: boolean;
+  closeOnSelect?: boolean;
 };
 
 const ConditionsFilter: React.FC<Props> = ({
@@ -18,6 +24,12 @@ const ConditionsFilter: React.FC<Props> = ({
   selected,
   onChange,
   categoryById,
+  placeholder = 'All Questions',
+  triggerClassName,
+  alwaysShowPlaceholder = false,
+  size = 'compact',
+  matchTriggerWidth = false,
+  closeOnSelect = false,
 }) => {
   const deferredItems = useDeferredValue(items);
   const deferredSelected = useDeferredValue(selected);
@@ -44,10 +56,15 @@ const ConditionsFilter: React.FC<Props> = ({
 
   return (
     <MultiSelect
-      placeholder="All Questions"
+      placeholder={placeholder}
       items={memoItems}
       selected={memoSelected}
       onChange={onChange}
+      className={triggerClassName}
+      alwaysShowPlaceholder={alwaysShowPlaceholder}
+      size={size}
+      matchTriggerWidth={matchTriggerWidth}
+      closeOnSelect={closeOnSelect}
       enableSearch
       emptyMessage="No predictions yet"
       renderItemContent={(item) => {

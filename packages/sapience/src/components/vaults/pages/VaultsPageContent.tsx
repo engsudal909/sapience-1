@@ -383,7 +383,7 @@ const VaultsPageContent = () => {
               !!(pendingRequest && !pendingRequest.processed) ||
               isPermitLoading ||
               isRestricted ||
-              exceedsVaultCapacity
+              (!!depositAmount && exceedsVaultCapacity)
             }
             onClick={async () => {
               if (!isConnected) {
@@ -408,12 +408,12 @@ const VaultsPageContent = () => {
                   ? 'Vault Paused'
                   : isInteractionDelayActive
                     ? 'Cooldown in progress'
-                    : quoteSignatureValid === false
-                      ? 'Waiting for Price Quote'
-                      : !pricePerShare || pricePerShare === '0'
-                        ? 'No Price Available'
-                        : exceedsVaultCapacity
-                          ? 'Exceeds Vault Capacity'
+                    : !!depositAmount && exceedsVaultCapacity
+                      ? 'Exceeds Vault Capacity'
+                      : quoteSignatureValid === false
+                        ? 'Waiting for Price Quote'
+                        : !pricePerShare || pricePerShare === '0'
+                          ? 'Cannot connect to vault'
                           : requiresApproval
                             ? 'Approve & Deposit'
                             : 'Submit Deposit'}
@@ -528,7 +528,7 @@ const VaultsPageContent = () => {
                     : isInteractionDelayActive
                       ? 'Cooldown in progress'
                       : !pricePerShare || pricePerShare === '0'
-                        ? 'No Price Available'
+                        ? 'Cannot connect to vault'
                         : 'Request Withdrawal'}
           </Button>
         </div>
@@ -624,7 +624,7 @@ const VaultsPageContent = () => {
     try {
       // Primary: on-chain utilization rate in basis points
       if (vaultData?.utilizationRate !== undefined) {
-        const pct = Number(vaultData.utilizationRate) / 100; // bps -> percent
+        const pct = Number(vaultData.utilizationRate) / 1e16;
         if (!Number.isFinite(pct)) return 0;
         return Math.max(0, Math.min(100, pct));
       }
@@ -678,9 +678,9 @@ const VaultsPageContent = () => {
 
   const utilizationDisplay = useMemo(() => {
     try {
-      return `${Math.round(utilizationPercent)}%`;
+      return `${utilizationPercent.toFixed(2)}%`;
     } catch {
-      return '0%';
+      return '0.00%';
     }
   }, [utilizationPercent]);
 

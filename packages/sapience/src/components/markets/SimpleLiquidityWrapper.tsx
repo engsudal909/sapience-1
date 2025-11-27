@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 
 import { CreateLiquidityForm, ModifyLiquidityForm } from './forms';
-import { useTokenBalance } from '~/hooks/contract';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useMarketPage } from '~/lib/context/MarketPageProvider';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
 
@@ -22,7 +22,7 @@ const SimpleLiquidityWrapper: React.FC<SimpleLiquidityWrapperProps> = ({
   positionId,
   onActionComplete,
 }) => {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { connectOrCreateWallet } = useConnectOrCreateWallet();
   const [modifyMode, setModifyMode] = useState<'add' | 'remove'>('add');
 
@@ -46,12 +46,14 @@ const SimpleLiquidityWrapper: React.FC<SimpleLiquidityWrapperProps> = ({
     refetchPositions,
   } = useMarketPage();
 
-  // Move useTokenBalance hook here
-  const { balance: walletBalance } = useTokenBalance({
-    tokenAddress: collateralAssetAddress,
+  // Move useCollateralBalance hook here
+  const { balance: walletBalanceNum } = useCollateralBalance({
+    address,
     chainId: chainId as number,
-    enabled: isConnected && !!collateralAssetAddress,
+    enabled: isConnected && !!address,
   });
+
+  const walletBalance = walletBalanceNum.toString();
 
   // Add loading/missing data check
   if (

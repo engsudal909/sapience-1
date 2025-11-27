@@ -27,7 +27,7 @@ import TradeOrderQuote from './TradeOrderQuote';
 import LottieLoader from '~/components/shared/LottieLoader';
 import { useUniswapPool } from '~/hooks/charts/useUniswapPool';
 import { useCreateTrade } from '~/hooks/contract/useCreateTrade';
-import { useTokenBalance } from '~/hooks/contract/useTokenBalance';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useTradeForm } from '~/hooks/forms/useTradeForm';
 import { HIGH_PRICE_IMPACT, TOKEN_DECIMALS } from '~/lib/constants/numbers';
 import { useMarketPage } from '~/lib/context/MarketPageProvider';
@@ -85,11 +85,13 @@ export function CreateTradeForm({
 
   const isChainMismatch = isConnected && currentChainId !== chainId;
 
-  const { balance: walletBalance } = useTokenBalance({
-    tokenAddress: collateralAssetAddress,
+  const { balance: walletBalanceNum } = useCollateralBalance({
+    address: accountAddress,
     chainId,
-    enabled: isConnected && !!collateralAssetAddress,
+    enabled: isConnected && !!accountAddress,
   });
+
+  const walletBalance = walletBalanceNum.toString();
 
   const form = useTradeForm();
   const { control, watch, handleSubmit, setValue, formState } = form;

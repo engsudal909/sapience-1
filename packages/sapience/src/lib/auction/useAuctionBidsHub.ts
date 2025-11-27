@@ -154,11 +154,18 @@ class AuctionBidsHub {
 
   private prune() {
     const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+    // Prune stale auction bid lists
     for (const [id, arr] of Array.from(this.bidsByAuctionId.entries())) {
       const latest = arr && arr.length > 0 ? arr[0] : null;
       const lastAt = Number(latest?.receivedAtMs || 0);
       if (Number.isFinite(lastAt) && lastAt > 0 && lastAt < thirtyMinAgo) {
         this.bidsByAuctionId.delete(id);
+      }
+    }
+    // Prune stale signature timestamps from receivedAtRef
+    for (const [sig, ts] of Array.from(this.receivedAtRef.entries())) {
+      if (ts < thirtyMinAgo) {
+        this.receivedAtRef.delete(sig);
       }
     }
   }

@@ -153,6 +153,17 @@ export function WagerInput({
             // This provides additional validation for cases where zodResolver isn't used
             validate: (val) => {
               if (!val) return '';
+
+              // Allow intermediate states like "." or ".5" while user is typing
+              const trimmed = val.trim();
+              if (
+                trimmed === '.' ||
+                trimmed === '-.' ||
+                /^-?\.\d*$/.test(trimmed)
+              ) {
+                return true; // Allow partial decimal input
+              }
+
               try {
                 validationSchemaRef.current.parse(val);
                 return true;
