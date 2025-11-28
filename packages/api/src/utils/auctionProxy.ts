@@ -1,6 +1,7 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import type { Request, Response } from 'express';
 import { config } from '../config';
+import http from 'http';
 
 /**
  * Get the auction service URL from environment or default to localhost
@@ -50,8 +51,6 @@ export async function proxyAuctionWebSocket(
   const url = new URL(request.url || '/auction', target);
 
   return new Promise((resolve) => {
-    const http = require('http');
-
     // Create proxy request with upgrade header
     const proxyReq = http.request({
       hostname: url.hostname,

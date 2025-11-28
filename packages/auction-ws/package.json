@@ -12,12 +12,15 @@
     "lint": "eslint src --quiet",
     "lint:fix": "eslint src --fix --quiet && pnpm format",
     "format": "prettier --write src",
-    "bot": "tsx src/botExample.ts"
+    "bot": "tsx src/botExample.ts",
+    "test:proxy": "node test-proxy.js",
+    "test:proxy:direct": "node test-proxy.js --direct"
   },
   "dependencies": {
     "@sapience/sdk": "workspace:*",
     "@sentry/node": "8.49.0",
     "dotenv": "16.4.5",
+    "envalid": "8.1.1",
     "viem": "2.21.49",
     "ws": "8.18.3"
   },
