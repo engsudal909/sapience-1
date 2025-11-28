@@ -32,14 +32,13 @@ Reindex/backfill helpers (`start:reindex-*`, `start:backfill-accuracy`) are CLIs
   - Prisma client: `prisma:generate` (auto-run in `prisma:setup` and most build scripts).
   - GraphQL types: `generate-types` (watch mode started in `dev:api`).
 - Sentry sourcemaps: production build (`build`) invokes `sentry:sourcemaps`; ensure credentials are configured before running.
-- Auction helpers (`src/auction`) connect to Discord/WS; keep secrets in environment variables when running automation.
 - Centralize environment variables in `src/config.ts` via the envalid-powered `config.*` exports. Never read from `process.env` directly in the codebase; add new vars to `config.ts` and consume them as `config.MY_ENV_VAR`.
 
 ## Folder Layout Highlights
 - `src/server.ts` – Express/Apollo entrypoint.
 - `src/workers/` – Background job runner, including `worker.ts` (market/resource indexing) and `candleCacheWorker.ts`.
-- `src/auction/` – Auction-specific logic including websocket utilities.
 - `prisma/` – Schema, migrations, seeds (`prisma/seed.ts`).
+- **Note**: Auction WebSocket service has been extracted to `packages/auction-ws` (package name: `@sapience/auction`).
 - `schema.graphql` – TypeGraphQL schema emitted for reference; do not edit manually.
 - `codegen.ts` – GraphQL Code Generator configuration.
 

@@ -1,4 +1,20 @@
-# Auction WebSocket API Documentation
+# Auction WebSocket Service
+
+## Overview
+
+The Auction WebSocket API enables real-time communication between takers and makers, facilitated by a relayer, for creating and managing prediction market auctions using the `PredictionMarket.sol` contract. Takers create auctions with their wagers and predictions, makers submit competitive bids, and the relayer facilitates the matching process by validating signatures and broadcasting auction data. The system supports a mint-based flow where positions (represented as NFTs) are created immediately when both parties provide valid signatures.
+
+## Quick Start
+
+```bash
+# Development
+pnpm dev:auction
+
+# Production
+pnpm --filter @sapience/auction-ws start
+```
+
+## API Documentation
 
 ## Overview
 
@@ -227,3 +243,22 @@ The system includes a reference maker implementation (`botExample.ts`) that:
 ## Error Handling
 
 All errors are returned in the `bid.ack` message with descriptive error codes. Takers and makers should implement proper error handling and retry logic for transient failures.
+
+## Running the Service
+
+```bash
+# Development
+pnpm --filter @sapience/auction run dev
+
+# Production
+pnpm --filter @sapience/auction run start
+```
+
+## Environment Variables
+
+- `PORT`: Server port (default: 3002)
+- `ENABLE_AUCTION_WS`: Enable auction WebSocket (default: true)
+- `NODE_ENV`: Environment (development/production/test)
+- `INFURA_API_KEY`: Optional Infura API key for blockchain RPC
+- `RPC_URL`: Optional custom RPC URL for specific chains
+

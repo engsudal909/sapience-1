@@ -9,3 +9,4 @@ export async function relayRawSignedTx(
   const fakeHash = `0x${'deadbeef'.padEnd(64, '0')}` as HexString;
   return { txHash: fakeHash };
 }
+

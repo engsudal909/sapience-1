@@ -75,3 +75,4 @@ export type ServerToClientMessage =
       type: 'auction.started';
       payload: AuctionRequestPayload & { auctionId: string };
     };
+

@@ -1,15 +1,15 @@
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
 import type { IncomingMessage } from 'http';
 import { verifyMessage, type Abi } from 'viem';
-import { getProviderForChain } from '../utils/utils';
+import { getProviderForChain } from './utils/getProviderForChain';
 import { addBid, getBids, upsertAuction, getAuction } from './registry';
 import { basicValidateBid } from './sim';
 import { verifyMakerBidStrict } from './helpers';
 import {
   PREDICTION_MARKET_ADDRESS_ARB1,
   PREDICTION_MARKET_CHAIN_ID_ARB1,
-} from '../constants';
-import Sentry from '../instrument';
+} from './constants';
+import Sentry from './instrument';
 import type {
   BotToServerMessage,
   ClientToServerMessage,
@@ -283,26 +283,7 @@ export function createAuctionWebSocketServer() {
     let rateResetAt = Date.now() + RATE_LIMIT_WINDOW_MS;
 
     ws.on('message', async (data: RawData) => {
-      // Parse message early to check for ping (keepalive messages excluded from rate limiting)
-      const msg = safeParse<
-        ClientToServerMessage | BotToServerMessage | { type?: string }
-      >(data);
-
-      // Handle ping/pong keepalive (excluded from rate limiting and size checks)
-      if (
-        msg &&
-        typeof msg === 'object' &&
-        (msg as { type?: string })?.type === 'ping'
-      ) {
-        try {
-          ws.send(JSON.stringify({ type: 'pong' }));
-        } catch (err) {
-          console.error('[Auction-WS] Failed to send pong:', err);
-        }
-        return;
-      }
-
-      // basic rate limiting and size guard (applies to all non-ping messages)
+      // basic rate limiting and size guard
       const now = Date.now();
       if (now > rateResetAt) {
         rateCount = 0;
@@ -340,7 +321,9 @@ export function createAuctionWebSocketServer() {
         }
         return;
       }
-
+      const msg = safeParse<
+        ClientToServerMessage | BotToServerMessage | { type?: string }
+      >(data);
       if (!msg || typeof msg !== 'object') {
         console.warn(`[Auction-WS] Invalid JSON from ${ip}`);
         return;
@@ -778,3 +761,4 @@ export function createAuctionWebSocketServer() {
 
   return wss;
 }
+

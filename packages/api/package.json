@@ -50,8 +50,7 @@
     "prisma:reset": "prisma migrate reset",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
-    "auction:bot": "tsx src/auction/botExample.ts"
+    "db:seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "dependencies": {
@@ -89,7 +88,8 @@
     "typescript": "5.8.3",
     "viem": "2.21.49",
     "ws": "8.18.3",
-    "zod": "3.23.6"
+    "zod": "3.23.6",
+    "http-proxy-middleware": "^3.0.3"
   },
   "devDependencies": {
     "@eslint/js": "9.18.0",

@@ -47,3 +47,18 @@ services:
         fromDatabase:
           name: database
           property: connectionString
+
+  - name: auction-ws
+    type: web
+    env: node
+    plan: standard
+    buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
+    startCommand: pnpm --filter @sapience/auction start
+    autoDeploy: true
+    repo: https://github.com/sapiencexyz/sapience
+    branch: main
+    envVars:
+      - key: PORT
+        value: "3002"
+      - key: ENABLE_AUCTION_WS
+        value: "true"

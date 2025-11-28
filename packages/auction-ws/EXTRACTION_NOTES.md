@@ -1,0 +1,117 @@
+# Auction WebSocket Service Extraction Notes
+
+## Summary
+
+The auction WebSocket service has been successfully extracted from `packages/api` into a standalone package at `packages/auction-ws`. The service is now independent and can be deployed separately.
+
+## What Changed
+
+### New Package Structure
+- **Location**: `packages/auction-ws/`
+- **Package Name**: `@sapience/auction-ws`
+- **Port**: Defaults to `3002` (configurable via `PORT` env var)
+- **Endpoint**: WebSocket at `ws://localhost:3002/auction`
+
+### Removed from API Package
+- Auction WebSocket server integration removed from `packages/api/src/server.ts`
+- Auction code still exists in `packages/api/src/auction/` but is no longer used
+  - **Note**: You can safely delete `packages/api/src/auction/` folder after verifying the extraction works
+
+### Dependencies Extracted
+- `getProviderForChain` utility moved to `packages/auction/src/utils/getProviderForChain.ts`
+- Constants moved to `packages/auction/src/constants.ts`
+- Sentry integration moved to `packages/auction/src/instrument.ts`
+- Config moved to `packages/auction/src/config.ts`
+
+## Running the Service
+
+### Development
+```bash
+# From repo root
+pnpm dev:auction
+
+# Or from auction package
+pnpm --filter @sapience/auction run dev
+```
+
+### Production
+```bash
+pnpm --filter @sapience/auction run start
+```
+
+## Frontend Integration
+
+The frontend currently constructs the auction WebSocket URL from the API base URL. You have several options:
+
+### Option 1: Reverse Proxy (Recommended)
+Use nginx or another reverse proxy to route `/auction` requests to the auction service:
+
+```nginx
+location /auction {
+    proxy_pass http://localhost:3002;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+}
+```
+
+This allows the frontend to continue using the same URL pattern (`ws://api.example.com/auction`).
+
+### Option 2: Update Frontend Configuration
+Update the frontend to use a separate auction service URL. Modify:
+- `packages/sapience/src/lib/ws.ts` - `toAuctionWsUrl` function
+- Environment variables for auction service URL
+
+### Option 3: Same Port, Different Service
+Run both services behind a load balancer that routes based on path:
+- `/graphql`, `/chat` → API service (port 3001)
+- `/auction` → Auction service (port 3002)
+
+## Environment Variables
+
+The auction service uses these environment variables:
+- `PORT`: Server port (default: 3002)
+- `ENABLE_AUCTION_WS`: Enable WebSocket (default: true)
+- `NODE_ENV`: Environment (development/production/test)
+- `INFURA_API_KEY`: Optional Infura API key for blockchain RPC
+- `RPC_URL`: Optional custom RPC URL for specific chains
+
+## Testing
+
+1. Start the auction service:
+   ```bash
+   pnpm dev:auction
+   ```
+
+2. Test WebSocket connection:
+   ```bash
+   # In another terminal
+   pnpm --filter @sapience/auction run bot
+   ```
+
+3. Verify the service is running:
+   - Check console for: `Auction service is running on port 3002`
+   - Check console for: `Auction WebSocket endpoint at ws://localhost:3002/auction`
+
+## Next Steps
+
+1. **Delete old auction folder** (after verification):
+   ```bash
+   rm -rf packages/api/src/auction
+   ```
+
+2. **Set up reverse proxy** (if using Option 1) to route `/auction` to the new service
+
+3. **Update deployment configuration** (e.g., `render.yaml`) to include the auction service
+
+4. **Update documentation** to reflect the new service architecture
+
+## Bot Example
+
+The bot example has been updated to use `FOIL_AUCTION_BASE` environment variable instead of `FOIL_API_BASE`:
+
+```bash
+FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/auction run bot
+```
+

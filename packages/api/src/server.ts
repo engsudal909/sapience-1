@@ -4,7 +4,6 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { createLoaders } from './graphql/loaders';
 import { app } from './app';
 import { createServer } from 'http';
-import { createAuctionWebSocketServer } from './auction/ws';
 import { createChatWebSocketServer } from './websocket/chat';
 import type { IncomingMessage } from 'http';
 import type { Socket } from 'net';
@@ -16,6 +15,10 @@ import { initializeFixtures } from './fixtures';
 import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
 import { config } from './config';
+import {
+  createAuctionProxyMiddleware,
+  proxyAuctionWebSocket,
+} from './utils/auctionProxy';
 
 const PORT = 3001;
 
@@ -48,16 +51,21 @@ const startServer = async () => {
 
   handleMcpAppRequests(app, '/mcp');
 
+  // Proxy /auction HTTP requests to auction service
+  const auctionProxyEnabled = process.env.ENABLE_AUCTION_PROXY !== 'false';
+  if (auctionProxyEnabled) {
+    app.use('/auction', createAuctionProxyMiddleware());
+    console.log('Auction proxy enabled: /auction -> auction service');
+  }
+
   const httpServer = createServer(app);
 
-  // Create WebSocket servers (noServer mode) and route upgrades centrally
-  const auctionWsEnabled = process.env.ENABLE_AUCTION_WS !== 'false';
-  const auctionWss = auctionWsEnabled ? createAuctionWebSocketServer() : null;
+  // Create WebSocket server and route upgrades centrally
   const chatWss = createChatWebSocketServer();
 
   httpServer.on(
     'upgrade',
-    (request: IncomingMessage, socket: Socket, head: Buffer) => {
+    async (request: IncomingMessage, socket: Socket, head: Buffer) => {
       try {
         const url = request.url || '/';
         // Origin validation for prod if configured
@@ -79,21 +87,22 @@ const startServer = async () => {
             return;
           }
         }
-        if (auctionWsEnabled && url.startsWith('/auction') && auctionWss) {
-          auctionWss.handleUpgrade(request, socket, head, (ws) => {
-            auctionWss.emit('connection', ws, request);
-          });
-          return;
-        }
         if (url.startsWith('/chat')) {
           chatWss.handleUpgrade(request, socket, head, (ws) => {
             chatWss.emit('connection', ws, request);
           });
           return;
         }
-        // Deprecated: /vault-quotes is no longer used; multiplexed on /auction
-      } catch {
-        /* ignore */
+        // Proxy /auction WebSocket upgrades to auction service
+        if (auctionProxyEnabled && url.startsWith('/auction')) {
+          const proxied = await proxyAuctionWebSocket(request, socket, head);
+          if (proxied) {
+            return;
+          }
+          // If proxy failed, fall through to destroy socket
+        }
+      } catch (err) {
+        console.error('[Server] Upgrade handler error:', err);
       }
       // If not handled, destroy the socket
       try {
@@ -107,8 +116,10 @@ const startServer = async () => {
   httpServer.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`GraphQL endpoint available at /graphql`);
-    if (auctionWsEnabled) console.log(`Auction WebSocket endpoint at /auction`);
     console.log(`Chat WebSocket endpoint at /chat`);
+    if (auctionProxyEnabled) {
+      console.log(`Auction WebSocket endpoint proxied at /auction`);
+    }
   });
 
   // Only set up Sentry error handling in production
