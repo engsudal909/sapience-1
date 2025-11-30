@@ -15,6 +15,7 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSessionKey } from '~/lib/context/SessionKeyContext';
 
 export type BidSubmissionParams = {
   auctionId: string;
@@ -79,6 +80,18 @@ export function useBidSubmission(
   const { signTypedDataAsync } = useSignTypedData();
   const chainId = useChainIdFromLocalStorage();
   const { apiBaseUrl } = useSettings();
+
+  // Session key support for automated signing
+  const {
+    isSessionModeEnabled,
+    hasValidSession,
+    isZeroDevMode,
+    getZeroDevSessionClient,
+    smartAccountAddress,
+  } = useSessionKey();
+
+  // Determine if we should use session signing
+  const shouldUseSessionKey = isSessionModeEnabled && hasValidSession;
 
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
 
@@ -203,23 +216,54 @@ export function useBidSubmission(
         ],
       } as const;
 
+      // For ZeroDev smart accounts, the owner is the smart account address
+      // For regular wallets, the owner is the EOA address
+      const ownerAddress = isZeroDevMode && smartAccountAddress
+        ? smartAccountAddress
+        : getAddress(address);
+
       const message = {
         messageHash: innerMessageHash,
-        owner: getAddress(address),
+        owner: ownerAddress,
       } as const;
 
-      // Sign typed data via wagmi/viem
+      // Sign typed data - use ZeroDev session client if available, otherwise prompt wallet
       let makerSignature: `0x${string}`;
       try {
-        makerSignature = await signTypedDataAsync({
-          domain,
-          types,
-          primaryType: 'Approve',
-          message,
-        });
-      } catch (e: any) {
+        if (shouldUseSessionKey && isZeroDevMode) {
+          // Use ZeroDev session client for automatic signing
+          // This produces ERC-1271 compatible signatures
+          const sessionClient = await getZeroDevSessionClient();
+          if (!sessionClient) {
+            // Fall back to wallet signing if session client not available
+            makerSignature = await signTypedDataAsync({
+              domain,
+              types,
+              primaryType: 'Approve',
+              message,
+            });
+          } else {
+            // Sign with the session key via the smart account
+            // The smart account wraps the signature for ERC-1271 verification
+            makerSignature = await sessionClient.signTypedData({
+              domain,
+              types,
+              primaryType: 'Approve',
+              message,
+            });
+          }
+        } else {
+          // Use wallet for signing (requires user approval)
+          makerSignature = await signTypedDataAsync({
+            domain,
+            types,
+            primaryType: 'Approve',
+            message,
+          });
+        }
+      } catch (e: unknown) {
         const error =
-          e instanceof Error ? e : new Error(String(e?.message || e));
+          e instanceof Error ? e : new Error(String((e as { message?: string })?.message || e));
         onSignatureRejected?.(error);
         return {
           success: false,
@@ -232,9 +276,10 @@ export function useBidSubmission(
       }
 
       // Build bid payload
+      // For ZeroDev, the maker address is the smart account address
       const payload = {
         auctionId,
-        maker: address,
+        maker: ownerAddress,
         makerDeadline,
         makerNonce: takerNonce,
         makerSignature,
@@ -266,6 +311,10 @@ export function useBidSubmission(
       wsUrl,
       signTypedDataAsync,
       onSignatureRejected,
+      shouldUseSessionKey,
+      isZeroDevMode,
+      getZeroDevSessionClient,
+      smartAccountAddress,
     ]
   );
 

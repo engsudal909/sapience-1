@@ -81,3 +81,5 @@ export function useWalletDiscovery(): UseWalletDiscoveryResult {
 
   return { discoveredWallets, isDiscovering };
 }
+
+

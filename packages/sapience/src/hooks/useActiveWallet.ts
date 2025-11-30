@@ -77,3 +77,5 @@ export function useActiveWallet(): ActiveWalletInfo {
     };
   }, [address, isConnected, authenticated, ready, wallets, connector]);
 }
+
+

@@ -18,6 +18,7 @@ import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
 import { getPublicClientForChainId } from '~/lib/utils/util';
+import { useShouldUseSessionKey } from '~/lib/context/SessionKeyContext';
 
 // Ethereal chain configuration
 const CHAIN_ID_ETHEREAL = 5064014;
@@ -84,6 +85,11 @@ export function useSapienceWriteContract({
     return match;
   }, [wallets]);
   const isEmbeddedWallet = Boolean(embeddedWallet);
+
+  // Check if session key signing should be used
+  // When enabled, transactions are signed using a stored session key
+  // instead of prompting the user for each signature
+  const shouldUseSessionKey = useShouldUseSessionKey();
 
   // Helper to check if we're on Ethereal chain
   const isEtherealChain = useCallback((chainId: number) => {

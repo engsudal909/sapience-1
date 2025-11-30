@@ -19,13 +19,14 @@ import {
   TabsContent,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
-import { Monitor, Key, Share2, Bot } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Monitor, Key, Share2, Bot, Clock, ShieldCheck, ShieldX, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useChat } from '~/lib/context/ChatContext';
 import { useSettings } from '~/lib/context/SettingsContext';
+import { useSessionKey } from '~/lib/context/SessionKeyContext';
 import LottieLoader from '~/components/shared/LottieLoader';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
@@ -216,9 +217,74 @@ const SettingsPageContent = () => {
     (activeWallet as any)?.walletClientType === 'privy'
   );
   const { hasConnectedWallet } = useConnectedWallet();
+  
+  // Session key management
+  const {
+    hasValidSession,
+    expiresAt: sessionExpiresAt,
+    sessionAccount,
+    createSession,
+    revokeSession,
+    refreshSession,
+    isZeroDevMode,
+    smartAccountAddress,
+    isZeroDevSupported,
+    isCreating: isCreatingSession,
+    error: sessionContextError,
+  } = useSessionKey();
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  
+  // Combine context error with local error
+  const displaySessionError = sessionError || sessionContextError;
 
   // Validation hints handled within SettingField to avoid parent re-renders breaking focus
   const [hydrated, setHydrated] = useState(false);
+
+  // Handle session creation
+  const handleCreateSession = useCallback(async () => {
+    if (!hasConnectedWallet) {
+      setSessionError('Please connect a wallet first');
+      return;
+    }
+    setSessionError(null);
+    try {
+      const result = await createSession();
+      if (!result.success) {
+        setSessionError(result.error || 'Failed to create session');
+      }
+    } catch (err) {
+      setSessionError(err instanceof Error ? err.message : 'Failed to create session');
+    }
+  }, [createSession, hasConnectedWallet]);
+
+  // Handle session revocation
+  const handleRevokeSession = useCallback(() => {
+    revokeSession();
+    setSessionError(null);
+  }, [revokeSession]);
+
+  // Format session expiry for display
+  const formatSessionExpiry = useCallback((expiresAt: number | null): string => {
+    if (!expiresAt) return '';
+    const now = Date.now();
+    const remaining = expiresAt - now;
+    if (remaining <= 0) return 'Expired';
+    
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m remaining`;
+    }
+    return `${minutes}m remaining`;
+  }, []);
+
+  // Refresh session when session mode changes
+  useEffect(() => {
+    if (mounted) {
+      refreshSession();
+    }
+  }, [sessionMode, mounted, refreshSession]);
 
   // Initialize selectedChain from localStorage on mount
   useEffect(() => {
@@ -464,35 +530,138 @@ const SettingsPageContent = () => {
                     </div>
 
                     {sessionMode === 'periodically' ? (
-                      <div className="grid gap-2">
-                        <Label htmlFor="session-length">Session Duration</Label>
-                        <div className="flex w-fit">
-                          <Input
-                            id="session-length"
-                            type="number"
-                            min={1}
-                            value={sessionLengthHours}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              if (!Number.isNaN(val) && val > 0) {
-                                setSessionLengthHours(val);
-                                try {
-                                  window.localStorage.setItem(
-                                    SESSION_LENGTH_STORAGE_KEY,
-                                    String(val)
-                                  );
-                                } catch {
-                                  // no-op
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="session-length">Session Duration</Label>
+                          <div className="flex w-fit">
+                            <Input
+                              id="session-length"
+                              type="number"
+                              min={1}
+                              value={sessionLengthHours}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!Number.isNaN(val) && val > 0) {
+                                  setSessionLengthHours(val);
+                                  try {
+                                    window.localStorage.setItem(
+                                      SESSION_LENGTH_STORAGE_KEY,
+                                      String(val)
+                                    );
+                                  } catch {
+                                    // no-op
+                                  }
                                 }
-                              }
-                            }}
-                            className="w-[100px] rounded-r-none border-r-0"
-                          />
-                          <span className="inline-flex items-center h-10 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-sm text-muted-foreground whitespace-nowrap">
-                            hours
-                          </span>
+                              }}
+                              className="w-[100px] rounded-r-none border-r-0"
+                            />
+                            <span className="inline-flex items-center h-10 rounded-md rounded-l-none border border-input border-l-0 bg-muted/30 px-3 text-sm text-muted-foreground whitespace-nowrap">
+                              hours
+                            </span>
+                          </div>
                         </div>
-                      </div>
+
+                        {/* Session Mode Indicator */}
+                        {isZeroDevSupported ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-purple-500/10 border border-purple-500/30">
+                            <Sparkles className="h-4 w-4 text-purple-500" />
+                            <span className="text-sm text-purple-500 font-medium">
+                              Smart Account Mode
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ERC-1271 compatible signatures
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30">
+                            <ShieldX className="h-4 w-4 text-yellow-500" />
+                            <span className="text-sm text-yellow-500 font-medium">
+                              Local Mode
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              Configure NEXT_PUBLIC_ZERODEV_PROJECT_ID for smart accounts
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Session Status and Management */}
+                        <div className="grid gap-2">
+                          <Label>Session Status</Label>
+                          <div className="flex items-center gap-3">
+                            {hasValidSession ? (
+                              <>
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-green-500/10 border border-green-500/30">
+                                  <ShieldCheck className="h-4 w-4 text-green-500" />
+                                  <span className="text-sm text-green-500 font-medium">
+                                    Active
+                                  </span>
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {formatSessionExpiry(sessionExpiresAt)}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleRevokeSession}
+                                  className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                                >
+                                  <ShieldX className="h-4 w-4 mr-1" />
+                                  Revoke
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 border border-border">
+                                  <ShieldX className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm text-muted-foreground">
+                                    No active session
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={handleCreateSession}
+                                  disabled={isCreatingSession || !hasConnectedWallet}
+                                >
+                                  {isCreatingSession ? (
+                                    <>
+                                      <LottieLoader width={16} height={16} />
+                                      <span className="ml-2">Creating...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShieldCheck className="h-4 w-4 mr-1" />
+                                      Create Session
+                                    </>
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {displaySessionError ? (
+                            <p className="text-xs text-red-500">{displaySessionError}</p>
+                          ) : null}
+                          {hasValidSession && isZeroDevMode && smartAccountAddress ? (
+                            <p className="text-xs text-muted-foreground font-mono">
+                              Smart account: {smartAccountAddress.slice(0, 6)}...{smartAccountAddress.slice(-4)}
+                            </p>
+                          ) : hasValidSession && sessionAccount ? (
+                            <p className="text-xs text-muted-foreground font-mono">
+                              Session key: {sessionAccount.address.slice(0, 6)}...{sessionAccount.address.slice(-4)}
+                            </p>
+                          ) : null}
+                          <p className="text-xs text-muted-foreground">
+                            {hasValidSession
+                              ? isZeroDevMode
+                                ? 'Bids will be signed automatically using your smart account session key. Signatures are ERC-1271 compatible.'
+                                : 'Bids will be signed automatically using your authorized session key.'
+                              : isZeroDevSupported
+                                ? 'Create a session to authorize automatic bid signing via your smart account.'
+                                : 'Create a session to authorize automatic bid signing. Note: Local mode signatures may not work with on-chain verification.'}
+                          </p>
+                        </div>
+                      </>
                     ) : null}
 
                     <div className="grid gap-2">
