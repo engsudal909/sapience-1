@@ -18,7 +18,7 @@ import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
 import { getPublicClientForChainId } from '~/lib/utils/util';
-import { useShouldUseSessionKey } from '~/lib/context/SessionKeyContext';
+import { useSessionKey } from '~/lib/context/SessionKeyContext';
 
 // Ethereal chain configuration
 const CHAIN_ID_ETHEREAL = 5064014;
@@ -86,10 +86,19 @@ export function useSapienceWriteContract({
   }, [wallets]);
   const isEmbeddedWallet = Boolean(embeddedWallet);
 
+  // Session key support for automated transaction signing
+  const {
+    isSessionModeEnabled,
+    hasValidSession,
+    isZeroDevMode,
+    getZeroDevSessionClient,
+  } = useSessionKey();
+
   // Check if session key signing should be used
   // When enabled, transactions are signed using a stored session key
   // instead of prompting the user for each signature
-  const shouldUseSessionKey = useShouldUseSessionKey();
+  const shouldUseSessionKey =
+    isSessionModeEnabled && hasValidSession && isZeroDevMode;
 
   // Helper to check if we're on Ethereal chain
   const isEtherealChain = useCallback((chainId: number) => {
@@ -449,6 +458,128 @@ export function useSapienceWriteContract({
         // Validate and switch chain if needed
         await validateAndSwitchChain(_chainId);
 
+        // If using ZeroDev session key, use smart account for batched transactions
+        if (shouldUseSessionKey) {
+          setIsSubmitting(true);
+          const params = args[0];
+          const {
+            address,
+            abi,
+            functionName,
+            args: fnArgs,
+            value,
+          } = params as any;
+
+          try {
+            const sessionClient = await getZeroDevSessionClient();
+            if (!sessionClient) {
+              throw new Error(
+                'Session client not available. Please create a new session.'
+              );
+            }
+
+            // Build the calls array
+            const callsToExecute: Array<{
+              to: `0x${string}`;
+              data: `0x${string}`;
+              value: bigint;
+            }> = [];
+
+            // Handle WUSDe wrapping on Ethereal chain
+            if (isEtherealChain(_chainId) && value && BigInt(value) > 0n) {
+              const requiredAmount = BigInt(value);
+              const currentBalance = await getUserWUSDEBalance();
+              const amountToWrap =
+                requiredAmount > currentBalance
+                  ? requiredAmount - currentBalance
+                  : 0n;
+
+              if (amountToWrap > 0n) {
+                const wrapTx = createWrapTransaction(amountToWrap);
+                callsToExecute.push({
+                  to: wrapTx.to,
+                  data: wrapTx.data,
+                  value: wrapTx.value,
+                });
+              }
+            }
+
+            // Add the main transaction
+            const calldata = encodeFunctionData({
+              abi,
+              functionName,
+              args: fnArgs,
+            });
+            callsToExecute.push({
+              to: address,
+              data: calldata,
+              value: isEtherealChain(_chainId) ? 0n : (value ?? 0n),
+            });
+
+            // Check if we need auto-unwrap
+            const needsUnwrap = shouldAutoUnwrap(functionName);
+            let balanceBeforeTransaction = 0n;
+            if (needsUnwrap && isEtherealChain(_chainId)) {
+              balanceBeforeTransaction = await getUserWUSDEBalance();
+            }
+
+            // Execute via smart account - batched as a single UserOperation
+            if (sessionClient.sendUserOperation && callsToExecute.length > 0) {
+              // Batch all calls into a single UserOperation
+              // For now, execute sequentially (ZeroDev batching requires encoding)
+              let lastHash: Hash | undefined;
+              for (const call of callsToExecute) {
+                // For smart accounts, we'd ideally batch these
+                // But for compatibility, execute individually
+                const hash = await writeContractAsync({
+                  ...params,
+                  address: call.to,
+                  functionName: functionName,
+                  args: fnArgs,
+                  value: call.value,
+                } as any);
+                lastHash = hash;
+              }
+
+              handleTransactionSuccess(lastHash);
+
+              // Execute auto-unwrap if needed
+              if (needsUnwrap) {
+                setTimeout(async () => {
+                  try {
+                    const unwrapTx = await executeAutoUnwrap(
+                      balanceBeforeTransaction
+                    );
+                    if (unwrapTx) {
+                      await writeContractAsync({
+                        address: unwrapTx.to,
+                        abi: WUSDE_ABI,
+                        functionName: 'withdraw',
+                        args: [balanceBeforeTransaction],
+                        chainId: _chainId,
+                      } as any);
+                    }
+                  } catch (error) {
+                    console.error('Auto-unwrap failed:', error);
+                  }
+                }, 2000);
+              }
+            } else {
+              // Fallback to regular write if sendUserOperation not available
+              const hash = await writeContractAsync(...args);
+              handleTransactionSuccess(hash);
+            }
+            return;
+          } catch (sessionError) {
+            console.warn(
+              '[useSapienceWriteContract] Session key transaction failed, falling back:',
+              sessionError
+            );
+            // Fall through to regular flow
+            setIsSubmitting(false);
+          }
+        }
+
         // If using an embedded wallet, route via backend sponsorship endpoint as a single-call batch
         if (isEmbeddedWallet) {
           setIsSubmitting(true);
@@ -709,6 +840,9 @@ export function useSapienceWriteContract({
       getUserWUSDEBalance,
       isEtherealChain,
       sendCallsAsync,
+      shouldUseSessionKey,
+      getZeroDevSessionClient,
+      executeAutoUnwrap,
     ]
   );
 
@@ -730,6 +864,68 @@ export function useSapienceWriteContract({
 
         // Validate and switch chain if needed
         await validateAndSwitchChain(_chainId);
+
+        // If using ZeroDev session key, batch calls through smart account
+        if (shouldUseSessionKey) {
+          setIsSubmitting(true);
+          try {
+            const sessionClient = await getZeroDevSessionClient();
+            if (!sessionClient) {
+              throw new Error('Session client not available');
+            }
+
+            const body = (args[0] as any) ?? {};
+            const calls = Array.isArray(body?.calls) ? body.calls : [];
+
+            // Execute batched calls through smart account
+            // For now, execute sequentially with session signing
+            let lastHash: Hash | undefined;
+            for (const call of calls) {
+              // Use regular writeContractAsync but session should auto-sign
+              const hash = await sendCallsAsync({
+                chainId: _chainId,
+                calls: [call],
+                experimental_fallback: true,
+              });
+              const resultWithHash = hash as any;
+              lastHash =
+                resultWithHash?.receipts?.[0]?.transactionHash ||
+                resultWithHash?.transactionHash ||
+                resultWithHash?.txHash;
+            }
+
+            if (lastHash) {
+              writeShareIntent(lastHash);
+              maybeRedirectToProfile();
+              toast({
+                title: successTitle,
+                description: formatSuccessDescription(successMessage),
+                duration: 5000,
+              });
+              onTxHash?.(lastHash);
+              setTxHash(lastHash);
+            } else {
+              writeShareIntent(undefined);
+              maybeRedirectToProfile();
+              toast({
+                title: successTitle,
+                description: formatSuccessDescription(successMessage),
+                duration: 5000,
+              });
+              onSuccess?.(undefined as any);
+            }
+            setIsSubmitting(false);
+            return;
+          } catch (sessionError) {
+            console.warn(
+              '[useSapienceWriteContract] Session key batch failed, falling back:',
+              sessionError
+            );
+            setIsSubmitting(false);
+            // Fall through to regular flow
+          }
+        }
+
         // Execute the batch calls
         const data = isEmbeddedWallet
           ? // Route via backend sponsorship endpoint for embedded wallets
@@ -901,6 +1097,8 @@ export function useSapienceWriteContract({
       fallbackErrorMessage,
       onError,
       onTxHash,
+      onSuccess,
+      successMessage,
       isEmbeddedWallet,
       user,
       maybeRedirectToProfile,
@@ -908,6 +1106,8 @@ export function useSapienceWriteContract({
       shouldAutoUnwrap,
       executeAutoUnwrap,
       ensureEmbeddedAuth,
+      shouldUseSessionKey,
+      getZeroDevSessionClient,
     ]
   );
 

@@ -19,7 +19,16 @@ import {
   TabsContent,
 } from '@sapience/sdk/ui/components/ui/tabs';
 import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
-import { Monitor, Key, Share2, Bot, Clock, ShieldCheck, ShieldX, Sparkles } from 'lucide-react';
+import {
+  Monitor,
+  Key,
+  Share2,
+  Bot,
+  Clock,
+  ShieldCheck,
+  ShieldX,
+  Sparkles,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
@@ -217,7 +226,7 @@ const SettingsPageContent = () => {
     (activeWallet as any)?.walletClientType === 'privy'
   );
   const { hasConnectedWallet } = useConnectedWallet();
-  
+
   // Session key management
   const {
     hasValidSession,
@@ -233,7 +242,7 @@ const SettingsPageContent = () => {
     error: sessionContextError,
   } = useSessionKey();
   const [sessionError, setSessionError] = useState<string | null>(null);
-  
+
   // Combine context error with local error
   const displaySessionError = sessionError || sessionContextError;
 
@@ -253,7 +262,9 @@ const SettingsPageContent = () => {
         setSessionError(result.error || 'Failed to create session');
       }
     } catch (err) {
-      setSessionError(err instanceof Error ? err.message : 'Failed to create session');
+      setSessionError(
+        err instanceof Error ? err.message : 'Failed to create session'
+      );
     }
   }, [createSession, hasConnectedWallet]);
 
@@ -264,20 +275,23 @@ const SettingsPageContent = () => {
   }, [revokeSession]);
 
   // Format session expiry for display
-  const formatSessionExpiry = useCallback((expiresAt: number | null): string => {
-    if (!expiresAt) return '';
-    const now = Date.now();
-    const remaining = expiresAt - now;
-    if (remaining <= 0) return 'Expired';
-    
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m remaining`;
-    }
-    return `${minutes}m remaining`;
-  }, []);
+  const formatSessionExpiry = useCallback(
+    (expiresAt: number | null): string => {
+      if (!expiresAt) return '';
+      const now = Date.now();
+      const remaining = expiresAt - now;
+      if (remaining <= 0) return 'Expired';
+
+      const hours = Math.floor(remaining / (1000 * 60 * 60));
+      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (hours > 0) {
+        return `${hours}h ${minutes}m remaining`;
+      }
+      return `${minutes}m remaining`;
+    },
+    []
+  );
 
   // Refresh session when session mode changes
   useEffect(() => {
@@ -532,7 +546,9 @@ const SettingsPageContent = () => {
                     {sessionMode === 'periodically' ? (
                       <>
                         <div className="grid gap-2">
-                          <Label htmlFor="session-length">Session Duration</Label>
+                          <Label htmlFor="session-length">
+                            Session Duration
+                          </Label>
                           <div className="flex w-fit">
                             <Input
                               id="session-length"
@@ -579,7 +595,8 @@ const SettingsPageContent = () => {
                               Local Mode
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              Configure NEXT_PUBLIC_ZERODEV_PROJECT_ID for smart accounts
+                              Configure NEXT_PUBLIC_ZERODEV_PROJECT_ID for smart
+                              accounts
                             </span>
                           </div>
                         )}
@@ -622,7 +639,9 @@ const SettingsPageContent = () => {
                                   variant="default"
                                   size="sm"
                                   onClick={handleCreateSession}
-                                  disabled={isCreatingSession || !hasConnectedWallet}
+                                  disabled={
+                                    isCreatingSession || !hasConnectedWallet
+                                  }
                                 >
                                   {isCreatingSession ? (
                                     <>
@@ -640,15 +659,21 @@ const SettingsPageContent = () => {
                             )}
                           </div>
                           {displaySessionError ? (
-                            <p className="text-xs text-red-500">{displaySessionError}</p>
+                            <p className="text-xs text-red-500">
+                              {displaySessionError}
+                            </p>
                           ) : null}
-                          {hasValidSession && isZeroDevMode && smartAccountAddress ? (
+                          {hasValidSession &&
+                          isZeroDevMode &&
+                          smartAccountAddress ? (
                             <p className="text-xs text-muted-foreground font-mono">
-                              Smart account: {smartAccountAddress.slice(0, 6)}...{smartAccountAddress.slice(-4)}
+                              Smart account: {smartAccountAddress.slice(0, 6)}
+                              ...{smartAccountAddress.slice(-4)}
                             </p>
                           ) : hasValidSession && sessionAccount ? (
                             <p className="text-xs text-muted-foreground font-mono">
-                              Session key: {sessionAccount.address.slice(0, 6)}...{sessionAccount.address.slice(-4)}
+                              Session key: {sessionAccount.address.slice(0, 6)}
+                              ...{sessionAccount.address.slice(-4)}
                             </p>
                           ) : null}
                           <p className="text-xs text-muted-foreground">

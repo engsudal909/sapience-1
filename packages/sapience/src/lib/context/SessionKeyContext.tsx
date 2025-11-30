@@ -45,11 +45,14 @@ import {
   useState,
 } from 'react';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import type { Hex, LocalAccount, Address } from 'viem';
+import type { Hex, LocalAccount, Address, TypedDataDomain } from 'viem';
 import { useSignTypedData } from 'wagmi';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
-import { useSmartAccount } from '~/lib/zerodev/useSmartAccount';
+import {
+  useSmartAccount,
+  type SmartAccountClient,
+} from '~/lib/zerodev/useSmartAccount';
 import { isZeroDevSupported, ZERODEV_PROJECT_ID } from '~/lib/zerodev/config';
 
 // Storage keys for session data
@@ -110,7 +113,14 @@ interface SessionKeyContextValue extends SessionKeyState {
   /** Get the session signer for signing operations (local mode) */
   getSessionSigner: () => LocalAccount | null;
   /** Get the ZeroDev session client for signing (smart account mode) */
-  getZeroDevSessionClient: () => Promise<any>;
+  getZeroDevSessionClient: () => Promise<SmartAccountClient | null>;
+  /** Sign typed data using the session key (works in both modes) */
+  signTypedDataWithSession: (params: {
+    domain: TypedDataDomain;
+    types: Record<string, readonly { name: string; type: string }[]>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  }) => Promise<Hex | null>;
   /** Refresh session state from storage */
   refreshSession: () => void;
 }
@@ -306,7 +316,12 @@ export const SessionKeyProvider = ({
     // Check every minute
     const interval = setInterval(checkExpiry, 60_000);
     return () => clearInterval(interval);
-  }, [localSessionData, smartAccount.sessionExpiresAt, useZeroDevMode, refreshSession]);
+  }, [
+    localSessionData,
+    smartAccount.sessionExpiresAt,
+    useZeroDevMode,
+    refreshSession,
+  ]);
 
   // Create a new session
   const createSession = useCallback(async (): Promise<{
@@ -360,12 +375,12 @@ export const SessionKeyProvider = ({
         } as const;
 
         const message = {
-        sessionKey: sessionAddress,
-        owner: address as `0x${string}`,
-        expiresAt: BigInt(expiresAt),
-        createdAt: BigInt(createdAt),
-        chainId: BigInt(chainId),
-      } as const;
+          sessionKey: sessionAddress,
+          owner: address as `0x${string}`,
+          expiresAt: BigInt(expiresAt),
+          createdAt: BigInt(createdAt),
+          chainId: BigInt(chainId),
+        } as const;
 
         // Request user signature to authorize the session
         let authorizationSignature: Hex;
@@ -378,7 +393,9 @@ export const SessionKeyProvider = ({
           });
         } catch (signError: unknown) {
           const errorMessage =
-            signError instanceof Error ? signError.message : 'Signature rejected';
+            signError instanceof Error
+              ? signError.message
+              : 'Signature rejected';
           if (
             errorMessage.includes('User rejected') ||
             errorMessage.includes('rejected')
@@ -473,10 +490,63 @@ export const SessionKeyProvider = ({
   }, [useZeroDevMode, localSessionData]);
 
   // Get ZeroDev session client
-  const getZeroDevSessionClient = useCallback(async () => {
-    if (!useZeroDevMode) return null;
-    return smartAccount.getSessionClient();
-  }, [useZeroDevMode, smartAccount]);
+  const getZeroDevSessionClient =
+    useCallback(async (): Promise<SmartAccountClient | null> => {
+      if (!useZeroDevMode) return null;
+      return smartAccount.getSessionClient();
+    }, [useZeroDevMode, smartAccount]);
+
+  // Sign typed data using the active session (works in both ZeroDev and local modes)
+  const signTypedDataWithSession = useCallback(
+    async (params: {
+      domain: TypedDataDomain;
+      types: Record<string, readonly { name: string; type: string }[]>;
+      primaryType: string;
+      message: Record<string, unknown>;
+    }): Promise<Hex | null> => {
+      // Check if session is valid
+      if (!isSessionValid()) {
+        console.warn('[SessionKey] No valid session for signing');
+        return null;
+      }
+
+      if (useZeroDevMode) {
+        // Use ZeroDev smart account for signing
+        const client = await smartAccount.getSessionClient();
+        if (!client) {
+          console.warn('[SessionKey] ZeroDev session client not available');
+          return null;
+        }
+        try {
+          const signature = await client.signTypedData(params);
+          return signature;
+        } catch (err) {
+          console.error('[SessionKey] ZeroDev signing failed:', err);
+          return null;
+        }
+      } else {
+        // Use local session key for signing
+        const signer = getSessionSigner();
+        if (!signer) {
+          console.warn('[SessionKey] Local session signer not available');
+          return null;
+        }
+        try {
+          const signature = await signer.signTypedData({
+            domain: params.domain,
+            types: params.types,
+            primaryType: params.primaryType,
+            message: params.message,
+          });
+          return signature;
+        } catch (err) {
+          console.error('[SessionKey] Local signing failed:', err);
+          return null;
+        }
+      }
+    },
+    [useZeroDevMode, smartAccount, isSessionValid, getSessionSigner]
+  );
 
   // Derive session account for local mode
   const sessionAccount = useMemo((): LocalAccount | null => {
@@ -511,7 +581,9 @@ export const SessionKeyProvider = ({
     isSessionModeEnabled: sessionMode === 'periodically',
     sessionDurationHours,
     isZeroDevMode: useZeroDevMode,
-    smartAccountAddress: useZeroDevMode ? smartAccount.smartAccountAddress : null,
+    smartAccountAddress: useZeroDevMode
+      ? smartAccount.smartAccountAddress
+      : null,
     isZeroDevSupported: smartAccount.isSupported,
     isCreating: isCreating || smartAccount.isLoading,
     error: error || smartAccount.error,
@@ -520,6 +592,7 @@ export const SessionKeyProvider = ({
     isSessionValid,
     getSessionSigner,
     getZeroDevSessionClient,
+    signTypedDataWithSession,
     refreshSession,
   };
 
