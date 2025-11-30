@@ -7,7 +7,12 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { formatDistanceToNow, fromUnixTime } from 'date-fns';
+import {
+  formatDistanceToNow,
+  fromUnixTime,
+  differenceInDays,
+  differenceInHours,
+} from 'date-fns';
 import { Timer } from 'lucide-react';
 
 interface EndTimeDisplayProps {
@@ -28,9 +33,44 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
 
   try {
     const date = fromUnixTime(endTime);
-    const displayTime = formatDistanceToNow(date, { addSuffix: true });
-    const isPast = date.getTime() <= Date.now();
-    const label = isPast ? 'Closed' : 'Closes';
+    const now = new Date();
+    const isPast = date.getTime() <= now.getTime();
+
+    // Calculate time differences for smarter display
+    const daysDiff = Math.abs(differenceInDays(date, now));
+    const hoursDiff = Math.abs(differenceInHours(date, now));
+
+    // Smart display logic:
+    // - Future: "Closes in X" with full date
+    // - Past < 1 day: "Closed X hours ago"
+    // - Past < 7 days: "Closed X days ago"
+    // - Past >= 7 days: "Closed [short date]"
+    let badgeText: string;
+    let showExpandedDate: boolean;
+
+    if (!isPast) {
+      // Future: show relative time
+      badgeText = `Closes ${formatDistanceToNow(date, { addSuffix: true })}`;
+      showExpandedDate = true;
+    } else if (hoursDiff < 24) {
+      // Closed recently (within 24 hours): show relative time only
+      badgeText = `Closed ${formatDistanceToNow(date, { addSuffix: true })}`;
+      showExpandedDate = false;
+    } else if (daysDiff < 7) {
+      // Closed within a week: show relative time only
+      badgeText = `Closed ${formatDistanceToNow(date, { addSuffix: true })}`;
+      showExpandedDate = false;
+    } else {
+      // Closed more than a week ago: show short date format
+      const shortDate = new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(date);
+      badgeText = `Closed ${shortDate}`;
+      showExpandedDate = false;
+    }
+
     const baseBadgeClasses = 'h-8 items-center px-3 text-xs leading-none';
     const outlineExtras = 'bg-card border-border';
     const smallBadgeClassName =
@@ -48,6 +88,8 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
         : '';
     const timerColorClass =
       appearance === 'brandWhite' ? 'text-brand-white' : '';
+
+    // Full label for tooltip
     const fullLabel = new Intl.DateTimeFormat(undefined, {
       year: 'numeric',
       month: 'long',
@@ -57,6 +99,14 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
       second: '2-digit',
       timeZoneName: 'short',
     }).format(date);
+
+    // Expanded date for desktop (only for future events)
+    const expandedDate = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+
     return (
       <>
         {/* Small screens: compact with tooltip */}
@@ -69,7 +119,7 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
                   className={`${smallBadgeClassName} ${brandWhiteBadgeExtras}`}
                 >
                   <Timer className={`h-4 w-4 mr-1 ${timerColorClass}`} />
-                  {label} {displayTime}
+                  {badgeText}
                 </Badge>
               </span>
             </TooltipTrigger>
@@ -79,25 +129,38 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
           </Tooltip>
         </TooltipProvider>
 
-        {/* md+ screens: always show expanded inline content (no tooltip, no hover) */}
-        <span className="hidden md:inline-flex cursor-default">
-          <Badge
-            variant={isPast ? 'secondary' : 'outline'}
-            className={`${largeBadgeClassName} ${brandWhiteBadgeExtras}`}
-          >
-            <Timer
-              className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1 -mt-0.5 ${appearance === 'brandWhite' ? '' : 'opacity-70'} ${timerColorClass}`}
-            />
-            {label} {displayTime}
-            <span
-              aria-hidden="true"
-              className="hidden md:inline-block mx-2.5 h-4 w-px bg-muted-foreground/30"
-            />
-            <span className="whitespace-nowrap text-muted-foreground font-normal">
-              {fullLabel}
-            </span>
-          </Badge>
-        </span>
+        {/* md+ screens: show with tooltip for details */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="hidden md:inline-flex cursor-default">
+                <Badge
+                  variant={isPast ? 'secondary' : 'outline'}
+                  className={`${largeBadgeClassName} ${brandWhiteBadgeExtras}`}
+                >
+                  <Timer
+                    className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1 -mt-0.5 ${appearance === 'brandWhite' ? '' : 'opacity-70'} ${timerColorClass}`}
+                  />
+                  {badgeText}
+                  {showExpandedDate && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="mx-2.5 h-4 w-px bg-muted-foreground/30"
+                      />
+                      <span className="whitespace-nowrap text-muted-foreground font-normal">
+                        {expandedDate}
+                      </span>
+                    </>
+                  )}
+                </Badge>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{fullLabel}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </>
     );
   } catch (error) {

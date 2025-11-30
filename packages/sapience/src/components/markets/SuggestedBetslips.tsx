@@ -1,257 +1,464 @@
 'use client';
 
 import * as React from 'react';
-import { SquareStackIcon } from 'lucide-react';
+import { parseUnits } from 'viem';
+import { useAccount, useReadContract } from 'wagmi';
+import { getCategoryIcon } from '~/lib/theme/categoryIcons';
+import { predictionMarketAbi } from '@sapience/sdk';
+import { predictionMarket } from '@sapience/sdk/contracts';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import PercentChance from '~/components/shared/PercentChance';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+} from '@sapience/sdk/ui/components/ui/table';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
-import RefreshIconButton from '~/components/shared/RefreshIconButton';
+import { RefreshCw } from 'lucide-react';
 import {
   useConditions,
   type ConditionType,
 } from '~/hooks/graphql/useConditions';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
-import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSettings } from '~/lib/context/SettingsContext';
+import { toAuctionWsUrl } from '~/lib/ws';
+import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
+import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
+import hub from '~/lib/auction/useAuctionBidsHub';
 
 type SuggestedBetslipsProps = {
-  onRefresh?: () => void;
   className?: string;
 };
 
-const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({
-  onRefresh,
-  className,
-}) => {
-  const [nonce, setNonce] = React.useState(0);
+type ComboLeg = { condition: ConditionType; prediction: boolean };
+
+type ComboWithQuote = {
+  combo: ComboLeg[];
+  auctionId: string | null;
+  probability: number | null;
+  status: 'pending' | 'requesting' | 'received' | 'error';
+};
+
+const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as `0x${string}`;
+const TAKER_WAGER_WEI = parseUnits('1', 18).toString();
+const NUM_QUOTES_TO_REQUEST = 9;
+const NUM_TO_DISPLAY = 3;
+
+const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
+  const chainId = useChainIdFromLocalStorage();
   const { data: allConditions = [], isLoading } = useConditions({
     take: 200,
-    chainId: useChainIdFromLocalStorage(),
+    chainId,
   });
   const { addParlaySelection, clearParlaySelections } = useBetSlipContext();
+  const { apiBaseUrl } = useSettings();
+  const { address: walletAddress } = useAccount();
 
-  const handleRefresh = React.useCallback(() => {
-    setNonce((n) => n + 1);
-    onRefresh?.();
-  }, [onRefresh]);
+  const PREDICTION_MARKET_ADDRESS =
+    predictionMarket[chainId]?.address ||
+    predictionMarket[DEFAULT_CHAIN_ID]?.address;
+
+  const selectedTakerAddress = walletAddress || ZERO_ADDRESS;
+
+  const { data: takerNonce } = useReadContract({
+    address: PREDICTION_MARKET_ADDRESS,
+    abi: predictionMarketAbi,
+    functionName: 'nonces',
+    args: selectedTakerAddress ? [selectedTakerAddress] : undefined,
+    chainId: chainId,
+    query: { enabled: !!selectedTakerAddress && !!PREDICTION_MARKET_ADDRESS },
+  });
+
+  const wsUrl = React.useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
+
+  // State for tracking quotes
+  const [comboQuotes, setComboQuotes] = React.useState<ComboWithQuote[]>([]);
+  const [hubTick, setHubTick] = React.useState(0);
+
+  // Subscribe to hub updates
+  React.useEffect(() => {
+    if (wsUrl) hub.setUrl(wsUrl);
+    const off = hub.addListener(() => setHubTick((t) => (t + 1) % 1_000_000));
+    return () => off();
+  }, [wsUrl]);
 
   const getCategoryColor = React.useCallback((slug?: string | null) => {
     return getCategoryStyle(slug).color;
   }, []);
 
-  const combos = React.useMemo(() => {
-    const nowSec = Math.floor(Date.now() / 1000);
-    const publicConditions = (allConditions || []).filter((c) => {
-      if (!c.public) return false;
-      const end = typeof c.endTime === 'number' ? c.endTime : 0;
-      return end > nowSec; // only include future-ending conditions
-    });
-    if (publicConditions.length === 0)
-      return [] as Array<
-        Array<{ condition: ConditionType; prediction: boolean }>
-      >;
+  // Generate 9 random parlays
+  const generateCombos = React.useCallback(
+    (conditions: ConditionType[]): ComboLeg[][] => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const publicConditions = conditions.filter((c) => {
+        if (!c.public) return false;
+        const end = typeof c.endTime === 'number' ? c.endTime : 0;
+        return end > nowSec;
+      });
+      if (publicConditions.length === 0) return [];
 
-    const byCategory = publicConditions.reduce<Record<string, ConditionType[]>>(
-      (acc, c) => {
+      const byCategory = publicConditions.reduce<
+        Record<string, ConditionType[]>
+      >((acc, c) => {
         const slug = c.category?.slug || 'uncategorized';
         if (!acc[slug]) acc[slug] = [];
         acc[slug].push(c);
         return acc;
-      },
-      {}
+      }, {});
+
+      const categorySlugs = Object.keys(byCategory);
+      function pickRandom<T>(arr: T[]): T {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      const makeOneCombo = (): ComboLeg[] => {
+        const result: ComboLeg[] = [];
+        const shuffledCats = [...categorySlugs].sort(() => Math.random() - 0.5);
+        for (const cat of shuffledCats) {
+          if (result.length >= 3) break;
+          const pool = byCategory[cat];
+          if (!pool || pool.length === 0) continue;
+          result.push({
+            condition: pickRandom(pool),
+            prediction: Math.random() < 0.5,
+          });
+        }
+
+        if (result.length < 3) {
+          const usedIds = new Set(result.map((r) => r.condition.id));
+          const remaining = publicConditions.filter((c) => !usedIds.has(c.id));
+          while (result.length < 3 && remaining.length > 0) {
+            const idx = Math.floor(Math.random() * remaining.length);
+            const [picked] = remaining.splice(idx, 1);
+            result.push({ condition: picked, prediction: Math.random() < 0.5 });
+          }
+        }
+
+        return result.slice(0, 3);
+      };
+
+      return Array.from({ length: NUM_QUOTES_TO_REQUEST }, () =>
+        makeOneCombo()
+      );
+    },
+    []
+  );
+
+  // Request quotes for all combos
+  const requestAllQuotes = React.useCallback(() => {
+    if (!wsUrl || allConditions.length === 0) return;
+
+    const combos = generateCombos(allConditions);
+    if (combos.length === 0) return;
+
+    const client = getSharedAuctionWsClient(wsUrl);
+    const newQuotes: ComboWithQuote[] = combos.map((combo) => ({
+      combo,
+      auctionId: null,
+      probability: null,
+      status: 'pending' as const,
+    }));
+
+    setComboQuotes(newQuotes);
+
+    // Request quotes with jittered timing
+    for (let i = 0; i < combos.length; i++) {
+      const combo = combos[i];
+      const jitter = Math.floor(Math.random() * 200) + i * 100;
+
+      setTimeout(async () => {
+        try {
+          const outcomes = combo.map((leg) => ({
+            marketId: leg.condition.id,
+            prediction: leg.prediction,
+          }));
+          const payload = buildAuctionStartPayload(outcomes, chainId);
+          const requestPayload = {
+            wager: TAKER_WAGER_WEI,
+            resolver: payload.resolver,
+            predictedOutcomes: payload.predictedOutcomes,
+            taker: selectedTakerAddress,
+            takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
+            chainId: chainId,
+          };
+
+          setComboQuotes((prev) =>
+            prev.map((q, idx) =>
+              idx === i ? { ...q, status: 'requesting' as const } : q
+            )
+          );
+
+          const response = await client.sendWithAck<{ auctionId?: string }>(
+            'auction.start',
+            requestPayload,
+            { timeoutMs: 15000 }
+          );
+
+          const auctionId = response?.auctionId || null;
+          if (auctionId) {
+            hub.ensureSubscribed(auctionId);
+          }
+
+          setComboQuotes((prev) =>
+            prev.map((q, idx) =>
+              idx === i
+                ? {
+                    ...q,
+                    auctionId,
+                    status: auctionId ? 'requesting' : 'error',
+                  }
+                : q
+            )
+          );
+        } catch {
+          setComboQuotes((prev) =>
+            prev.map((q, idx) =>
+              idx === i ? { ...q, status: 'error' as const } : q
+            )
+          );
+        }
+      }, jitter);
+    }
+  }, [
+    wsUrl,
+    allConditions,
+    generateCombos,
+    chainId,
+    selectedTakerAddress,
+    takerNonce,
+  ]);
+
+  // Trigger quote requests when conditions load
+  React.useEffect(() => {
+    if (!isLoading && allConditions.length > 0) {
+      requestAllQuotes();
+    }
+  }, [isLoading, allConditions.length, requestAllQuotes]);
+
+  // Update probabilities from hub bids
+  React.useEffect(() => {
+    setComboQuotes((prev) =>
+      prev.map((q) => {
+        if (!q.auctionId) return q;
+        const bids = hub.bidsByAuctionId.get(q.auctionId);
+        if (!bids || bids.length === 0) return q;
+
+        const nowMs = Date.now();
+        const valid = bids.filter((b) => {
+          const dl = Number(b?.makerDeadline || 0);
+          return Number.isFinite(dl) ? dl * 1000 > nowMs : true;
+        });
+        const list = valid.length > 0 ? valid : bids;
+        const best = list.reduce((acc, cur) => {
+          return BigInt(cur.makerWager) > BigInt(acc.makerWager) ? cur : acc;
+        }, list[0]);
+
+        const taker = BigInt(TAKER_WAGER_WEI);
+        const maker = BigInt(String(best?.makerWager || '0'));
+        const denom = maker + taker;
+        const prob = denom > 0n ? Number(maker) / Number(denom) : 0.5;
+        // Allow probability to range from 0.1% to 99.9% to avoid division by zero
+        // while enabling chance display from <1% to >99%
+        const safeProbability = Math.max(0.001, Math.min(0.999, prob));
+
+        return {
+          ...q,
+          probability: safeProbability,
+          status: 'received' as const,
+        };
+      })
+    );
+  }, [hubTick]);
+
+  // Get top 3 by highest payout (largest payout first)
+  const topCombos = React.useMemo(() => {
+    const withProbs = comboQuotes.filter(
+      (q) => q.probability !== null && q.status === 'received'
     );
 
-    const categorySlugs = Object.keys(byCategory);
-    function pickRandom<T>(arr: T[]): T {
-      return arr[Math.floor(Math.random() * arr.length)];
+    // Sort descending by probability (highest = largest payout)
+    const sorted = [...withProbs].sort(
+      (a, b) => (b.probability ?? 0) - (a.probability ?? 0)
+    );
+
+    // Take top 3, or fall back to pending/requesting if not enough received
+    if (sorted.length >= NUM_TO_DISPLAY) {
+      return sorted.slice(0, NUM_TO_DISPLAY);
     }
 
-    const makeOneCombo = (): Array<{
-      condition: ConditionType;
-      prediction: boolean;
-    }> => {
-      const result: Array<{ condition: ConditionType; prediction: boolean }> =
-        [];
+    // Fill with combos that haven't received quotes yet
+    const pending = comboQuotes.filter((q) => q.status !== 'received');
+    return [...sorted, ...pending].slice(0, NUM_TO_DISPLAY);
+  }, [comboQuotes]);
 
-      // Prefer three distinct categories if available
-      const shuffledCats = [...categorySlugs].sort(() => Math.random() - 0.5);
-      for (const cat of shuffledCats) {
-        if (result.length >= 3) break;
-        const pool = byCategory[cat];
-        if (!pool || pool.length === 0) continue;
-        result.push({
-          condition: pickRandom(pool),
-          prediction: Math.random() < 0.5,
+  const handlePickParlay = React.useCallback(
+    (combo: ComboLeg[]) => {
+      clearParlaySelections();
+      combo.forEach((leg) => {
+        addParlaySelection({
+          conditionId: leg.condition.id,
+          question: leg.condition.shortName || leg.condition.question,
+          prediction: leg.prediction,
         });
-      }
-
-      // Fallback: fill remaining legs from any remaining conditions (avoid duplicates)
-      if (result.length < 3) {
-        const usedIds = new Set(result.map((r) => r.condition.id));
-        const remaining = publicConditions.filter((c) => !usedIds.has(c.id));
-        while (result.length < 3 && remaining.length > 0) {
-          const idx = Math.floor(Math.random() * remaining.length);
-          const [picked] = remaining.splice(idx, 1);
-          result.push({ condition: picked, prediction: Math.random() < 0.5 });
-        }
-      }
-
-      return result.slice(0, 3);
-    };
-
-    // Always prepare three combos; UI will hide extras on smaller screens
-    const comboCount = 3;
-    return Array.from({ length: comboCount }, () => makeOneCombo());
-  }, [allConditions, nonce]);
+      });
+    },
+    [clearParlaySelections, addParlaySelection]
+  );
 
   return (
-    <div className={'w-full font-mono ' + (className ?? '')}>
-      <div className="p-0">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="eyebrow text-foreground font-sans">
-            Featured Parlays
-          </h3>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <RefreshIconButton
-                  onClick={handleRefresh}
-                  ariaLabel="Randomize featured parlays"
-                  title="Randomize featured parlays"
-                  className="text-muted-foreground hover:text-foreground p-1 rounded-md"
-                  iconClassName="w-3 h-3"
-                />
-              </TooltipTrigger>
-              <TooltipContent>Randomize featured parlays</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+    <div className={'w-full ' + (className ?? '')}>
+      <div className="flex items-center justify-between mb-1 px-1">
+        <h2 className="sc-heading text-foreground">Example combos</h2>
+        <button
+          type="button"
+          onClick={requestAllQuotes}
+          className="p-1.5 rounded-md hover:bg-muted/50 transition-colors"
+          aria-label="Refresh combinations"
+        >
+          <RefreshCw className="h-4 w-4 text-accent-gold" />
+        </button>
       </div>
+      <div className="rounded-md border border-brand-white/20 overflow-hidden bg-brand-black">
+        <Table className="w-full">
+          <TableBody>
+            {isLoading || topCombos.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  Loading…
+                </TableCell>
+              </TableRow>
+            ) : (
+              topCombos.map((item, idx) => {
+                const { combo, probability, status } = item;
+                const colors = combo.map((leg) =>
+                  getCategoryColor(leg.condition.category?.slug)
+                );
 
-      <div className="mt-0 mb-0 pb-0 grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3 lg:gap-4 xl:gap-4">
-        {isLoading || combos.length === 0 ? (
-          <>
-            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 flex items-center justify-center">
-              Loading…
-            </div>
-            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
-              Loading…
-            </div>
-            <div className="bg-brand-black text-brand-white/70 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm h-20 hidden lg:flex items-center justify-center">
-              Loading…
-            </div>
-          </>
-        ) : (
-          combos.map((combo, idx) => {
-            const colors = combo.map((leg) =>
-              getCategoryColor(leg.condition.category?.slug)
-            );
-            let stops: string[];
-            if (colors.length <= 1) {
-              stops = [colors[0] || 'transparent'];
-            } else {
-              const step = 100 / (colors.length - 1);
-              stops = colors.map((color, i) => `${color} ${i * step}%`);
-            }
-            const gradient = `linear-gradient(to right, ${stops.join(', ')})`;
-
-            return (
-              <div
-                key={`combo-${idx}`}
-                className={`relative bg-brand-black text-brand-white/90 rounded-b-none border border-brand-white/10 overflow-hidden shadow-sm p-0 ${idx > 0 ? 'hidden lg:block' : ''}`}
-              >
-                <div
-                  className="absolute top-0 left-0 right-0 h-px"
-                  style={{ background: gradient }}
-                />
-                <div className="space-y-0 flex flex-col">
-                  {combo.map((leg, i) => (
-                    <div
-                      key={leg.condition.id + '-' + i}
-                      className="border-b border-border/70 last:border-b-0 flex-1"
-                    >
-                      <div className="flex items-stretch">
-                        <div
-                          className={`flex-1 min-w-0 px-3 ${i === 0 ? 'pt-3 pb-2.5' : 'py-2.5'} flex items-center justify-between gap-3`}
-                        >
-                          <h3 className="text-sm leading-snug min-w-0 max-w-full">
-                            <ConditionTitleLink
-                              conditionId={leg.condition.id}
-                              title={
-                                leg.condition.shortName ||
-                                leg.condition.question
-                              }
-                              endTime={leg.condition.endTime}
-                              description={leg.condition.description}
-                              clampLines={1}
-                            />
-                          </h3>
-                          <span className="relative -top-0.5 ml-2 shrink-0">
-                            <Badge
-                              variant="outline"
-                              className={`${leg.prediction ? 'px-2 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0' : 'px-2 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0'}`}
+                return (
+                  <TableRow
+                    key={`combo-${idx}`}
+                    className="border-b border-brand-white/20 hover:bg-transparent"
+                  >
+                    <TableCell className="py-3 pl-4 pr-1 w-[56px] shrink-0">
+                      <div className="flex items-center -space-x-2">
+                        {combo.map((leg, i) => {
+                          const CategoryIcon = getCategoryIcon(
+                            leg.condition.category?.slug
+                          );
+                          const color =
+                            colors[i] || 'hsl(var(--muted-foreground))';
+                          return (
+                            <div
+                              key={`icon-${leg.condition.id}-${i}`}
+                              className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center ring-2 ring-background"
+                              style={{
+                                backgroundColor: color,
+                                zIndex: combo.length - i,
+                              }}
                             >
-                              {leg.prediction ? 'Yes' : 'No'}
-                            </Badge>
-                          </span>
-                        </div>
+                              <CategoryIcon className="h-3 w-3 text-white/80" />
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  ))}
-                  <div className="flex items-stretch">
-                    <div className="flex-1 pl-3 pr-2 py-3">
-                      <div className="text-sm text-foreground/70 w-full mb-3">
-                        <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
-                          <span>Current Forecast:</span>
-                          <MarketPredictionRequest
-                            key={`mpr-${nonce}-${combo
-                              .map(
-                                (leg) =>
-                                  `${leg.condition.id}:${leg.prediction ? '1' : '0'}`
-                              )
-                              .join('|')}`}
-                            outcomes={combo.map((leg) => ({
-                              marketId: leg.condition.id,
-                              prediction: leg.prediction,
-                            }))}
+                    </TableCell>
+                    <TableCell className="py-3 pl-1 min-w-0 overflow-hidden max-w-[400px] relative">
+                      <div className="flex gap-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-brand-white/20 scrollbar-track-transparent pr-6">
+                        {combo.map((leg, i) => (
+                          <React.Fragment key={leg.condition.id + '-' + i}>
+                            {i > 0 && (
+                              <span className="text-sm text-muted-foreground shrink-0 self-center">
+                                and
+                              </span>
+                            )}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm whitespace-nowrap">
+                                <ConditionTitleLink
+                                  conditionId={leg.condition.id}
+                                  title={
+                                    leg.condition.shortName ||
+                                    leg.condition.question
+                                  }
+                                  endTime={leg.condition.endTime}
+                                  description={leg.condition.description}
+                                  clampLines={1}
+                                />
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 px-1.5 py-0.5 text-xs font-medium !rounded-md font-mono ${
+                                  leg.prediction
+                                    ? 'border-yes/40 bg-yes/10 text-yes'
+                                    : 'border-no/40 bg-no/10 text-no'
+                                }`}
+                              >
+                                {leg.prediction ? 'Yes' : 'No'}
+                              </Badge>
+                            </div>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-brand-black to-transparent pointer-events-none" />
+                    </TableCell>
+                    <TableCell className="py-3 px-4 text-right whitespace-nowrap">
+                      {status === 'received' && probability !== null ? (
+                        <span className="text-sm">
+                          <PercentChance
+                            probability={1 - probability}
+                            showLabel
+                            label="chance"
+                            className="font-mono text-ethena"
                           />
-                        </div>
-                      </div>
+                          <span className="text-sm text-muted-foreground ml-1">
+                            implied probability
+                          </span>
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="py-3 pl-4 text-right whitespace-nowrap">
+                      {status === 'received' && probability !== null ? (
+                        <span className="text-sm">
+                          <span className="text-muted-foreground">
+                            1 USDe to win{' '}
+                          </span>
+                          <span className="text-brand-white font-medium">
+                            {(1 / (1 - probability)).toFixed(2)} USDe
+                          </span>
+                        </span>
+                      ) : status === 'error' ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className="text-foreground/70">
+                          Requesting odds...
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3 pr-4 w-[70px]">
                       <Button
-                        className="w-full gap-2 tracking-wider"
-                        variant="outline"
+                        className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
+                        variant="default"
+                        size="sm"
                         type="button"
-                        onClick={() => {
-                          // Replace any existing parlay legs with this suggested combo
-                          clearParlaySelections();
-                          combo.forEach((leg) => {
-                            addParlaySelection({
-                              conditionId: leg.condition.id,
-                              question:
-                                leg.condition.shortName ||
-                                leg.condition.question,
-                              prediction: leg.prediction,
-                            });
-                          });
-                        }}
+                        onClick={() => handlePickParlay(combo)}
                       >
-                        <SquareStackIcon className="h-4 w-4" />
-                        PICK PARLAY
+                        PICK
                       </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

@@ -44,7 +44,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div className="relative flex items-center">
       <SearchIcon
-        className="absolute left-0 md:left-0 top-1/2 -translate-y-1/2 h-5 w-5 md:h-6 md:w-6 text-foreground md:text-muted-foreground opacity-50 z-10 pointer-events-none"
+        className="absolute left-0 md:left-0 top-1/2 -translate-y-1/2 h-5 w-5 md:h-6 md:w-6 text-foreground md:text-muted-foreground opacity-70 z-10 pointer-events-none"
         strokeWidth={2}
       />
       <div className="flex-1 relative border-b border-foreground/30 md:border-muted-foreground/30">
@@ -54,7 +54,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           placeholder={isMobile ? "Search" : "Search questions..."}
           value={value}
           onChange={onChange}
-          className="w-full text-lg md:text-lg lg:text-xl font-heading font-normal bg-transparent rounded-none border-0 placeholder:text-foreground md:placeholder:text-muted-foreground placeholder:opacity-50 focus-visible:ring-0 focus-visible:ring-offset-0 h-auto py-1.5 md:py-1.5 lg:py-2 pl-8 md:pl-9 lg:pl-9 pr-8 md:pr-10 lg:pr-12"
+          className="w-full text-lg md:text-lg lg:text-xl font-heading font-normal bg-transparent rounded-none border-0 placeholder:text-foreground md:placeholder:text-muted-foreground placeholder:opacity-70 focus-visible:ring-0 focus-visible:ring-offset-0 h-auto py-1.5 md:py-1.5 lg:py-2 pl-8 md:pl-9 lg:pl-9 pr-8 md:pr-10 lg:pr-12"
         />
         <button
           type="button"

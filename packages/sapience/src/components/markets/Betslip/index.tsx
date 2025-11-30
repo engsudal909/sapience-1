@@ -364,7 +364,7 @@ const Betslip = ({
     resolver: zodResolver(formSchema as any),
     defaultValues: {
       ...generateFormValues,
-      wagerAmount: '10',
+      wagerAmount: DEFAULT_WAGER_AMOUNT,
       limitAmount:
         positionsWithMarketData.filter(
           (p) => p.marketClassification !== MarketGroupClassification.NUMERIC
@@ -458,7 +458,7 @@ const Betslip = ({
     formMethods.reset(
       {
         positions: mergedPositions,
-        wagerAmount: current?.wagerAmount || '10',
+        wagerAmount: current?.wagerAmount || DEFAULT_WAGER_AMOUNT,
         limitAmount: current?.limitAmount || 2,
       },
       {
