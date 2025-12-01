@@ -365,7 +365,7 @@ export default function TableFilters({
           placeholder="Search questions and keywords"
           value={searchTerm}
           onChange={handleSearchInputChange}
-          className="w-full h-8 rounded-md border border-border bg-muted/30 text-left pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="w-full h-8 rounded-md border border-border bg-muted/30 text-left pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring"
         />
       </div>
       <CategoryMultiSelect
@@ -374,7 +374,7 @@ export default function TableFilters({
         onChange={handleCategoriesChange}
       />
       <RangeFilter
-        placeholder="Open Interest"
+        placeholder="Any open interest"
         value={filters.openInterestRange}
         onChange={handleOpenInterestChange}
         min={openInterestBounds[0]}

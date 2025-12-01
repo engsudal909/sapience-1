@@ -220,11 +220,12 @@ export function WagerInput({
           </p>
         )}
       {errors[name] &&
-        (errors[name]?.message ? (
+        errors[name]?.message &&
+        errors[name]?.message?.toString() !== 'Wager amount is required' && (
           <p className="text-destructive text-sm mb-2">
             {errors[name]?.message?.toString()}
           </p>
-        ) : null)}
+        )}
     </div>
   );
 }

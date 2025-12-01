@@ -14,6 +14,7 @@ export interface ParlayConditionCardProps {
     shortName?: string | null;
     endTime?: number | null;
     description?: string | null;
+    categorySlug?: string | null;
   };
   color: string;
 }
@@ -22,7 +23,8 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
   condition,
   color,
 }) => {
-  const { id, question, shortName, endTime, description } = condition;
+  const { id, question, shortName, endTime, description, categorySlug } =
+    condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
     useBetSlipContext();
 
@@ -48,10 +50,12 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
       conditionId: id,
       question: displayQ,
       prediction: true,
+      categorySlug,
     });
   }, [
     id,
     displayQ,
+    categorySlug,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,
@@ -68,10 +72,12 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
       conditionId: id,
       question: displayQ,
       prediction: false,
+      categorySlug,
     });
   }, [
     id,
     displayQ,
+    categorySlug,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,

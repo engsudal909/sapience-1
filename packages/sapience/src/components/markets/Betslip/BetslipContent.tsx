@@ -1,7 +1,6 @@
 'use client';
 import { type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/sapience/ui/index';
-import Image from 'next/image';
 
 import BetslipSinglesForm from './BetslipSinglesForm';
 import BetslipParlayForm from './BetslipParlayForm';
@@ -83,18 +82,16 @@ export const BetslipContent = ({
   return (
     <>
       <div className="w-full h-full flex flex-col">
-        <div className="relative px-4 pt-2 pb-2 lg:hidden">
-          <div className="flex items-center justify-between">
-            <h3 className="eyebrow text-foreground font-sans">
-              Make a Prediction
-            </h3>
-            {(effectiveParlayMode
-              ? parlaySelections.length > 0
-              : betSlipPositions.length > 0) && (
+        {hasItems && (
+          <div className="relative px-4 pt-2 pb-2 lg:hidden">
+            <div className="flex items-center justify-between">
+              <h3 className="eyebrow text-foreground font-sans">
+                Make a Prediction
+              </h3>
               <Button
                 variant="ghost"
                 size="xs"
-                className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-border rounded-sm relative -top-0.5"
+                className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 relative -top-0.5"
                 onClick={
                   effectiveParlayMode ? clearParlaySelections : clearBetSlip
                 }
@@ -102,9 +99,9 @@ export const BetslipContent = ({
               >
                 CLEAR
               </Button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div
           className={`flex-1 min-h-0 ${hasItems ? 'overflow-y-auto pb-4' : ''}`}
@@ -114,13 +111,11 @@ export const BetslipContent = ({
               ? parlaySelections.length === 0
               : betSlipPositions.length === 0
           ) ? (
-            <div className="w-full h-full flex items-center justify-center text-center text-brand-white">
+            <div className="w-full h-full flex items-center justify-center text-center">
               <div className="flex flex-col items-center gap-2 py-20">
-                <Image src="/usde.svg" alt="USDe" width={42} height={42} />
-                <p className="text-base text-brand-white/90 max-w-[200px] mx-auto bg-transparent">
-                  {'Add predictions to see your potential winnings'}
+                <p className="text-sm font-mono uppercase text-accent-gold max-w-[260px] mx-auto bg-transparent tracking-wide">
+                  ADD PREDICTIONS TO SEE POTENTIAL WINNINGS
                 </p>
-                {/* Parlay mode toggle removed from betslip empty state */}
               </div>
             </div>
           ) : !effectiveParlayMode ? (

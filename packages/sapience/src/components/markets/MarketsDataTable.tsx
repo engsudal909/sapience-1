@@ -10,13 +10,6 @@ import {
   TableRow,
 } from '@sapience/sdk/ui/components/ui/table';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@sapience/sdk/ui/components/ui/select';
 import type {
   ColumnDef,
   SortingState,
@@ -26,17 +19,10 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import {
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   Tooltip,
@@ -267,9 +253,11 @@ function PredictCell({ condition }: { condition: ConditionType }) {
       conditionId: condition.id,
       question: displayQ,
       prediction: true,
+      categorySlug: condition.category?.slug,
     });
   }, [
     condition.id,
+    condition.category?.slug,
     displayQ,
     parlaySelections,
     removeParlaySelection,
@@ -289,9 +277,11 @@ function PredictCell({ condition }: { condition: ConditionType }) {
       conditionId: condition.id,
       question: displayQ,
       prediction: false,
+      categorySlug: condition.category?.slug,
     });
   }, [
     condition.id,
+    condition.category?.slug,
     displayQ,
     parlaySelections,
     removeParlaySelection,
@@ -319,15 +309,15 @@ const columns: ColumnDef<ConditionType>[] = [
     accessorKey: 'question',
     header: () => <span>Question</span>,
     enableSorting: false,
-    size: 400,
-    maxSize: 500,
+    size: 280,
+    maxSize: 400,
     cell: ({ row }) => {
       const condition = row.original;
       const categorySlug = condition.category?.slug;
       const color = getCategoryColor(categorySlug);
       const displayQ = condition.shortName || condition.question;
       return (
-        <div className="flex items-center gap-3 max-w-[500px]">
+        <div className="flex items-center gap-3 max-w-[400px]">
           <MarketBadge
             label={displayQ}
             size={32}
@@ -364,18 +354,30 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     id: 'openInterest',
-    header: ({ column }) => (
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="-mr-4 px-0 hover:bg-transparent whitespace-nowrap"
-        >
-          Open Interest
-          <ArrowUpDown className="ml-1 h-4 w-4" />
-        </Button>
-      </div>
-    ),
+    header: ({ column }) => {
+      const sorted = column.getIsSorted();
+      return (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(sorted === 'asc')}
+            className="-mr-4 px-0 hover:bg-transparent whitespace-nowrap"
+          >
+            Open Interest
+            {sorted === 'asc' ? (
+              <ChevronUp className="ml-1 h-4 w-4" />
+            ) : sorted === 'desc' ? (
+              <ChevronDown className="ml-1 h-4 w-4" />
+            ) : (
+              <span className="ml-1 flex flex-col -my-2">
+                <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </span>
+            )}
+          </Button>
+        </div>
+      );
+    },
     cell: () => {
       return (
         <span className="text-sm whitespace-nowrap text-muted-foreground">
@@ -388,18 +390,30 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     accessorKey: 'endTime',
-    header: ({ column }) => (
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="-mr-4 px-0 hover:bg-transparent whitespace-nowrap"
-        >
-          Ends
-          <ArrowUpDown className="ml-1 h-4 w-4" />
-        </Button>
-      </div>
-    ),
+    header: ({ column }) => {
+      const sorted = column.getIsSorted();
+      return (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(sorted === 'asc')}
+            className="-mr-4 px-0 hover:bg-transparent whitespace-nowrap"
+          >
+            Ends
+            {sorted === 'asc' ? (
+              <ChevronUp className="ml-1 h-4 w-4" />
+            ) : sorted === 'desc' ? (
+              <ChevronDown className="ml-1 h-4 w-4" />
+            ) : (
+              <span className="ml-1 flex flex-col -my-2">
+                <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </span>
+            )}
+          </Button>
+        </div>
+      );
+    },
     cell: ({ row }) => {
       const endTime = row.original.endTime;
       if (!endTime) return <span className="text-muted-foreground">—</span>;
@@ -552,6 +566,16 @@ export default function MarketsDataTable({
     availableCategories.length,
   ]);
 
+  // Infinite scroll state
+  const BATCH_SIZE = 20;
+  const [displayCount, setDisplayCount] = React.useState(BATCH_SIZE);
+  const loadMoreRef = React.useRef<HTMLDivElement>(null);
+
+  // Reset display count when filters change
+  React.useEffect(() => {
+    setDisplayCount(BATCH_SIZE);
+  }, [searchTerm, filters]);
+
   const table = useReactTable({
     data: filteredConditions,
     columns,
@@ -564,13 +588,38 @@ export default function MarketsDataTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 20,
-      },
-    },
   });
+
+  // Get all sorted/filtered rows and slice for display
+  const allRows = table.getRowModel().rows;
+  const displayedRows = allRows.slice(0, displayCount);
+  const hasMore = displayCount < allRows.length;
+
+  // Intersection Observer for infinite scroll
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && hasMore) {
+          setDisplayCount((prev) =>
+            Math.min(prev + BATCH_SIZE, allRows.length)
+          );
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMore, allRows.length]);
 
   return (
     <div className="space-y-4">
@@ -596,7 +645,7 @@ export default function MarketsDataTable({
                   const colId = header.column.id;
                   let className = '';
                   if (colId === 'question') {
-                    className = 'pl-4 max-w-[500px]';
+                    className = 'pl-4 max-w-[400px]';
                   }
                   return (
                     <TableHead key={header.id} className={className}>
@@ -613,18 +662,18 @@ export default function MarketsDataTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {displayedRows.length ? (
+              displayedRows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="border-b border-brand-white/20"
+                  className="border-b border-brand-white/20 hover:bg-transparent"
                 >
                   {row.getVisibleCells().map((cell) => {
                     const colId = cell.column.id;
                     let className = 'py-2';
                     if (colId === 'question') {
-                      className = 'py-2 pl-4 max-w-[500px]';
+                      className = 'py-2 pl-4 max-w-[400px]';
                     } else if (
                       colId === 'forecast' ||
                       colId === 'openInterest' ||
@@ -646,7 +695,7 @@ export default function MarketsDataTable({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 <TableCell
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground"
@@ -659,78 +708,20 @@ export default function MarketsDataTable({
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-2">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} total questions
-        </div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
-            <Select
-              value={`${table.getState().pagination.pageSize}`}
-              onValueChange={(value) => {
-                table.setPageSize(Number(value));
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
-                />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 20, 30, 50, 100].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-            Page {table.getState().pagination.pageIndex + 1} of{' '}
-            {table.getPageCount()}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              className="hidden h-8 w-8 p-0 lg:flex"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <span className="sr-only">Go to first page</span>
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="h-8 w-8 p-0"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <span className="sr-only">Go to previous page</span>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="h-8 w-8 p-0"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <span className="sr-only">Go to next page</span>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="hidden h-8 w-8 p-0 lg:flex"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-            >
-              <span className="sr-only">Go to last page</span>
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
+      {/* Infinite scroll loader */}
+      {hasMore ? (
+        <div
+          ref={loadMoreRef}
+          className="flex items-center justify-center py-4"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading more...</span>
           </div>
         </div>
-      </div>
+      ) : (
+        <div ref={loadMoreRef} />
+      )}
     </div>
   );
 }

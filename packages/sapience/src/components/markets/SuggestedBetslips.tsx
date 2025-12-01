@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { predictionMarket } from '@sapience/sdk/contracts';
@@ -12,7 +13,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableRow,
 } from '@sapience/sdk/ui/components/ui/table';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
@@ -305,6 +305,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
           conditionId: leg.condition.id,
           question: leg.condition.shortName || leg.condition.question,
           prediction: leg.prediction,
+          categorySlug: leg.condition.category?.slug,
         });
       });
     },
@@ -327,136 +328,151 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
       <div className="rounded-md border border-brand-white/20 overflow-hidden bg-brand-black">
         <Table className="w-full">
           <TableBody>
-            {isLoading || topCombos.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  Loading…
-                </TableCell>
-              </TableRow>
-            ) : (
-              topCombos.map((item, idx) => {
-                const { combo, probability, status } = item;
-                const colors = combo.map((leg) =>
-                  getCategoryColor(leg.condition.category?.slug)
-                );
+            <AnimatePresence mode="popLayout">
+              {isLoading || topCombos.length === 0
+                ? // Pulsing skeleton rows while loading
+                  Array.from({ length: NUM_TO_DISPLAY }).map((_, idx) => (
+                    <motion.tr
+                      key={`skeleton-${idx}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="border-b border-brand-white/20"
+                    >
+                      <TableCell colSpan={4} className="py-3 px-4">
+                        <div
+                          className="h-6 rounded bg-brand-white/5"
+                          style={{
+                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                            animationDelay: `${idx * 0.3}s`,
+                          }}
+                        />
+                      </TableCell>
+                    </motion.tr>
+                  ))
+                : topCombos.map((item) => {
+                    const { combo, probability, status } = item;
+                    const colors = combo.map((leg) =>
+                      getCategoryColor(leg.condition.category?.slug)
+                    );
+                    // Create a stable key from condition IDs and predictions
+                    const comboKey = combo
+                      .map(
+                        (leg) =>
+                          `${leg.condition.id}-${leg.prediction ? 'y' : 'n'}`
+                      )
+                      .join('_');
 
-                return (
-                  <TableRow
-                    key={`combo-${idx}`}
-                    className="border-b border-brand-white/20 hover:bg-transparent"
-                  >
-                    <TableCell className="py-3 pl-4 pr-1 w-[56px] shrink-0">
-                      <div className="flex items-center -space-x-2">
-                        {combo.map((leg, i) => {
-                          const CategoryIcon = getCategoryIcon(
-                            leg.condition.category?.slug
-                          );
-                          const color =
-                            colors[i] || 'hsl(var(--muted-foreground))';
-                          return (
-                            <div
-                              key={`icon-${leg.condition.id}-${i}`}
-                              className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center ring-2 ring-background"
-                              style={{
-                                backgroundColor: color,
-                                zIndex: combo.length - i,
-                              }}
-                            >
-                              <CategoryIcon className="h-3 w-3 text-white/80" />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3 pl-1 min-w-0 overflow-hidden max-w-[400px] relative">
-                      <div className="flex gap-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-brand-white/20 scrollbar-track-transparent pr-6">
-                        {combo.map((leg, i) => (
-                          <React.Fragment key={leg.condition.id + '-' + i}>
-                            {i > 0 && (
-                              <span className="text-sm text-muted-foreground shrink-0 self-center">
-                                and
-                              </span>
-                            )}
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm whitespace-nowrap">
-                                <ConditionTitleLink
-                                  conditionId={leg.condition.id}
-                                  title={
-                                    leg.condition.shortName ||
-                                    leg.condition.question
-                                  }
-                                  endTime={leg.condition.endTime}
-                                  description={leg.condition.description}
-                                  clampLines={1}
-                                />
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={`shrink-0 px-1.5 py-0.5 text-xs font-medium !rounded-md font-mono ${
-                                  leg.prediction
-                                    ? 'border-yes/40 bg-yes/10 text-yes'
-                                    : 'border-no/40 bg-no/10 text-no'
-                                }`}
-                              >
-                                {leg.prediction ? 'Yes' : 'No'}
-                              </Badge>
-                            </div>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-brand-black to-transparent pointer-events-none" />
-                    </TableCell>
-                    <TableCell className="py-3 px-4 text-right whitespace-nowrap">
-                      {status === 'received' && probability !== null ? (
-                        <span className="text-sm">
-                          <PercentChance
-                            probability={1 - probability}
-                            showLabel
-                            label="chance"
-                            className="font-mono text-ethena"
-                          />
-                          <span className="text-sm text-muted-foreground ml-1">
-                            implied probability
-                          </span>
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="py-3 pl-4 text-right whitespace-nowrap">
-                      {status === 'received' && probability !== null ? (
-                        <span className="text-sm">
-                          <span className="text-muted-foreground">
-                            1 USDe to win{' '}
-                          </span>
-                          <span className="text-brand-white font-medium">
-                            {(1 / (1 - probability)).toFixed(2)} USDe
-                          </span>
-                        </span>
-                      ) : status === 'error' ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span className="text-foreground/70">
-                          Requesting odds...
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3 pr-4 w-[70px]">
-                      <Button
-                        className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
-                        variant="default"
-                        size="sm"
-                        type="button"
-                        onClick={() => handlePickParlay(combo)}
+                    return (
+                      <motion.tr
+                        key={comboKey}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="border-b border-brand-white/20 hover:bg-transparent"
                       >
-                        PICK
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
+                        <TableCell className="py-3 pl-4 pr-3 w-[56px] shrink-0">
+                          <div className="flex items-center -space-x-2">
+                            {combo.map((leg, i) => {
+                              const CategoryIcon = getCategoryIcon(
+                                leg.condition.category?.slug
+                              );
+                              const color =
+                                colors[i] || 'hsl(var(--muted-foreground))';
+                              return (
+                                <div
+                                  key={`icon-${leg.condition.id}-${i}`}
+                                  className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center ring-2 ring-background"
+                                  style={{
+                                    backgroundColor: color,
+                                    zIndex: combo.length - i,
+                                  }}
+                                >
+                                  <CategoryIcon className="h-3 w-3 text-white/80" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 pl-1 min-w-0 overflow-hidden max-w-[400px] relative">
+                          <div className="flex gap-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-brand-white/20 scrollbar-track-transparent pr-6">
+                            {combo.map((leg, i) => (
+                              <React.Fragment key={leg.condition.id + '-' + i}>
+                                {i > 0 && (
+                                  <span className="text-sm text-muted-foreground shrink-0 self-center">
+                                    and
+                                  </span>
+                                )}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-sm whitespace-nowrap">
+                                    <ConditionTitleLink
+                                      conditionId={leg.condition.id}
+                                      title={
+                                        leg.condition.shortName ||
+                                        leg.condition.question
+                                      }
+                                      endTime={leg.condition.endTime}
+                                      description={leg.condition.description}
+                                      clampLines={1}
+                                    />
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                      leg.prediction
+                                        ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
+                                        : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
+                                    }`}
+                                  >
+                                    {leg.prediction ? 'YES' : 'NO'}
+                                  </Badge>
+                                </div>
+                              </React.Fragment>
+                            ))}
+                          </div>
+                          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-brand-black via-brand-black/80 to-transparent pointer-events-none" />
+                        </TableCell>
+                        <TableCell className="py-3 px-4 text-right whitespace-nowrap">
+                          {status === 'received' && probability !== null ? (
+                            <span className="text-sm">
+                              <PercentChance
+                                probability={1 - probability}
+                                showLabel
+                                label="chance"
+                                className="font-mono text-ethena"
+                              />
+                              <span className="text-muted-foreground ml-1">
+                                implied by 1 USDe to win{' '}
+                              </span>
+                              <span className="text-brand-white font-medium font-mono">
+                                {(1 / (1 - probability)).toFixed(2)} USDe
+                              </span>
+                            </span>
+                          ) : status === 'error' ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span className="text-foreground/70">
+                              Requesting quotes...
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-3 pr-4 w-[70px]">
+                          <Button
+                            className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
+                            variant="default"
+                            size="sm"
+                            type="button"
+                            onClick={() => handlePickParlay(combo)}
+                          >
+                            PICK
+                          </Button>
+                        </TableCell>
+                      </motion.tr>
+                    );
+                  })}
+            </AnimatePresence>
           </TableBody>
         </Table>
       </div>

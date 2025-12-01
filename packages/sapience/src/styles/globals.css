@@ -167,6 +167,15 @@
   .animate-overlay-pulse {
     animation: overlay-pulse 9.6s ease-in-out infinite;
   }
+  @keyframes suggestedRowPulse {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
   @keyframes gold-border-pulse {
     0% {
       border-color: hsl(var(--input));

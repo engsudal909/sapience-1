@@ -142,10 +142,12 @@ const ConditionRow: React.FC<ConditionRowProps> = ({ condition, color }) => {
       conditionId: id,
       question: displayQ,
       prediction: true,
+      categorySlug: condition.category?.slug,
     });
   }, [
     id,
     displayQ,
+    condition.category?.slug,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,
@@ -162,10 +164,12 @@ const ConditionRow: React.FC<ConditionRowProps> = ({ condition, color }) => {
       conditionId: id,
       question: displayQ,
       prediction: false,
+      categorySlug: condition.category?.slug,
     });
   }, [
     id,
     displayQ,
+    condition.category?.slug,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,

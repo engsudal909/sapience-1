@@ -71,14 +71,15 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
       showExpandedDate = false;
     }
 
-    const baseBadgeClasses = 'h-8 items-center px-3 text-xs leading-none';
+    const baseBadgeClasses =
+      'h-8 items-center px-3 text-xs leading-none font-medium';
     const outlineExtras = 'bg-card border-border';
     const smallBadgeClassName =
       `${baseBadgeClasses} ${isPast ? '' : outlineExtras}`.trim();
     // Desktop (md+) sizing, adjustable via size prop
     const isLargeDesktop = size === 'large';
     const desktopBaseBadgeClasses = isLargeDesktop
-      ? 'h-9 items-center px-3.5 text-sm leading-none'
+      ? 'h-9 items-center px-3.5 text-sm leading-none font-medium'
       : baseBadgeClasses;
     const largeBadgeClassName =
       `${desktopBaseBadgeClasses} inline-flex ${isPast ? '' : outlineExtras}`.trim();

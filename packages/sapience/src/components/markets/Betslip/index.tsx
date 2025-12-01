@@ -969,8 +969,24 @@ const Betslip = ({
   }
 
   if (variant === 'panel') {
+    const hasItems = isParlayMode
+      ? parlaySelections.length > 0
+      : betSlipPositions.length > 0;
+
     return (
       <div className="w-full h-full flex flex-col betslip">
+        <div className="hidden lg:flex items-center justify-between mb-1 px-1 pt-1">
+          <h2 className="sc-heading text-foreground">Make a prediction</h2>
+          <Button
+            variant="ghost"
+            size="xs"
+            className={`uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 transition-opacity ${hasItems ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
+            title="Reset"
+          >
+            CLEAR
+          </Button>
+        </div>
         <div
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
@@ -987,30 +1003,16 @@ const Betslip = ({
               className="hidden lg:block absolute top-0 left-0 right-0 h-px"
               style={{ background: categoryGradient }}
             />
-            <div className="hidden lg:flex items-center justify-between px-4 pt-4 pb-2">
-              <h3 className="eyebrow text-foreground font-sans py-1">
-                Make a Prediction
-              </h3>
-              {(isParlayMode
-                ? parlaySelections.length > 0
-                : betSlipPositions.length > 0) && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm relative -top-0.5"
-                  onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
-                  title="Reset"
-                >
-                  CLEAR
-                </Button>
-              )}
-            </div>
             <BetslipContent {...contentProps} />
           </div>
         </div>
       </div>
     );
   }
+
+  const hasTriggeredItems = isParlayMode
+    ? parlaySelections.length > 0
+    : betSlipPositions.length > 0;
 
   return (
     <>
@@ -1030,6 +1032,20 @@ const Betslip = ({
           align="end"
         >
           <div className="flex-1 min-h-0">
+            <div className="flex items-center justify-between mb-1 px-1">
+              <h2 className="sc-heading text-foreground">Make a prediction</h2>
+              {hasTriggeredItems && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
+                  onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
+                  title="Reset"
+                >
+                  CLEAR
+                </Button>
+              )}
+            </div>
             <div
               className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
               style={
@@ -1043,26 +1059,6 @@ const Betslip = ({
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}
               />
-              <div className="hidden lg:flex items-center justify-between px-4 pt-4 pb-2">
-                <h3 className="eyebrow text-foreground font-sans py-1">
-                  Make a Prediction
-                </h3>
-                {(isParlayMode
-                  ? parlaySelections.length > 0
-                  : betSlipPositions.length > 0) && (
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="uppercase font-mono tracking-widest text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 border border-brand-white/10 rounded-sm relative -top-0.5"
-                    onClick={
-                      isParlayMode ? clearParlaySelections : clearBetSlip
-                    }
-                    title="Reset"
-                  >
-                    CLEAR
-                  </Button>
-                )}
-              </div>
               <BetslipContent {...contentProps} />
             </div>
           </div>
