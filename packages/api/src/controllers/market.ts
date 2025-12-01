@@ -1,5 +1,3 @@
-import { Sentry } from '../sentry';
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import 'tsconfig-paths/register';
 import prisma from '../db';
@@ -37,6 +35,7 @@ import {
 import { alertEvent } from '../workers/discordBot';
 import { foilAbi } from '@sapience/sdk';
 import { PublicClient } from 'viem';
+import Sentry from '../instrument';
 import { Transaction } from '../../generated/prisma';
 import { fetchRenderServices, createRenderJob } from '../utils/utils';
 import { reindexAccuracy } from '../workers/jobs/reindexAccuracy';

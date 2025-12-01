@@ -1,4 +1,3 @@
-import { Sentry } from '../sentry';
 import {
   Block,
   PublicClient,
@@ -16,6 +15,7 @@ import dotenv from 'dotenv';
 import { fromRoot } from './fromRoot';
 import * as viem from 'viem';
 import * as viemChains from 'viem/chains';
+import * as Sentry from '@sentry/node';
 
 // Custom chain definition for Converge (chainId 432)
 export const convergeChain: viem.Chain = {

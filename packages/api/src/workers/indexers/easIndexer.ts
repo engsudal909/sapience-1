@@ -7,7 +7,7 @@ import {
   decodeAbiParameters,
   GetContractReturnType,
 } from 'viem';
-import { Sentry } from '../../sentry';
+import Sentry from '../../instrument';
 import { SchemaEncoder } from '@ethereum-attestation-service/eas-sdk';
 import { IResourcePriceIndexer } from '../../interfaces';
 import type { Resource } from '../../../generated/prisma';

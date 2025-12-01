@@ -38,12 +38,9 @@ const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 // Logging controls
 const DEBUG_MCP_LOGS = process.env.DEBUG_MCP_LOGS === '1' && !config.isProd;
 
-export const handleMcpAppRequests = (
-  app: express.Application,
-  endpoint: string
-) => {
+export const handleMcpAppRequests = (app: express.Application, url: string) => {
   // Handle POST requests for client-to-server communication
-  app.post(endpoint, async (req, res) => {
+  app.post(url, async (req, res) => {
     const sessionIdHeader = (req.headers['mcp-session-id'] as string) || 'n/a';
     if (DEBUG_MCP_LOGS) {
       console.log(`Request received: ${req.method} ${req.url}`, {
@@ -218,7 +215,7 @@ export const handleMcpAppRequests = (
   });
 
   // Handle GET requests for server-to-client notifications via SSE on the same path
-  app.get(endpoint, async (req: express.Request, res: express.Response) => {
+  app.get(url, async (req: express.Request, res: express.Response) => {
     const sessionIdHeader = (req.headers['mcp-session-id'] as string) || 'n/a';
     console.log(`[MCP] ${req.method} ${req.url} sessionId=${sessionIdHeader}`);
 
@@ -267,7 +264,7 @@ export const handleMcpAppRequests = (
   });
 
   // Handle DELETE requests for session termination on the same path
-  app.delete(endpoint, async (req: express.Request, res: express.Response) => {
+  app.delete(url, async (req: express.Request, res: express.Response) => {
     const sessionIdHeader = (req.headers['mcp-session-id'] as string) || 'n/a';
     console.log(`[MCP] ${req.method} ${req.url} sessionId=${sessionIdHeader}`);
     try {

@@ -1,5 +1,5 @@
 import { foilAbi } from '@sapience/sdk';
-import { Sentry } from '../../sentry';
+import * as Sentry from '@sentry/node';
 import {
   initializeMarket,
   reindexMarketGroupEvents,

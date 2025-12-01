@@ -1,4 +1,3 @@
-import { Sentry } from '../sentry';
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
 import type { IncomingMessage } from 'http';
 import { verifyMessage, type Abi } from 'viem';
@@ -10,6 +9,7 @@ import {
   PREDICTION_MARKET_ADDRESS_ARB1,
   PREDICTION_MARKET_CHAIN_ID_ARB1,
 } from '../constants';
+import Sentry from '../instrument';
 import type {
   BotToServerMessage,
   ClientToServerMessage,
