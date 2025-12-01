@@ -3,47 +3,48 @@ databases:
     databaseName: foil
     plan: pro-4gb
 
+envVarGroups:
+  - name: SapienceAPIEnvGroup
+    envVars:
+      - key: SENTRY_DSN
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: database
+          property: connectionString
+
 services:
   - name: web-service
     type: web
     env: node
     plan: pro
-    buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
+    buildCommand: corepack enable && bash render-build-sdk.sh
     startCommand: pnpm --filter @sapience/api start:service
     autoDeploy: true
     repo: https://github.com/sapiencexyz/sapience
     branch: main
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: database
-          property: connectionString
+      - fromGroup: SapienceAPIEnvGroup
 
   - name: background-worker
     type: worker
     env: node
     plan: standard
-    buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh && pnpm --filter @sapience/api prisma:generate
+    buildCommand: corepack enable && bash render-build-sdk.sh && pnpm --filter @sapience/api prisma:generate
     startCommand: pnpm --filter @sapience/api start:worker
     autoDeploy: true
     branch: main
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: database
-          property: connectionString
+      - fromGroup: SapienceAPIEnvGroup
 
   - name: candle-cache-builder
     type: worker
     env: node
     plan: pro
-    buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
+    buildCommand: corepack enable && bash render-build-sdk.sh
     startCommand: pnpm --filter @sapience/api start:candle-cache
     autoDeploy: true
     repo: https://github.com/sapiencexyz/sapience
     branch: main
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: database
-          property: connectionString
+      - fromGroup: SapienceAPIEnvGroup

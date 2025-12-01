@@ -1,5 +1,5 @@
 import { initializeDataSource } from '../../db';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 import EASPredictionIndexer from '../indexers/easIndexer';
 import { Resource } from '../../../generated/prisma';
 

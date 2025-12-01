@@ -59,6 +59,10 @@ const corsOptions: cors.CorsOptions = {
 
 const app = express();
 
+if (!config.isProduction) {
+  app.set('json spaces', 2);
+}
+
 // Middleware
 app.use(express.json());
 app.use(cors(corsOptions));

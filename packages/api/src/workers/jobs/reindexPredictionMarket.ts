@@ -1,5 +1,5 @@
 import { initializeDataSource } from '../../db';
-import * as Sentry from '@sentry/node';
+import { Sentry } from '../../sentry';
 import PredictionMarketIndexer from '../indexers/predictionMarketIndexer';
 import { Resource } from '../../../generated/prisma';
 import prisma from '../../db';
