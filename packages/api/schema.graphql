@@ -762,6 +762,9 @@ type Condition {
   id: String!
   public: Boolean!
   question: String!
+  resolvedToYes: Boolean!
+  settled: Boolean!
+  settledAt: Int
   shortName: String
   similarMarkets: [String!]!
 }
@@ -770,12 +773,14 @@ type ConditionAvgAggregate {
   categoryId: Float
   chainId: Float
   endTime: Float
+  settledAt: Float
 }
 
 input ConditionAvgOrderByAggregateInput {
   categoryId: SortOrder
   chainId: SortOrder
   endTime: SortOrder
+  settledAt: SortOrder
 }
 
 type ConditionCountAggregate {
@@ -789,6 +794,9 @@ type ConditionCountAggregate {
   id: Int!
   public: Int!
   question: Int!
+  resolvedToYes: Int!
+  settled: Int!
+  settledAt: Int!
   shortName: Int!
   similarMarkets: Int!
 }
@@ -803,6 +811,9 @@ input ConditionCountOrderByAggregateInput {
   id: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrder
   shortName: SortOrder
   similarMarkets: SortOrder
 }
@@ -822,6 +833,9 @@ type ConditionGroupBy {
   id: String!
   public: Boolean!
   question: String!
+  resolvedToYes: Boolean!
+  settled: Boolean!
+  settledAt: Int
   shortName: String
   similarMarkets: [String!]
 }
@@ -842,6 +856,9 @@ type ConditionMaxAggregate {
   id: String
   public: Boolean
   question: String
+  resolvedToYes: Boolean
+  settled: Boolean
+  settledAt: Int
   shortName: String
 }
 
@@ -855,6 +872,9 @@ input ConditionMaxOrderByAggregateInput {
   id: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrder
   shortName: SortOrder
 }
 
@@ -868,6 +888,9 @@ type ConditionMinAggregate {
   id: String
   public: Boolean
   question: String
+  resolvedToYes: Boolean
+  settled: Boolean
+  settledAt: Int
   shortName: String
 }
 
@@ -881,6 +904,9 @@ input ConditionMinOrderByAggregateInput {
   id: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrder
   shortName: SortOrder
 }
 
@@ -903,6 +929,9 @@ input ConditionOrderByWithAggregationInput {
   id: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrderInput
   shortName: SortOrderInput
   similarMarkets: SortOrder
 }
@@ -918,6 +947,9 @@ input ConditionOrderByWithRelationInput {
   id: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrderInput
   shortName: SortOrderInput
   similarMarkets: SortOrder
 }
@@ -932,6 +964,9 @@ enum ConditionScalarFieldEnum {
   id
   public
   question
+  resolvedToYes
+  settled
+  settledAt
   shortName
   similarMarkets
 }
@@ -949,6 +984,9 @@ input ConditionScalarWhereWithAggregatesInput {
   id: StringWithAggregatesFilter
   public: BoolWithAggregatesFilter
   question: StringWithAggregatesFilter
+  resolvedToYes: BoolWithAggregatesFilter
+  settled: BoolWithAggregatesFilter
+  settledAt: IntNullableWithAggregatesFilter
   shortName: StringNullableWithAggregatesFilter
   similarMarkets: StringNullableListFilter
 }
@@ -957,12 +995,14 @@ type ConditionSumAggregate {
   categoryId: Int
   chainId: Int
   endTime: Int
+  settledAt: Int
 }
 
 input ConditionSumOrderByAggregateInput {
   categoryId: SortOrder
   chainId: SortOrder
   endTime: SortOrder
+  settledAt: SortOrder
 }
 
 type ConditionSummary {
@@ -986,6 +1026,9 @@ input ConditionWhereInput {
   id: StringFilter
   public: BoolFilter
   question: StringFilter
+  resolvedToYes: BoolFilter
+  settled: BoolFilter
+  settledAt: IntNullableFilter
   shortName: StringNullableFilter
   similarMarkets: StringNullableListFilter
 }
@@ -1004,6 +1047,9 @@ input ConditionWhereUniqueInput {
   id: String
   public: BoolFilter
   question: StringFilter
+  resolvedToYes: BoolFilter
+  settled: BoolFilter
+  settledAt: IntNullableFilter
   shortName: StringNullableFilter
   similarMarkets: StringNullableListFilter
 }
