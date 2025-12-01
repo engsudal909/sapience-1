@@ -1,5 +1,5 @@
 import { initializeDataSource } from '../../db';
-import { Sentry } from '../../sentry';
+import * as Sentry from '@sentry/node';
 import {
   getBlockByTimestamp,
   getContractCreationBlock,
