@@ -8,10 +8,6 @@ envVarGroups:
     envVars:
       - key: SENTRY_DSN
         sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: database
-          property: connectionString
 
 services:
   - name: web-service
@@ -25,6 +21,10 @@ services:
     branch: main
     envVars:
       - fromGroup: SapienceAPIEnvGroup
+      - key: DATABASE_URL
+        fromDatabase:
+          name: database
+          property: connectionString
 
   - name: background-worker
     type: worker
@@ -36,6 +36,10 @@ services:
     branch: main
     envVars:
       - fromGroup: SapienceAPIEnvGroup
+      - key: DATABASE_URL
+        fromDatabase:
+          name: database
+          property: connectionString
 
   - name: candle-cache-builder
     type: worker
@@ -48,3 +52,7 @@ services:
     branch: main
     envVars:
       - fromGroup: SapienceAPIEnvGroup
+      - key: DATABASE_URL
+        fromDatabase:
+          name: database
+          property: connectionString
