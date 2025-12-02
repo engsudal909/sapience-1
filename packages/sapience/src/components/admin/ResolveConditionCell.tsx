@@ -110,14 +110,10 @@ const ResolveConditionCell = ({
   const bondCurrency = umaConfig?.[2] || zeroAddress;
   const bondAmount = umaConfig?.[3] || 0n;
 
-  // UMA Optimistic Oracle V3 address on Arbitrum mainnet
-  // Hardcoded because the config read can be unreliable
+
   const OPTIMISTIC_ORACLE_V3_ADDRESS =
     '0xa6147867264374F324524E30C02C331cF28aa879' as `0x${string}`;
   const optimisticOracleV3 = umaConfig?.[1] || OPTIMISTIC_ORACLE_V3_ADDRESS;
-
-  // UMA assertion liveness period (10 minutes = 600 seconds)
-  // This is a config constant that rarely changes
   const ASSERTION_LIVENESS_SECONDS = 600;
 
   const { data: contractAssertionId, refetch: refetchAssertionId } =
@@ -130,7 +126,7 @@ const ResolveConditionCell = ({
       query: { enabled: Boolean(marketId && UMA_RESOLVER_ADDRESS) },
     });
 
-  // Use prop assertionId if available, otherwise fallback to contract read
+ 
   const assertionId = (propAssertionId as `0x${string}`) || contractAssertionId;
 
   const assertionSubmitted =
@@ -187,7 +183,6 @@ const ResolveConditionCell = ({
   const { toast } = useToast();
   const { switchChainAsync } = useSwitchChain();
 
-  // Use direct wagmi hook for settle to avoid complex transaction monitoring issues
   const { writeContractAsync: settleWriteAsync, isPending: isSettling } =
     useWriteContract();
 
