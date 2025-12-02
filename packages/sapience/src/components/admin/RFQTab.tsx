@@ -47,7 +47,7 @@ import { Copy, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, fromUnixTime } from 'date-fns';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { keccak256, concatHex, toHex } from 'viem';
-import { umaResolver } from '@sapience/sdk/contracts';
+import { lzUmaResolver, lzPMResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
@@ -70,6 +70,12 @@ type RFQRow = {
   description: string;
   similarMarketUrls?: string[];
   chainId?: number;
+  settled?: boolean;
+  resolvedToYes?: boolean;
+  assertionId?: string;
+  assertionTimestamp?: number;
+  _isSettled?: boolean;
+  _hasData?: boolean;
 };
 
 type CSVRow = {
@@ -142,9 +148,6 @@ const RFQTab = ({
   const [filter, setFilter] = useState<ConditionFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
-  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
-
   const umaWrappedMarketAbi = [
     {
       inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
@@ -176,12 +179,17 @@ const RFQTab = ({
         marketId = undefined;
       }
 
+      const chainId = c.chainId || DEFAULT_CHAIN_ID;
+      // Use lzPMResolver if available (e.g. Ethereal), otherwise fallback to lzUmaResolver (e.g. Arbitrum)
+      const address =
+        lzPMResolver[chainId]?.address || lzUmaResolver[chainId]?.address;
+
       return {
-        address: UMA_RESOLVER_ADDRESS,
+        address,
         abi: umaWrappedMarketAbi,
         functionName: 'wrappedMarkets' as const,
         args: marketId ? [marketId] : undefined,
-        chainId: UMA_CHAIN_ID,
+        chainId,
       };
     });
   }, [conditions]);
@@ -380,9 +388,13 @@ const RFQTab = ({
   function ConditionStatusBadges({
     claimStatement,
     endTime,
+    isSettledOverride,
+    chainId,
   }: {
     claimStatement?: string;
     endTime?: number;
+    isSettledOverride?: boolean;
+    chainId?: number;
   }) {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const isUpcoming = (endTime ?? 0) > nowSeconds;
@@ -401,17 +413,22 @@ const RFQTab = ({
       marketId = undefined;
     }
 
+    const targetChainId = chainId || DEFAULT_CHAIN_ID;
+    const address =
+      lzPMResolver[targetChainId]?.address ||
+      lzUmaResolver[targetChainId]?.address;
+
     const { data } = useReadContract({
-      address: UMA_RESOLVER_ADDRESS,
+      address,
       abi: umaWrappedMarketAbi,
       functionName: 'wrappedMarkets',
       args: marketId ? [marketId] : undefined,
-      chainId: UMA_CHAIN_ID,
-      query: { enabled: Boolean(marketId) },
+      chainId: targetChainId,
+      query: { enabled: Boolean(marketId) && isSettledOverride === undefined },
     });
 
     const tuple = data;
-    const settled = Boolean(tuple?.[2] ?? false);
+    const settled = isSettledOverride ?? Boolean(tuple?.[2] ?? false);
 
     return (
       <div className="flex flex-col items-start gap-1">
@@ -444,6 +461,8 @@ const RFQTab = ({
           <ConditionStatusBadges
             claimStatement={row.original.claimStatement}
             endTime={row.original.endTime}
+            isSettledOverride={row.original.settled ?? row.original._isSettled}
+            chainId={row.original.chainId}
           />
         ),
       },
@@ -642,12 +661,28 @@ const RFQTab = ({
           const original = row.original;
           const id = original.id;
           if (!id) return null;
+
+          const isSettled = original.settled ?? original._isSettled;
+          const resolvedToYes = original.resolvedToYes;
+
+          if (isSettled) {
+            return (
+              <div className="flex items-center gap-2 justify-end">
+                <Badge variant={resolvedToYes ? 'default' : 'destructive'}>
+                  Resolved: {resolvedToYes ? 'YES' : 'NO'}
+                </Badge>
+              </div>
+            );
+          }
+
           return (
             <div className="flex items-center gap-2">
               <ResolveConditionCell
                 marketId={id as `0x${string}`}
                 endTime={original.endTime}
                 claim={original.claimStatement}
+                assertionId={original.assertionId}
+                assertionTimestamp={original.assertionTimestamp}
               />
               <Button
                 variant="secondary"
@@ -682,12 +717,23 @@ const RFQTab = ({
     const now = Math.floor(Date.now() / 1000);
 
     const mapped = (conditions || []).map((c, index) => {
-      // Get settlement status from batch contract read
-      const settlementResult = settlementData?.[index];
-      const isSettled =
-        settlementResult?.status === 'success'
-          ? Boolean(settlementResult.result?.[2])
-          : undefined;
+      // Try to get settlement status from DB first (new method)
+      let isSettled = c.settled;
+      let resolvedToYes = c.resolvedToYes;
+
+      // Fallback to contract read if not settled in DB (old method/transition)
+      if (!isSettled) {
+        const settlementResult = settlementData?.[index];
+        if (settlementResult?.status === 'success') {
+          isSettled = Boolean(settlementResult.result?.[2]);
+          if (isSettled) {
+            resolvedToYes = Boolean(settlementResult.result?.[3]);
+          }
+        }
+      }
+
+      const hasData =
+        c.settled || settlementData?.[index]?.status === 'success';
 
       return {
         id: c.id,
@@ -700,8 +746,11 @@ const RFQTab = ({
         description: c.description,
         similarMarketUrls: c.similarMarkets,
         chainId: c.chainId,
+        resolvedToYes,
+        assertionId: c.assertionId,
+        assertionTimestamp: c.assertionTimestamp,
         _isSettled: isSettled,
-        _hasData: settlementResult?.status === 'success',
+        _hasData: hasData,
       };
     });
 
@@ -713,8 +762,7 @@ const RFQTab = ({
         const isUpcoming = !!(row.endTime && row.endTime > now);
 
         if (filter === 'needs-settlement') {
-          passesSettlementFilter =
-            isPastEnd && row._hasData && row._isSettled === false;
+          passesSettlementFilter = isPastEnd && !row._isSettled;
         } else if (filter === 'upcoming') {
           passesSettlementFilter = isUpcoming;
         } else if (filter === 'settled') {

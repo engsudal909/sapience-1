@@ -22,7 +22,7 @@ const PnLDisplay = ({ value }: { value: number }) => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}
-      {' testUSDe'}
+      {'USDe'}
     </span>
   );
 };

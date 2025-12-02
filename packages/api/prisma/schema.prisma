@@ -445,6 +445,13 @@ model Condition {
   description    String    @db.Text
   similarMarkets String[]  @default([])
   chainId        Int       @default(42161)
+  
+  // Resolution status
+  settled        Boolean   @default(false)
+  resolvedToYes  Boolean   @default(false)
+  settledAt      Int?
+  assertionId    String?   @db.VarChar
+  assertionTimestamp Int?
 
   @@index([categoryId])
   @@index([endTime])

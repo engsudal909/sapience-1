@@ -53,14 +53,6 @@ export default defineConfig({
             text: "Market Making Agent",
             link: "/builder-guide/guides/market-making-agent",
           },
-          {
-            text: "Spot Market Trading Agent",
-            link: "/builder-guide/guides/trading-bots",
-          },
-          {
-            text: "Spot Market Liquidity Agent",
-            link: "/builder-guide/guides/liquidity-provisioning-bots",
-          },
           { text: "Customize Trading App", link: "/builder-guide/guides/customize-trading-app" },
           {
             text: "Dashboards, Games, and more",
@@ -72,7 +64,6 @@ export default defineConfig({
         text: "API",
         items: [
           { text: "GraphQL", link: "/builder-guide/api/graphql" },
-          { text: "Quoter", link: "/builder-guide/api/quoter" },
           { text: "Auction Relayer", link: "/builder-guide/api/auction-relayer" },
           { text: "MCP", link: "/builder-guide/api/mcp" },
         ],
@@ -93,8 +84,6 @@ export default defineConfig({
           { text: "UI Components", link: "/builder-guide/storybook" },
         ],
       },
-      { text: "FAQ", link: "/builder-guide/faq" },
-      { text: "Contributing", link: "/builder-guide/contributing" },
     ],
     "/user-guide": [
       { text: "Open App", link: "https://sapience.xyz" },
@@ -109,7 +98,7 @@ export default defineConfig({
           },
           {
             text: "Glossary",
-            link: "/user-guide/other-resources/glossary",
+            link: "/user-guide/introduction/glossary",
           },
         ],
       },
@@ -117,17 +106,14 @@ export default defineConfig({
         text: "Trading Prediction Markets",
         items: [
           { text: "Overview", link: "/user-guide/trading/overview" },
-          { text: "Auction Markets", link: "/user-guide/trading/auction-markets" },
-          { text: "Spot Markets", link: "/user-guide/trading/spot-markets" },
-          { text: "Verification & Settlement", link: "/user-guide/trading/resolution-and-disputes" },
+          { text: "Auctions", link: "/user-guide/trading/auctions" },
+          { text: "Resolution", link: "/user-guide/trading/resolution" },
         ],
       },
       {
         text: "Providing Liquidity",
         items: [
-          { text: "Overview", link: "/user-guide/liquidity-overview" },
-          { text: "Auction Liquidity", link: "/user-guide/batch-auction-liquidity" },
-          { text: "Spot Liquidity", link: "/user-guide/liquidity-provisioning" },
+          { text: "Market Making", link: "/user-guide/market-making" },
           { text: "Liquidity Vaults", link: "/user-guide/liquidity-vaults" },
         ],
       },
@@ -139,11 +125,8 @@ export default defineConfig({
             text: "Brand Assets",
             link: "/user-guide/other-resources/brand-assets",
           },
-          {
-            text: "Community",
-            link: "/user-guide/other-resources/community",
-          },
-          { text: "FAQ", link: "/user-guide/other-resources/faq" },
+          { text: "Discord", link: "https://discord.gg/sapience" },
+          { text: "X", link: "https://x.com/sapiencemarkets" },
         ],
       },
     ],
