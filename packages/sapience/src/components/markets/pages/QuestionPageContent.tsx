@@ -342,9 +342,9 @@ export default function QuestionPageContent({
           </div>
 
           {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6">
-            {/* Scatterplot */}
-            <div className="w-full h-[350px] bg-brand-black border border-border rounded-lg pt-4 pr-4 pb-2 pl-2">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
+            {/* Scatterplot - height matches the PredictionForm dynamically */}
+            <div className="w-full min-h-[350px] bg-brand-black border border-border rounded-lg pt-4 pr-4 pb-2 pl-2">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart
                   margin={{ top: 10, right: 10, bottom: 5, left: -10 }}

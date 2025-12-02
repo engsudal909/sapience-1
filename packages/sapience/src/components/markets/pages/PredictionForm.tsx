@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { useMemo, useCallback } from 'react';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Label } from '@sapience/sdk/ui/components/ui/label';
 import { useAccount } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import BidDisplay from '~/components/markets/forms/shared/BidDisplay';
 import { useSingleConditionAuction } from '~/hooks/forms/useSingleConditionAuction';
@@ -220,44 +221,55 @@ export default function PredictionForm({
   const minWagerNum = parseFloat(minWager || '0');
   const isWagerValid = wagerNum >= minWagerNum && wagerNum > 0;
 
+  // Compute taker wager in wei for auction chart
+  const takerWagerWei = useMemo(() => {
+    try {
+      return parseUnits(wagerAmount || '0', collateralDecimals).toString();
+    } catch {
+      return '0';
+    }
+  }, [wagerAmount, collateralDecimals]);
+
   return (
     <div
-      className={`h-[350px] border border-border rounded-lg bg-brand-black p-4 flex flex-col ${className ?? ''}`}
+      className={`min-h-[350px] border border-border rounded-lg bg-brand-black p-4 flex flex-col ${className ?? ''}`}
     >
       <div className="flex flex-col gap-3 flex-1">
         {/* Current Forecast Display */}
-        <div className="flex flex-col items-start">
-          <span className="sc-heading text-muted-foreground">
-            Current Forecast
-          </span>
+        <div className="flex flex-col items-start gap-1">
+          <Label className="text-brand-white">Current Forecast</Label>
           <span className="font-mono text-ethena text-3xl">
             {currentForecast !== null ? `${currentForecast}% chance` : '—'}
           </span>
         </div>
 
-        {/* Make a Prediction */}
-        <div className="flex flex-col">
-          <span className="sc-heading text-muted-foreground mb-2">
-            Make a Prediction
-          </span>
+        {/* Select Prediction */}
+        <div className="space-y-2 mb-3">
+          <Label className="text-brand-white">Select Prediction</Label>
           <div className="font-mono">
             <YesNoSplitButton
               onYes={handleYes}
               onNo={handleNo}
               selectedYes={selectedPrediction === true}
               selectedNo={selectedPrediction === false}
-              size="sm"
+              size="md"
               yesLabel="YES"
               noLabel="NO"
+              labelClassName="text-base"
             />
           </div>
         </div>
 
         {/* Wager Input */}
-        <div className="flex flex-col gap-2">
-          <span className="sc-heading text-muted-foreground">Wager</span>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="wagerAmount-input" className="text-brand-white">
+              Wager Amount
+            </Label>
+          </div>
           <div className="relative">
             <Input
+              id="wagerAmount-input"
               type="text"
               inputMode="decimal"
               value={wagerAmount}
@@ -274,6 +286,9 @@ export default function PredictionForm({
               }}
               placeholder="0.00"
               autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              autoCapitalize="none"
               className="pr-16 text-brand-white placeholder:text-brand-white/70"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-white flex items-center pointer-events-none">
@@ -297,6 +312,9 @@ export default function PredictionForm({
           isSubmitting={isSubmitting}
           onSubmit={handleSubmit}
           className="mt-auto"
+          allBids={bids}
+          takerWagerWei={takerWagerWei}
+          takerAddress={_address}
         />
       ) : (
         <div className="mt-auto pt-4 text-center text-sm text-muted-foreground">
