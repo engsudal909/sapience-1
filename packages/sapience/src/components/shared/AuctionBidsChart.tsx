@@ -249,11 +249,11 @@ const AuctionBidsChart: React.FC<Props> = ({
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Chart area starts after Y axis and has padding (8px right, 0 left)
+      // Chart area starts after Y axis and has padding (16px right, 0 left)
       const chartLeft = yAxisWidth;
-      const chartRight = rect.width - 8;
+      const chartRight = rect.width - 16;
       const chartWidth = chartRight - chartLeft;
-      const chartTop = 8;
+      const chartTop = 16;
       const chartBottom = rect.height - 20; // Account for X axis
       const chartHeight = chartBottom - chartTop;
 
@@ -332,7 +332,7 @@ const AuctionBidsChart: React.FC<Props> = ({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          margin={{ top: 16, right: 16, bottom: 0, left: 0 }}
         >
           <defs>
             <linearGradient id="colorBid" x1="0" y1="0" x2="0" y2="1">

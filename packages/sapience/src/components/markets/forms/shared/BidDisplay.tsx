@@ -56,6 +56,8 @@ export interface BidDisplayProps {
   takerWagerWei?: string;
   /** Taker address for auction chart */
   takerAddress?: string;
+  /** Whether the "to win" section takes up space in the layout (default: true) */
+  toWinTakesSpace?: boolean;
 }
 
 /**
@@ -85,6 +87,7 @@ export default function BidDisplay({
   allBids = [],
   takerWagerWei,
   takerAddress,
+  toWinTakesSpace = true,
 }: BidDisplayProps) {
   const [isAuctionExpanded, setIsAuctionExpanded] = useState(false);
 
@@ -131,116 +134,121 @@ export default function BidDisplay({
     ? bestBid.makerDeadline * 1000 - nowMs <= 0
     : true;
 
-  if (bestBid) {
-    return (
-      <div className={`text-center ${className ?? ''}`}>
-        {/* To Win Display */}
-        <div className="mt-3 mb-4">
-          <div className="rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-4 py-2.5 w-full shadow-[0_0_10px_rgba(136,180,245,0.25)]">
-            <div className="flex items-center gap-1.5 min-h-[40px]">
-              {/* Left column: To Win + View Auction */}
-              <div className="flex flex-col gap-0 shrink-0">
-                <span className="inline-flex items-center gap-2 whitespace-nowrap font-mono">
-                  <span className="font-light text-brand-white uppercase tracking-wider">
-                    To Win
-                  </span>
-                  <span className="text-brand-white font-semibold inline-flex items-center whitespace-nowrap">
-                    {humanTotal} {collateralSymbol}
-                  </span>
-                </span>
-                {/* View Auction Toggle - directly under To Win */}
-                {allBids.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsAuctionExpanded(!isAuctionExpanded)}
-                    className="flex items-center gap-1 text-[10px] text-brand-white hover:text-brand-white/80 transition-colors"
-                  >
-                    <span className="font-mono uppercase tracking-wide border-b border-dotted border-brand-white/50">
-                      View Auction
-                    </span>
-                    <ChevronDown
-                      className={`h-3 w-3 transition-transform duration-200 ${
-                        isAuctionExpanded ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                )}
-              </div>
-              {/* Right column: Expires countdown */}
-              <div className="ml-auto font-mono text-right flex flex-col">
-                <span className="whitespace-nowrap text-[10px] text-brand-white/70 uppercase tracking-wide leading-tight mb-0.5">
-                  Expires in
-                </span>
-                <span className="whitespace-nowrap text-brand-white text-sm font-semibold leading-tight">
-                  {remainingSecs}s
-                </span>
-              </div>
-            </div>
+  // Determine button state and text
+  const getButtonState = () => {
+    if (bestBid) {
+      return {
+        text: isSubmitting ? 'SUBMITTING...' : 'SUBMIT PREDICTION',
+        disabled: isSubmitting || isBidExpired || isSubmitDisabled,
+        onClick: onSubmit,
+        type: 'submit' as const,
+      };
+    }
+    return {
+      text: showRequestBidsButton
+        ? 'INITIALIZE AUCTION'
+        : 'WAITING FOR BIDS...',
+      disabled: !showRequestBidsButton || isWaitingForBids,
+      onClick: () => showRequestBidsButton && onRequestBids(),
+      type: 'button' as const,
+    };
+  };
 
-            {/* Auction Chart - expandable */}
-            {allBids.length > 0 && (
-              <AnimatePresence initial={false}>
-                {isAuctionExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <div className="h-[160px] mt-3 mb-1">
-                      <AuctionBidsChart
-                        bids={chartBids}
-                        continuous
-                        refreshMs={90}
-                        takerWager={takerWagerWei}
-                        taker={takerAddress}
-                        collateralAssetTicker={collateralSymbol}
-                        showTooltips={true}
-                        compact
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
-          </div>
-        </div>
+  const buttonState = getButtonState();
 
-        {/* Submit Button */}
-        <Button
-          className={`w-full py-6 text-lg font-mono font-bold tracking-wider bg-brand-white text-brand-black hover:bg-brand-white/90 cursor-pointer disabled:cursor-not-allowed ${
-            enableRainbowHover ? 'betslip-submit hover:text-brand-white' : ''
-          }`}
-          disabled={isSubmitting || isBidExpired || isSubmitDisabled}
-          type="submit"
-          size="lg"
-          variant="default"
-          onClick={onSubmit}
-        >
-          {isSubmitting ? 'SUBMITTING...' : 'SUBMIT PREDICTION'}
-        </Button>
-
-        <WagerDisclaimer className="mt-3" />
-      </div>
-    );
-  }
-
-  // No valid bid state
   return (
-    <div className={`text-center ${className ?? ''}`}>
-      {/* Request Bids / Waiting Button */}
+    <div
+      className={`text-center ${toWinTakesSpace ? '' : 'relative'} ${className ?? ''}`}
+    >
+      {/* To Win Display - takes up space when toWinTakesSpace is true, otherwise positioned absolutely */}
+      <div
+        className={`mt-4 mb-4 transition-opacity duration-300 ${
+          bestBid ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        } ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
+      >
+        <div className="rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-4 py-2.5 w-full shadow-[0_0_10px_rgba(136,180,245,0.25)]">
+          <div className="flex items-center gap-1.5 min-h-[40px]">
+            {/* Left column: To Win + View Auction */}
+            <div className="flex flex-col gap-0 shrink-0">
+              <span className="inline-flex items-center gap-2 whitespace-nowrap font-mono">
+                <span className="font-light text-brand-white uppercase tracking-wider">
+                  To Win
+                </span>
+                <span className="text-brand-white font-semibold inline-flex items-center whitespace-nowrap">
+                  {bestBid ? `${humanTotal} ${collateralSymbol}` : '—'}
+                </span>
+              </span>
+              {/* View Auction Toggle - directly under To Win */}
+              {allBids.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsAuctionExpanded(!isAuctionExpanded)}
+                  className="flex items-center gap-1 text-[10px] text-brand-white hover:text-brand-white/80 transition-colors"
+                >
+                  <span className="font-mono uppercase tracking-wide border-b border-dotted border-brand-white/50">
+                    View Auction
+                  </span>
+                  <ChevronDown
+                    className={`h-3 w-3 transition-transform duration-200 ${
+                      isAuctionExpanded ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+            {/* Right column: Expires countdown */}
+            <div className="ml-auto font-mono text-right flex flex-col">
+              <span className="whitespace-nowrap text-[10px] text-brand-white/70 uppercase tracking-wide leading-tight mb-0.5">
+                Expires in
+              </span>
+              <span className="whitespace-nowrap text-brand-white text-sm font-semibold leading-tight">
+                {bestBid ? `${remainingSecs}s` : '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* Auction Chart - expandable */}
+          {allBids.length > 0 && (
+            <AnimatePresence initial={false}>
+              {isAuctionExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="h-[160px] mt-3 mb-1">
+                    <AuctionBidsChart
+                      bids={chartBids}
+                      continuous
+                      refreshMs={90}
+                      takerWager={takerWagerWei}
+                      taker={takerAddress}
+                      collateralAssetTicker={collateralSymbol}
+                      showTooltips={true}
+                      compact
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
+        </div>
+      </div>
+
+      {/* Submit / Request Bids Button */}
       <Button
         className={`w-full py-6 text-lg font-mono font-bold tracking-wider bg-brand-white text-brand-black hover:bg-brand-white/90 cursor-pointer disabled:cursor-not-allowed ${
           enableRainbowHover ? 'betslip-submit hover:text-brand-white' : ''
         }`}
-        disabled={!showRequestBidsButton || isWaitingForBids}
-        type="button"
+        disabled={buttonState.disabled}
+        type={buttonState.type}
         size="lg"
         variant="default"
-        onClick={() => showRequestBidsButton && onRequestBids()}
+        onClick={buttonState.onClick}
       >
-        {showRequestBidsButton ? 'INITIALIZE AUCTION' : 'WAITING FOR BIDS...'}
+        {buttonState.text}
       </Button>
 
       {/* Parlay-specific hint for combinations that may not receive bids */}
@@ -259,7 +267,7 @@ export default function BidDisplay({
       {/* Disclaimer with optional crossfade */}
       {disclaimerMounted && (
         <WagerDisclaimer
-          className={`mt-3 transition-opacity duration-300 ${
+          className={`mt-4 transition-opacity duration-300 ${
             disclaimerVisible ? 'opacity-100' : 'opacity-0'
           }`}
         />

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef, useEffect } from 'react';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
 import { Label } from '@sapience/sdk/ui/components/ui/label';
 import { useAccount } from 'wagmi';
@@ -94,10 +94,30 @@ export default function PredictionForm({
     requestQuotes,
   });
 
+  // Track which prediction direction the current bestBid corresponds to
+  // This prevents showing stale forecast when switching Yes/No
+  const bidPredictionRef = useRef<boolean | null>(null);
+
+  // Update ref ONLY when bestBid changes - this records which prediction the bid was for
+  useEffect(() => {
+    if (bestBid) {
+      bidPredictionRef.current = selectedPrediction;
+    }
+  }, [bestBid, selectedPrediction]);
+
   // Derive current forecast from best bid odds
-  // Implied probability = makerWager / (userWager + makerWager)
+  // Always shows probability of Yes resolution
   const currentForecast = useMemo(() => {
-    if (!bestBid) return null;
+    // Don't show forecast if bid is stale (from different prediction direction)
+    // Compare synchronously against the ref - if prediction changed but bid hasn't,
+    // ref will have old value and we return null immediately
+    // Allow calculation if ref is null (first bid scenario)
+    if (
+      !bestBid ||
+      (bidPredictionRef.current !== null &&
+        selectedPrediction !== bidPredictionRef.current)
+    )
+      return null;
 
     try {
       const makerWagerWei = BigInt(bestBid.makerWager);
@@ -232,14 +252,28 @@ export default function PredictionForm({
 
   return (
     <div
-      className={`min-h-[350px] border border-border rounded-lg bg-brand-black p-4 flex flex-col ${className ?? ''}`}
+      className={`min-h-[340px] lg:min-h-[420px] border border-border rounded-lg bg-brand-black p-4 flex flex-col ${className ?? ''}`}
     >
       <div className="flex flex-col gap-3 flex-1">
         {/* Current Forecast Display */}
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-col items-start gap-1 pt-1">
           <Label className="text-brand-white">Current Forecast</Label>
           <span className="font-mono text-ethena text-3xl">
-            {currentForecast !== null ? `${currentForecast}% chance` : '—'}
+            {currentForecast !== null ? (
+              `${currentForecast}% chance`
+            ) : isWaitingForBids ? (
+              <span className="text-muted-foreground/60">Requesting...</span>
+            ) : showRequestBidsButton ? (
+              <button
+                type="button"
+                onClick={handleRequestBids}
+                className="text-brand-white border-b border-dotted border-brand-white/50 hover:border-brand-white transition-colors"
+              >
+                Request
+              </button>
+            ) : (
+              '\u00A0'
+            )}
           </span>
         </div>
 
