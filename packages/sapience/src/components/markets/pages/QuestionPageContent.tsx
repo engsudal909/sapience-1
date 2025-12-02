@@ -30,6 +30,18 @@ import {
   TableHeader,
   TableRow,
 } from '@sapience/sdk/ui/components/ui/table';
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@sapience/sdk/ui/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@sapience/sdk/ui/components/ui/popover';
+import { formatDistanceToNow } from 'date-fns';
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import {
   flexRender,
@@ -37,7 +49,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, DollarSign, ExternalLink } from 'lucide-react';
+import { ArrowLeftRight, ChevronUp, ChevronDown, Code, Copy, DollarSign, ExternalLink, Gavel, Telescope } from 'lucide-react';
 import {
   predictionMarket,
   umaResolver,
@@ -56,6 +68,8 @@ import Comments, { CommentFilters } from '~/components/shared/Comments';
 import ConditionForecastForm from '~/components/conditions/ConditionForecastForm';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
+import MarketBadge from '~/components/markets/MarketBadge';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
@@ -70,6 +84,7 @@ const placeholderPredictions = [
     wager: 50,
     maker: '0x1234567890abcdef1234567890abcdef12345678',
     taker: '0xabcdef0123456789abcdef0123456789abcdef01',
+    makerPrediction: true, // maker predicts YES, taker predicts NO
     time: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -78,6 +93,7 @@ const placeholderPredictions = [
     wager: 120,
     maker: '0xabcdef0123456789abcdef0123456789abcdef01',
     taker: '0x234567890abcdef1234567890abcdef123456789',
+    makerPrediction: false, // maker predicts NO, taker predicts YES
     time: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -86,6 +102,7 @@ const placeholderPredictions = [
     wager: 25,
     maker: '0x234567890abcdef1234567890abcdef123456789',
     taker: '0xbcdef0123456789abcdef0123456789abcdef012',
+    makerPrediction: true,
     time: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -94,7 +111,14 @@ const placeholderPredictions = [
     wager: 200,
     maker: '0xbcdef0123456789abcdef0123456789abcdef012',
     taker: '0x3456789abcdef0123456789abcdef0123456789a',
+    makerPrediction: true,
     time: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toLocaleString(),
+    combinedPredictions: [
+      { question: 'Will BTC reach $100k by end of 2025?', prediction: true, categorySlug: 'crypto' },
+      { question: 'Will ETH flip BTC market cap?', prediction: false, categorySlug: 'crypto' },
+      { question: 'Will Solana reach $500?', prediction: true, categorySlug: 'crypto' },
+    ],
+    combinedWithYes: true, // the combined predictions are tied to the YES outcome
   },
   {
     x: Date.now() - 3 * 24 * 60 * 60 * 1000,
@@ -102,6 +126,7 @@ const placeholderPredictions = [
     wager: 75,
     maker: '0x3456789abcdef0123456789abcdef0123456789a',
     taker: '0xcdef0123456789abcdef0123456789abcdef0123',
+    makerPrediction: false,
     time: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -110,6 +135,7 @@ const placeholderPredictions = [
     wager: 150,
     maker: '0xcdef0123456789abcdef0123456789abcdef0123',
     taker: '0x456789abcdef0123456789abcdef0123456789ab',
+    makerPrediction: true,
     time: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -118,6 +144,7 @@ const placeholderPredictions = [
     wager: 40,
     maker: '0x456789abcdef0123456789abcdef0123456789ab',
     taker: '0xdef0123456789abcdef0123456789abcdef01234',
+    makerPrediction: false,
     time: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -126,6 +153,7 @@ const placeholderPredictions = [
     wager: 300,
     maker: '0xdef0123456789abcdef0123456789abcdef01234',
     taker: '0x56789abcdef0123456789abcdef0123456789abc',
+    makerPrediction: true,
     time: new Date(Date.now() - 12 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -134,6 +162,7 @@ const placeholderPredictions = [
     wager: 90,
     maker: '0x56789abcdef0123456789abcdef0123456789abc',
     taker: '0xef0123456789abcdef0123456789abcdef012345',
+    makerPrediction: true,
     time: new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleString(),
   },
   {
@@ -142,6 +171,7 @@ const placeholderPredictions = [
     wager: 175,
     maker: '0xef0123456789abcdef0123456789abcdef012345',
     taker: '0x1234567890abcdef1234567890abcdef12345678',
+    makerPrediction: false,
     time: new Date(Date.now() - 1 * 60 * 60 * 1000).toLocaleString(),
   },
 ];
@@ -155,10 +185,36 @@ interface QuestionPageContentProps {
   conditionId: string;
 }
 
+// Type for combined prediction in a parlay
+type CombinedPrediction = {
+  question: string;
+  prediction: boolean;
+  categorySlug?: string;
+};
+
+// Type for prediction data used in scatter plot and table
+type PredictionData = {
+  x: number;
+  y: number;
+  wager: number;
+  maker: string;
+  taker: string;
+  makerPrediction: boolean; // true = maker predicts YES, false = maker predicts NO
+  time: string;
+  combinedPredictions?: CombinedPrediction[];
+  combinedWithYes?: boolean; // true = combined predictions are tied to YES outcome
+};
+
 export default function QuestionPageContent({
   conditionId,
 }: QuestionPageContentProps) {
   const [refetchTrigger, setRefetchTrigger] = React.useState(0);
+
+  // Scatter tooltip hover state - keeps tooltip open when hovering over it
+  const [hoveredPoint, setHoveredPoint] = React.useState<PredictionData | null>(null);
+  const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
+  const isTooltipHoveredRef = React.useRef(false);
+  const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Fetch condition data
   const { data, isLoading, isError } = useQuery<
@@ -339,16 +395,6 @@ export default function QuestionPageContent({
     },
   });
 
-  // Type for prediction data used in scatter plot and table
-  type PredictionData = {
-    x: number;
-    y: number;
-    wager: number;
-    maker: string;
-    taker: string;
-    time: string;
-  };
-
   // Transform predictions data for scatter plot
   // x = time (unix timestamp), y = prediction probability (0-100), wager = amount wagered
   const scatterData = useMemo((): PredictionData[] => {
@@ -384,6 +430,7 @@ export default function QuestionPageContent({
             wager: 100, // Default wager for real data (TODO: get from actual data when available)
             maker: p.attester,
             taker: p.attester, // Use attester for both for now until we have real trade data
+            makerPrediction: true, // Default to true for now until we have real trade data
             time: p.time,
           };
         } catch {
@@ -460,11 +507,31 @@ export default function QuestionPageContent({
           );
         },
         cell: ({ row }) => {
-          const time = row.original.time;
+          const timestamp = row.original.x;
+          const date = new Date(timestamp);
+          const relativeTime = formatDistanceToNow(date, { addSuffix: true });
+          const exactTime = date.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short',
+          });
           return (
-            <span className="text-muted-foreground text-xs whitespace-nowrap">
-              {time}
-            </span>
+            <TooltipProvider>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-muted-foreground text-sm whitespace-nowrap cursor-help">
+                    {relativeTime}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span>{exactTime}</span>
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
           );
         },
         sortingFn: (rowA, rowB) => rowA.original.x - rowB.original.x,
@@ -479,7 +546,7 @@ export default function QuestionPageContent({
               onClick={() => column.toggleSorting(sorted === 'asc')}
               className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
             >
-              Total Wager
+              Wager
               {sorted === 'asc' ? (
                 <ChevronUp className="h-4 w-4" />
               ) : sorted === 'desc' ? (
@@ -494,7 +561,7 @@ export default function QuestionPageContent({
           );
         },
         cell: ({ row }) => (
-          <span className="font-mono text-brand-white whitespace-nowrap">
+          <span className="text-foreground whitespace-nowrap">
             {row.original.wager} USDe
           </span>
         ),
@@ -504,7 +571,7 @@ export default function QuestionPageContent({
         id: 'impliedForecast',
         header: () => (
           <span className="text-sm font-medium whitespace-nowrap">
-            Implied Forecast
+            Forecast
           </span>
         ),
         cell: ({ row }) => (
@@ -515,37 +582,56 @@ export default function QuestionPageContent({
         enableSorting: false,
       },
       {
-        id: 'participants',
+        id: 'predictedYes',
         header: () => (
-          <span className="text-sm font-medium whitespace-nowrap">
-            Participants
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium">Predicted</span>
+            <Badge
+              variant="outline"
+              className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono"
+            >
+              YES
+            </Badge>
+          </div>
         ),
         cell: ({ row }) => {
-          const { maker, taker } = row.original;
+          const { maker, taker, makerPrediction } = row.original;
+          const yesAddress = makerPrediction ? maker : taker;
           return (
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              <div className="flex items-center gap-1">
-                <EnsAvatar address={maker} width={16} height={16} />
-                <AddressDisplay
-                  address={maker}
-                  compact
-                  disableProfileLink
-                  disablePopover
-                  hideVaultIcon
-                />
-              </div>
-              <span className="text-muted-foreground text-xs">vs.</span>
-              <div className="flex items-center gap-1">
-                <EnsAvatar address={taker} width={16} height={16} />
-                <AddressDisplay
-                  address={taker}
-                  compact
-                  disableProfileLink
-                  disablePopover
-                  hideVaultIcon
-                />
-              </div>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <EnsAvatar address={yesAddress} width={16} height={16} />
+              <AddressDisplay
+                address={yesAddress}
+                compact
+              />
+            </div>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        id: 'predictedNo',
+        header: () => (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium">Predicted</span>
+            <Badge
+              variant="outline"
+              className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono"
+            >
+              NO
+            </Badge>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const { maker, taker, makerPrediction } = row.original;
+          const noAddress = makerPrediction ? taker : maker;
+          return (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <EnsAvatar address={noAddress} width={16} height={16} />
+              <AddressDisplay
+                address={noAddress}
+                compact
+              />
             </div>
           );
         },
@@ -555,10 +641,80 @@ export default function QuestionPageContent({
         id: 'combinedPrediction',
         header: () => (
           <span className="text-sm font-medium whitespace-nowrap">
-            Combined Prediction
+            Combined
           </span>
         ),
-        cell: () => <span className="text-muted-foreground">None</span>,
+        cell: ({ row }) => {
+          const { combinedPredictions, combinedWithYes } = row.original;
+          
+          if (!combinedPredictions || combinedPredictions.length === 0) {
+            return <span className="text-muted-foreground">None</span>;
+          }
+
+          const count = combinedPredictions.length;
+          const getCategoryColor = (slug?: string) => getCategoryStyle(slug).color;
+
+          return (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
+                >
+                  {count} prediction{count !== 1 ? 's' : ''}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
+                align="start"
+              >
+                <div className="flex flex-col divide-y divide-brand-white/20">
+                  <div className="flex items-center gap-2 px-3 py-3">
+                    <span className="text-base font-medium text-brand-white">
+                      Predicted with
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                        combinedWithYes
+                          ? 'border-yes/40 bg-yes/10 text-yes'
+                          : 'border-no/40 bg-no/10 text-no'
+                      }`}
+                    >
+                      {combinedWithYes ? 'YES' : 'NO'}
+                    </Badge>
+                  </div>
+                  {combinedPredictions.map((pred, i) => (
+                    <div
+                      key={`combined-${i}`}
+                      className="flex items-center gap-3 px-3 py-2"
+                    >
+                      <MarketBadge
+                        label={pred.question}
+                        size={32}
+                        color={getCategoryColor(pred.categorySlug)}
+                        categorySlug={pred.categorySlug}
+                      />
+                      <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
+                        {pred.question}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                          pred.prediction
+                            ? 'border-yes/40 bg-yes/10 text-yes'
+                            : 'border-no/40 bg-no/10 text-no'
+                        }`}
+                      >
+                        {pred.prediction ? 'YES' : 'NO'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
+        },
         enableSorting: false,
       },
     ],
@@ -734,30 +890,196 @@ export default function QuestionPageContent({
                   <Tooltip
                     cursor={false}
                     animationDuration={150}
+                    wrapperStyle={{ pointerEvents: 'auto', zIndex: 50 }}
+                    active={!!(hoveredPoint || isTooltipHovered)}
+                    payload={hoveredPoint ? [{ payload: hoveredPoint }] : undefined}
                     content={({ active, payload }) => {
-                      if (!active || !payload || !payload[0]) return null;
-                      const point = payload[0]
-                        .payload as (typeof scatterData)[0];
+                      // Use hovered point state for persistent tooltip
+                      const point = hoveredPoint || (active && payload?.[0]?.payload as PredictionData | undefined);
+                      
+                      if (!point) return null;
+
+                      const date = new Date(point.x);
+                      const relativeTime = formatDistanceToNow(date, { addSuffix: true });
+                      const exactTime = date.toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: '2-digit',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        timeZoneName: 'short',
+                      });
+                      const { maker, taker, makerPrediction, combinedPredictions, combinedWithYes } = point;
+                      const yesAddress = makerPrediction ? maker : taker;
+                      const noAddress = makerPrediction ? taker : maker;
+                      const getCategoryColor = (slug?: string) => getCategoryStyle(slug).color;
+
                       return (
                         <div
-                          className="px-3 py-2 rounded border scatter-tooltip"
+                          className="rounded-lg border scatter-tooltip overflow-hidden"
                           style={{
                             backgroundColor: 'hsl(var(--brand-black))',
                             border: '1px solid hsl(var(--brand-white) / 0.2)',
                           }}
+                          onMouseEnter={() => {
+                            if (tooltipTimeoutRef.current) {
+                              clearTimeout(tooltipTimeoutRef.current);
+                              tooltipTimeoutRef.current = null;
+                            }
+                            isTooltipHoveredRef.current = true;
+                            setIsTooltipHovered(true);
+                          }}
+                          onMouseLeave={() => {
+                            isTooltipHoveredRef.current = false;
+                            setIsTooltipHovered(false);
+                            tooltipTimeoutRef.current = setTimeout(() => {
+                              setHoveredPoint(null);
+                            }, 100);
+                          }}
                         >
-                          <div className="text-sm font-medium text-brand-white">
-                            {point.y}%
+                          {/* Top section: Time, Forecast, Wager */}
+                          <div className="px-3 py-2.5 space-y-2">
+                            {/* Time row */}
+                            <div className="flex items-center justify-between gap-6">
+                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Time</span>
+                              <TooltipProvider>
+                                <UITooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-sm text-muted-foreground cursor-help">
+                                      {relativeTime}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <span>{exactTime}</span>
+                                  </TooltipContent>
+                                </UITooltip>
+                              </TooltipProvider>
+                            </div>
+                            {/* Wager row */}
+                            <div className="flex items-center justify-between gap-6">
+                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Wager</span>
+                              <span className="text-sm text-foreground">
+                                {point.wager} USDe
+                              </span>
+                            </div>
+                            {/* Forecast row */}
+                            <div className="flex items-center justify-between gap-6">
+                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Forecast</span>
+                              <span className="font-mono text-sm text-ethena">
+                                {point.y}% chance
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            Wager: {point.wager} USDe
+
+                          {/* Divider */}
+                          <div className="border-t border-brand-white/10" />
+
+                          {/* Middle section: YES/NO predictors */}
+                          <div className="px-3 py-2.5 space-y-2">
+                            {/* YES predictor */}
+                            <div className="flex items-center justify-between gap-4">
+                              <Badge
+                                variant="outline"
+                                className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono"
+                              >
+                                YES
+                              </Badge>
+                              <div className="flex items-center gap-1.5">
+                                <EnsAvatar address={yesAddress} width={16} height={16} />
+                                <AddressDisplay
+                                  address={yesAddress}
+                                  compact
+                                />
+                              </div>
+                            </div>
+                            {/* NO predictor */}
+                            <div className="flex items-center justify-between gap-4">
+                              <Badge
+                                variant="outline"
+                                className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono"
+                              >
+                                NO
+                              </Badge>
+                              <div className="flex items-center gap-1.5">
+                                <EnsAvatar address={noAddress} width={16} height={16} />
+                                <AddressDisplay
+                                  address={noAddress}
+                                  compact
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {point.maker.slice(0, 6)}...{point.maker.slice(-4)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {point.time}
-                          </div>
+
+                          {/* Combined predictions section (if parlay) */}
+                          {combinedPredictions && combinedPredictions.length > 0 && (
+                            <>
+                              <div className="border-t border-brand-white/10" />
+                              <div className="px-3 py-2.5">
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Combined</span>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
+                                      >
+                                        {combinedPredictions.length} prediction{combinedPredictions.length !== 1 ? 's' : ''}
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
+                                      align="start"
+                                    >
+                                      <div className="flex flex-col divide-y divide-brand-white/20">
+                                        <div className="flex items-center gap-3 px-3 py-2">
+                                          <span className="text-sm text-brand-white">
+                                            Predicted with
+                                          </span>
+                                          <Badge
+                                            variant="outline"
+                                            className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                              combinedWithYes
+                                                ? 'border-yes/40 bg-yes/10 text-yes'
+                                                : 'border-no/40 bg-no/10 text-no'
+                                            }`}
+                                          >
+                                            {combinedWithYes ? 'YES' : 'NO'}
+                                          </Badge>
+                                        </div>
+                                        {combinedPredictions.map((pred, i) => (
+                                          <div
+                                            key={`scatter-combined-${i}`}
+                                            className="flex items-center gap-3 px-3 py-2"
+                                          >
+                                            <MarketBadge
+                                              label={pred.question}
+                                              size={32}
+                                              color={getCategoryColor(pred.categorySlug)}
+                                              categorySlug={pred.categorySlug}
+                                            />
+                                            <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
+                                              {pred.question}
+                                            </span>
+                                            <Badge
+                                              variant="outline"
+                                              className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                                pred.prediction
+                                                  ? 'border-yes/40 bg-yes/10 text-yes'
+                                                  : 'border-no/40 bg-no/10 text-no'
+                                              }`}
+                                            >
+                                              {pred.prediction ? 'YES' : 'NO'}
+                                            </Badge>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       );
                     }}
@@ -792,6 +1114,21 @@ export default function QuestionPageContent({
                           stroke="hsl(var(--ethena) / 0.8)"
                           strokeWidth={1.5}
                           className="scatter-dot"
+                          onMouseEnter={() => {
+                            if (tooltipTimeoutRef.current) {
+                              clearTimeout(tooltipTimeoutRef.current);
+                              tooltipTimeoutRef.current = null;
+                            }
+                            setHoveredPoint(payload as PredictionData);
+                          }}
+                          onMouseLeave={() => {
+                            // Delay clearing to allow moving to tooltip
+                            tooltipTimeoutRef.current = setTimeout(() => {
+                              if (!isTooltipHoveredRef.current) {
+                                setHoveredPoint(null);
+                              }
+                            }, 150);
+                          }}
                         />
                       );
                     }}
@@ -827,14 +1164,16 @@ export default function QuestionPageContent({
                   <TabsList className="h-auto p-0 bg-transparent gap-1">
                     <TabsTrigger
                       value="predictions"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
                     >
+                      <ArrowLeftRight className="h-3.5 w-3.5" />
                       Predictions
                     </TabsTrigger>
                     <TabsTrigger
                       value="forecasts"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
                     >
+                      <Telescope className="h-3.5 w-3.5" />
                       Forecasts
                     </TabsTrigger>
                   </TabsList>
@@ -855,7 +1194,7 @@ export default function QuestionPageContent({
                                 {headerGroup.headers.map((header) => (
                                   <TableHead
                                     key={header.id}
-                                    className="px-4 py-3 text-left text-sm font-medium text-muted-foreground"
+                                    className="px-4 py-1 text-left text-sm font-medium text-muted-foreground"
                                   >
                                     {header.isPlaceholder
                                       ? null
@@ -936,15 +1275,17 @@ export default function QuestionPageContent({
                   <TabsList className="h-auto p-0 bg-transparent gap-1">
                     <TabsTrigger
                       value="resolution"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
                     >
+                      <Gavel className="h-3.5 w-3.5 -scale-x-100" />
                       Resolution
                     </TabsTrigger>
                     <TabsTrigger
                       value="contracts"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
                     >
-                      Contracts
+                      <Code className="h-3.5 w-3.5" />
+                      Tech Spec
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -956,7 +1297,7 @@ export default function QuestionPageContent({
                         <motion.div
                           initial={false}
                           animate={{
-                            height: isDescriptionExpanded ? 'auto' : '4.5em',
+                            height: isDescriptionExpanded ? 'auto' : '12em',
                           }}
                           transition={{ duration: 0.3, ease: 'easeInOut' }}
                           className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90"
@@ -998,33 +1339,35 @@ export default function QuestionPageContent({
                   <table className="w-full text-xs">
                     <tbody className="divide-y divide-border/60">
                       <tr>
-                        <td className="px-3 py-2.5 text-muted-foreground font-medium whitespace-nowrap">
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
                           Market
                         </td>
-                        <td className="px-3 py-2.5 text-brand-white font-mono text-[10px] break-all">
+                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
                           {(() => {
                             const chainId = data.chainId ?? 42161;
                             const address = predictionMarket[chainId]?.address;
                             if (!address) return '—';
                             return (
-                              <a
-                                href={`https://arbiscan.io/address/${address}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 hover:text-accent-gold transition-colors"
-                              >
+                              <span className="inline-flex items-center gap-1.5">
                                 {`${address.slice(0, 6)}...${address.slice(-4)}`}
-                                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
-                              </a>
+                                <button
+                                  type="button"
+                                  onClick={() => navigator.clipboard.writeText(address)}
+                                  className="text-muted-foreground hover:text-brand-white transition-colors"
+                                  title="Copy full market address"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              </span>
                             );
                           })()}
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-3 py-2.5 text-muted-foreground font-medium whitespace-nowrap">
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
                           Resolver
                         </td>
-                        <td className="px-3 py-2.5 text-brand-white font-mono text-[10px] break-all">
+                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
                           {(() => {
                             const chainId = data.chainId ?? 42161;
                             const address = umaResolver[chainId]?.address;
@@ -1044,11 +1387,21 @@ export default function QuestionPageContent({
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-3 py-2.5 text-muted-foreground font-medium whitespace-nowrap">
-                          Condition
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
+                          Question ID
                         </td>
-                        <td className="px-3 py-2.5 text-brand-white font-mono text-[10px] break-all">
-                          {`${conditionId.slice(0, 6)}...${conditionId.slice(-4)}`}
+                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
+                          <span className="inline-flex items-center gap-1.5">
+                            {`${conditionId.slice(0, 6)}...${conditionId.slice(-4)}`}
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard.writeText(conditionId)}
+                              className="text-muted-foreground hover:text-brand-white transition-colors"
+                              title="Copy full condition ID"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </span>
                         </td>
                       </tr>
                     </tbody>
