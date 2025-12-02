@@ -28,3 +28,4 @@ export function quoteBidsToAuctionBids(bids: QuoteBid[]): AuctionBidData[] {
     };
   });
 }
+

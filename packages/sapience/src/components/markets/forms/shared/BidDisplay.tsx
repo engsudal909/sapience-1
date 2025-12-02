@@ -146,7 +146,7 @@ export default function BidDisplay({
     }
     return {
       text: showRequestBidsButton
-        ? 'INITIALIZE AUCTION'
+        ? 'INITIATE AUCTION'
         : 'WAITING FOR BIDS...',
       disabled: !showRequestBidsButton || isWaitingForBids,
       onClick: () => showRequestBidsButton && onRequestBids(),

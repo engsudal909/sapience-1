@@ -72,3 +72,4 @@ export const writeLogsToStorage = (logs: AutoBidLogEntry[]) => {
     // no-op
   }
 };
+

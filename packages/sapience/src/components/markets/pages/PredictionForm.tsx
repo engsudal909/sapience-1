@@ -262,7 +262,7 @@ export default function PredictionForm({
             {currentForecast !== null ? (
               `${currentForecast}% chance`
             ) : isWaitingForBids ? (
-              <span className="text-muted-foreground/60">Requesting...</span>
+              <span className="text-muted-foreground/60 animate-pulse">Requesting...</span>
             ) : showRequestBidsButton ? (
               <button
                 type="button"

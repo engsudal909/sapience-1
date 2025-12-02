@@ -69,7 +69,6 @@ import ConditionForecastForm from '~/components/conditions/ConditionForecastForm
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import MarketBadge from '~/components/markets/MarketBadge';
-import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
@@ -203,6 +202,9 @@ type PredictionData = {
   time: string;
   combinedPredictions?: CombinedPrediction[];
   combinedWithYes?: boolean; // true = combined predictions are tied to YES outcome
+  comment?: string; // Optional comment text from forecast
+  attester?: string; // Forecaster's address
+  predictionPercent?: number; // Prediction as percentage (0-100)
 };
 
 export default function QuestionPageContent({
@@ -215,6 +217,31 @@ export default function QuestionPageContent({
   const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
   const isTooltipHoveredRef = React.useRef(false);
   const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Comment square hover state - for comment popover
+  const [hoveredComment, setHoveredComment] = React.useState<{
+    x: number;
+    y: number;
+    data: PredictionData;
+  } | null>(null);
+  const commentTooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isCommentTooltipHoveredRef = React.useRef(false);
+
+  const cancelCommentTooltipHide = () => {
+    if (commentTooltipTimeoutRef.current) {
+      clearTimeout(commentTooltipTimeoutRef.current);
+      commentTooltipTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleCommentTooltipHide = (delayMs = 150) => {
+    if (commentTooltipTimeoutRef.current == null && !isCommentTooltipHoveredRef.current) {
+      commentTooltipTimeoutRef.current = setTimeout(() => {
+        commentTooltipTimeoutRef.current = null;
+        setHoveredComment(null);
+      }, delayMs);
+    }
+  };
 
   // Fetch condition data
   const { data, isLoading, isError } = useQuery<
@@ -280,7 +307,7 @@ export default function QuestionPageContent({
   // Get PredictionMarket address for this chain
   const predictionMarketAddress = predictionMarket[chainId]?.address;
 
-  // Initialize auction start hook for RFQ quote management
+  // Initiate auction start hook for RFQ quote management
   const { bids, requestQuotes, buildMintRequestDataFromBid } =
     useAuctionStart();
 
@@ -432,6 +459,9 @@ export default function QuestionPageContent({
             taker: p.attester, // Use attester for both for now until we have real trade data
             makerPrediction: true, // Default to true for now until we have real trade data
             time: p.time,
+            comment: p.comment || undefined, // Include comment from forecast
+            attester: p.attester, // Forecaster's address
+            predictionPercent, // Prediction as percentage (0-100)
           };
         } catch {
           return null;
@@ -442,6 +472,11 @@ export default function QuestionPageContent({
     // If all real data failed to parse, fall back to placeholder
     return realData.length > 0 ? realData : placeholderPredictions;
   }, [predictions]);
+
+  // Filter predictions that have comments for the comment scatter layer
+  const commentScatterData = useMemo(() => {
+    return scatterData.filter((d) => d.comment && d.comment.trim().length > 0);
+  }, [scatterData]);
 
   // Calculate X axis domain and ticks based on predictions data
   const { xDomain, xTicks, xTickLabels } = useMemo(() => {
@@ -839,7 +874,7 @@ export default function QuestionPageContent({
           {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
             {/* Scatterplot - height matches the PredictionForm dynamically */}
-            <div className="w-full min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
+            <div className="relative w-full min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart
                   margin={{ top: 20, right: 24, bottom: 5, left: -10 }}
@@ -1133,8 +1168,127 @@ export default function QuestionPageContent({
                       );
                     }}
                   />
+                  {/* Comment squares - rendered on top of prediction dots */}
+                  <Scatter
+                    name="Comments"
+                    data={commentScatterData}
+                    fill="hsl(var(--brand-white))"
+                    shape={(props: any) => {
+                      const { cx, cy, payload } = props;
+                      const size = 6;
+                      const isHovered = hoveredComment?.data?.x === payload?.x && hoveredComment?.data?.attester === payload?.attester;
+                      return (
+                        <rect
+                          x={cx - size / 2}
+                          y={cy - size / 2}
+                          width={size}
+                          height={size}
+                          fill={isHovered ? "hsl(var(--brand-white))" : "hsl(var(--brand-white) / 0.9)"}
+                          stroke="hsl(var(--brand-white))"
+                          strokeWidth={1}
+                          className="cursor-pointer"
+                          style={{ filter: isHovered ? 'drop-shadow(0 0 4px hsl(var(--brand-white) / 0.5))' : undefined }}
+                          onMouseEnter={() => {
+                            cancelCommentTooltipHide();
+                            if (typeof cx === 'number' && typeof cy === 'number') {
+                              setHoveredComment({ x: cx, y: cy, data: payload as PredictionData });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            scheduleCommentTooltipHide(150);
+                          }}
+                        />
+                      );
+                    }}
+                  />
                 </ScatterChart>
               </ResponsiveContainer>
+
+              {/* Comment popover - positioned absolutely relative to scatter plot container */}
+              <AnimatePresence>
+                {hoveredComment && (
+                  <motion.div
+                    key={`comment-${hoveredComment.data.x}-${hoveredComment.data.attester}`}
+                    className="absolute pointer-events-auto z-50"
+                    style={{
+                      left: hoveredComment.x,
+                      top: hoveredComment.y,
+                      transform: 'translate(8px, 8px)',
+                    }}
+                    onMouseEnter={() => {
+                      isCommentTooltipHoveredRef.current = true;
+                      cancelCommentTooltipHide();
+                    }}
+                    onMouseLeave={() => {
+                      isCommentTooltipHoveredRef.current = false;
+                      scheduleCommentTooltipHide(100);
+                    }}
+                    initial={{ opacity: 0, scale: 0.96, y: 4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: 4 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                  >
+                    <div
+                      className="rounded-lg border overflow-hidden max-w-[320px] min-w-[280px]"
+                      style={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      }}
+                    >
+                      {/* Comment content */}
+                      {hoveredComment.data.comment && (
+                        <div className="p-3 border-b border-border">
+                          <div className="text-sm leading-relaxed text-foreground/90 break-words">
+                            {hoveredComment.data.comment}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Meta row: prediction badge, time, address */}
+                      <div className="px-3 py-2.5 flex items-center gap-3 flex-wrap">
+                        {/* Prediction badge */}
+                        {hoveredComment.data.predictionPercent !== undefined && (
+                          <Badge
+                            variant="outline"
+                            className={`px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono ${
+                              hoveredComment.data.predictionPercent > 50
+                                ? 'border-yes/40 bg-yes/10 text-yes'
+                                : hoveredComment.data.predictionPercent < 50
+                                  ? 'border-no/40 bg-no/10 text-no'
+                                  : 'border-muted-foreground/40 bg-muted/10 text-muted-foreground'
+                            }`}
+                          >
+                            {hoveredComment.data.predictionPercent}% chance
+                          </Badge>
+                        )}
+                        
+                        {/* Time */}
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {formatDistanceToNow(new Date(hoveredComment.data.x), { addSuffix: true })}
+                        </span>
+                        
+                        {/* Author */}
+                        {hoveredComment.data.attester && (
+                          <div className="flex items-center gap-1.5 ml-auto">
+                            <EnsAvatar
+                              address={hoveredComment.data.attester}
+                              className="w-4 h-4 rounded-sm"
+                              width={16}
+                              height={16}
+                            />
+                            <AddressDisplay
+                              address={hoveredComment.data.attester}
+                              compact
+                              disablePopover
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Current Forecast + Prediction Form - same height as scatter plot */}
