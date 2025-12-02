@@ -346,7 +346,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                       transition={{ duration: 0.3 }}
                       className="border-b border-brand-white/20"
                     >
-                      <TableCell className="py-3 pl-4 pr-3 w-[56px]">
+                      {/* Desktop icons cell - hidden on mobile */}
+                      <TableCell className="hidden md:table-cell py-3 pl-4 pr-3 w-[56px]">
                         <div
                           className="w-10 h-6 rounded bg-brand-white/5"
                           style={{
@@ -355,16 +356,45 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                           }}
                         />
                       </TableCell>
-                      <TableCell className="py-3 pl-1">
-                        <div
-                          className="w-48 h-5 rounded bg-brand-white/5"
-                          style={{
-                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
-                            animationDelay: `${idx * 0.3 + 0.1}s`,
-                          }}
-                        />
+                      {/* Question cell - includes all content on mobile */}
+                      <TableCell className="py-3 pl-4 md:pl-1 pr-4 md:pr-0">
+                        <div className="flex flex-col gap-2">
+                          {/* Mobile Row 1: Icons skeleton */}
+                          <div
+                            className="md:hidden w-10 h-6 rounded bg-brand-white/5"
+                            style={{
+                              animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                              animationDelay: `${idx * 0.3}s`,
+                            }}
+                          />
+                          {/* Row 2: Question skeleton */}
+                          <div
+                            className="w-48 h-5 rounded bg-brand-white/5"
+                            style={{
+                              animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                              animationDelay: `${idx * 0.3 + 0.1}s`,
+                            }}
+                          />
+                          {/* Mobile Row 3: Probability skeleton */}
+                          <div
+                            className="md:hidden w-48 h-5 rounded bg-brand-white/5"
+                            style={{
+                              animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                              animationDelay: `${idx * 0.3 + 0.2}s`,
+                            }}
+                          />
+                          {/* Mobile Row 4: Button skeleton */}
+                          <div
+                            className="md:hidden w-14 h-7 rounded bg-brand-white/5"
+                            style={{
+                              animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                              animationDelay: `${idx * 0.3 + 0.15}s`,
+                            }}
+                          />
+                        </div>
                       </TableCell>
-                      <TableCell className="py-3 px-4">
+                      {/* Probability cell - desktop only */}
+                      <TableCell className="hidden md:table-cell py-3 px-4">
                         <div
                           className="w-48 h-5 rounded bg-brand-white/5 ml-auto"
                           style={{
@@ -373,7 +403,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                           }}
                         />
                       </TableCell>
-                      <TableCell className="py-3 pr-4 w-[70px]">
+                      {/* Desktop button cell - hidden on mobile */}
+                      <TableCell className="hidden md:table-cell py-3 pr-4 w-[70px]">
                         <div
                           className="w-14 h-7 rounded bg-brand-white/5"
                           style={{
@@ -406,7 +437,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                         transition={{ duration: 0.3 }}
                         className="border-b border-brand-white/20 hover:bg-transparent"
                       >
-                        <TableCell className="py-3 pl-4 pr-3 w-[56px] shrink-0">
+                        {/* Desktop icons cell - hidden on mobile */}
+                        <TableCell className="hidden md:table-cell py-3 pl-4 pr-3 w-[56px] shrink-0">
                           <div className="flex items-center -space-x-2">
                             {combo.map((leg, i) => {
                               const CategoryIcon = getCategoryIcon(
@@ -429,10 +461,33 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                             })}
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 pl-1 min-w-0">
-                          <div className="flex gap-x-2 items-center min-w-0">
-                            {/* First question with badge */}
-                            <div className="flex items-center gap-2 shrink-0">
+                        {/* Question cell - includes all content on mobile */}
+                        <TableCell className="py-3 pl-4 md:pl-1 pr-4 md:pr-0 min-w-0">
+                          <div className="flex flex-col gap-2 min-w-0">
+                            {/* Mobile Row 1: Icons (on their own line) */}
+                            <div className="flex md:hidden items-center -space-x-2">
+                              {combo.map((leg, i) => {
+                                const CategoryIcon = getCategoryIcon(
+                                  leg.condition.category?.slug
+                                );
+                                const color =
+                                  colors[i] || 'hsl(var(--muted-foreground))';
+                                return (
+                                  <div
+                                    key={`icon-mobile-${leg.condition.id}-${i}`}
+                                    className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center ring-2 ring-background"
+                                    style={{
+                                      backgroundColor: color,
+                                      zIndex: combo.length - i,
+                                    }}
+                                  >
+                                    <CategoryIcon className="h-3 w-3 text-white/80" />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {/* Row 2: Question + Badge + "and 2 others" (desktop: inline with icons) */}
+                            <div className="flex items-center gap-2 flex-wrap md:gap-x-2">
                               <span className="text-sm max-w-[300px] truncate">
                                 <ConditionTitleLink
                                   conditionId={combo[0].condition.id}
@@ -455,77 +510,115 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                               >
                                 {combo[0].prediction ? 'YES' : 'NO'}
                               </Badge>
-                            </div>
-                            {/* "and two others" popover */}
-                            {combo.length > 1 && (
-                              <>
-                                <span className="text-sm text-muted-foreground shrink-0">
-                                  and
-                                </span>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <button
-                                      type="button"
-                                      className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 shrink-0 transition-colors"
+                              {/* "and two others" popover */}
+                              {combo.length > 1 && (
+                                <>
+                                  <span className="text-sm text-muted-foreground shrink-0">
+                                    and
+                                  </span>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 shrink-0 transition-colors"
+                                      >
+                                        2 others
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
+                                      align="start"
                                     >
-                                      2 others
-                                    </button>
-                                  </PopoverTrigger>
-                                  <PopoverContent
-                                    className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
-                                    align="start"
-                                  >
-                                    <div className="flex flex-col divide-y divide-brand-white/20">
-                                      {combo.slice(1).map((leg, i) => {
-                                        const displayQ =
-                                          leg.condition.shortName ||
-                                          leg.condition.question;
-                                        return (
-                                          <div
-                                            key={leg.condition.id + '-' + i}
-                                            className="flex items-center gap-3 px-3 py-2"
-                                          >
-                                            <MarketBadge
-                                              label={displayQ}
-                                              size={32}
-                                              color={getCategoryColor(
-                                                leg.condition.category?.slug
-                                              )}
-                                              categorySlug={
-                                                leg.condition.category?.slug
-                                              }
-                                            />
-                                            <ConditionTitleLink
-                                              conditionId={leg.condition.id}
-                                              title={displayQ}
-                                              endTime={leg.condition.endTime}
-                                              description={
-                                                leg.condition.description
-                                              }
-                                              clampLines={1}
-                                              className="text-sm"
-                                            />
-                                            <Badge
-                                              variant="outline"
-                                              className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                leg.prediction
-                                                  ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
-                                                  : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
-                                              }`}
+                                      <div className="flex flex-col divide-y divide-brand-white/20">
+                                        {combo.slice(1).map((leg, i) => {
+                                          const displayQ =
+                                            leg.condition.shortName ||
+                                            leg.condition.question;
+                                          return (
+                                            <div
+                                              key={leg.condition.id + '-' + i}
+                                              className="flex items-center gap-3 px-3 py-2"
                                             >
-                                              {leg.prediction ? 'YES' : 'NO'}
-                                            </Badge>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
-                              </>
-                            )}
+                                              <MarketBadge
+                                                label={displayQ}
+                                                size={32}
+                                                color={getCategoryColor(
+                                                  leg.condition.category?.slug
+                                                )}
+                                                categorySlug={
+                                                  leg.condition.category?.slug
+                                                }
+                                              />
+                                              <ConditionTitleLink
+                                                conditionId={leg.condition.id}
+                                                title={displayQ}
+                                                endTime={leg.condition.endTime}
+                                                description={
+                                                  leg.condition.description
+                                                }
+                                                clampLines={1}
+                                                className="text-sm"
+                                              />
+                                              <Badge
+                                                variant="outline"
+                                                className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                                  leg.prediction
+                                                    ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
+                                                    : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
+                                                }`}
+                                              >
+                                                {leg.prediction ? 'YES' : 'NO'}
+                                              </Badge>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </>
+                              )}
+                            </div>
+                            {/* Mobile Row 3: Probability info */}
+                            <div className="md:hidden text-sm">
+                              {status === 'received' && probability !== null ? (
+                                <>
+                                  <PercentChance
+                                    probability={1 - probability}
+                                    showLabel
+                                    label="chance"
+                                    className="font-mono text-ethena"
+                                  />
+                                  <span className="text-muted-foreground ml-1">
+                                    implied by 1 USDe to win{' '}
+                                  </span>
+                                  <span className="text-brand-white font-medium font-mono">
+                                    {(1 / (1 - probability)).toFixed(2)} USDe
+                                  </span>
+                                </>
+                              ) : status === 'error' ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : (
+                                <span className="text-foreground/70">
+                                  Initializing auction...
+                                </span>
+                              )}
+                            </div>
+                            {/* Mobile Row 4: PICK button */}
+                            <div className="md:hidden">
+                              <Button
+                                className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
+                                variant="default"
+                                size="sm"
+                                type="button"
+                                onClick={() => handlePickParlay(combo)}
+                              >
+                                PICK
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 px-4 text-right whitespace-nowrap">
+                        {/* Probability cell - desktop only */}
+                        <TableCell className="hidden md:table-cell py-3 px-4 text-right whitespace-nowrap">
                           {status === 'received' && probability !== null ? (
                             <span className="text-sm">
                               <PercentChance
@@ -549,7 +642,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="py-3 pr-4 w-[70px]">
+                        {/* Desktop PICK button cell - hidden on mobile */}
+                        <TableCell className="hidden md:table-cell py-3 pr-4 w-[70px]">
                           <Button
                             className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
                             variant="default"

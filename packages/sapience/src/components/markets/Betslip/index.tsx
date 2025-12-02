@@ -931,7 +931,7 @@ const Betslip = ({
         <Drawer open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <DrawerTrigger asChild>
             <Button
-              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 lg:hidden rounded-full h-10 w-10 p-0 shadow-md"
+              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 lg:hidden rounded-full h-10 w-10 p-0 shadow-md"
               size="icon"
               variant="default"
               aria-label="Open betslip"

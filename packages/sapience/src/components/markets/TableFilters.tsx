@@ -356,7 +356,12 @@ export default function TableFilters({
   };
 
   return (
-    <div className={cn('grid gap-4 grid-cols-1 md:grid-cols-4', className)}>
+    <div
+      className={cn(
+        'grid gap-2 md:gap-4 grid-cols-1 md:grid-cols-4',
+        className
+      )}
+    >
       {/* Search input */}
       <div className="relative flex items-center">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none z-10" />
