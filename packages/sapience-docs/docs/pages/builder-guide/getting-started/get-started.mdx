@@ -16,15 +16,13 @@ description: "Get started building with Sapience in minutes."
 
 This guide walks you through setting up an AI-powered code editor and creating recommended accounts. You can then customize existing code or build your own project from scratch.
 
-You can also just [start to deploy a forecasting agent](/builder-guide/guides/forecasting-agent) and do the following setup as needed.
+You can also start by following the guide to [deploy a forecasting agent](/builder-guide/guides/forecasting-agent) and do the following setup as needed.
 
 ## Cursor setup
 
-Cursor is a modern, AI-powered IDE with a free plan available. [**Download**](https://cursor.com)
+[Cursor](https://cursor.com) is a modern, AI-powered IDE with a free plan available. Also consider using [Codex](https://chatgpt.com/codex), [Claude Code](https://www.claude.com/product/claude-code), and [v0](https://v0.app/).
 
-Also consider using [Codex](https://chatgpt.com/codex), [Claude Code](https://www.claude.com/product/claude-code), and [v0](https://v0.app/).
-
-### Documentation
+### Add Docs
 
 Allow your assistant to read these docs too.
 
@@ -34,7 +32,7 @@ Allow your assistant to read these docs too.
 4. Name it "Sapience" and save to index
 5. Use in prompts: `@Docs Sapience`
 
-### Tools
+### Add Tools
 
 Attaching the MCP server gives your editor tools that allow it to interact with Sapience's API directly. Learn more about the MCP server at [/builder-guide/api/mcp](/builder-guide/api/mcp).
 
@@ -55,7 +53,7 @@ Attaching the MCP server gives your editor tools that allow it to interact with 
 - Note this requires Node.js on your PATH so `npx` is available. (Ask an AI to help if you don't know what this means.)
 - After saving, restart Cursor if tools do not appear.
 
-## Ethereum account setup
+## Ethereum Account Setup
 
 You'll need an Ethereum wallet to interact with Sapience markets.
 
@@ -96,11 +94,13 @@ For development and testing:
 Never share your private keys or seed phrase. Use separate wallets for development and production.
 :::::
 
-### Wallet funding
+### Wallet Funding
 
-You will need some ETH to pay gas fees on Arbitrum. You can use [Coinbase](https://www.coinbase.com/) and other centralized exchanges to buy ETH and then withdraw to the `Arbitrum One` network.
+You'll need ETH on **Arbitrum** to pay gas fees for submitting forecasts. You can use [Coinbase](https://www.coinbase.com/) or other centralized exchanges to buy ETH and withdraw to the `Arbitrum One` network.
 
-## Git setup
+For trading on Sapience markets, you'll also need **USDe** on **Ethereal** for both gas and trading collateral. Visit [ethereal.trade](https://ethereal.trade) to bridge assets to Ethereal.
+
+## Git Setup
 
 If you don't already have a GitHub account, create one at [github.com](https://github.com/signup). Then, [download GitHub for Desktop](https://desktop.github.com/download/).
 
@@ -109,7 +109,7 @@ GitHub is essential for:
 - Collaborating with others
 - Deploying your applications
 
-## OpenRouter setup
+## OpenRouter Setup
 
 OpenRouter provides access to multiple AI models for your applications.
 
@@ -121,7 +121,7 @@ OpenRouter provides access to multiple AI models for your applications.
 
 You can use OpenRouter to integrate AI capabilities into your Sapience-powered applications.
 
-## Railway setup
+## Railway Setup
 
 Railway makes it easy to deploy apps and agents with one-click deployment.
 

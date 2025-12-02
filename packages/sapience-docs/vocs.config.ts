@@ -53,14 +53,6 @@ export default defineConfig({
             text: "Market Making Agent",
             link: "/builder-guide/guides/market-making-agent",
           },
-          {
-            text: "Spot Market Trading Agent",
-            link: "/builder-guide/guides/trading-bots",
-          },
-          {
-            text: "Spot Market Liquidity Agent",
-            link: "/builder-guide/guides/liquidity-provisioning-bots",
-          },
           { text: "Customize Trading App", link: "/builder-guide/guides/customize-trading-app" },
           {
             text: "Dashboards, Games, and more",
@@ -72,7 +64,6 @@ export default defineConfig({
         text: "API",
         items: [
           { text: "GraphQL", link: "/builder-guide/api/graphql" },
-          { text: "Quoter", link: "/builder-guide/api/quoter" },
           { text: "Auction Relayer", link: "/builder-guide/api/auction-relayer" },
           { text: "MCP", link: "/builder-guide/api/mcp" },
         ],
@@ -93,8 +84,6 @@ export default defineConfig({
           { text: "UI Components", link: "/builder-guide/storybook" },
         ],
       },
-      { text: "FAQ", link: "/builder-guide/faq" },
-      { text: "Contributing", link: "/builder-guide/contributing" },
     ],
     "/user-guide": [
       { text: "Open App", link: "https://sapience.xyz" },
