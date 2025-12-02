@@ -16,13 +16,22 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@sapience/sdk/ui/components/ui/hover-card';
-import type { AuctionBid } from '~/lib/auction/useAuctionBids';
 import { formatEther } from 'viem';
-import TradePopoverContent from '~/components/terminal/TradePopoverContent';
-import ExpiresInLabel from '~/components/terminal/ExpiresInLabel';
+import TradePopoverContent from '~/components/shared/TradePopoverContent';
+import ExpiresInLabel from '~/components/shared/ExpiresInLabel';
+
+export type AuctionBidData = {
+  auctionId: string;
+  maker: string;
+  makerWager: string;
+  makerDeadline: number;
+  makerSignature: string;
+  makerNonce: number;
+  receivedAtMs?: number;
+};
 
 type Props = {
-  bids: AuctionBid[];
+  bids: AuctionBidData[];
   // Optional refresh interval in milliseconds to sync animation duration
   refreshMs?: number;
   // When true, use requestAnimationFrame to continuously update time window
@@ -30,6 +39,10 @@ type Props = {
   takerWager?: string | null;
   taker?: string | null;
   collateralAssetTicker: string;
+  // Whether to show hover tooltips (default true)
+  showTooltips?: boolean;
+  // Optional compact mode for smaller containers
+  compact?: boolean;
 };
 
 const AuctionBidsChart: React.FC<Props> = ({
@@ -39,6 +52,8 @@ const AuctionBidsChart: React.FC<Props> = ({
   takerWager,
   taker,
   collateralAssetTicker,
+  showTooltips = true,
+  compact = false,
 }) => {
   const [nowMs, setNowMs] = useState<number>(Date.now());
   // Track hovered bid with container-relative coordinates
@@ -101,7 +116,8 @@ const AuctionBidsChart: React.FC<Props> = ({
           } catch {
             amount = 0;
           }
-          const start = Number(b?.receivedAtMs || 0);
+          // Use receivedAtMs if available, otherwise estimate from deadline
+          const start = Number(b?.receivedAtMs || nowMs - 30000);
           const end = Number(b?.makerDeadline || 0) * 1000;
           if (
             !Number.isFinite(amount) ||
@@ -158,7 +174,7 @@ const AuctionBidsChart: React.FC<Props> = ({
           endMs?: number;
         }[];
       }[],
-    [bids]
+    [bids, nowMs]
   );
 
   // Parent chart still requires a data array; each series overrides with its own data.
@@ -217,8 +233,10 @@ const AuctionBidsChart: React.FC<Props> = ({
 
   // Handle mouse move to show custom tooltip (throttled for performance)
   const lastMoveRef = useRef<number>(0);
+  const yAxisWidth = compact ? 44 : 56;
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!showTooltips) return;
       // Throttle to ~60fps
       const now = performance.now();
       if (now - lastMoveRef.current < 16) return;
@@ -231,8 +249,8 @@ const AuctionBidsChart: React.FC<Props> = ({
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Chart area starts after Y axis (56px) and has padding (8px right, 0 left)
-      const chartLeft = 56;
+      // Chart area starts after Y axis and has padding (8px right, 0 left)
+      const chartLeft = yAxisWidth;
       const chartRight = rect.width - 8;
       const chartWidth = chartRight - chartLeft;
       const chartTop = 8;
@@ -277,7 +295,7 @@ const AuctionBidsChart: React.FC<Props> = ({
         setHoveredBid(null);
       }
     },
-    [xDomain, yDomain, findClosestBid]
+    [xDomain, yDomain, findClosestBid, showTooltips, yAxisWidth]
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -302,12 +320,12 @@ const AuctionBidsChart: React.FC<Props> = ({
     hoveredBid || (isOverPopover ? lastDisplayedBidRef.current : null);
 
   // Determine if HoverCard should be open (only when we have data to show)
-  const isHoverCardOpen = Boolean(displayBidData);
+  const isHoverCardOpen = Boolean(displayBidData) && showTooltips;
 
   return (
     <div
       ref={chartRef}
-      className="h-full w-full relative cursor-crosshair"
+      className="h-full w-full relative cursor-crosshair rounded-md bg-background border border-border pt-3 pb-3 pr-3 pl-1"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
@@ -372,7 +390,7 @@ const AuctionBidsChart: React.FC<Props> = ({
                   dx={dx}
                   dy={6}
                   textAnchor={textAnchor}
-                  fontSize={10}
+                  fontSize={compact ? 9 : 10}
                   fontFamily={
                     'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)'
                   }
@@ -385,8 +403,11 @@ const AuctionBidsChart: React.FC<Props> = ({
           />
           <YAxis
             dataKey="amount"
-            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-            width={56}
+            tick={{
+              fontSize: compact ? 9 : 10,
+              fill: 'hsl(var(--muted-foreground))',
+            }}
+            width={yAxisWidth}
             domain={[0, (dataMax: number) => (dataMax > 0 ? dataMax * 1.1 : 1)]}
             tickFormatter={(v) => {
               const n = Number(v);
@@ -435,58 +456,60 @@ const AuctionBidsChart: React.FC<Props> = ({
       </ResponsiveContainer>
 
       {/* Sticky HoverCard tooltip */}
-      <HoverCard open={isHoverCardOpen} openDelay={0} closeDelay={100}>
-        <HoverCardTrigger asChild>
-          <div
-            className="absolute w-0 h-0"
-            style={{
-              left: displayBidData?.x ?? 0,
-              top: displayBidData?.y ?? 0,
-            }}
-          />
-        </HoverCardTrigger>
-        <HoverCardContent
-          side="top"
-          align="start"
-          sideOffset={8}
-          collisionPadding={16}
-          className="w-auto p-0"
-          onMouseEnter={handlePopoverMouseEnter}
-          onMouseLeave={handlePopoverMouseLeave}
-        >
-          {displayBidData && (
-            <div className="px-3 py-2.5">
-              <TradePopoverContent
-                leftAddress={displayBidData.data.makerAddress}
-                rightAddress={String(taker || '')}
-                takerAmountEth={displayBidData.data.amount}
-                totalAmountEth={
-                  displayBidData.data.amount +
-                  (Number.isFinite(takerEth) ? takerEth : 0)
-                }
-                percent={
-                  displayBidData.data.amount + takerEth > 0
-                    ? Math.round(
-                        (displayBidData.data.amount /
-                          (displayBidData.data.amount + takerEth)) *
-                          100
-                      )
-                    : undefined
-                }
-                ticker={collateralAssetTicker}
-                timeNode={
-                  displayBidData.data.endMs > 0 ? (
-                    <ExpiresInLabel
-                      endMs={displayBidData.data.endMs}
-                      nowMs={nowMs}
-                    />
-                  ) : undefined
-                }
-              />
-            </div>
-          )}
-        </HoverCardContent>
-      </HoverCard>
+      {showTooltips && (
+        <HoverCard open={isHoverCardOpen} openDelay={0} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <div
+              className="absolute w-0 h-0"
+              style={{
+                left: displayBidData?.x ?? 0,
+                top: displayBidData?.y ?? 0,
+              }}
+            />
+          </HoverCardTrigger>
+          <HoverCardContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            collisionPadding={16}
+            className="w-auto p-0"
+            onMouseEnter={handlePopoverMouseEnter}
+            onMouseLeave={handlePopoverMouseLeave}
+          >
+            {displayBidData && (
+              <div className="px-3 py-2.5">
+                <TradePopoverContent
+                  leftAddress={displayBidData.data.makerAddress}
+                  rightAddress={String(taker || '')}
+                  takerAmountEth={displayBidData.data.amount}
+                  totalAmountEth={
+                    displayBidData.data.amount +
+                    (Number.isFinite(takerEth) ? takerEth : 0)
+                  }
+                  percent={
+                    displayBidData.data.amount + takerEth > 0
+                      ? Math.round(
+                          (displayBidData.data.amount /
+                            (displayBidData.data.amount + takerEth)) *
+                            100
+                        )
+                      : undefined
+                  }
+                  ticker={collateralAssetTicker}
+                  timeNode={
+                    displayBidData.data.endMs > 0 ? (
+                      <ExpiresInLabel
+                        endMs={displayBidData.data.endMs}
+                        nowMs={nowMs}
+                      />
+                    ) : undefined
+                  }
+                />
+              </div>
+            )}
+          </HoverCardContent>
+        </HoverCard>
+      )}
 
       <style jsx>{`
         :global(.now-ref-line .recharts-reference-line-line) {

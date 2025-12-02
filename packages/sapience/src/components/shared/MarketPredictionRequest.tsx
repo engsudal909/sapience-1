@@ -273,8 +273,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
         <PercentChance
           probability={requestedPrediction}
           showLabel={true}
-          label="Chance"
-          className="text-foreground font-medium"
+          label="chance"
+          className="font-mono text-ethena"
         />
       )}
     </div>

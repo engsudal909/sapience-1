@@ -228,7 +228,7 @@ function RangeFilter({
 
   const formatDisplay = (v: number) => {
     const formatted = formatValue(v);
-    if (showSign && v > 0) return `+${formatted}`;
+    if (showSign && v > 0 && formatted !== '∞') return `+${formatted}`;
     return formatted;
   };
 
@@ -288,7 +288,7 @@ function RangeFilter({
                 inputSize="xs"
                 type="text"
                 value={
-                  showSign && parseValue(localMin) > 0
+                  showSign && parseValue(localMin) > 0 && localMin !== '∞'
                     ? `+${localMin}`
                     : localMin
                 }
@@ -308,7 +308,7 @@ function RangeFilter({
                 inputSize="xs"
                 type="text"
                 value={
-                  showSign && parseValue(localMax) > 0
+                  showSign && parseValue(localMax) > 0 && localMax !== '∞'
                     ? `+${localMax}`
                     : localMax
                 }
@@ -356,10 +356,10 @@ export default function TableFilters({
   };
 
   return (
-    <div className={cn('grid gap-3 grid-cols-1 md:grid-cols-4', className)}>
+    <div className={cn('grid gap-4 grid-cols-1 md:grid-cols-4', className)}>
       {/* Search input */}
       <div className="relative flex items-center">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none z-10" />
         <input
           type="text"
           placeholder="Search questions and keywords"
@@ -391,11 +391,22 @@ export default function TableFilters({
         min={-1000}
         max={1000}
         step={1}
-        formatValue={(v) => String(v)}
-        parseValue={(v) => Number(v)}
+        formatValue={(v) => {
+          if (v === 1000) return '∞';
+          if (v === -1000) return '-∞';
+          return String(v);
+        }}
+        parseValue={(v) => {
+          if (v === '∞') return 1000;
+          if (v === '-∞') return -1000;
+          return Number(v);
+        }}
         unit="days"
         showSign
-        customLabels={[{ range: [0, 1000], label: 'Ends in the future' }]}
+        customLabels={[
+          { range: [0, 1000], label: 'Ends in the future' },
+          { range: [-1000, 0], label: 'Ended in the past' },
+        ]}
       />
     </div>
   );

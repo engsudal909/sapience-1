@@ -16,6 +16,11 @@ import {
 } from '@sapience/sdk/ui/components/ui/table';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@sapience/sdk/ui/components/ui/popover';
 import { RefreshCw } from 'lucide-react';
 import {
   useConditions,
@@ -24,6 +29,7 @@ import {
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
+import MarketBadge from '~/components/markets/MarketBadge';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
@@ -340,12 +346,39 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                       transition={{ duration: 0.3 }}
                       className="border-b border-brand-white/20"
                     >
-                      <TableCell colSpan={4} className="py-3 px-4">
+                      <TableCell className="py-3 pl-4 pr-3 w-[56px]">
                         <div
-                          className="h-6 rounded bg-brand-white/5"
+                          className="w-10 h-6 rounded bg-brand-white/5"
                           style={{
                             animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
                             animationDelay: `${idx * 0.3}s`,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="py-3 pl-1">
+                        <div
+                          className="w-48 h-5 rounded bg-brand-white/5"
+                          style={{
+                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                            animationDelay: `${idx * 0.3 + 0.1}s`,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="py-3 px-4">
+                        <div
+                          className="w-48 h-5 rounded bg-brand-white/5 ml-auto"
+                          style={{
+                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                            animationDelay: `${idx * 0.3 + 0.2}s`,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="py-3 pr-4 w-[70px]">
+                        <div
+                          className="w-14 h-7 rounded bg-brand-white/5"
+                          style={{
+                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                            animationDelay: `${idx * 0.3 + 0.15}s`,
                           }}
                         />
                       </TableCell>
@@ -396,43 +429,101 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                             })}
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 pl-1 min-w-0 overflow-hidden max-w-[400px] relative">
-                          <div className="flex gap-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-brand-white/20 scrollbar-track-transparent pr-6">
-                            {combo.map((leg, i) => (
-                              <React.Fragment key={leg.condition.id + '-' + i}>
-                                {i > 0 && (
-                                  <span className="text-sm text-muted-foreground shrink-0 self-center">
-                                    and
-                                  </span>
-                                )}
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className="text-sm whitespace-nowrap">
-                                    <ConditionTitleLink
-                                      conditionId={leg.condition.id}
-                                      title={
-                                        leg.condition.shortName ||
-                                        leg.condition.question
-                                      }
-                                      endTime={leg.condition.endTime}
-                                      description={leg.condition.description}
-                                      clampLines={1}
-                                    />
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                      leg.prediction
-                                        ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
-                                        : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
-                                    }`}
+                        <TableCell className="py-3 pl-1 min-w-0">
+                          <div className="flex gap-x-2 items-center min-w-0">
+                            {/* First question with badge */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm max-w-[300px] truncate">
+                                <ConditionTitleLink
+                                  conditionId={combo[0].condition.id}
+                                  title={
+                                    combo[0].condition.shortName ||
+                                    combo[0].condition.question
+                                  }
+                                  endTime={combo[0].condition.endTime}
+                                  description={combo[0].condition.description}
+                                  clampLines={1}
+                                />
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                  combo[0].prediction
+                                    ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
+                                    : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
+                                }`}
+                              >
+                                {combo[0].prediction ? 'YES' : 'NO'}
+                              </Badge>
+                            </div>
+                            {/* "and two others" popover */}
+                            {combo.length > 1 && (
+                              <>
+                                <span className="text-sm text-muted-foreground shrink-0">
+                                  and
+                                </span>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 shrink-0 transition-colors"
+                                    >
+                                      2 others
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
+                                    align="start"
                                   >
-                                    {leg.prediction ? 'YES' : 'NO'}
-                                  </Badge>
-                                </div>
-                              </React.Fragment>
-                            ))}
+                                    <div className="flex flex-col divide-y divide-brand-white/20">
+                                      {combo.slice(1).map((leg, i) => {
+                                        const displayQ =
+                                          leg.condition.shortName ||
+                                          leg.condition.question;
+                                        return (
+                                          <div
+                                            key={leg.condition.id + '-' + i}
+                                            className="flex items-center gap-3 px-3 py-2"
+                                          >
+                                            <MarketBadge
+                                              label={displayQ}
+                                              size={32}
+                                              color={getCategoryColor(
+                                                leg.condition.category?.slug
+                                              )}
+                                              categorySlug={
+                                                leg.condition.category?.slug
+                                              }
+                                            />
+                                            <ConditionTitleLink
+                                              conditionId={leg.condition.id}
+                                              title={displayQ}
+                                              endTime={leg.condition.endTime}
+                                              description={
+                                                leg.condition.description
+                                              }
+                                              clampLines={1}
+                                              className="text-sm"
+                                            />
+                                            <Badge
+                                              variant="outline"
+                                              className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                                leg.prediction
+                                                  ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
+                                                  : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
+                                              }`}
+                                            >
+                                              {leg.prediction ? 'YES' : 'NO'}
+                                            </Badge>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </>
+                            )}
                           </div>
-                          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-brand-black via-brand-black/80 to-transparent pointer-events-none" />
                         </TableCell>
                         <TableCell className="py-3 px-4 text-right whitespace-nowrap">
                           {status === 'received' && probability !== null ? (
@@ -454,7 +545,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                             <span className="text-muted-foreground">—</span>
                           ) : (
                             <span className="text-foreground/70">
-                              Requesting quotes...
+                              Initializing auction...
                             </span>
                           )}
                         </TableCell>
@@ -476,6 +567,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
           </TableBody>
         </Table>
       </div>
+      <hr className="gold-hr mt-8" />
     </div>
   );
 };

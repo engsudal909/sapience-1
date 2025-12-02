@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import AuctionBidsChart from '~/components/terminal/AuctionBidsChart';
+import AuctionBidsChart from '~/components/shared/AuctionBidsChart';
 import { formatUnits } from 'viem';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';

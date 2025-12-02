@@ -196,7 +196,7 @@ function ForecastCell({ condition }: { condition: ConditionType }) {
 
   // If not past end time, show the regular prediction request
   if (!isPastEnd) {
-    return <MarketPredictionRequest conditionId={condition.id} eager={false} />;
+    return <MarketPredictionRequest conditionId={condition.id} />;
   }
 
   // Past end time - show resolution status
@@ -330,7 +330,7 @@ const columns: ColumnDef<ConditionType>[] = [
             endTime={condition.endTime}
             description={condition.description}
             clampLines={1}
-            className="text-base"
+            className="text-sm"
           />
         </div>
       );
@@ -339,9 +339,7 @@ const columns: ColumnDef<ConditionType>[] = [
   {
     id: 'forecast',
     header: () => (
-      <span className="block text-right whitespace-nowrap">
-        Current Forecast
-      </span>
+      <span className="block text-right whitespace-nowrap">Forecast</span>
     ),
     cell: ({ row }) => {
       const condition = row.original;
@@ -361,15 +359,15 @@ const columns: ColumnDef<ConditionType>[] = [
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(sorted === 'asc')}
-            className="-mr-4 px-0 hover:bg-transparent whitespace-nowrap"
+            className="-mr-4 px-0 gap-1 hover:bg-transparent whitespace-nowrap"
           >
             Open Interest
             {sorted === 'asc' ? (
-              <ChevronUp className="ml-1 h-4 w-4" />
+              <ChevronUp className="h-4 w-4" />
             ) : sorted === 'desc' ? (
-              <ChevronDown className="ml-1 h-4 w-4" />
+              <ChevronDown className="h-4 w-4" />
             ) : (
-              <span className="ml-1 flex flex-col -my-2">
+              <span className="flex flex-col -my-2">
                 <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
                 <ChevronDown className="h-3 w-3 opacity-50" />
               </span>
@@ -393,19 +391,19 @@ const columns: ColumnDef<ConditionType>[] = [
     header: ({ column }) => {
       const sorted = column.getIsSorted();
       return (
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(sorted === 'asc')}
-            className="-mr-4 px-0 hover:bg-transparent whitespace-nowrap"
+            className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
           >
             Ends
             {sorted === 'asc' ? (
-              <ChevronUp className="ml-1 h-4 w-4" />
+              <ChevronUp className="h-4 w-4" />
             ) : sorted === 'desc' ? (
-              <ChevronDown className="ml-1 h-4 w-4" />
+              <ChevronDown className="h-4 w-4" />
             ) : (
-              <span className="ml-1 flex flex-col -my-2">
+              <span className="flex flex-col -my-2">
                 <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
                 <ChevronDown className="h-3 w-3 opacity-50" />
               </span>
@@ -633,19 +631,21 @@ export default function MarketsDataTable({
         onSearchChange={setSearchTerm}
         className="mt-4"
       />
-      <div className="rounded-md border border-brand-white/20 overflow-hidden bg-brand-black">
+      <div className="rounded-md border border-brand-white/20 overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="hover:bg-transparent bg-muted/30"
+                className="hover:!bg-background bg-background border-b border-brand-white/20 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
               >
                 {headerGroup.headers.map((header) => {
                   const colId = header.column.id;
                   let className = '';
                   if (colId === 'question') {
                     className = 'pl-4 max-w-[400px]';
+                  } else if (colId === 'endTime') {
+                    className = 'pl-4';
                   }
                   return (
                     <TableHead key={header.id} className={className}>
@@ -661,7 +661,7 @@ export default function MarketsDataTable({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
+          <TableBody className="bg-brand-black">
             {displayedRows.length ? (
               displayedRows.map((row) => (
                 <TableRow
@@ -676,10 +676,11 @@ export default function MarketsDataTable({
                       className = 'py-2 pl-4 max-w-[400px]';
                     } else if (
                       colId === 'forecast' ||
-                      colId === 'openInterest' ||
-                      colId === 'endTime'
+                      colId === 'openInterest'
                     ) {
                       className = 'py-2 text-right';
+                    } else if (colId === 'endTime') {
+                      className = 'py-2 pl-4 text-left';
                     } else if (colId === 'predict') {
                       className = 'py-2 pr-4';
                     }

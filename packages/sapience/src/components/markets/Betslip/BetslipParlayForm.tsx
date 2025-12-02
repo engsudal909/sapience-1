@@ -114,6 +114,18 @@ export default function BetslipParlayForm({
     return !Number.isNaN(wagerNum) && wagerNum > 1000;
   }, [parlayWagerAmount]);
 
+  // Calculate taker wager in wei for auction chart
+  const takerWagerWei = useMemo(() => {
+    try {
+      const decimals = Number.isFinite(collateralDecimals as number)
+        ? (collateralDecimals as number)
+        : 18;
+      return parseUnits(parlayWagerAmount || '0', decimals).toString();
+    } catch {
+      return '0';
+    }
+  }, [parlayWagerAmount, collateralDecimals]);
+
   const bestBid = useMemo(() => {
     if (!bids || bids.length === 0) return null;
     const validBids = bids.filter((bid) => bid.makerDeadline * 1000 > nowMs);
@@ -284,7 +296,7 @@ export default function BetslipParlayForm({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="text-muted-foreground/50 flex items-center gap-1"
+                  className="text-muted-foreground/50 flex items-center gap-1 ml-2"
                 >
                   <Info className="h-3.5 w-3.5" />
                   ALL MUST BE CORRECT TO WIN
@@ -388,6 +400,9 @@ export default function BetslipParlayForm({
               hintMounted={hintMounted}
               disclaimerVisible={disclaimerVisible}
               disclaimerMounted={disclaimerMounted}
+              allBids={bids}
+              takerWagerWei={takerWagerWei}
+              takerAddress={selectedTakerAddress}
             />
           </div>
           {error && (

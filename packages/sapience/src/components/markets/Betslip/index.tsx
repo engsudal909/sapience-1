@@ -991,7 +991,7 @@ const Betslip = ({
           className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
           <div
-            className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
+            className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
             style={
               {
                 '--betslip-gradient': categoryGradient,
@@ -1047,7 +1047,7 @@ const Betslip = ({
               )}
             </div>
             <div
-              className="relative bg-brand-black border border-brand-white/10 rounded-none shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
+              className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
               style={
                 {
                   '--betslip-gradient': categoryGradient,

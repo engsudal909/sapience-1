@@ -27,7 +27,7 @@ const ToWinLine: React.FC<Props> = ({
   const isFiniteNumber = Number.isFinite(value as number);
   return (
     <Container
-      className={`${textSize} font-mono text-muted-foreground py-2 ${className ?? ''}`}
+      className={`${textSize} font-mono text-muted-foreground pt-0.5 pb-1 ${className ?? ''}`}
     >
       <span className="font-normal">{label}</span>
       <span className="text-brand-white font-semibold">

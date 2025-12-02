@@ -207,6 +207,23 @@
         140% calc(100% - var(--gold-underline-offset));
     }
   }
+  @keyframes gold-hr-sweep {
+    0% {
+      background-position:
+        0 0,
+        -40% 0;
+    }
+    21% {
+      background-position:
+        0 0,
+        140% 0;
+    }
+    100% {
+      background-position:
+        0 0,
+        140% 0;
+    }
+  }
   @keyframes gold-sheen-sweep {
     0% {
       background-position: -40% 0;
@@ -330,6 +347,30 @@
   }
   .gold-link:hover {
     animation: gold-underline-sweep-bg 2s linear infinite;
+  }
+  /* Gold horizontal rule with same sweep animation as gold-link */
+  .gold-hr {
+    height: 1px;
+    border: none;
+    background-image: linear-gradient(
+        to right,
+        hsl(var(--accent-gold) / 0.06) 0%,
+        hsl(var(--accent-gold) / 0.06) 100%
+      ),
+      linear-gradient(
+        to right,
+        hsl(var(--accent-gold) / 0) 0%,
+        hsl(var(--accent-gold) / 0.14) 50%,
+        hsl(var(--accent-gold) / 0) 100%
+      );
+    background-repeat: no-repeat, no-repeat;
+    background-size:
+      100% 1px,
+      30% 1px;
+    background-position:
+      0 0,
+      -40% 0;
+    animation: gold-hr-sweep 6s linear infinite;
   }
   /* Ensure popovers/dropdowns match How It Works box border tone */
   .border.bg-popover {
