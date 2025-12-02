@@ -1,0 +1,26 @@
+---
+title: "Auctions"
+description: "Build predictions and trade via short-lived RFQ-style auctions with onchain settlement."
+---
+
+# Auctions
+
+## Overview
+
+Sapience's primary system for prediction markets operate like auctions. They enable you to combine multiple picks into a single prediction and trade them through a short-lived RFQ-style matching process.
+
+**Predictions** let you express multi-question forecasts. Example: "Team A wins AND turnout ≥ 60%." If every pick resolves as predicted, the prediction wins; one incorrect pick loses the entire position.
+
+- **Why multi-pick predictions?** Higher potential payout for compound forecasts, simple win/lose outcome, and expressive predictions beyond a single question.
+- **Probability intuition:** When picks are independent, the prediction's implied probability is the product of individual probabilities — hence lower combined probability and higher potential payoff.
+
+## How Auctions Work
+
+Auctions use an **RFQ (Request-for-Quote) model**:
+
+1. Requester starts an auction by announcing their prediction (picks + wager) to the relayer
+2. Responders submit competing bids with their desired wager amounts and signed quotes
+3. Requester selects the best bid (typically highest wager among non-expired quotes)
+4. The requester transfers collateral and mints NFTs for both the requester and responder (the prediction's position and its *anti-parlay*)
+5. After resolution, the NFTs can be burned and the winner receives the collateral. 
+

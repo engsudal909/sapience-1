@@ -48,6 +48,7 @@ export function addBid(
 
   const validated: ValidatedBid = { ...bid };
   rec.bids.push(validated);
+  rec.deadlineMs = Math.max(rec.deadlineMs, bid.makerDeadline * 1000);
   // Keep all bids - UI will select the best one
   auctions.set(auctionId, rec);
   return validated;
