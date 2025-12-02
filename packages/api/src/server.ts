@@ -7,20 +7,14 @@ import { NextFunction, Request, Response } from 'express';
 import { initializeDataSource } from './db';
 import { createLoaders } from './graphql/loaders';
 import { app } from './app';
-import { createAuctionWebSocketServer } from './auction/ws';
-import { createChatWebSocketServer } from './websocket/chat';
 import { initializeApolloServer } from './graphql/startApolloServer';
 import { initializeFixtures } from './fixtures';
 import { handleMcpAppRequests } from './routes/mcp';
 import prisma from './db';
 import { config } from './config';
-import { validateOrigin } from './utils/url';
-import { closeSocket, setupConnectionMetrics } from './utils/socket';
+import { setupWebsocketServer } from './websocket';
 
-import type { IncomingMessage } from 'node:http';
-import type { Socket } from 'node:net';
-
-const startServer = async () => {
+export const startServer = async () => {
   await initializeDataSource();
 
   if (config.isDev && process.env.DATABASE_URL?.includes('render')) {
@@ -49,63 +43,17 @@ const startServer = async () => {
 
   const httpServer = createServer(app);
 
-  // Create WebSocket servers (noServer mode) and route upgrades centrally
-  const auctionWsEnabled = process.env.ENABLE_AUCTION_WS !== 'false';
-  const auctionWss = auctionWsEnabled ? createAuctionWebSocketServer() : null;
-  const chatWss = createChatWebSocketServer();
+  setupWebsocketServer(httpServer);
 
-  setupConnectionMetrics('chat', chatWss);
-  if (auctionWss) {
-    setupConnectionMetrics('auction', auctionWss);
-  }
-
-  httpServer.on(
-    'upgrade',
-    (request: IncomingMessage, socket: Socket, head: Buffer) => {
-      if (!request.url) return closeSocket(socket, 403);
-
-      const uri = new URL(request.url);
-
-      if (uri.pathname === '/chat') {
-        const allowedOrigins = config.CHAT_ALLOWED_ORIGINS;
-
-        // Origin validation if configured
-        if (
-          allowedOrigins.length &&
-          !validateOrigin(request, config.CHAT_ALLOWED_ORIGINS)
-        ) {
-          return closeSocket(socket, 401);
-        }
-
-        chatWss.handleUpgrade(request, socket, head, (ws) => {
-          chatWss.emit('connection', ws, request);
-        });
-
-        return;
-      }
-
-      if (uri.pathname === '/auction') {
-        if (auctionWsEnabled && auctionWss) {
-          auctionWss.handleUpgrade(request, socket, head, (ws) => {
-            auctionWss.emit('connection', ws, request);
-          });
-        } else {
-          closeSocket(socket, 410);
-        }
-
-        return;
-      }
-
-      return closeSocket(socket, 404);
-    }
-  );
-
-  httpServer.listen(config.PORT, () => {
+  const onListen = () => {
     console.log(`Server is running on port ${config.PORT}`);
     console.log(`GraphQL endpoint available at /graphql`);
-    if (auctionWsEnabled) console.log(`Auction WebSocket endpoint at /auction`);
+    if (config.ENABLE_AUCTION_WS)
+      console.log(`Auction WebSocket endpoint at /auction`);
     console.log(`Chat WebSocket endpoint at /chat`);
-  });
+  };
+
+  httpServer.listen(config.PORT, onListen);
 
   if (config.isProd) {
     Sentry.setupExpressErrorHandler(app);
@@ -118,10 +66,14 @@ const startServer = async () => {
     console.error('An error occurred:', err.message);
     res.status(500).json({ error: 'Internal server error' });
   });
+
+  return { httpServer, app };
 };
 
-try {
-  await startServer();
-} catch (e) {
-  console.error('Unable to start server: ', e);
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    await startServer();
+  } catch (e) {
+    console.error('Unable to start server: ', e);
+  }
 }

@@ -25,4 +25,5 @@ export const config = cleanEnv(process.env, {
   }),
   SENTRY_ENABLE_METRICS: bool({ default: true }),
   SENTRY_DEBUG: bool({ default: false }),
+  ENABLE_AUCTION_WS: bool({ default: true }),
 });
