@@ -259,7 +259,9 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     >
       {requestedPrediction == null ? (
         isRequesting ? (
-          <span className="text-foreground/70 animate-pulse">Requesting...</span>
+          <span className="text-foreground/70 animate-pulse">
+            Requesting...
+          </span>
         ) : (
           <button
             type="button"

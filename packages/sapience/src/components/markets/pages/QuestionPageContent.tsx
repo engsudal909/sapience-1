@@ -49,7 +49,17 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowLeftRight, ChevronUp, ChevronDown, Code, Copy, DollarSign, ExternalLink, Gavel, Telescope } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  ChevronUp,
+  ChevronDown,
+  Code,
+  Copy,
+  DollarSign,
+  ExternalLink,
+  Gavel,
+  Telescope,
+} from 'lucide-react';
 import {
   predictionMarket,
   umaResolver,
@@ -113,9 +123,21 @@ const placeholderPredictions = [
     makerPrediction: true,
     time: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toLocaleString(),
     combinedPredictions: [
-      { question: 'Will BTC reach $100k by end of 2025?', prediction: true, categorySlug: 'crypto' },
-      { question: 'Will ETH flip BTC market cap?', prediction: false, categorySlug: 'crypto' },
-      { question: 'Will Solana reach $500?', prediction: true, categorySlug: 'crypto' },
+      {
+        question: 'Will BTC reach $100k by end of 2025?',
+        prediction: true,
+        categorySlug: 'crypto',
+      },
+      {
+        question: 'Will ETH flip BTC market cap?',
+        prediction: false,
+        categorySlug: 'crypto',
+      },
+      {
+        question: 'Will Solana reach $500?',
+        prediction: true,
+        categorySlug: 'crypto',
+      },
     ],
     combinedWithYes: true, // the combined predictions are tied to the YES outcome
   },
@@ -213,7 +235,9 @@ export default function QuestionPageContent({
   const [refetchTrigger, setRefetchTrigger] = React.useState(0);
 
   // Scatter tooltip hover state - keeps tooltip open when hovering over it
-  const [hoveredPoint, setHoveredPoint] = React.useState<PredictionData | null>(null);
+  const [hoveredPoint, setHoveredPoint] = React.useState<PredictionData | null>(
+    null
+  );
   const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
   const isTooltipHoveredRef = React.useRef(false);
   const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -235,7 +259,10 @@ export default function QuestionPageContent({
   };
 
   const scheduleCommentTooltipHide = (delayMs = 150) => {
-    if (commentTooltipTimeoutRef.current == null && !isCommentTooltipHoveredRef.current) {
+    if (
+      commentTooltipTimeoutRef.current == null &&
+      !isCommentTooltipHoveredRef.current
+    ) {
       commentTooltipTimeoutRef.current = setTimeout(() => {
         commentTooltipTimeoutRef.current = null;
         setHoveredComment(null);
@@ -635,10 +662,7 @@ export default function QuestionPageContent({
           return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <EnsAvatar address={yesAddress} width={16} height={16} />
-              <AddressDisplay
-                address={yesAddress}
-                compact
-              />
+              <AddressDisplay address={yesAddress} compact />
             </div>
           );
         },
@@ -663,10 +687,7 @@ export default function QuestionPageContent({
           return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <EnsAvatar address={noAddress} width={16} height={16} />
-              <AddressDisplay
-                address={noAddress}
-                compact
-              />
+              <AddressDisplay address={noAddress} compact />
             </div>
           );
         },
@@ -681,13 +702,14 @@ export default function QuestionPageContent({
         ),
         cell: ({ row }) => {
           const { combinedPredictions, combinedWithYes } = row.original;
-          
+
           if (!combinedPredictions || combinedPredictions.length === 0) {
-            return <span className="text-muted-foreground">None</span>;
+            return <span className="text-muted-foreground">—</span>;
           }
 
           const count = combinedPredictions.length;
-          const getCategoryColor = (slug?: string) => getCategoryStyle(slug).color;
+          const getCategoryColor = (slug?: string) =>
+            getCategoryStyle(slug).color;
 
           return (
             <Popover>
@@ -927,15 +949,24 @@ export default function QuestionPageContent({
                     animationDuration={150}
                     wrapperStyle={{ pointerEvents: 'auto', zIndex: 50 }}
                     active={!!(hoveredPoint || isTooltipHovered)}
-                    payload={hoveredPoint ? [{ payload: hoveredPoint }] : undefined}
+                    payload={
+                      hoveredPoint ? [{ payload: hoveredPoint }] : undefined
+                    }
                     content={({ active, payload }) => {
                       // Use hovered point state for persistent tooltip
-                      const point = hoveredPoint || (active && payload?.[0]?.payload as PredictionData | undefined);
-                      
+                      const point =
+                        hoveredPoint ||
+                        (active &&
+                          (payload?.[0]?.payload as
+                            | PredictionData
+                            | undefined));
+
                       if (!point) return null;
 
                       const date = new Date(point.x);
-                      const relativeTime = formatDistanceToNow(date, { addSuffix: true });
+                      const relativeTime = formatDistanceToNow(date, {
+                        addSuffix: true,
+                      });
                       const exactTime = date.toLocaleString(undefined, {
                         year: 'numeric',
                         month: 'short',
@@ -945,10 +976,17 @@ export default function QuestionPageContent({
                         second: '2-digit',
                         timeZoneName: 'short',
                       });
-                      const { maker, taker, makerPrediction, combinedPredictions, combinedWithYes } = point;
+                      const {
+                        maker,
+                        taker,
+                        makerPrediction,
+                        combinedPredictions,
+                        combinedWithYes,
+                      } = point;
                       const yesAddress = makerPrediction ? maker : taker;
                       const noAddress = makerPrediction ? taker : maker;
-                      const getCategoryColor = (slug?: string) => getCategoryStyle(slug).color;
+                      const getCategoryColor = (slug?: string) =>
+                        getCategoryStyle(slug).color;
 
                       return (
                         <div
@@ -977,7 +1015,9 @@ export default function QuestionPageContent({
                           <div className="px-3 py-2.5 space-y-2">
                             {/* Time row */}
                             <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Time</span>
+                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                Time
+                              </span>
                               <TooltipProvider>
                                 <UITooltip>
                                   <TooltipTrigger asChild>
@@ -993,14 +1033,18 @@ export default function QuestionPageContent({
                             </div>
                             {/* Wager row */}
                             <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Wager</span>
+                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                Wager
+                              </span>
                               <span className="text-sm text-foreground">
                                 {point.wager} USDe
                               </span>
                             </div>
                             {/* Forecast row */}
                             <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Forecast</span>
+                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                Forecast
+                              </span>
                               <span className="font-mono text-sm text-ethena">
                                 {point.y}% chance
                               </span>
@@ -1021,11 +1065,12 @@ export default function QuestionPageContent({
                                 YES
                               </Badge>
                               <div className="flex items-center gap-1.5">
-                                <EnsAvatar address={yesAddress} width={16} height={16} />
-                                <AddressDisplay
+                                <EnsAvatar
                                   address={yesAddress}
-                                  compact
+                                  width={16}
+                                  height={16}
                                 />
+                                <AddressDisplay address={yesAddress} compact />
                               </div>
                             </div>
                             {/* NO predictor */}
@@ -1037,84 +1082,100 @@ export default function QuestionPageContent({
                                 NO
                               </Badge>
                               <div className="flex items-center gap-1.5">
-                                <EnsAvatar address={noAddress} width={16} height={16} />
-                                <AddressDisplay
+                                <EnsAvatar
                                   address={noAddress}
-                                  compact
+                                  width={16}
+                                  height={16}
                                 />
+                                <AddressDisplay address={noAddress} compact />
                               </div>
                             </div>
                           </div>
 
                           {/* Combined predictions section (if parlay) */}
-                          {combinedPredictions && combinedPredictions.length > 0 && (
-                            <>
-                              <div className="border-t border-brand-white/10" />
-                              <div className="px-3 py-2.5">
-                                <div className="flex items-center justify-between gap-4">
-                                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Combined</span>
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <button
-                                        type="button"
-                                        className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
+                          {combinedPredictions &&
+                            combinedPredictions.length > 0 && (
+                              <>
+                                <div className="border-t border-brand-white/10" />
+                                <div className="px-3 py-2.5">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                      Combined
+                                    </span>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <button
+                                          type="button"
+                                          className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
+                                        >
+                                          {combinedPredictions.length}{' '}
+                                          prediction
+                                          {combinedPredictions.length !== 1
+                                            ? 's'
+                                            : ''}
+                                        </button>
+                                      </PopoverTrigger>
+                                      <PopoverContent
+                                        className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
+                                        align="start"
                                       >
-                                        {combinedPredictions.length} prediction{combinedPredictions.length !== 1 ? 's' : ''}
-                                      </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                      className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
-                                      align="start"
-                                    >
-                                      <div className="flex flex-col divide-y divide-brand-white/20">
-                                        <div className="flex items-center gap-3 px-3 py-2">
-                                          <span className="text-sm text-brand-white">
-                                            Predicted with
-                                          </span>
-                                          <Badge
-                                            variant="outline"
-                                            className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                              combinedWithYes
-                                                ? 'border-yes/40 bg-yes/10 text-yes'
-                                                : 'border-no/40 bg-no/10 text-no'
-                                            }`}
-                                          >
-                                            {combinedWithYes ? 'YES' : 'NO'}
-                                          </Badge>
-                                        </div>
-                                        {combinedPredictions.map((pred, i) => (
-                                          <div
-                                            key={`scatter-combined-${i}`}
-                                            className="flex items-center gap-3 px-3 py-2"
-                                          >
-                                            <MarketBadge
-                                              label={pred.question}
-                                              size={32}
-                                              color={getCategoryColor(pred.categorySlug)}
-                                              categorySlug={pred.categorySlug}
-                                            />
-                                            <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
-                                              {pred.question}
+                                        <div className="flex flex-col divide-y divide-brand-white/20">
+                                          <div className="flex items-center gap-3 px-3 py-2">
+                                            <span className="text-sm text-brand-white">
+                                              Predicted with
                                             </span>
                                             <Badge
                                               variant="outline"
                                               className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                pred.prediction
+                                                combinedWithYes
                                                   ? 'border-yes/40 bg-yes/10 text-yes'
                                                   : 'border-no/40 bg-no/10 text-no'
                                               }`}
                                             >
-                                              {pred.prediction ? 'YES' : 'NO'}
+                                              {combinedWithYes ? 'YES' : 'NO'}
                                             </Badge>
                                           </div>
-                                        ))}
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
+                                          {combinedPredictions.map(
+                                            (pred, i) => (
+                                              <div
+                                                key={`scatter-combined-${i}`}
+                                                className="flex items-center gap-3 px-3 py-2"
+                                              >
+                                                <MarketBadge
+                                                  label={pred.question}
+                                                  size={32}
+                                                  color={getCategoryColor(
+                                                    pred.categorySlug
+                                                  )}
+                                                  categorySlug={
+                                                    pred.categorySlug
+                                                  }
+                                                />
+                                                <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
+                                                  {pred.question}
+                                                </span>
+                                                <Badge
+                                                  variant="outline"
+                                                  className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                                    pred.prediction
+                                                      ? 'border-yes/40 bg-yes/10 text-yes'
+                                                      : 'border-no/40 bg-no/10 text-no'
+                                                  }`}
+                                                >
+                                                  {pred.prediction
+                                                    ? 'YES'
+                                                    : 'NO'}
+                                                </Badge>
+                                              </div>
+                                            )
+                                          )}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
                                 </div>
-                              </div>
-                            </>
-                          )}
+                              </>
+                            )}
                         </div>
                       );
                     }}
@@ -1140,6 +1201,132 @@ export default function QuestionPageContent({
                         minR +
                         ((normalizedWager - minWager) / (maxWager - minWager)) *
                           (maxR - minR);
+
+                      // Check if this is a combined prediction (parlay)
+                      if (payload?.combinedPredictions?.length > 0) {
+                        // Render horizontal line with gradient ray
+                        const width = radius * 2.5;
+                        const lineWidth = width * 2;
+                        const rayLength = lineWidth * 0.6; // Ray height proportional to line width
+                        const gradientId = `bracket-ray-gradient-${payload.x}`;
+                        // Determine ray direction based on combinedWithYes:
+                        // - YES in parlay (combinedWithYes: true) → ray UP (floor/minimum)
+                        // - NO in parlay (combinedWithYes: false) → ray DOWN (ceiling/maximum)
+                        const rayUp = payload.combinedWithYes === true;
+                        return (
+                          <g
+                            className="bracket-combined"
+                            onMouseEnter={() => {
+                              if (tooltipTimeoutRef.current) {
+                                clearTimeout(tooltipTimeoutRef.current);
+                                tooltipTimeoutRef.current = null;
+                              }
+                              setHoveredPoint(payload as PredictionData);
+                            }}
+                            onMouseLeave={() => {
+                              // Delay clearing to allow moving to tooltip
+                              tooltipTimeoutRef.current = setTimeout(() => {
+                                if (!isTooltipHoveredRef.current) {
+                                  setHoveredPoint(null);
+                                }
+                              }, 150);
+                            }}
+                          >
+                            {/* Gradient definition for the ray - direction based on combinedWithYes */}
+                            <defs>
+                              <linearGradient
+                                id={gradientId}
+                                x1="0%"
+                                y1="0%"
+                                x2="0%"
+                                y2="100%"
+                              >
+                                {rayUp ? (
+                                  <>
+                                    {/* UP: solid at bottom (100%), transparent at top (0%) */}
+                                    <stop
+                                      offset="0%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0"
+                                    />
+                                    <stop
+                                      offset="30%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.1"
+                                    />
+                                    <stop
+                                      offset="60%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.3"
+                                    />
+                                    <stop
+                                      offset="85%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.6"
+                                    />
+                                    <stop
+                                      offset="100%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.9"
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* DOWN: solid at top (0%), transparent at bottom (100%) */}
+                                    <stop
+                                      offset="0%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.9"
+                                    />
+                                    <stop
+                                      offset="15%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.6"
+                                    />
+                                    <stop
+                                      offset="40%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.3"
+                                    />
+                                    <stop
+                                      offset="70%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0.1"
+                                    />
+                                    <stop
+                                      offset="100%"
+                                      stopColor="hsl(var(--ethena))"
+                                      stopOpacity="0"
+                                    />
+                                  </>
+                                )}
+                              </linearGradient>
+                            </defs>
+                            {/* Gradient ray coming out of line - direction based on combinedWithYes */}
+                            <rect
+                              x={cx - width}
+                              y={rayUp ? cy - rayLength : cy}
+                              width={width * 2}
+                              height={rayLength}
+                              fill={`url(#${gradientId})`}
+                              className="bracket-ray"
+                            />
+                            {/* Horizontal line */}
+                            <line
+                              x1={cx - width}
+                              y1={cy}
+                              x2={cx + width}
+                              y2={cy}
+                              stroke="hsl(var(--ethena) / 0.8)"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              className="scatter-dot"
+                            />
+                          </g>
+                        );
+                      }
+
+                      // Regular circle for non-combined predictions
                       return (
                         <circle
                           cx={cx}
@@ -1176,22 +1363,39 @@ export default function QuestionPageContent({
                     shape={(props: any) => {
                       const { cx, cy, payload } = props;
                       const size = 6;
-                      const isHovered = hoveredComment?.data?.x === payload?.x && hoveredComment?.data?.attester === payload?.attester;
+                      const isHovered =
+                        hoveredComment?.data?.x === payload?.x &&
+                        hoveredComment?.data?.attester === payload?.attester;
                       return (
                         <rect
                           x={cx - size / 2}
                           y={cy - size / 2}
                           width={size}
                           height={size}
-                          fill={isHovered ? "hsl(var(--brand-white))" : "hsl(var(--brand-white) / 0.9)"}
+                          fill={
+                            isHovered
+                              ? 'hsl(var(--brand-white))'
+                              : 'hsl(var(--brand-white) / 0.9)'
+                          }
                           stroke="hsl(var(--brand-white))"
                           strokeWidth={1}
                           className="cursor-pointer"
-                          style={{ filter: isHovered ? 'drop-shadow(0 0 4px hsl(var(--brand-white) / 0.5))' : undefined }}
+                          style={{
+                            filter: isHovered
+                              ? 'drop-shadow(0 0 4px hsl(var(--brand-white) / 0.5))'
+                              : undefined,
+                          }}
                           onMouseEnter={() => {
                             cancelCommentTooltipHide();
-                            if (typeof cx === 'number' && typeof cy === 'number') {
-                              setHoveredComment({ x: cx, y: cy, data: payload as PredictionData });
+                            if (
+                              typeof cx === 'number' &&
+                              typeof cy === 'number'
+                            ) {
+                              setHoveredComment({
+                                x: cx,
+                                y: cy,
+                                data: payload as PredictionData,
+                              });
                             }
                           }}
                           onMouseLeave={() => {
@@ -1244,11 +1448,12 @@ export default function QuestionPageContent({
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Meta row: prediction badge, time, address */}
                       <div className="px-3 py-2.5 flex items-center gap-3 flex-wrap">
                         {/* Prediction badge */}
-                        {hoveredComment.data.predictionPercent !== undefined && (
+                        {hoveredComment.data.predictionPercent !==
+                          undefined && (
                           <Badge
                             variant="outline"
                             className={`px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono ${
@@ -1262,12 +1467,15 @@ export default function QuestionPageContent({
                             {hoveredComment.data.predictionPercent}% chance
                           </Badge>
                         )}
-                        
+
                         {/* Time */}
                         <span className="text-xs text-muted-foreground font-mono">
-                          {formatDistanceToNow(new Date(hoveredComment.data.x), { addSuffix: true })}
+                          {formatDistanceToNow(
+                            new Date(hoveredComment.data.x),
+                            { addSuffix: true }
+                          )}
                         </span>
-                        
+
                         {/* Author */}
                         {hoveredComment.data.attester && (
                           <div className="flex items-center gap-1.5 ml-auto">
@@ -1309,7 +1517,7 @@ export default function QuestionPageContent({
           </div>
 
           {/* Row 2: Predictions/Forecasts (left) | Resolution/Contracts (right) */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mb-12">
             {/* Predictions/Forecasts - Unified container with integrated tabs */}
             <Tabs defaultValue="predictions" className="w-full">
               <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black">
@@ -1506,7 +1714,9 @@ export default function QuestionPageContent({
                                 {`${address.slice(0, 6)}...${address.slice(-4)}`}
                                 <button
                                   type="button"
-                                  onClick={() => navigator.clipboard.writeText(address)}
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(address)
+                                  }
                                   className="text-muted-foreground hover:text-brand-white transition-colors"
                                   title="Copy full market address"
                                 >
@@ -1549,7 +1759,9 @@ export default function QuestionPageContent({
                             {`${conditionId.slice(0, 6)}...${conditionId.slice(-4)}`}
                             <button
                               type="button"
-                              onClick={() => navigator.clipboard.writeText(conditionId)}
+                              onClick={() =>
+                                navigator.clipboard.writeText(conditionId)
+                              }
                               className="text-muted-foreground hover:text-brand-white transition-colors"
                               title="Copy full condition ID"
                             >
@@ -1582,6 +1794,25 @@ export default function QuestionPageContent({
           }
           50% {
             fill: hsl(var(--ethena) / 0.45);
+          }
+        }
+        .bracket-combined {
+          cursor: pointer;
+        }
+        .bracket-ray {
+          opacity: 0.5;
+          transition: opacity 150ms ease-out;
+        }
+        .bracket-combined:hover .bracket-ray {
+          animation: ray-pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes ray-pulse {
+          0%,
+          100% {
+            opacity: 0.5;
+          }
+          50% {
+            opacity: 0.85;
           }
         }
         .scatter-tooltip {

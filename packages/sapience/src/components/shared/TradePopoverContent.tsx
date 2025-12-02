@@ -54,7 +54,7 @@ const TradePopoverContent: React.FC<TradePopoverContentProps> = ({
 
       {/* Line 2: from address */}
       <div className="flex items-center gap-1 text-muted-foreground">
-        <span className="text-sm mr-1">from</span>
+        <span className="text-sm mr-1">bid from</span>
         <EnsAvatar
           address={leftAddress || ''}
           className="w-3 h-3 rounded-[2px] ring-1 ring-border/50 shrink-0"

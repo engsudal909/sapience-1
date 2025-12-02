@@ -425,7 +425,7 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     id: 'predict',
-    header: () => null,
+    header: () => <span>Select Predictions</span>,
     cell: ({ row }) => {
       return <PredictCell condition={row.original} />;
     },
