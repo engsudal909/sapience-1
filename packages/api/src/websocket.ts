@@ -56,7 +56,7 @@ export function setupWebsocketServer(
       }
 
       if (uri.pathname === '/auction') {
-        if (auctionWss) {
+        if (config.ENABLE_AUCTION_WS && auctionWss) {
           auctionWss.handleUpgrade(request, socket, head, (ws) => {
             auctionWss.emit('connection', ws, request);
           });
