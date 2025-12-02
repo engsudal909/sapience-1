@@ -42,4 +42,3 @@ const ExpiresInLabel: React.FC<ExpiresInLabelProps> = ({
 };
 
 export default ExpiresInLabel;
-
