@@ -41,7 +41,7 @@ export default defineConfig({
       { text: "User Guide", link: "/user-guide/introduction/what-is-sapience", match: "/user-guide" as any },
       { text: "Builder Guide", link: "/builder-guide/getting-started/get-started", match: "/builder-guide" as any },
       {
-        text: "Build Something Awesome",
+        text: "Build Something",
         items: [
           { text: "Get Started", link: "/builder-guide/getting-started/get-started" },
           { text: "Forecasting Agent", link: "/builder-guide/guides/forecasting-agent" },
@@ -74,12 +74,6 @@ export default defineConfig({
           {
             text: "Contracts & Addresses",
             link: "/builder-guide/reference/contracts-and-addresses",
-          },
-          { text: "GraphQL Schema", link: "/builder-guide/reference/graphql-schema" },
-          { text: "Auction Relayer", link: "/builder-guide/reference/auction-relayer" },
-          {
-            text: "Oracles & Settlement",
-            link: "/builder-guide/reference/oracles-and-settlement",
           },
           { text: "UI Components", link: "/builder-guide/storybook" },
         ],

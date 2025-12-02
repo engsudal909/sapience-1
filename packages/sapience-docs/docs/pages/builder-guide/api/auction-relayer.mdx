@@ -1,108 +1,223 @@
 ---
 title: "Auction Relayer API"
-description: "Overview and integration notes for the Auction WebSocket."
+description: "WebSocket API for prediction market auctions between requesters and responders."
 ---
 
 # Auction Relayer API
 
-The Auction WebSocket connects takers and makers for short-lived auctions. Takers announce an auction; makers submit bids; the relayer validates and forwards bids back to the taker.
+The Auction Relayer is a WebSocket service that facilitates real-time matching between **requesters** and **responders** for prediction market positions.
 
-- **Taker →** `auction.start` → relayer acks with `auction.ack` and broadcasts `auction.started`
-- **Maker →** `bid.submit` → relayer acks with `bid.ack` and streams `auction.bids` to the taker
+- **Requester**: Creates an auction by specifying a wager and predictions (including one or many picks). Referred to as `taker` in payloads.
+- **Responder**: Submits bids offering to take the opposite side. Referred to as `maker` in payloads.
 
-## Endpoints
+The relayer validates messages, broadcasts auctions to all connected clients, and streams bids to subscribed requesters.
 
-- Production: `wss://api.sapience.xyz/auction` (confirm base URL)
-- Local (monorepo): `ws://localhost:3001/auction`
+## Endpoint
 
-## Quick start
+```
+wss://api.sapience.xyz/auction
+```
 
-### Minimal Maker flow (Node)
+This is the standard relayer deployment. You can configure a different relayer in the app at [sapience.xyz/settings](https://sapience.xyz/settings).
+
+## Message Flow
+
+```
+Requester                    Relayer                     Responder
+    │                           │                            │
+    │─── auction.start ────────▶│                            │
+    │◀── auction.ack ───────────│                            │
+    │                           │─── auction.started ───────▶│
+    │                           │                            │
+    │                           │◀── bid.submit ─────────────│
+    │                           │─── bid.ack ───────────────▶│
+    │◀── auction.bids ──────────│                            │
+    │                           │                            │
+```
+
+1. Requester sends `auction.start` with wager and picks
+2. Relayer responds with `auction.ack` (includes `auctionId` and optional `id` if provided) and broadcasts `auction.started` to all clients
+3. Responders send `bid.submit` with their wager offer and signature
+4. Relayer replies `bid.ack` and streams `auction.bids` to the requester
+
+Requesters are auto-subscribed to their auction's bid stream.
+
+## Quick Start
+
+### Requester: Start an Auction
+
 ```ts
 import WebSocket from 'ws';
-const ws = new WebSocket('ws://localhost:3001/auction');
 
+const ws = new WebSocket('wss://api.sapience.xyz/auction');
+
+// Initialize an auction
 ws.on('open', () => {
   ws.send(JSON.stringify({
     type: 'auction.start',
     payload: {
-      taker: '0xTaker123...',
-      wager: '1000000000000000000',
-      resolver: '0xResolver456...',
-      predictedOutcomes: ['0xdeadbeef'],
+      taker: '0xRequesterAddress...',
+      wager: '1000000000000000000', // 1 USDe in wei
+      resolver: '0xResolverContract...',
+      predictedOutcomes: ['0xEncodedPick1', '0xEncodedPick2'],
       takerNonce: 1,
       chainId: 42161
-    },
+    }
   }));
 });
 
+// Listen for bids
 ws.on('message', (data) => {
   const msg = JSON.parse(String(data));
+  
   if (msg.type === 'auction.ack') {
-    console.log('started auctionId=', msg.payload.auctionId);
+    console.log('Auction started:', msg.payload.auctionId);
   }
+  
   if (msg.type === 'auction.bids') {
     const bids = msg.payload.bids;
-    // choose best non-expired by makerWager (highest first)
-    bids.sort((a, b) => BigInt(b.makerWager) - BigInt(a.makerWager) > 0n ? 1 : -1);
-    console.log('top bid:', bids[0]);
+    // Select best bid by highest makerWager among non-expired
+    const validBids = bids.filter(b => b.makerDeadline > Date.now() / 1000);
+    validBids.sort((a, b) => BigInt(b.makerWager) > BigInt(a.makerWager) ? 1 : -1);
+    console.log('Best bid:', validBids[0]);
   }
 });
 ```
 
-### Minimal Taker flow (Browser/Node)
-```ts
-const ws = new WebSocket('ws://localhost:3001/auction');
+### Responder: Submit a Bid
 
+```ts
+const ws = new WebSocket('wss://api.sapience.xyz/auction');
+
+// Listen for bids
 ws.onmessage = (ev) => {
   const msg = JSON.parse(String(ev.data));
+  
   if (msg.type === 'auction.started') {
     const auction = msg.payload;
-    const now = Math.floor(Date.now()/1000);
-    const bid = {
+    const now = Math.floor(Date.now() / 1000);
+    
+    ws.send(JSON.stringify({
       type: 'bid.submit',
       payload: {
         auctionId: auction.auctionId,
-        maker: '0xMaker789...',
+        maker: '0xResponderAddress...',
         makerWager: (BigInt(auction.wager) / 2n).toString(),
         makerDeadline: now + 60,
-        makerSignature: '0x...', // signature over typed payload (see Reference)
+        makerSignature: '0x...', // EIP-712 typed signature
         makerNonce: 1
       }
-    };
-    ws.send(JSON.stringify(bid));
+    }));
   }
 };
 ```
 
-## Message lifecycle
+## Payloads
 
-1) Taker sends `auction.start` with `taker`, `wager`, `resolver`, `predictedOutcomes[]`, `takerNonce`, `chainId`.
-2) Relayer responds to the same socket with `auction.ack { auctionId }` and broadcasts `auction.started` (with the same payload plus `auctionId`) to all connected clients.
-3) Makers send `bid.submit` with `auctionId`, `maker`, `makerWager`, `makerDeadline`, `makerSignature`, `makerNonce`.
-4) Relayer replies to the bidding socket with `bid.ack { error? }` and streams `auction.bids { bids[] }` to the taker's subscribed socket for that auction.
+### `auction.start`
 
-- Takers are automatically subscribed to their auction's channel upon `auction.start`.
-- `auction.bids` is broadcast only to subscribers of that `auctionId`.
-- Auctions are short-lived (about 60 seconds) and expire automatically.
+```ts
+{
+  type: 'auction.start',
+  id?: string,                   // Optional request ID for correlation
+  payload: {
+    taker: string,              // Requester's address (0x...)
+    wager: string,              // Wager amount in wei
+    resolver: string,           // Resolver contract address
+    predictedOutcomes: string[], // Encoded picks (bytes strings)
+    takerNonce: number,
+    chainId: number
+  }
+}
+```
 
-## Validation (high level)
+If `id` is provided, it will be echoed back in the `auction.ack` response for client-side correlation.
 
-- **Auction**: positive `wager`, ≥1 `predictedOutcomes`, valid `resolver`, valid `taker` address
-- **Bid**: `makerDeadline` in the future, positive `makerWager`, valid hex `makerSignature` format
-- Optional strict signature verification may be performed against `PredictionMarket.sol` using EIP-712 (see Reference for the typed payload and domain).
+### `bid.submit`
 
-## Limits and closes
+```ts
+{
+  type: 'bid.submit',
+  payload: {
+    auctionId: string,
+    maker: string,              // Responder's address
+    makerWager: string,         // Responder's wager in wei
+    makerDeadline: number,      // Unix timestamp (must be future)
+    makerSignature: string,     // EIP-712 signature
+    makerNonce: number
+  }
+}
+```
 
-- Rate limit: 100 messages per 10s window; violations close with code `1008` and reason `rate_limited`
-- Max message size: 64,000 bytes; violations close with code `1009` and reason `message_too_large`
+### `auction.bids`
 
-## Selecting the best bid
+Streamed to auction subscribers:
 
-Relayer keeps all valid bids for the auction. The UI or taker should select the best non-expired bid, typically the highest `makerWager`.
+```ts
+{
+  type: 'auction.bids',
+  payload: {
+    auctionId: string,
+    bids: Array<{
+      auctionId: string,
+      maker: string,
+      makerWager: string,
+      makerDeadline: number,
+      makerSignature: string,
+      makerNonce: number
+    }>
+  }
+}
+```
 
-## Next steps
+## Validation
 
-- Read the full message schemas and typed-signature details in the Reference: [Auction Relayer Reference](/builder-guide/reference/auction-relayer)
-- See a working maker bot in `packages/api/src/auction/botExample.ts` for practical integration patterns.
+**Auction** (`auction.start`):
+- `predictedOutcomes` has ≥1 non-empty bytes string
+- `taker` is a valid address
+- `resolver` is provided
 
+**Bid** (`bid.submit`):
+- `auctionId` matches an active auction
+- `makerWager` > 0
+- `makerDeadline` is in the future
+- `makerSignature` is valid hex format
+
+## Additional Messages
+
+### auction.subscribe
+
+Subscribe to an existing auction's bid stream without starting a new auction:
+
+```ts
+{
+  type: 'auction.subscribe',
+  payload: {
+    auctionId: string
+  }
+}
+```
+
+This is useful when a secondary client needs to monitor bids for an auction started by another connection.
+
+## Connection Limits
+
+- **Rate limit**: 100 messages per 10 seconds. Exceeding closes connection with code `1008`.
+- **Message size**: Max 64KB per message. Exceeding closes connection with code `1009`.
+
+## Error Codes
+
+Returned in `bid.ack.payload.error`:
+
+- `invalid_payload` – Malformed message structure
+- `auction_not_found_or_expired` – Unknown or expired auction
+- `quote_expired` – `makerDeadline` has passed
+- `invalid_maker_wager` – Wager is zero or invalid
+- `invalid_maker` – Maker address is invalid
+- `invalid_maker_bid_signature_format` – Signature format invalid
+
+## Bid Acceptance
+
+After selecting a bid, the requester constructs a `MintParlayRequestData` struct and calls `mint()` on the PredictionMarket contract. Both parties must have ERC-20 approvals set for the contract to pull their collateral (USDe).
+
+Reference implementation: `packages/api/src/auction/botExample.ts`
