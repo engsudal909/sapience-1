@@ -26,7 +26,16 @@ export function setupWebsocketServer(
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
       if (!request.url) return closeSocket(socket, 403);
 
-      const uri = new URL(request.url);
+      const base = request.headers?.host
+        ? `http://${request.headers.host}`
+        : 'http://localhost';
+
+      let uri: URL;
+      try {
+        uri = new URL(request.url!, base);
+      } catch {
+        return closeSocket(socket, 400); // or handle error
+      }
 
       if (uri.pathname === '/chat') {
         const allowedOrigins = config.CHAT_ALLOWED_ORIGINS;
