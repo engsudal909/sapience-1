@@ -454,6 +454,7 @@ model Condition {
   assertionId    String?   @db.VarChar
   assertionTimestamp Int?
 
+
   @@index([categoryId])
   @@index([endTime])
   @@map("condition")
