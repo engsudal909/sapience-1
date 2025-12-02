@@ -306,7 +306,9 @@ const Header = () => {
           if (typeof window === 'undefined') return;
           const key = `sapience:referralCode:${currentAddress}`;
           const existing = window.localStorage.getItem(key);
-          setIsReferralRequiredOpen(!existing);
+          if (process.env.NODE_ENV !== 'development') {
+            setIsReferralRequiredOpen(!existing);
+          }
         } catch {
           // If localStorage is unavailable, err on the side of not gating.
           setIsReferralRequiredOpen(false);

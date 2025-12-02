@@ -450,6 +450,8 @@ model Condition {
   settled        Boolean   @default(false)
   resolvedToYes  Boolean   @default(false)
   settledAt      Int?
+  assertionId    String?   @db.VarChar
+  assertionTimestamp Int?
 
   @@index([categoryId])
   @@index([endTime])

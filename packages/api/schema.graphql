@@ -752,6 +752,8 @@ input CollateralTransferWhereInput {
 }
 
 type Condition {
+  assertionId: String
+  assertionTimestamp: Int
   category(where: CategoryWhereInput): Category
   categoryId: Int
   chainId: Int!
@@ -770,6 +772,7 @@ type Condition {
 }
 
 type ConditionAvgAggregate {
+  assertionTimestamp: Float
   categoryId: Float
   chainId: Float
   endTime: Float
@@ -777,6 +780,7 @@ type ConditionAvgAggregate {
 }
 
 input ConditionAvgOrderByAggregateInput {
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   endTime: SortOrder
@@ -785,6 +789,8 @@ input ConditionAvgOrderByAggregateInput {
 
 type ConditionCountAggregate {
   _all: Int!
+  assertionId: Int!
+  assertionTimestamp: Int!
   categoryId: Int!
   chainId: Int!
   claimStatement: Int!
@@ -802,6 +808,8 @@ type ConditionCountAggregate {
 }
 
 input ConditionCountOrderByAggregateInput {
+  assertionId: SortOrder
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   claimStatement: SortOrder
@@ -824,6 +832,8 @@ type ConditionGroupBy {
   _max: ConditionMaxAggregate
   _min: ConditionMinAggregate
   _sum: ConditionSumAggregate
+  assertionId: String
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int!
   claimStatement: String!
@@ -847,6 +857,8 @@ input ConditionListRelationFilter {
 }
 
 type ConditionMaxAggregate {
+  assertionId: String
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int
   claimStatement: String
@@ -863,6 +875,8 @@ type ConditionMaxAggregate {
 }
 
 input ConditionMaxOrderByAggregateInput {
+  assertionId: SortOrder
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   claimStatement: SortOrder
@@ -879,6 +893,8 @@ input ConditionMaxOrderByAggregateInput {
 }
 
 type ConditionMinAggregate {
+  assertionId: String
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int
   claimStatement: String
@@ -895,6 +911,8 @@ type ConditionMinAggregate {
 }
 
 input ConditionMinOrderByAggregateInput {
+  assertionId: SortOrder
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   claimStatement: SortOrder
@@ -920,6 +938,8 @@ input ConditionOrderByWithAggregationInput {
   _max: ConditionMaxOrderByAggregateInput
   _min: ConditionMinOrderByAggregateInput
   _sum: ConditionSumOrderByAggregateInput
+  assertionId: SortOrderInput
+  assertionTimestamp: SortOrderInput
   categoryId: SortOrderInput
   chainId: SortOrder
   claimStatement: SortOrder
@@ -937,6 +957,8 @@ input ConditionOrderByWithAggregationInput {
 }
 
 input ConditionOrderByWithRelationInput {
+  assertionId: SortOrderInput
+  assertionTimestamp: SortOrderInput
   category: CategoryOrderByWithRelationInput
   categoryId: SortOrderInput
   chainId: SortOrder
@@ -955,6 +977,8 @@ input ConditionOrderByWithRelationInput {
 }
 
 enum ConditionScalarFieldEnum {
+  assertionId
+  assertionTimestamp
   categoryId
   chainId
   claimStatement
@@ -975,6 +999,8 @@ input ConditionScalarWhereWithAggregatesInput {
   AND: [ConditionScalarWhereWithAggregatesInput!]
   NOT: [ConditionScalarWhereWithAggregatesInput!]
   OR: [ConditionScalarWhereWithAggregatesInput!]
+  assertionId: StringNullableWithAggregatesFilter
+  assertionTimestamp: IntNullableWithAggregatesFilter
   categoryId: IntNullableWithAggregatesFilter
   chainId: IntWithAggregatesFilter
   claimStatement: StringWithAggregatesFilter
@@ -992,6 +1018,7 @@ input ConditionScalarWhereWithAggregatesInput {
 }
 
 type ConditionSumAggregate {
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int
   endTime: Int
@@ -999,6 +1026,7 @@ type ConditionSumAggregate {
 }
 
 input ConditionSumOrderByAggregateInput {
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   endTime: SortOrder
@@ -1016,6 +1044,8 @@ input ConditionWhereInput {
   AND: [ConditionWhereInput!]
   NOT: [ConditionWhereInput!]
   OR: [ConditionWhereInput!]
+  assertionId: StringNullableFilter
+  assertionTimestamp: IntNullableFilter
   category: CategoryNullableRelationFilter
   categoryId: IntNullableFilter
   chainId: IntFilter
@@ -1037,6 +1067,8 @@ input ConditionWhereUniqueInput {
   AND: [ConditionWhereInput!]
   NOT: [ConditionWhereInput!]
   OR: [ConditionWhereInput!]
+  assertionId: StringNullableFilter
+  assertionTimestamp: IntNullableFilter
   category: CategoryNullableRelationFilter
   categoryId: IntNullableFilter
   chainId: IntFilter
