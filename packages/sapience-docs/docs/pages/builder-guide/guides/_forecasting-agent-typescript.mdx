@@ -31,13 +31,9 @@ Create `index.ts`:
 ```typescript
 import 'dotenv/config';
 import { gql } from 'graphql-request';
-import {
-  graphqlRequest,
-  postForecastAttestation,
-  CHAIN_ID_ARBITRUM,
-} from '@sapience/sdk';
+import { graphqlRequest, postForecastAttestation } from '@sapience/sdk';
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const CHAIN_ID_ARBITRUM = 42161;
 
 // 1. Fetch one random active condition from Sapience API
 async function fetchRandomCondition() {
@@ -136,11 +132,6 @@ async function main() {
   
   console.log('Publishing attestation...');
   const { hash } = await postForecastAttestation({
-    market: {
-      marketId: 0,
-      address: ZERO_ADDRESS,
-      question,
-    },
     prediction: {
       probability: forecast.probability,
       reasoning: forecast.reasoning,

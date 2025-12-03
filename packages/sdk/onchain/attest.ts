@@ -1,4 +1,3 @@
-import type { Address } from 'viem';
 import type { AttestationCalldata } from './eas';
 import { buildAttestationCalldata } from './eas';
 import { submitTransaction } from './tx';
@@ -6,7 +5,6 @@ import { submitTransaction } from './tx';
 type Hex = `0x${string}`;
 
 export async function postForecastAttestation(args: {
-  market: { marketId: number; address: Address; question: string };
   prediction: { probability: number; reasoning: string; confidence: number };
   chainId: number;
   rpc: string;
@@ -16,7 +14,6 @@ export async function postForecastAttestation(args: {
 }): Promise<{ hash: Hex; calldata: AttestationCalldata }>
 {
   const calldata = await buildAttestationCalldata(
-    args.market,
     args.prediction,
     args.chainId,
     args.conditionId,

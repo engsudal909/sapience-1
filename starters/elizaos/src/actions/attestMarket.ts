@@ -117,14 +117,7 @@ Question: ${condition?.shortName || condition?.question || "Unknown"}
 
         const { buildAttestationCalldata } = await loadSdk();
         const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
-        const zero = "0x0000000000000000000000000000000000000000" as const;
         const attestationData = await buildAttestationCalldata(
-          {
-            marketId: 0,
-            address: zero,
-            question:
-              condition?.shortName || condition?.question || "Condition",
-          },
           prediction,
           chainId,
           conditionId,
@@ -278,15 +271,7 @@ Question: ${condition?.shortName || condition?.question || "Unknown"}
         throw new Error("Model returned incomplete prediction data");
       }
       const { buildAttestationCalldata } = await loadSdk();
-      const resolvedMarketId = Number(
-        (marketInfo as any).marketId ?? (marketInfo as any).id,
-      );
       const attestationData = await buildAttestationCalldata(
-        {
-          marketId: resolvedMarketId,
-          address: marketInfo.marketGroupAddress,
-          question: marketInfo.question,
-        },
         prediction,
         parseInt(process.env.SAPIENCE_CHAIN_ID || "42161"), // Chain ID
       );

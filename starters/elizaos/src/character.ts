@@ -12,7 +12,7 @@ export const character: Character = {
   ],
   settings: {
     secrets: {},
-    model: "gpt-4o-mini",
+    model: "openai/gpt-4o-search-preview",
     temperature: 0.2,
     embeddingModel: "text-embedding-3-small",
     autonomousMode: {

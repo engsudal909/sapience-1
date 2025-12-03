@@ -28,7 +28,6 @@ declare module "@sapience/sdk" {
     description: string;
   };
   export function buildAttestationCalldata(
-    market: { marketId: number; address: `0x${string}`; question: string },
     prediction: { probability: number; reasoning: string; confidence: number },
     chainId: number,
     conditionId?: `0x${string}`,
@@ -46,7 +45,6 @@ declare module "@sapience/sdk" {
     tx: { to: `0x${string}`; data?: `0x${string}`; value?: bigint | string };
   }): Promise<{ hash: `0x${string}` }>;
   export function postForecastAttestation(args: {
-    market: { marketId: number; address: `0x${string}`; question: string };
     prediction: { probability: number; reasoning: string; confidence: number };
     chainId: number;
     conditionId?: `0x${string}`;
