@@ -82,13 +82,4 @@ declare module "@sapience/sdk" {
     account?: any;
     tx: { to: `0x${string}`; data?: `0x${string}`; value?: bigint | string };
   }): Promise<{ hash: `0x${string}` }>;
-  /** @deprecated Use submitForecast instead */
-  export function postForecastAttestation(args: {
-    prediction: { probability: number; reasoning: string; confidence: number };
-    chainId: number;
-    conditionId?: `0x${string}`;
-    rpc: string;
-    privateKey?: `0x${string}`;
-    account?: any;
-  }): Promise<{ hash: `0x${string}`; calldata: AttestationCalldata }>;
 }
