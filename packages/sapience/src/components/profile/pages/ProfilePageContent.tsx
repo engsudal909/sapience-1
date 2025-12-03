@@ -407,7 +407,7 @@ const ProfilePageContent = () => {
                           message={
                             <span>
                               No{' '}
-                              <Link href="/forecast" className="underline">
+                              <Link href="/forecasts" className="underline">
                                 forecasts
                               </Link>{' '}
                               found

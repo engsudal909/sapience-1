@@ -94,4 +94,13 @@
 
 /* If any non-User Guide section page is active (root/guides/api/reference/etc.), activate Builder Guide */
 
+/* Fix margins in code-group tab content */
+.vocs_CodeGroup [role="tabpanel"] > *:first-child,
+.vocs_CodeGroup [role="tabpanel"] > div:first-child > *:first-child {
+  margin-top: 0 !important;
+}
 
+/* Ensure paragraphs in code-group tabs have consistent 24px margin-bottom */
+.vocs_CodeGroup [role="tabpanel"] .vocs_Paragraph {
+  margin-bottom: 24px;
+}

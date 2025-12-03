@@ -1,6 +1,6 @@
 import { QueryClient, dehydrate } from '@tanstack/react-query';
 import { prefetchEnrichedMarketGroups } from '~/hooks/graphql/useMarketGroups';
-import ForecastPageImp from '~/app/forecast/ForecastPageImp';
+import ForecastPageImp from '~/app/forecasts/ForecastPageImp';
 import Hydrate from '~/components/Hydrate';
 import { SCHEMA_UID } from '~/lib/constants/eas';
 import { prefetchForecasts } from '~/hooks/graphql/useForecasts';

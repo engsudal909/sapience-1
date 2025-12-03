@@ -125,8 +125,8 @@ const NavLinks = ({
           Leaderboard
         </Link>
         <Link
-          href="/forecast"
-          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/forecast', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
+          href="/forecasts"
+          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/forecasts', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
           onClick={handleLinkClick}
         >
           Forecasting
@@ -457,7 +457,7 @@ const Header = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link
-                      href="/forecast"
+                      href="/forecasts"
                       className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
                     >
                       <Telescope className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
