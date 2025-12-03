@@ -595,8 +595,9 @@ Analyze and respond with ONLY valid JSON:
   private decodeProbability(predictionValue: string): number | null {
     try {
       const predictionBigInt = BigInt(predictionValue);
-      const Q96 = BigInt("79228162514264337593543950336");
-      const sqrtPrice = Number((predictionBigInt * BigInt(10 ** 18)) / Q96) / 10 ** 18;
+      const Q96 = BigInt("79228162514264337593543950336"); // 2^96
+      // sqrtPriceX96 = sqrt(price) * 2^96, so sqrtPrice = sqrtPriceX96 / 2^96
+      const sqrtPrice = Number(predictionBigInt) / Number(Q96);
       const probability = (sqrtPrice * sqrtPrice) * 100;
       return Math.max(0, Math.min(100, probability));
     } catch (error) {

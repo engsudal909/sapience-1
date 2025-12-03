@@ -60,14 +60,13 @@ const ZERO_BYTES32 = '0x00000000000000000000000000000000000000000000000000000000
 /**
  * Convert probability (0-100) to sqrtPriceX96 format
  * This is the standard format used by Uniswap V3 style AMMs
+ * Formula: sqrtPriceX96 = sqrt(price) * 2^96
  */
 function probabilityToSqrtPriceX96(prob: number): bigint {
   const price = prob / 100;
-  const effectivePrice = price * 10 ** 18;
-  const sqrtEffectivePrice = Math.sqrt(effectivePrice);
-  const JS_2_POW_96 = 2 ** 96;
-  const sqrtPriceX96Float = sqrtEffectivePrice * JS_2_POW_96;
-  return BigInt(Math.round(sqrtPriceX96Float));
+  const sqrtPrice = Math.sqrt(price);
+  const Q96 = BigInt('79228162514264337593543950336'); // 2^96
+  return BigInt(Math.round(sqrtPrice * Number(Q96)));
 }
 
 export type ForecastCalldata = {
