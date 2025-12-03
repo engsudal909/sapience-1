@@ -125,6 +125,177 @@ export async function loadSdk(): Promise<SdkModule> {
       }
     };
   }
+
+  // Add trading WUSDe utilities if not available from SDK
+  // On chains where native token != collateral (e.g., Ethereal uses USDe natively
+  // but contracts expect WUSDe), we need to wrap before trading
+  //
+  // This follows the same pattern as the frontend betslip/parlay forms:
+  // 1. Always wrap the full collateral amount (no balance optimization)
+  // 2. Check allowance and approve only if insufficient
+  // 3. Execute transactions sequentially, waiting for each to confirm
+  if (!sdk.prepareForTrade) {
+    const { 
+      createPublicClient, 
+      createWalletClient, 
+      http, 
+      encodeFunctionData, 
+      parseAbi 
+    } = await import("viem");
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const { etherealChain, getTradingContractAddresses, getTradingRpcUrl } = await import("./blockchain.js");
+
+    const WUSDE_ADDRESS = getTradingContractAddresses().USDE_TOKEN;
+    const PREDICTION_MARKET = getTradingContractAddresses().PREDICTION_MARKET;
+
+    const WUSDE_ABI = parseAbi([
+      'function deposit() payable',
+      'function withdraw(uint256 amount)',
+      'function balanceOf(address account) view returns (uint256)',
+    ]);
+
+    const ERC20_ABI = parseAbi([
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function allowance(address owner, address spender) view returns (uint256)',
+      'function balanceOf(address account) view returns (uint256)',
+    ]);
+
+    const createPublicClientLocal = (rpcUrl?: string) => createPublicClient({
+      chain: etherealChain,
+      transport: http(rpcUrl || getTradingRpcUrl()),
+    });
+
+    const createWalletClientLocal = (privateKey: `0x${string}`, rpcUrl?: string) => {
+      const account = privateKeyToAccount(privateKey);
+      return createWalletClient({
+        account,
+        chain: etherealChain,
+        transport: http(rpcUrl || getTradingRpcUrl()),
+      });
+    };
+
+    sdk.getWUSDEBalance = async (address: `0x${string}`, rpcUrl?: string) => {
+      const client = createPublicClientLocal(rpcUrl);
+      return await client.readContract({
+        address: WUSDE_ADDRESS,
+        abi: WUSDE_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      }) as bigint;
+    };
+
+    sdk.wrapUSDe = async (args: { privateKey: `0x${string}`; amount: bigint; rpcUrl?: string }) => {
+      const walletClient = createWalletClientLocal(args.privateKey, args.rpcUrl);
+      const hash = await walletClient.sendTransaction({
+        to: WUSDE_ADDRESS,
+        data: encodeFunctionData({
+          abi: WUSDE_ABI,
+          functionName: 'deposit',
+        }),
+        value: args.amount,
+      });
+      return { hash };
+    };
+
+    sdk.getWUSDEAllowance = async (args: {
+      owner: `0x${string}`;
+      spender: `0x${string}`;
+      rpcUrl?: string;
+    }) => {
+      const publicClient = createPublicClientLocal(args.rpcUrl);
+      return await publicClient.readContract({
+        address: WUSDE_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [args.owner, args.spender],
+      }) as bigint;
+    };
+
+    sdk.prepareForTrade = async (args: {
+      privateKey: `0x${string}`;
+      collateralAmount: bigint;
+      spender?: `0x${string}`;
+      rpcUrl?: string;
+    }) => {
+      const spender = args.spender || PREDICTION_MARKET;
+      const account = privateKeyToAccount(args.privateKey);
+      const publicClient = createPublicClientLocal(args.rpcUrl);
+      const walletClient = createWalletClientLocal(args.privateKey, args.rpcUrl);
+      
+      let wrapTxHash: `0x${string}` | undefined;
+      let approvalTxHash: `0x${string}` | undefined;
+
+      console.log("[SDK] Preparing for trade - wrapping USDe and checking approval...");
+      console.log(`[SDK] Collateral amount: ${args.collateralAmount}`);
+
+      // Step 1: Always wrap the full collateral amount (matches frontend pattern)
+      // The frontend doesn't check existing balance - it always wraps the exact amount needed
+      if (args.collateralAmount > 0n) {
+        // Check if we have enough native USDe to wrap
+        const nativeBalance = await publicClient.getBalance({ address: account.address });
+        console.log(`[SDK] Native USDe balance: ${nativeBalance}`);
+        
+        if (nativeBalance < args.collateralAmount) {
+          throw new Error(
+            `Insufficient native USDe balance. Need ${args.collateralAmount} to wrap, but only have ${nativeBalance}`
+          );
+        }
+
+        console.log(`[SDK] Wrapping ${args.collateralAmount} USDe to WUSDe...`);
+        const wrapResult = await sdk.wrapUSDe({
+          privateKey: args.privateKey,
+          amount: args.collateralAmount,
+          rpcUrl: args.rpcUrl,
+        });
+        wrapTxHash = wrapResult.hash;
+        console.log(`[SDK] Wrap tx submitted: ${wrapTxHash}`);
+        
+        // Wait for wrap transaction to confirm before proceeding (nonce handling)
+        await publicClient.waitForTransactionReceipt({ hash: wrapTxHash as `0x${string}` });
+        console.log("[SDK] Wrap tx confirmed");
+      }
+
+      // Step 2: Check allowance and approve only if insufficient (matches frontend pattern)
+      const currentAllowance = await sdk.getWUSDEAllowance({
+        owner: account.address,
+        spender,
+        rpcUrl: args.rpcUrl,
+      });
+      console.log(`[SDK] Current WUSDe allowance: ${currentAllowance}`);
+
+      if (currentAllowance < args.collateralAmount) {
+        console.log(`[SDK] Approving ${args.collateralAmount} WUSDe for ${spender}...`);
+        // Approve the exact amount needed
+        const hash = await walletClient.writeContract({
+          address: WUSDE_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [spender, args.collateralAmount],
+        });
+        approvalTxHash = hash;
+        console.log(`[SDK] Approval tx submitted: ${approvalTxHash}`);
+        
+        // Wait for approval transaction to confirm before proceeding (nonce handling)
+        await publicClient.waitForTransactionReceipt({ hash: approvalTxHash });
+        console.log("[SDK] Approval tx confirmed");
+      } else {
+        console.log("[SDK] Sufficient allowance exists, skipping approval");
+      }
+
+      // Get final WUSDe balance for reference
+      const wusdBalance = await sdk.getWUSDEBalance(account.address, args.rpcUrl);
+      console.log(`[SDK] Final WUSDe balance: ${wusdBalance}`);
+
+      return {
+        ready: true,
+        wrapTxHash,
+        approvalTxHash,
+        wusdBalance,
+      };
+    };
+
+    console.log("[SDK] Added trading WUSDe utilities (local fallback)");
+  }
   
   return sdk;
 }

@@ -317,18 +317,20 @@ async function acceptBid({
     const { submitTransaction } = await loadSdk();
 
     const { getWalletAddress } = await import("../utils/blockchain.js");
-    const makerAddress = getWalletAddress();
+    const requesterAddress = getWalletAddress(); // Requester = auction creator (agent)
     
-    const mintCalldata = await buildMintCalldata({
-      bid,
-      maker: makerAddress,
-    });
-
     // Trading uses Ethereal chain
     const { PREDICTION_MARKET } = getTradingContractAddresses();
     
-    const currentMakerNonce = await getCurrentMakerNonce(makerAddress, rpcUrl);
-    elizaLogger.info(`[Trading] Contract maker nonce: ${currentMakerNonce}, Bid maker nonce: ${bid.makerNonce}`);
+    // Get the requester's nonce from the contract (required for mint)
+    const requesterNonce = BigInt(await getCurrentMakerNonce(requesterAddress, rpcUrl));
+    elizaLogger.info(`[Trading] Requester nonce: ${requesterNonce}, Responder (bidder): ${bid.maker}`);
+    
+    const mintCalldata = await buildMintCalldata({
+      bid,
+      requester: requesterAddress,
+      requesterNonce,
+    });
     
     await ensureTokenApproval({
       privateKey: privateKey as `0x${string}`,
@@ -337,9 +339,10 @@ async function acceptBid({
     });
 
     elizaLogger.info("[Trading] Executing trade mint transaction on Ethereal...");
-    elizaLogger.info(`[Trading] Mint details - Maker: ${bid.maker}, Taker: ${bid.taker}`);
-    elizaLogger.info(`[Trading] Collateral - Maker: ${bid.makerWager}, Taker: ${bid.takerCollateral}`);
-    elizaLogger.info(`[Trading] Maker nonce: ${bid.makerNonce}`);
+    elizaLogger.info(`[Trading] Requester (auction creator): ${requesterAddress}`);
+    elizaLogger.info(`[Trading] Responder (bidder): ${bid.maker}`);
+    elizaLogger.info(`[Trading] Collateral - Requester: ${bid.takerCollateral || bid.wager}, Responder: ${bid.makerWager}`);
+    elizaLogger.info(`[Trading] Requester nonce: ${requesterNonce}`);
     
     const mintTx = await submitTransaction({
       rpc: rpcUrl,
