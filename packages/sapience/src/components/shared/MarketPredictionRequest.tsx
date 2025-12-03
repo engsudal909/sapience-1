@@ -13,7 +13,7 @@ import {
 } from '~/lib/auction/buildAuctionPayload';
 import PercentChance from '~/components/shared/PercentChance';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-// Use one as the default wager for prediction requests
+// Use zero as the default wager for prediction requests, the zero-wager-bidder will replace for 1
 
 export interface MarketPredictionRequestProps {
   conditionId?: string;
@@ -23,6 +23,8 @@ export interface MarketPredictionRequestProps {
   inline?: boolean;
   eager?: boolean;
 }
+
+const ONE_DOLLAR_18D = BigInt(10 ** 18);
 
 const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   conditionId,
@@ -120,7 +122,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           return best;
         }
       }, list[0]);
-      const taker = BigInt(String(lastTakerWagerWei || '0'));
+      
+      const taker = BigInt(String(lastTakerWagerWei || '0')) || ONE_DOLLAR_18D;
       const maker = BigInt(String(best?.makerWager || '0'));
       const denom = maker + taker;
       const prob = denom > 0n ? Number(taker) / Number(denom) : 0.5;
@@ -159,7 +162,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     if (!isRequesting) return;
     if (effectiveOutcomes.length === 0 || !selectedTakerAddress) return;
     try {
-      const wagerWei = parseUnits('1', 18).toString();
+      const wagerWei = parseUnits('0', 18).toString();
       setLastTakerWagerWei(wagerWei);
       const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
       const send = () => {
@@ -199,7 +202,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       if (effectiveOutcomes.length === 0 || !selectedTakerAddress) {
         setQueuedRequest(true);
       } else {
-        const wagerWei = parseUnits('1', 18).toString();
+        const wagerWei = parseUnits('0', 18).toString();
         setLastTakerWagerWei(wagerWei);
         const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
         const send = () => {
