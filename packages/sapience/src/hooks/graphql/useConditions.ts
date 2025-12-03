@@ -17,6 +17,7 @@ export interface ConditionType {
   resolvedToYes?: boolean;
   assertionId?: string;
   assertionTimestamp?: number;
+  openInterest: string;
 }
 
 // Filter options for backend filtering
@@ -50,6 +51,7 @@ const GET_CONDITIONS = /* GraphQL */ `
       resolvedToYes
       assertionId
       assertionTimestamp
+      openInterest
       category {
         id
         name

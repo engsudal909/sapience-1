@@ -862,6 +862,7 @@ export type Condition = {
   description: Scalars['String']['output'];
   endTime: Scalars['Int']['output'];
   id: Scalars['String']['output'];
+  openInterest: Scalars['String']['output'];
   public: Scalars['Boolean']['output'];
   question: Scalars['String']['output'];
   resolvedToYes: Scalars['Boolean']['output'];
@@ -905,6 +906,7 @@ export type ConditionCountAggregate = {
   description: Scalars['Int']['output'];
   endTime: Scalars['Int']['output'];
   id: Scalars['Int']['output'];
+  openInterest: Scalars['Int']['output'];
   public: Scalars['Int']['output'];
   question: Scalars['Int']['output'];
   resolvedToYes: Scalars['Int']['output'];
@@ -924,6 +926,7 @@ export type ConditionCountOrderByAggregateInput = {
   description?: InputMaybe<SortOrder>;
   endTime?: InputMaybe<SortOrder>;
   id?: InputMaybe<SortOrder>;
+  openInterest?: InputMaybe<SortOrder>;
   public?: InputMaybe<SortOrder>;
   question?: InputMaybe<SortOrder>;
   resolvedToYes?: InputMaybe<SortOrder>;
@@ -949,6 +952,7 @@ export type ConditionGroupBy = {
   description: Scalars['String']['output'];
   endTime: Scalars['Int']['output'];
   id: Scalars['String']['output'];
+  openInterest: Scalars['String']['output'];
   public: Scalars['Boolean']['output'];
   question: Scalars['String']['output'];
   resolvedToYes: Scalars['Boolean']['output'];
@@ -975,6 +979,7 @@ export type ConditionMaxAggregate = {
   description?: Maybe<Scalars['String']['output']>;
   endTime?: Maybe<Scalars['Int']['output']>;
   id?: Maybe<Scalars['String']['output']>;
+  openInterest?: Maybe<Scalars['String']['output']>;
   public?: Maybe<Scalars['Boolean']['output']>;
   question?: Maybe<Scalars['String']['output']>;
   resolvedToYes?: Maybe<Scalars['Boolean']['output']>;
@@ -993,6 +998,7 @@ export type ConditionMaxOrderByAggregateInput = {
   description?: InputMaybe<SortOrder>;
   endTime?: InputMaybe<SortOrder>;
   id?: InputMaybe<SortOrder>;
+  openInterest?: InputMaybe<SortOrder>;
   public?: InputMaybe<SortOrder>;
   question?: InputMaybe<SortOrder>;
   resolvedToYes?: InputMaybe<SortOrder>;
@@ -1012,6 +1018,7 @@ export type ConditionMinAggregate = {
   description?: Maybe<Scalars['String']['output']>;
   endTime?: Maybe<Scalars['Int']['output']>;
   id?: Maybe<Scalars['String']['output']>;
+  openInterest?: Maybe<Scalars['String']['output']>;
   public?: Maybe<Scalars['Boolean']['output']>;
   question?: Maybe<Scalars['String']['output']>;
   resolvedToYes?: Maybe<Scalars['Boolean']['output']>;
@@ -1030,6 +1037,7 @@ export type ConditionMinOrderByAggregateInput = {
   description?: InputMaybe<SortOrder>;
   endTime?: InputMaybe<SortOrder>;
   id?: InputMaybe<SortOrder>;
+  openInterest?: InputMaybe<SortOrder>;
   public?: InputMaybe<SortOrder>;
   question?: InputMaybe<SortOrder>;
   resolvedToYes?: InputMaybe<SortOrder>;
@@ -1057,6 +1065,7 @@ export type ConditionOrderByWithAggregationInput = {
   description?: InputMaybe<SortOrder>;
   endTime?: InputMaybe<SortOrder>;
   id?: InputMaybe<SortOrder>;
+  openInterest?: InputMaybe<SortOrder>;
   public?: InputMaybe<SortOrder>;
   question?: InputMaybe<SortOrder>;
   resolvedToYes?: InputMaybe<SortOrder>;
@@ -1077,6 +1086,7 @@ export type ConditionOrderByWithRelationInput = {
   description?: InputMaybe<SortOrder>;
   endTime?: InputMaybe<SortOrder>;
   id?: InputMaybe<SortOrder>;
+  openInterest?: InputMaybe<SortOrder>;
   public?: InputMaybe<SortOrder>;
   question?: InputMaybe<SortOrder>;
   resolvedToYes?: InputMaybe<SortOrder>;
@@ -1096,6 +1106,7 @@ export type ConditionScalarFieldEnum =
   | 'description'
   | 'endTime'
   | 'id'
+  | 'openInterest'
   | 'public'
   | 'question'
   | 'resolvedToYes'
@@ -1117,6 +1128,7 @@ export type ConditionScalarWhereWithAggregatesInput = {
   description?: InputMaybe<StringWithAggregatesFilter>;
   endTime?: InputMaybe<IntWithAggregatesFilter>;
   id?: InputMaybe<StringWithAggregatesFilter>;
+  openInterest?: InputMaybe<StringWithAggregatesFilter>;
   public?: InputMaybe<BoolWithAggregatesFilter>;
   question?: InputMaybe<StringWithAggregatesFilter>;
   resolvedToYes?: InputMaybe<BoolWithAggregatesFilter>;
@@ -1165,6 +1177,7 @@ export type ConditionWhereInput = {
   description?: InputMaybe<StringFilter>;
   endTime?: InputMaybe<IntFilter>;
   id?: InputMaybe<StringFilter>;
+  openInterest?: InputMaybe<StringFilter>;
   public?: InputMaybe<BoolFilter>;
   question?: InputMaybe<StringFilter>;
   resolvedToYes?: InputMaybe<BoolFilter>;
@@ -1188,6 +1201,7 @@ export type ConditionWhereUniqueInput = {
   description?: InputMaybe<StringFilter>;
   endTime?: InputMaybe<IntFilter>;
   id?: InputMaybe<Scalars['String']['input']>;
+  openInterest?: InputMaybe<StringFilter>;
   public?: InputMaybe<BoolFilter>;
   question?: InputMaybe<StringFilter>;
   resolvedToYes?: InputMaybe<BoolFilter>;

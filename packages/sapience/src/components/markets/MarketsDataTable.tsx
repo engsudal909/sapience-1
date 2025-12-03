@@ -24,12 +24,14 @@ import {
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatEther } from 'viem';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
+import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useReadContract } from 'wagmi';
 import { toHex, concatHex, keccak256 } from 'viem';
 import { umaResolver } from '@sapience/sdk/contracts';
@@ -380,15 +382,28 @@ const columns: ColumnDef<ConditionType>[] = [
         </div>
       );
     },
-    cell: () => {
+    cell: ({ row }) => {
+      const condition = row.original;
+      const openInterest = condition.openInterest || '0';
+      
+      // Convert from wei to ether using viem's formatEther, then format with 5 significant figures
+      const etherValue = parseFloat(formatEther(BigInt(openInterest)));
+      const formattedValue = formatFiveSigFigs(etherValue);
+      
       return (
-        <span className="text-sm whitespace-nowrap text-muted-foreground">
-          X USDe
-        </span>
+        <div className="text-sm whitespace-nowrap text-right">
+          <span className="tabular-nums font-mono">
+            {formattedValue}
+          </span>
+          <span className="ml-1 text-muted-foreground">USDe</span>
+        </div>
       );
     },
-    // Placeholder sorting - will need real data later
-    sortingFn: () => 0,
+    sortingFn: (rowA, rowB) => {
+      const a = BigInt(rowA.original.openInterest || '0');
+      const b = BigInt(rowB.original.openInterest || '0');
+      return a < b ? -1 : a > b ? 1 : 0;
+    },
   },
   {
     accessorKey: 'endTime',

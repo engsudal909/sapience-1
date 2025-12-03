@@ -42,6 +42,7 @@ import {
   PopoverTrigger,
 } from '@sapience/sdk/ui/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
+import { formatEther } from 'viem';
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import {
   flexRender,
@@ -82,7 +83,7 @@ import MarketBadge from '~/components/markets/MarketBadge';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
-import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
+import { sqrtPriceX96ToPriceD18, formatFiveSigFigs } from '~/lib/utils/util';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 
 // Placeholder data for the scatter plot and predictions table
@@ -280,6 +281,7 @@ export default function QuestionPageContent({
       description?: string | null;
       category?: { slug: string } | null;
       chainId?: number | null;
+      openInterest?: string | null;
     } | null,
     Error
   >({
@@ -296,6 +298,7 @@ export default function QuestionPageContent({
             endTime
             description
             chainId
+            openInterest
             category {
               slug
             }
@@ -311,6 +314,7 @@ export default function QuestionPageContent({
           description?: string | null;
           category?: { slug: string } | null;
           chainId?: number | null;
+          openInterest?: string | null;
         }>;
       }>(QUERY, { ids: [conditionId] });
       return resp?.conditions?.[0] || null;
@@ -879,7 +883,17 @@ export default function QuestionPageContent({
                     className="hidden md:inline-block mx-2.5 h-4 w-px bg-muted-foreground/30"
                   />
                   <span className="whitespace-nowrap text-muted-foreground font-normal">
-                    — USDe
+                    {(() => {
+                      // Get open interest from data and format it
+                      const openInterestWei = data?.openInterest || '0';
+                      try {
+                        const etherValue = parseFloat(formatEther(BigInt(openInterestWei)));
+                        const formattedValue = formatFiveSigFigs(etherValue);
+                        return `${formattedValue} USDe`;
+                      } catch {
+                        return '0 USDe';
+                      }
+                    })()}
                   </span>
                 </Badge>
               );
