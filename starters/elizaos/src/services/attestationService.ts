@@ -331,15 +331,8 @@ Analyze and respond with ONLY valid JSON:
 
       const { buildAttestationCalldata } = await loadSdk();
       const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
-      const zero = "0x0000000000000000000000000000000000000000" as const;
-      
       
       const attestationData = await buildAttestationCalldata(
-        {
-          marketId: 0,
-          address: zero,
-          question: condition.shortName || condition.question || "Condition",
-        },
         prediction,
         chainId,
         condition.id as `0x${string}`
@@ -546,31 +539,16 @@ Analyze this prediction market and respond with ONLY valid JSON:
 
       const { buildAttestationCalldata } = await loadSdk();
       const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
-      const zero = "0x0000000000000000000000000000000000000000" as const;
       const maybeConditionId =
         typeof marketId === "string" &&
         marketId.startsWith("0x") &&
         marketId.length === 66
           ? (marketId as `0x${string}`)
-          : null;
+          : undefined;
       const attestationData = await buildAttestationCalldata(
-        maybeConditionId
-          ? {
-              marketId: 0,
-              address: zero,
-              question: market.question,
-            }
-          : {
-              marketId: parseInt(marketId),
-              address:
-                market.marketGroupAddress ||
-                market.contractAddress ||
-                zero,
-              question: market.question,
-            },
         prediction,
         chainId,
-        maybeConditionId || undefined
+        maybeConditionId
       );
 
       if (attestationData) {
@@ -595,42 +573,9 @@ Analyze this prediction market and respond with ONLY valid JSON:
         }
       }
 
-      if (process.env.ENABLE_SPOT_TRADING === "true") {
-        await this.attemptSpotTrading(market, prediction);
-      }
-
       console.log(`✅ Attested: ${prediction.probability}% YES - ${prediction.reasoning.substring(0, 80)}${prediction.reasoning.length > 80 ? "..." : ""}`);
     } catch (error) {
       elizaLogger.error(`[AttestationService] Failed to process market ${market.id}:`, error);
-    }
-  }
-
-  private async attemptSpotTrading(market: any, prediction: any): Promise<void> {
-    try {
-      const tradingAction = this.runtime.actions?.find((a) => a.name === "SPOT_TRADING");
-      if (!tradingAction) return;
-
-      const tradingMessage: Memory = {
-        entityId: "00000000-0000-0000-0000-000000000000" as any,
-        agentId: this.runtime.agentId,
-        roomId: "00000000-0000-0000-0000-000000000000" as any,
-        content: {
-          text: `Execute spot trade: ${JSON.stringify({ market, prediction })}`,
-          action: "SPOT_TRADING",
-        },
-        createdAt: Date.now(),
-      };
-
-      const tradingCallback: HandlerCallback = async (response: any) => {
-        if (response.content?.success) {
-          console.log(`💰 Spot trade: ${prediction.probability > 50 ? 'YES' : 'NO'} (TX: ${response.content.txHash})`);
-        }
-        return [];
-      };
-
-      await tradingAction.handler(this.runtime, tradingMessage, undefined, {}, tradingCallback);
-    } catch (error) {
-      elizaLogger.error("[AttestationService] Spot trading failed:", error);
     }
   }
 

@@ -62,19 +62,21 @@ export function decodeProbabilityFromUint160(value: string): number | null {
 }
 
 export async function buildAttestationCalldata(
-  market: { marketId: number; address: Address; question: string },
   prediction: { probability: number; reasoning: string; confidence: number },
   chainId: number = DEFAULT_CHAIN_ID,
   conditionId?: Hex,
 ): Promise<AttestationCalldata | null> {
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+  const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
+
   const encodedData = encodeAbiParameters(
     parseAbiParameters(
       'address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment',
     ),
     [
-      market.address,
-      BigInt(market.marketId),
-      (conditionId || ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)) as Hex,
+      ZERO_ADDRESS,
+      0n,
+      (conditionId || ZERO_BYTES32) as Hex,
       (() => {
         const price = prediction.probability / 100;
         const effectivePrice = price * 10 ** 18;
@@ -92,10 +94,10 @@ export async function buildAttestationCalldata(
   const attestationRequest = {
     schema: SCHEMA_ID,
     data: {
-      recipient: '0x0000000000000000000000000000000000000000' as Address,
+      recipient: ZERO_ADDRESS,
       expirationTime: 0n,
       revocable: false,
-      refUID: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      refUID: ZERO_BYTES32,
       data: encodedData as Hex,
       value: 0n,
     },
@@ -118,7 +120,7 @@ export async function buildAttestationCalldata(
     data: calldata as Hex,
     value: '0',
     chainId,
-    description: `Attest: ${prediction.probability}% YES for market ${market.marketId}`,
+    description: `Attest: ${prediction.probability}% YES`,
   };
 }
 

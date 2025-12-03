@@ -49,12 +49,6 @@ const EAS_ABI = [
   },
 ] as const;
 
-interface Market {
-  marketId: number;
-  address: string;
-  question: string;
-}
-
 interface Prediction {
   probability: number;
   reasoning: string;
@@ -70,27 +64,14 @@ export interface AttestationCalldata {
 }
 
 export async function buildAttestationCalldata(
-  market: Market,
   prediction: Prediction,
   chainId: number = 42161, // Default to Arbitrum
   conditionId?: `0x${string}`,
 ): Promise<AttestationCalldata | null> {
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+  const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
+
   try {
-    
-    // For parlay condition attestations, we MUST have a condition ID
-    // For regular market attestations, we can use zeros
-    let questionId: `0x${string}`;
-    if (conditionId) {
-      questionId = conditionId;
-    } else {
-      // Only allow missing condition ID for regular market attestations (non-zero marketId)
-      if (market.marketId === 0) {
-        elizaLogger.error("[EAS] Missing condition ID for parlay attestation (marketId=0)");
-        throw new Error("Condition ID is required for parlay attestations");
-      }
-      questionId = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
-    }
-    
     // Use Viem to encode the attestation data directly
     // Schema: 'address marketAddress,uint256 marketId,bytes32 questionId,uint160 prediction,string comment'
     const encodedData = encodeAbiParameters(
@@ -98,9 +79,9 @@ export async function buildAttestationCalldata(
         "address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment",
       ),
       [
-        market.address as `0x${string}`,
-        BigInt(market.marketId),
-        questionId,
+        ZERO_ADDRESS,
+        0n,
+        conditionId || ZERO_BYTES32,
         (() => {
           // Convert probability (0-100) to price (0-1)
           const price = prediction.probability / 100;
@@ -122,12 +103,10 @@ export async function buildAttestationCalldata(
     const attestationRequest = {
       schema: SCHEMA_ID as `0x${string}`,
       data: {
-        recipient:
-          "0x0000000000000000000000000000000000000000" as `0x${string}`,
+        recipient: ZERO_ADDRESS,
         expirationTime: 0n,
         revocable: false,
-        refUID:
-          "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+        refUID: ZERO_BYTES32,
         data: encodedData as `0x${string}`,
         value: 0n,
       },
@@ -152,7 +131,7 @@ export async function buildAttestationCalldata(
       data: calldata,
       value: "0",
       chainId,
-      description: `Attest: ${prediction.probability}% YES for market ${market.marketId}`,
+      description: `Attest: ${prediction.probability}% YES`,
     };
   } catch (error) {
     elizaLogger.error("Error building attestation calldata:", error);
