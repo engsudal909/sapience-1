@@ -96,7 +96,8 @@ export async function loadSdk(): Promise<SdkModule> {
         });
         
         const nonce = await publicClient.getTransactionCount({
-          address: account.address
+          address: account.address,
+          blockTag: "pending"
         });
         
         console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address}`);

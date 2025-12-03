@@ -268,10 +268,7 @@ const renderResolutionCell = ({
           ? 'border-green-500/40 bg-green-500/10 text-green-600'
           : 'border-red-500/40 bg-red-500/10 text-red-600';
         return (
-          <Badge
-            variant="outline"
-            className={`${className} whitespace-nowrap`}
-          >
+          <Badge variant="outline" className={`${className} whitespace-nowrap`}>
             {label}
           </Badge>
         );

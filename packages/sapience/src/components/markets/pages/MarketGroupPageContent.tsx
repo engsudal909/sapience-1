@@ -635,7 +635,9 @@ const MarketGroupPageContent = () => {
                               />
                               {/* Comments */}
                               <Comments
-                                selectedCategory={CommentFilters.SelectedQuestion}
+                                selectedCategory={
+                                  CommentFilters.SelectedQuestion
+                                }
                                 question={activeMarket?.question?.toString()}
                                 address={authenticatedAddress}
                                 refetchTrigger={userPositionsTrigger}
