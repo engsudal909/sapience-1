@@ -42,17 +42,21 @@ import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
-import TableFilters, { type FilterState } from './TableFilters';
+import TableFilters, {
+  type FilterState,
+  type CategoryOption,
+} from './TableFilters';
 
 interface MarketsDataTableProps {
   conditions: ConditionType[];
-}
+  isLoading?: boolean;
+ 
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  filters: FilterState;
+  onFiltersChange: (filters: FilterState) => void;
 
-// Helper to convert endTime to days from now (negative = ended)
-function getTimeToResolutionDays(endTime: number): number {
-  const nowSec = Math.floor(Date.now() / 1000);
-  const diffSec = endTime - nowSec;
-  return Math.round(diffSec / 86400); // Convert to days
+  categories: CategoryOption[];
 }
 
 // Countdown display component with live updates
@@ -436,6 +440,12 @@ const columns: ColumnDef<ConditionType>[] = [
 
 export default function MarketsDataTable({
   conditions,
+  isLoading,
+  searchTerm,
+  onSearchChange,
+  filters,
+  onFiltersChange,
+  categories,
 }: MarketsDataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: 'openInterest', desc: true },
@@ -444,138 +454,25 @@ export default function MarketsDataTable({
     []
   );
 
-  // Local search state managed by TableFilters
-  const [searchTerm, setSearchTerm] = React.useState('');
-
-  // Extract unique categories from conditions
-  const availableCategories = React.useMemo(() => {
-    const categoryMap = new Map<
-      string,
-      { id: number; name: string; slug: string }
-    >();
-    conditions.forEach((c) => {
-      if (c.category?.slug && c.category?.name) {
-        categoryMap.set(c.category.slug, {
-          id: c.category.id,
-          name: c.category.name,
-          slug: c.category.slug,
-        });
-      }
-    });
-    return Array.from(categoryMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
-  }, [conditions]);
-
-  // Compute bounds for filters from the conditions data
+  
   const filterBounds = React.useMemo(() => {
-    // Open interest bounds (placeholder since data isn't available yet)
     const openInterestBounds: [number, number] = [0, 100000];
-
-    // Time to resolution bounds (in days)
-    const timeToResolutionValues = conditions
-      .filter((c) => c.endTime)
-      .map((c) => getTimeToResolutionDays(c.endTime));
-
-    const minTime =
-      timeToResolutionValues.length > 0
-        ? Math.min(...timeToResolutionValues)
-        : -30;
-    const maxTime =
-      timeToResolutionValues.length > 0
-        ? Math.max(...timeToResolutionValues)
-        : 365;
-
-    // Round bounds to nice numbers
-    const timeToResolutionBounds: [number, number] = [
-      Math.floor(minTime / 10) * 10,
-      Math.ceil(maxTime / 10) * 10,
-    ];
-
+    const timeToResolutionBounds: [number, number] = [-1000, 1000];
     return { openInterestBounds, timeToResolutionBounds };
-  }, [conditions]);
-
-  // Filter state - default to only showing future markets (time >= 0)
-  const [filters, setFilters] = React.useState<FilterState>({
-    openInterestRange: filterBounds.openInterestBounds,
-    timeToResolutionRange: [0, 1000],
-    selectedCategories: [],
-  });
-
-  // Reset filters when bounds change (e.g., different data loaded)
-  React.useEffect(() => {
-    setFilters((prev) => ({
-      ...prev,
-      openInterestRange: filterBounds.openInterestBounds,
-    }));
-  }, [filterBounds.openInterestBounds]);
-
-  // Filter conditions based on search term and range filters
-  const filteredConditions = React.useMemo(() => {
-    let result = conditions;
-
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter((c) => {
-        const haystacks: string[] = [];
-        if (c.question) haystacks.push(c.question);
-        if (c.shortName) haystacks.push(c.shortName);
-        if (c.claimStatement) haystacks.push(c.claimStatement);
-        if (c.description) haystacks.push(c.description);
-        if (c.category?.name) haystacks.push(c.category.name);
-        if (c.similarMarkets) haystacks.push(...c.similarMarkets);
-        return haystacks.some((h) => h.toLowerCase().includes(lower));
-      });
-    }
-
-    // Apply category filter
-    const { selectedCategories } = filters;
-    if (
-      selectedCategories.length > 0 &&
-      selectedCategories.length < availableCategories.length
-    ) {
-      result = result.filter((c) => {
-        if (!c.category?.slug) return false;
-        return selectedCategories.includes(c.category.slug);
-      });
-    }
-
-    // Apply time to resolution filter
-    const [minDays, maxDays] = filters.timeToResolutionRange;
-    const isTimeFilterActive = minDays !== -1000 || maxDays !== 1000;
-
-    if (isTimeFilterActive) {
-      result = result.filter((c) => {
-        if (!c.endTime) return true; // Keep items without endTime
-        const days = getTimeToResolutionDays(c.endTime);
-        return days >= minDays && days <= maxDays;
-      });
-    }
-
-    // Note: Open interest filter not applied yet since data isn't available
-
-    return result;
-  }, [
-    conditions,
-    searchTerm,
-    filters,
-    filterBounds.timeToResolutionBounds,
-    availableCategories.length,
-  ]);
+  }, []);
 
   // Infinite scroll state
   const BATCH_SIZE = 20;
   const [displayCount, setDisplayCount] = React.useState(BATCH_SIZE);
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
-  // Reset display count when filters change
+ 
   React.useEffect(() => {
     setDisplayCount(BATCH_SIZE);
-  }, [searchTerm, filters]);
+  }, [conditions]);
 
   const table = useReactTable({
-    data: filteredConditions,
+    data: conditions, 
     columns,
     state: {
       sorting,
@@ -623,12 +520,12 @@ export default function MarketsDataTable({
     <div className="space-y-4">
       <TableFilters
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={onFiltersChange}
         openInterestBounds={filterBounds.openInterestBounds}
         timeToResolutionBounds={filterBounds.timeToResolutionBounds}
-        categories={availableCategories}
+        categories={categories}
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        onSearchChange={onSearchChange}
         className="mt-4"
       />
       <div className="rounded-md border border-brand-white/20 overflow-hidden">
@@ -662,7 +559,19 @@ export default function MarketsDataTable({
             ))}
           </TableHeader>
           <TableBody className="bg-brand-black">
-            {displayedRows.length ? (
+            {isLoading ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : displayedRows.length ? (
               displayedRows.map((row) => (
                 <TableRow
                   key={row.id}

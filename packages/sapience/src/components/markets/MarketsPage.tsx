@@ -6,16 +6,21 @@ import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import * as React from 'react';
 import { type Market as GraphQLMarketType } from '@sapience/sdk/types/graphql';
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   useEnrichedMarketGroups,
   useCategories,
 } from '~/hooks/graphql/useMarketGroups';
-import { useConditions } from '~/hooks/graphql/useConditions';
+import {
+  useConditions,
+  type ConditionFilters,
+} from '~/hooks/graphql/useConditions';
 import Betslip from '~/components/markets/Betslip';
 import SuggestedBetslips from '~/components/markets/SuggestedBetslips';
 import MarketsDataTable from '~/components/markets/MarketsDataTable';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import type { FilterState } from '~/components/markets/TableFilters';
+import { useDebouncedValue } from '~/hooks/useDebouncedValue';
 
 // Dynamically import LottieLoader
 const LottieLoader = dynamic(() => import('~/components/shared/LottieLoader'), {
@@ -33,11 +38,18 @@ export interface MarketWithContext extends GraphQLMarketType {
   categoryId: string;
 }
 
+// Helper to convert days from now to Unix timestamp
+function daysFromNowToTimestamp(days: number): number {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return nowSec + days * 86400;
+}
+
 const MarketsPage = () => {
   // Use the new hook and update variable names
   const { isLoading: isLoadingMarketGroups, refetch: refetchMarketGroups } =
     useEnrichedMarketGroups();
-  const { isLoading: isLoadingCategories } = useCategories();
+  const { data: allCategories = [], isLoading: isLoadingCategories } =
+    useCategories();
 
   // Parlay Mode toggle
   const [parlayMode, setParlayMode] = React.useState<boolean>(true);
@@ -76,8 +88,53 @@ const MarketsPage = () => {
   // Read chainId from localStorage with event monitoring
   const chainId = useChainIdFromLocalStorage();
 
-  // RFQ Conditions via GraphQL
-  const { data: allConditions = [] } = useConditions({ take: 200, chainId });
+  // Filter state managed here, passed down to MarketsDataTable
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<FilterState>({
+    openInterestRange: [0, 100000],
+    timeToResolutionRange: [0, 1000], // Default to future markets only
+    selectedCategories: [],
+  });
+
+  // Debounce search term for backend queries (300ms)
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
+
+  // Convert UI filter state to backend filter format
+  const backendFilters = useMemo((): ConditionFilters => {
+    const result: ConditionFilters = {
+      publicOnly: true, // Always filter to public conditions
+    };
+
+    // Search filter (debounced)
+    if (debouncedSearchTerm.trim()) {
+      result.search = debouncedSearchTerm.trim();
+    }
+
+    // Category filter
+    if (filters.selectedCategories.length > 0) {
+      result.categorySlugs = filters.selectedCategories;
+    }
+
+    // Time to resolution filter (convert days to timestamps)
+    const [minDays, maxDays] = filters.timeToResolutionRange;
+    // Only apply if not at the extreme bounds (-1000 to 1000)
+    if (minDays > -1000) {
+      result.endTimeGte = daysFromNowToTimestamp(minDays);
+    }
+    if (maxDays < 1000) {
+      result.endTimeLte = daysFromNowToTimestamp(maxDays);
+    }
+
+    return result;
+  }, [debouncedSearchTerm, filters]);
+
+  // RFQ Conditions via GraphQL with backend filtering
+  const { data: allConditions = [], isLoading: isLoadingConditions } =
+    useConditions({
+      take: 200,
+      chainId,
+      filters: backendFilters,
+    });
 
   // Refetch data when chainId changes
   useEffect(() => {
@@ -86,11 +143,31 @@ const MarketsPage = () => {
     refetchMarketGroups();
   }, [chainId, refetchMarketGroups]);
 
+  // Callbacks for filter changes
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+  }, []);
+
+  const handleFiltersChange = useCallback((newFilters: FilterState) => {
+    setFilters(newFilters);
+  }, []);
+
+  // Convert categories to the format expected by TableFilters
+  const categoryOptions = useMemo(() => {
+    return allCategories
+      .map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allCategories]);
+
   // Get mobile/compact status
   const isMobile = useIsMobile();
   const isCompact = useIsBelow(1024);
 
-  // Show loader if either query is loading
+  // Show loader only on initial load (not when filtering)
   if (isLoadingMarketGroups || isLoadingCategories) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-theme(spacing.20))] w-full">
@@ -127,7 +204,13 @@ const MarketsPage = () => {
             transition={{ duration: 0.25 }}
           >
             <MarketsDataTable
-              conditions={allConditions.filter((c) => c.public)}
+              conditions={allConditions}
+              isLoading={isLoadingConditions}
+              searchTerm={searchTerm}
+              onSearchChange={handleSearchChange}
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              categories={categoryOptions}
             />
           </motion.div>
         </div>
