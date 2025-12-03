@@ -42,9 +42,11 @@ const ForecastOddsSlider = ({
   return (
     <div className={cn('space-y-2.5', className)}>
       {headerContent ?? (
-        <Label className="text-xs font-medium text-muted-foreground">
-          {label}:{' '}
-          <span className="font-mono text-[13px] text-brand-white">
+        <Label className="text-base">
+          <span className="font-mono uppercase text-muted-foreground">
+            {label}:
+          </span>{' '}
+          <span className="font-mono font-light uppercase text-ethena">
             {formatPercentChance(safeValue / 100)} chance
           </span>
         </Label>

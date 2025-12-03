@@ -15,12 +15,14 @@ export interface TickerMarketCardProps {
     shortName?: string | null;
     endTime?: number | null;
     description?: string | null;
+    categorySlug?: string | null;
   };
   color: string;
 }
 
 const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
-  const { id, question, shortName, endTime, description } = condition;
+  const { id, question, shortName, endTime, description, categorySlug } =
+    condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
     useBetSlipContext();
   const router = useRouter();
@@ -47,11 +49,13 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
       conditionId: id,
       question: displayQ,
       prediction: true,
+      categorySlug,
     });
     router.push('/markets');
   }, [
     id,
     displayQ,
+    categorySlug,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,
@@ -69,11 +73,13 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
       conditionId: id,
       question: displayQ,
       prediction: false,
+      categorySlug,
     });
     router.push('/markets');
   }, [
     id,
     displayQ,
+    categorySlug,
     parlaySelections,
     removeParlaySelection,
     addParlaySelection,

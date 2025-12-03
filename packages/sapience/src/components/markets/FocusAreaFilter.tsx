@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { LayoutGridIcon, ListIcon } from 'lucide-react';
+import { LayoutGridIcon, ListIcon, TableIcon } from 'lucide-react';
 import CategoryChips from './CategoryChips';
 import type { FocusArea } from '~/lib/constants/focusAreas';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
@@ -31,7 +31,7 @@ interface FocusAreaFilterProps {
   categories: Category[] | null | undefined;
   getCategoryStyle: (categorySlug: string) => FocusArea | undefined;
   containerClassName?: string;
-  viewMode: 'list' | 'grid';
+  viewMode: 'list' | 'grid' | 'table';
   onToggleViewMode: () => void;
   showViewToggle?: boolean;
   // New optional flags for markets page layout tweaks
@@ -127,22 +127,29 @@ const FocusAreaFilter: React.FC<FocusAreaFilterProps> = ({
                         ['--seg-active' as any]: segActiveBg,
                       }}
                       aria-label={
-                        viewMode === 'grid'
-                          ? 'Switch to list view'
-                          : 'Switch to grid view'
+                        viewMode === 'list'
+                          ? 'Switch to grid view'
+                          : viewMode === 'grid'
+                            ? 'Switch to table view'
+                            : 'Switch to list view'
                       }
-                      aria-pressed={viewMode === 'grid'}
                       onClick={onToggleViewMode}
                     >
-                      {viewMode === 'grid' ? (
-                        <ListIcon className="h-5 w-5" />
-                      ) : (
+                      {viewMode === 'list' ? (
                         <LayoutGridIcon className="h-5 w-5" />
+                      ) : viewMode === 'grid' ? (
+                        <TableIcon className="h-5 w-5" />
+                      ) : (
+                        <ListIcon className="h-5 w-5" />
                       )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {viewMode === 'grid' ? 'Toggle rows' : 'Toggle cards'}
+                    {viewMode === 'list'
+                      ? 'Toggle cards'
+                      : viewMode === 'grid'
+                        ? 'Toggle table'
+                        : 'Toggle rows'}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
