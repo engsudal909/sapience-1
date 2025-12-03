@@ -18,10 +18,31 @@ import type {
 
 // TODO: Move all of this code to the existsing event processing pipeline
 const BLOCK_BATCH_SIZE = 100;
-import { predictionMarket } from '@sapience/sdk';
+import { predictionMarket, lzPMResolver, lzUmaResolver } from '@sapience/sdk';
 
 // PredictionMarket contract ABI for the events we want to index
 const PREDICTION_MARKET_ABI = [
+  {
+    type: 'event',
+    name: 'MarketSubmittedToUMA',
+    inputs: [
+      { name: 'marketId', type: 'bytes32', indexed: true },
+      { name: 'assertionId', type: 'bytes32', indexed: true },
+      { name: 'asserter', type: 'address', indexed: false },
+      { name: 'claim', type: 'bytes', indexed: false },
+      { name: 'resolvedToYes', type: 'bool', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'MarketResolved',
+    inputs: [
+      { name: 'marketId', type: 'bytes32', indexed: true },
+      { name: 'resolvedToYes', type: 'bool', indexed: false },
+      { name: 'assertedTruthfully', type: 'bool', indexed: false },
+      { name: 'resolutionTime', type: 'uint256', indexed: false },
+    ],
+  },
   {
     type: 'event',
     name: 'PredictionMinted',
@@ -161,11 +182,27 @@ interface OrderCancelledEvent {
   takerCollateral: bigint;
 }
 
+interface MarketResolvedEvent {
+  marketId: string;
+  resolvedToYes: boolean;
+  assertedTruthfully: boolean;
+  resolutionTime: bigint;
+}
+
+interface MarketSubmittedToUMAEvent {
+  marketId: string;
+  assertionId: string;
+  asserter: string;
+  claim: `0x${string}`;
+  resolvedToYes: boolean;
+}
+
 class PredictionMarketIndexer implements IResourcePriceIndexer {
   public client: PublicClient;
   private isWatching: boolean = false;
   private chainId: number;
   private contractAddress: `0x${string}`;
+  private resolverAddress: `0x${string}` | undefined;
   private sigintHandler: (() => void) | null = null;
   private currentUnwatch: (() => void) | null = null;
 
@@ -180,7 +217,23 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         `PredictionMarket contract not deployed on chain ${chainId}. Available chains: ${Object.keys(predictionMarket).join(', ')}`
       );
     }
-    this.contractAddress = contractEntry.address;
+    this.contractAddress = contractEntry.address as `0x${string}`;
+
+    // Get the resolver address if available
+    const pmResolverEntry = lzPMResolver[chainId as keyof typeof lzPMResolver];
+    const umaResolverEntry = lzUmaResolver[chainId as keyof typeof lzUmaResolver];
+    
+    if (pmResolverEntry?.address) {
+      this.resolverAddress = pmResolverEntry.address as `0x${string}`;
+      console.log(
+        `[PredictionMarketIndexer] Found PM resolver address for chain ${chainId}: ${this.resolverAddress}`
+      );
+    } else if (umaResolverEntry?.address) {
+      this.resolverAddress = umaResolverEntry.address as `0x${string}`;
+      console.log(
+        `[PredictionMarketIndexer] Found UMA resolver address for chain ${chainId}: ${this.resolverAddress}`
+      );
+    }
   }
 
   async indexBlockPriceFromTimestamp(
@@ -189,8 +242,11 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     endTimestamp?: number
   ): Promise<boolean> {
     try {
+      const addressesInfo = this.resolverAddress 
+        ? `contracts ${this.contractAddress} and resolver ${this.resolverAddress}`
+        : `contract ${this.contractAddress}`;
       console.log(
-        `[PredictionMarketIndexer:${this.chainId}] Indexing blocks from timestamp ${startTimestamp} to ${endTimestamp || 'latest'} on contract ${this.contractAddress}`
+        `[PredictionMarketIndexer:${this.chainId}] Indexing blocks from timestamp ${startTimestamp} to ${endTimestamp || 'latest'} on ${addressesInfo}`
       );
 
       // Use binary search to find the exact blocks for the timestamps
@@ -288,8 +344,13 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
         try {
           // Single efficient query for the entire chunk
+          // Include both PM contract and resolver address if available
+          const addresses: `0x${string}`[] = [this.contractAddress as `0x${string}`];
+          if (this.resolverAddress) {
+            addresses.push(this.resolverAddress as `0x${string}`);
+          }
           const logs = await this.client.getLogs({
-            address: this.contractAddress,
+            address: addresses,
             fromBlock: BigInt(fromBlock),
             toBlock: BigInt(toBlock),
           });
@@ -357,9 +418,13 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         includeTransactions: false,
       });
 
-      // Get logs for the PredictionMarket contract
+      // Get logs for the PredictionMarket contract and resolver (if available)
+      const addresses: `0x${string}`[] = [this.contractAddress as `0x${string}`];
+      if (this.resolverAddress) {
+        addresses.push(this.resolverAddress as `0x${string}`);
+      }
       const logs = await this.client.getLogs({
-        address: this.contractAddress,
+        address: addresses,
         fromBlock: BigInt(blockNumber),
         toBlock: BigInt(blockNumber),
       });
@@ -391,9 +456,14 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         `[PredictionMarketIndexer] Processing log: ${log.address} logIndex: ${log.logIndex}`
       );
       // Check if this is a PredictionMarket event
-      if (log.address.toLowerCase() !== this.contractAddress.toLowerCase()) {
+      const addressesToCheck = [this.contractAddress];
+      if (this.resolverAddress) {
+        addressesToCheck.push(this.resolverAddress);
+      }
+      
+      if (!addressesToCheck.map(a => a.toLowerCase()).includes(log.address.toLowerCase())) {
         console.log(
-          `[PredictionMarketIndexer] Skipping log: ${log.address} is not the PredictionMarket contract`
+          `[PredictionMarketIndexer] Skipping log: ${log.address} is not the PredictionMarket or Resolver contract`
         );
         return;
       }
@@ -425,6 +495,12 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       const orderCancelledTopic = keccak256(
         toHex('OrderCancelled(uint256,address,bytes,uint256,uint256)')
       );
+      const marketResolvedTopic = keccak256(
+        toHex('MarketResolved(bytes32,bool,bool,uint256)')
+      );
+      const marketSubmittedToUMATopic = keccak256(
+        toHex('MarketSubmittedToUMA(bytes32,bytes32,address,bytes,bool)')
+      );
 
       if (log.topics[0] === predictionMintedTopic) {
         await this.processPredictionMinted(log, block);
@@ -438,6 +514,10 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         await this.processOrderFilled(log, block);
       } else if (log.topics[0] === orderCancelledTopic) {
         await this.processOrderCancelled(log, block);
+      } else if (log.topics[0] === marketResolvedTopic) {
+        await this.processMarketResolved(log, block);
+      } else if (log.topics[0] === marketSubmittedToUMATopic) {
+        await this.processMarketSubmittedToUMA(log, block);
       }
     } catch (error) {
       console.error('[PredictionMarketIndexer] Error processing log:', error);
@@ -597,6 +677,16 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           predictedOutcomes: predictedOutcomes as unknown as object,
         },
       });
+
+      // Update open interest for all conditions in this parlay
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+      for (const conditionId of conditionIds) {
+        await prisma.$executeRaw`
+          UPDATE condition 
+          SET "openInterest" = (COALESCE("openInterest"::NUMERIC, 0) + ${BigInt(eventData.totalCollateral)})::TEXT
+          WHERE id = ${conditionId}
+        `;
+      }
 
       console.log(
         `[PredictionMarketIndexer] Processed PredictionMinted: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}`
@@ -1126,6 +1216,204 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     }
   }
 
+  private async processMarketResolved(log: Log, block: Block): Promise<void> {
+    try {
+      const decoded = decodeEventLog({
+        abi: PREDICTION_MARKET_ABI,
+        data: log.data,
+        topics: log.topics,
+      }) as { args: MarketResolvedEvent };
+
+      const eventData = {
+        eventType: 'MarketResolved',
+        marketId: decoded.args.marketId,
+        resolvedToYes: decoded.args.resolvedToYes,
+        assertedTruthfully: decoded.args.assertedTruthfully,
+        resolutionTime: decoded.args.resolutionTime.toString(),
+        blockNumber: Number(log.blockNumber),
+        transactionHash: log.transactionHash,
+        logIndex: log.logIndex,
+        timestamp: Number(block.timestamp),
+      };
+
+      const marketResolvedKey = {
+        transactionHash: log.transactionHash || '',
+        blockNumber: Number(log.blockNumber || 0),
+        logIndex: log.logIndex || 0,
+      } as const;
+
+      const existingMarketResolved = await prisma.event.findFirst({
+        where: {
+          transactionHash: marketResolvedKey.transactionHash,
+          blockNumber: marketResolvedKey.blockNumber,
+          logIndex: marketResolvedKey.logIndex,
+          marketGroupId: null,
+        },
+      });
+
+      if (existingMarketResolved) {
+        console.log(
+          `[PredictionMarketIndexer] Skipping duplicate MarketResolved event tx=${marketResolvedKey.transactionHash} block=${marketResolvedKey.blockNumber} logIndex=${marketResolvedKey.logIndex}`
+        );
+        return;
+      }
+
+      await prisma.event.create({
+        data: {
+          blockNumber: Number(log.blockNumber || 0),
+          transactionHash: log.transactionHash || '',
+          timestamp: BigInt(block.timestamp),
+          logIndex: log.logIndex || 0,
+          logData: eventData,
+          marketGroupId: null,
+        },
+      });
+
+      // Update Condition status
+      try {
+        const condition = await prisma.condition.findUnique({
+          where: { id: eventData.marketId },
+        });
+
+        if (condition) {
+          await prisma.condition.update({
+            where: { id: condition.id },
+            data: {
+              settled: true,
+              resolvedToYes: eventData.resolvedToYes,
+              settledAt: Number(block.timestamp),
+            },
+          });
+          console.log(
+            `[PredictionMarketIndexer] Updated Condition ${eventData.marketId} to settled`
+          );
+        } else {
+          console.warn(
+            `[PredictionMarketIndexer] MarketResolved but no matching Condition found for marketId=${eventData.marketId}`
+          );
+        }
+      } catch (conditionError) {
+        console.error(
+          '[PredictionMarketIndexer] Failed to update Condition on resolve:',
+          conditionError
+        );
+      }
+
+      console.log(
+        `[PredictionMarketIndexer] Processed MarketResolved: marketId=${eventData.marketId}, resolvedToYes=${eventData.resolvedToYes}`
+      );
+    } catch (error) {
+      console.error(
+        '[PredictionMarketIndexer] Error processing MarketResolved:',
+        error
+      );
+      Sentry.captureException(error);
+    }
+  }
+
+  private async processMarketSubmittedToUMA(
+    log: Log,
+    block: Block
+  ): Promise<void> {
+    try {
+      const decoded = decodeEventLog({
+        abi: PREDICTION_MARKET_ABI,
+        data: log.data,
+        topics: log.topics,
+      }) as { args: MarketSubmittedToUMAEvent };
+
+      const eventData = {
+        eventType: 'MarketSubmittedToUMA',
+        marketId: decoded.args.marketId,
+        assertionId: decoded.args.assertionId,
+        asserter: decoded.args.asserter,
+        claim: decoded.args.claim,
+        resolvedToYes: decoded.args.resolvedToYes,
+        blockNumber: Number(log.blockNumber),
+        transactionHash: log.transactionHash,
+        logIndex: log.logIndex,
+        timestamp: Number(block.timestamp),
+      };
+
+      const submittedKey = {
+        transactionHash: log.transactionHash || '',
+        blockNumber: Number(log.blockNumber || 0),
+        logIndex: log.logIndex || 0,
+        marketGroupId: null,
+      } as const;
+
+      const existingEvent = await prisma.event.findFirst({
+        where: {
+          transactionHash: submittedKey.transactionHash,
+          blockNumber: submittedKey.blockNumber,
+          logIndex: submittedKey.logIndex,
+          marketGroupId: null,
+        },
+      });
+
+      // Always update Condition with assertionId (even if event already exists)
+      // This ensures reindexing fills in missing data
+      try {
+        const condition = await prisma.condition.findUnique({
+          where: { id: eventData.marketId },
+        });
+
+        if (condition) {
+          // Update if assertionId or assertionTimestamp is missing
+          if (!condition.assertionId || !condition.assertionTimestamp) {
+            await prisma.condition.update({
+              where: { id: condition.id },
+              data: {
+                assertionId: eventData.assertionId,
+                assertionTimestamp: Number(block.timestamp),
+              },
+            });
+            console.log(
+              `[PredictionMarketIndexer] Updated Condition ${eventData.marketId} with assertionId ${eventData.assertionId} and timestamp ${block.timestamp}`
+            );
+          }
+        } else {
+          console.warn(
+            `[PredictionMarketIndexer] MarketSubmittedToUMA but no matching Condition found for marketId=${eventData.marketId}`
+          );
+        }
+      } catch (conditionError) {
+        console.error(
+          '[PredictionMarketIndexer] Failed to update Condition on submission:',
+          conditionError
+        );
+      }
+
+      if (existingEvent) {
+        console.log(
+          `[PredictionMarketIndexer] Skipping duplicate MarketSubmittedToUMA event tx=${submittedKey.transactionHash}`
+        );
+        return;
+      }
+
+      await prisma.event.create({
+        data: {
+          blockNumber: Number(log.blockNumber || 0),
+          transactionHash: log.transactionHash || '',
+          timestamp: BigInt(block.timestamp),
+          logIndex: log.logIndex || 0,
+          logData: eventData,
+          marketGroupId: null,
+        },
+      });
+
+      console.log(
+        `[PredictionMarketIndexer] Processed MarketSubmittedToUMA: marketId=${eventData.marketId}, assertionId=${eventData.assertionId}`
+      );
+    } catch (error) {
+      console.error(
+        '[PredictionMarketIndexer] Error processing MarketSubmittedToUMA:',
+        error
+      );
+      Sentry.captureException(error);
+    }
+  }
+
   async watchBlocksForResource(resource: Resource): Promise<void> {
     if (this.isWatching) {
       console.log(
@@ -1163,9 +1451,14 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     );
 
     try {
+      const addresses = [this.contractAddress];
+      if (this.resolverAddress) {
+        addresses.push(this.resolverAddress);
+      }
+
       // Watch for all PredictionMarket events in a single watcher
       this.currentUnwatch = this.client.watchContractEvent({
-        address: this.contractAddress,
+        address: addresses,
         abi: PREDICTION_MARKET_ABI,
         onLogs: async (logs) => {
           for (const log of logs) {

@@ -1,0 +1,60 @@
+## ElizaOS Trading Agent
+
+<div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+  <a href="https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos">
+    <img alt="ElizaOS Starter on GitHub" src="https://img.shields.io/badge/ElizaOS%20Starter-sapiencexyz%2Fsapience-181717?logo=github" />
+  </a>
+</div>
+
+The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) includes built-in auction trading capabilities. Enable trading by setting `ENABLE_PARLAY_TRADING=true`.
+
+**Code reference:** [`src/actions/parlayTradingAction.ts`](https://github.com/sapiencexyz/sapience/blob/main/starters/elizaos/src/actions/parlayTradingAction.ts)
+
+### Enable Auction Trading
+
+```bash
+# Enable auction trading feature
+ENABLE_PARLAY_TRADING=true
+
+# Configure trading parameters (optional)
+PARLAY_WAGER_AMOUNT=1000000000000000000  # $1 default (18 decimals)
+MIN_PARLAY_CONFIDENCE=0.6                # Minimum confidence for bundled predictions
+MIN_HOURS_BETWEEN_PARLAYS=24             # Hours between auction attempts
+PARLAY_AUCTION_TIMEOUT_MS=300000         # 5 minutes auction timeout
+```
+
+### How It Works
+
+The agent bundles 3+ high-confidence predictions into a single auction trade:
+
+1. **Market Analysis**: Fetches active markets and generates probability forecasts
+2. **Bundle Assembly**: Groups predictions where confidence exceeds `MIN_PARLAY_CONFIDENCE`
+3. **Start Auction**: Broadcasts request to market makers via WebSocket
+4. **Receive Bids**: Market makers compete by submitting quotes
+5. **Execute Trade**: Accepts best bid and calls `PredictionMarket.mint()`
+
+**Execution Frequency:**
+- Checked every attestation cycle (default: 5 minutes)
+- Maximum one auction per 24 hours (prevents overtrading)
+- Each auction stays open for 5 minutes
+
+### Configuration Reference
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PARLAY_WAGER_AMOUNT` | `1e18` | Wager amount in USDe (18 decimals) |
+| `MIN_PARLAY_CONFIDENCE` | `0.6` | Minimum confidence threshold |
+| `MIN_HOURS_BETWEEN_PARLAYS` | `24` | Cooldown between auctions |
+| `PARLAY_MARKETS_FETCH_LIMIT` | `100` | Markets to fetch from API |
+
+### Resources
+
+- [ElizaOS Starter Repository](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos)
+- [Forecasting Agent Guide](/builder-guide/guides/forecasting-agent) - Generate predictions
+- [Auction Relayer API](/builder-guide/api/auction-relayer) - WebSocket protocol
+
+:::warning
+**Risk Warning**: Automated trading involves financial risk. Start with small amounts and monitor performance.
+:::
+
+

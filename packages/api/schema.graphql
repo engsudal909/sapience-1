@@ -752,6 +752,8 @@ input CollateralTransferWhereInput {
 }
 
 type Condition {
+  assertionId: String
+  assertionTimestamp: Int
   category(where: CategoryWhereInput): Category
   categoryId: Int
   chainId: Int!
@@ -760,26 +762,36 @@ type Condition {
   description: String!
   endTime: Int!
   id: String!
+  openInterest: String!
   public: Boolean!
   question: String!
+  resolvedToYes: Boolean!
+  settled: Boolean!
+  settledAt: Int
   shortName: String
   similarMarkets: [String!]!
 }
 
 type ConditionAvgAggregate {
+  assertionTimestamp: Float
   categoryId: Float
   chainId: Float
   endTime: Float
+  settledAt: Float
 }
 
 input ConditionAvgOrderByAggregateInput {
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   endTime: SortOrder
+  settledAt: SortOrder
 }
 
 type ConditionCountAggregate {
   _all: Int!
+  assertionId: Int!
+  assertionTimestamp: Int!
   categoryId: Int!
   chainId: Int!
   claimStatement: Int!
@@ -787,13 +799,19 @@ type ConditionCountAggregate {
   description: Int!
   endTime: Int!
   id: Int!
+  openInterest: Int!
   public: Int!
   question: Int!
+  resolvedToYes: Int!
+  settled: Int!
+  settledAt: Int!
   shortName: Int!
   similarMarkets: Int!
 }
 
 input ConditionCountOrderByAggregateInput {
+  assertionId: SortOrder
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   claimStatement: SortOrder
@@ -801,8 +819,12 @@ input ConditionCountOrderByAggregateInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrder
   shortName: SortOrder
   similarMarkets: SortOrder
 }
@@ -813,6 +835,8 @@ type ConditionGroupBy {
   _max: ConditionMaxAggregate
   _min: ConditionMinAggregate
   _sum: ConditionSumAggregate
+  assertionId: String
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int!
   claimStatement: String!
@@ -820,8 +844,12 @@ type ConditionGroupBy {
   description: String!
   endTime: Int!
   id: String!
+  openInterest: String!
   public: Boolean!
   question: String!
+  resolvedToYes: Boolean!
+  settled: Boolean!
+  settledAt: Int
   shortName: String
   similarMarkets: [String!]
 }
@@ -833,6 +861,8 @@ input ConditionListRelationFilter {
 }
 
 type ConditionMaxAggregate {
+  assertionId: String
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int
   claimStatement: String
@@ -840,12 +870,18 @@ type ConditionMaxAggregate {
   description: String
   endTime: Int
   id: String
+  openInterest: String
   public: Boolean
   question: String
+  resolvedToYes: Boolean
+  settled: Boolean
+  settledAt: Int
   shortName: String
 }
 
 input ConditionMaxOrderByAggregateInput {
+  assertionId: SortOrder
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   claimStatement: SortOrder
@@ -853,12 +889,18 @@ input ConditionMaxOrderByAggregateInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrder
   shortName: SortOrder
 }
 
 type ConditionMinAggregate {
+  assertionId: String
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int
   claimStatement: String
@@ -866,12 +908,18 @@ type ConditionMinAggregate {
   description: String
   endTime: Int
   id: String
+  openInterest: String
   public: Boolean
   question: String
+  resolvedToYes: Boolean
+  settled: Boolean
+  settledAt: Int
   shortName: String
 }
 
 input ConditionMinOrderByAggregateInput {
+  assertionId: SortOrder
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   claimStatement: SortOrder
@@ -879,8 +927,12 @@ input ConditionMinOrderByAggregateInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrder
   shortName: SortOrder
 }
 
@@ -894,6 +946,8 @@ input ConditionOrderByWithAggregationInput {
   _max: ConditionMaxOrderByAggregateInput
   _min: ConditionMinOrderByAggregateInput
   _sum: ConditionSumOrderByAggregateInput
+  assertionId: SortOrderInput
+  assertionTimestamp: SortOrderInput
   categoryId: SortOrderInput
   chainId: SortOrder
   claimStatement: SortOrder
@@ -901,13 +955,19 @@ input ConditionOrderByWithAggregationInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrderInput
   shortName: SortOrderInput
   similarMarkets: SortOrder
 }
 
 input ConditionOrderByWithRelationInput {
+  assertionId: SortOrderInput
+  assertionTimestamp: SortOrderInput
   category: CategoryOrderByWithRelationInput
   categoryId: SortOrderInput
   chainId: SortOrder
@@ -916,13 +976,19 @@ input ConditionOrderByWithRelationInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
+  resolvedToYes: SortOrder
+  settled: SortOrder
+  settledAt: SortOrderInput
   shortName: SortOrderInput
   similarMarkets: SortOrder
 }
 
 enum ConditionScalarFieldEnum {
+  assertionId
+  assertionTimestamp
   categoryId
   chainId
   claimStatement
@@ -930,8 +996,12 @@ enum ConditionScalarFieldEnum {
   description
   endTime
   id
+  openInterest
   public
   question
+  resolvedToYes
+  settled
+  settledAt
   shortName
   similarMarkets
 }
@@ -940,6 +1010,8 @@ input ConditionScalarWhereWithAggregatesInput {
   AND: [ConditionScalarWhereWithAggregatesInput!]
   NOT: [ConditionScalarWhereWithAggregatesInput!]
   OR: [ConditionScalarWhereWithAggregatesInput!]
+  assertionId: StringNullableWithAggregatesFilter
+  assertionTimestamp: IntNullableWithAggregatesFilter
   categoryId: IntNullableWithAggregatesFilter
   chainId: IntWithAggregatesFilter
   claimStatement: StringWithAggregatesFilter
@@ -947,22 +1019,30 @@ input ConditionScalarWhereWithAggregatesInput {
   description: StringWithAggregatesFilter
   endTime: IntWithAggregatesFilter
   id: StringWithAggregatesFilter
+  openInterest: StringWithAggregatesFilter
   public: BoolWithAggregatesFilter
   question: StringWithAggregatesFilter
+  resolvedToYes: BoolWithAggregatesFilter
+  settled: BoolWithAggregatesFilter
+  settledAt: IntNullableWithAggregatesFilter
   shortName: StringNullableWithAggregatesFilter
   similarMarkets: StringNullableListFilter
 }
 
 type ConditionSumAggregate {
+  assertionTimestamp: Int
   categoryId: Int
   chainId: Int
   endTime: Int
+  settledAt: Int
 }
 
 input ConditionSumOrderByAggregateInput {
+  assertionTimestamp: SortOrder
   categoryId: SortOrder
   chainId: SortOrder
   endTime: SortOrder
+  settledAt: SortOrder
 }
 
 type ConditionSummary {
@@ -976,6 +1056,8 @@ input ConditionWhereInput {
   AND: [ConditionWhereInput!]
   NOT: [ConditionWhereInput!]
   OR: [ConditionWhereInput!]
+  assertionId: StringNullableFilter
+  assertionTimestamp: IntNullableFilter
   category: CategoryNullableRelationFilter
   categoryId: IntNullableFilter
   chainId: IntFilter
@@ -984,8 +1066,12 @@ input ConditionWhereInput {
   description: StringFilter
   endTime: IntFilter
   id: StringFilter
+  openInterest: StringFilter
   public: BoolFilter
   question: StringFilter
+  resolvedToYes: BoolFilter
+  settled: BoolFilter
+  settledAt: IntNullableFilter
   shortName: StringNullableFilter
   similarMarkets: StringNullableListFilter
 }
@@ -994,6 +1080,8 @@ input ConditionWhereUniqueInput {
   AND: [ConditionWhereInput!]
   NOT: [ConditionWhereInput!]
   OR: [ConditionWhereInput!]
+  assertionId: StringNullableFilter
+  assertionTimestamp: IntNullableFilter
   category: CategoryNullableRelationFilter
   categoryId: IntNullableFilter
   chainId: IntFilter
@@ -1002,8 +1090,12 @@ input ConditionWhereUniqueInput {
   description: StringFilter
   endTime: IntFilter
   id: String
+  openInterest: StringFilter
   public: BoolFilter
   question: StringFilter
+  resolvedToYes: BoolFilter
+  settled: BoolFilter
+  settledAt: IntNullableFilter
   shortName: StringNullableFilter
   similarMarkets: StringNullableListFilter
 }

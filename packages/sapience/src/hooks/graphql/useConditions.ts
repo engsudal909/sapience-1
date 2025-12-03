@@ -13,6 +13,10 @@ export interface ConditionType {
   similarMarkets: string[];
   chainId: number;
   category?: { id: number; name: string; slug: string } | null;
+  settled?: boolean;
+  resolvedToYes?: boolean;
+  assertionId?: string;
+  assertionTimestamp?: number;
 }
 
 const GET_CONDITIONS = /* GraphQL */ `
@@ -33,6 +37,10 @@ const GET_CONDITIONS = /* GraphQL */ `
       description
       similarMarkets
       chainId
+      settled
+      resolvedToYes
+      assertionId
+      assertionTimestamp
       category {
         id
         name
