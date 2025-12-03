@@ -1,5 +1,10 @@
 import { elizaLogger } from "@elizaos/core";
-import { createArbitrumPublicClient, createArbitrumWalletClient, getContractAddresses, getTradingConfig } from "./blockchain.js";
+import { 
+  createEtherealPublicClient, 
+  createEtherealWalletClient, 
+  getTradingContractAddresses, 
+  getTradingConfig 
+} from "./blockchain.js";
 
 interface Bid {
   auctionId: string;
@@ -17,12 +22,12 @@ interface Bid {
 }
 
 /**
- * Get the current maker nonce from the PredictionMarket contract
+ * Get the current maker nonce from the PredictionMarket contract on Ethereal
  */
 export async function getCurrentMakerNonce(walletAddress: string, rpcUrl?: string): Promise<number> {
   try {
-    const publicClient = await createArbitrumPublicClient(rpcUrl);
-    const { PREDICTION_MARKET } = getContractAddresses();
+    const publicClient = await createEtherealPublicClient(rpcUrl);
+    const { PREDICTION_MARKET } = getTradingContractAddresses();
     
     const nonce = await publicClient.readContract({
       address: PREDICTION_MARKET,
@@ -45,7 +50,7 @@ export async function getCurrentMakerNonce(walletAddress: string, rpcUrl?: strin
 }
 
 /**
- * Ensure ERC-20 token approval for USDe before trading
+ * Ensure ERC-20 token approval for USDe before trading on Ethereal
  */
 export async function ensureTokenApproval({
   privateKey,
@@ -58,11 +63,11 @@ export async function ensureTokenApproval({
 }): Promise<void> {
   try {
     const { erc20Abi } = await import("viem");
-    const { USDE_TOKEN, PREDICTION_MARKET } = getContractAddresses();
+    const { USDE_TOKEN, PREDICTION_MARKET } = getTradingContractAddresses();
     const { approvalAmount } = getTradingConfig();
 
-    const publicClient = await createArbitrumPublicClient(rpcUrl);
-    const walletClient = await createArbitrumWalletClient(privateKey, rpcUrl);
+    const publicClient = await createEtherealPublicClient(rpcUrl);
+    const walletClient = await createEtherealWalletClient(privateKey, rpcUrl);
 
     const allowance = await publicClient.readContract({
       address: USDE_TOKEN,
@@ -79,7 +84,7 @@ export async function ensureTokenApproval({
       return;
     }
 
-    elizaLogger.info("[Contracts] Approving USDe tokens for PredictionMarket contract...");
+    elizaLogger.info("[Contracts] Approving USDe tokens for PredictionMarket contract on Ethereal...");
 
     const hash = await walletClient.writeContract({
       address: USDE_TOKEN,
@@ -98,7 +103,7 @@ export async function ensureTokenApproval({
 }
 
 /**
- * Build mint transaction calldata for PredictionMarket contract
+ * Build mint transaction calldata for PredictionMarket contract on Ethereal
  */
 export async function buildMintCalldata({
   bid,
@@ -108,14 +113,14 @@ export async function buildMintCalldata({
   maker: string;
 }): Promise<`0x${string}`> {
   const { encodeFunctionData } = await import("viem");
-  const { UMA_RESOLVER } = getContractAddresses();
+  const { RESOLVER } = getTradingContractAddresses();
   
   // Contract field names haven't changed - map API roles to contract roles:
   // Contract "maker" = API "maker" (bidder)
   // Contract "taker" = API "taker" (auction creator)
   const mintRequest = {
     encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
-    resolver: bid.resolver || UMA_RESOLVER,
+    resolver: bid.resolver || RESOLVER,
     makerCollateral: BigInt(bid.makerWager || '0'), // Contract maker = API maker (bidder's wager)
     takerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'), // Contract taker = API taker (auction creator's wager)
     maker: bid.maker, // Contract maker = API maker (bidder)

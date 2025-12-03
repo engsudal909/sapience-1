@@ -11,7 +11,7 @@ description: "Deploy an autonomous forecasting and trading agent with the ElizaO
   </a>
 </div>
 
-The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) is a complete autonomous forecasting agent built with the [ElizaOS framework](https://elizaos.ai/). It can generate forecasts on prediction markets, publish forecasts onchain, and execute trades through Sapience's auction system.
+The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) is a complete autonomous forecasting agent built with the [ElizaOS framework](https://elizaos.ai/). It can generate forecasts on prediction markets, publish forecasts onchain (Arbitrum), and execute trades through Sapience's auction system (Ethereal).
 
 ## Quick Start
 
@@ -57,7 +57,7 @@ Without a private key, the agent still generates forecasts—they just won't be 
 
 ### Forecast
 
-Trigger a forecast cycle that analyzes prediction markets and publishes onchain attestations:
+Trigger a forecast cycle that analyzes prediction markets and publishes onchain attestations on **Arbitrum**:
 
 ```
 forecast sapience prediction markets
@@ -67,11 +67,11 @@ The agent will:
 1. Fetch active prediction markets from Sapience
 2. Analyze each market using the configured LLM
 3. Generate probability estimates with confidence levels
-4. Submit forecasts as onchain attestations (if a private key is configured)
+4. Submit forecasts as EAS attestations on Arbitrum (if a private key is configured)
 
 ### Trade
 
-Execute trades on prediction markets based on the agent's analysis:
+Execute trades on prediction markets on **Ethereal** based on the agent's analysis:
 
 ```
 trade sapience prediction markets
@@ -82,9 +82,9 @@ The agent will:
 2. Identify predictions from different categories
 3. Start an auction on the Sapience auction rail
 4. Accept the best bid from market makers
-5. Execute the trade onchain
+5. Execute the trade on Ethereal
 
-**Note:** Trading requires USDe tokens in your wallet on Ethereal.
+**Note:** Trading requires USDe tokens in your wallet on [Ethereal](https://ethereal.trade) (chain ID `5064014`).
 
 ## Autonomous Mode
 
@@ -105,7 +105,9 @@ See [Deployment](#deployment) for instructions on deploying with autonomous mode
 
 ## Customization
 
-### Forecast Settings
+### Forecast Settings (Arbitrum)
+
+Forecasts are attested on Arbitrum chain (ID `42161`).
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -114,8 +116,11 @@ See [Deployment](#deployment) for instructions on deploying with autonomous mode
 | `FORECAST_BATCH_SIZE` | `5` | Number of markets to process per cycle |
 | `PROBABILITY_CHANGE_THRESHOLD` | `10` | Percentage change required for re-forecasting |
 | `MIN_HOURS_BETWEEN_FORECASTS` | `24` | Hours between forecasts on same market |
+| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum RPC endpoint |
 
-### Trading Settings
+### Trading Settings (Ethereal)
+
+Trading executes on Ethereal chain (ID `5064014`).
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -123,6 +128,7 @@ See [Deployment](#deployment) for instructions on deploying with autonomous mode
 | `MIN_TRADING_CONFIDENCE` | `0.6` | Minimum confidence for predictions |
 | `TRADING_MARKETS_FETCH_LIMIT` | `100` | Number of markets to fetch from GraphQL |
 | `TRADING_AUCTION_TIMEOUT_MS` | `300000` | Auction timeout in milliseconds (5 minutes) |
+| `TRADING_RPC_URL` | `https://rpc.ethereal.trade` | Ethereal RPC endpoint |
 
 ### Customize the Agent Persona
 
@@ -158,8 +164,6 @@ settings: {
 ```
 
 Or set via environment variable for quick testing.
-
----
 
 ## Deployment
 

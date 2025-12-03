@@ -66,16 +66,23 @@ export async function loadSdk(): Promise<SdkModule> {
   
   if (!sdk.submitTransaction) {
     sdk.submitTransaction = async (args: any) => {
-      const { createWalletClient, http } = await import("viem");
+      const { createWalletClient, createPublicClient, http } = await import("viem");
       const { privateKeyToAccount } = await import("viem/accounts");
       const { arbitrum } = await import("viem/chains");
+      const { etherealChain, CHAIN_ID_ETHEREAL } = await import("./blockchain.js");
       
       if (!args.privateKey) throw new Error("Missing private key for transaction submission");
+      
+      // Determine which chain to use based on chainId or RPC URL
+      const isEthereal = args.chainId === CHAIN_ID_ETHEREAL || 
+                         (args.rpc && args.rpc.includes('ethereal'));
+      const chain = isEthereal ? etherealChain : arbitrum;
+      const chainName = isEthereal ? 'ethereal' : 'arbitrum';
       
       const account = privateKeyToAccount(args.privateKey);
       const client = createWalletClient({
         account,
-        chain: arbitrum,
+        chain,
         transport: http(args.rpc)
       });
       
@@ -84,14 +91,13 @@ export async function loadSdk(): Promise<SdkModule> {
         to: args.tx.to,
         data: args.tx.data ? `${args.tx.data.slice(0, 10)}...` : undefined,
         value: args.tx.value,
-        chain: "arbitrum"
+        chain: chainName
       });
       
       try {
         // Get the current nonce to prevent nonce conflicts
-        const { createPublicClient } = await import("viem");
         const publicClient = createPublicClient({
-          chain: arbitrum,
+          chain,
           transport: http(args.rpc)
         });
         
@@ -100,7 +106,7 @@ export async function loadSdk(): Promise<SdkModule> {
           blockTag: "pending"
         });
         
-        console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address}`);
+        console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address} on ${chainName}`);
         
         const hash = await client.sendTransaction({
           to: args.tx.to,
@@ -108,7 +114,7 @@ export async function loadSdk(): Promise<SdkModule> {
           value: BigInt(args.tx.value || 0),
           nonce,
           account,
-          chain: arbitrum
+          chain
         });
         
         console.log("[SDK] Transaction submitted:", hash);

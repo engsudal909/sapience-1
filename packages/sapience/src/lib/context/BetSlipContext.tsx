@@ -1,8 +1,27 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useState, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+
+// localStorage key for parlay selections persistence
+const STORAGE_KEY_PARLAYS = 'sapience:betslip-parlays';
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 import type { MarketGroup as MarketGroupType } from '@sapience/sdk/types/graphql';
 import type { MarketGroupClassification } from '~/lib/types';
 import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/lib/types';
@@ -80,11 +99,16 @@ interface BetSlipProviderProps {
 export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
   const [singlePositions, setSinglePositions] = useState<BetSlipPosition[]>([]);
   const [parlaySelections, setParlaySelections] = useState<ParlaySelection[]>(
-    []
+    () => loadFromStorage(STORAGE_KEY_PARLAYS, [])
   );
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const queryClient = useQueryClient();
   // Removed manual cache subscription; useQueries handles re-renders
+
+  // Persist parlay selections to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_PARLAYS, JSON.stringify(parlaySelections));
+  }, [parlaySelections]);
 
   // Hydrate market data for all positions via React Query and map back to positions
   const { unique, queries } = useMarketGroupsForPositions(singlePositions);

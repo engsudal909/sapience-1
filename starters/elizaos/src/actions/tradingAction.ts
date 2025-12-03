@@ -10,10 +10,11 @@ import { loadSdk } from "../utils/sdk.js";
 import { 
   getPrivateKey, 
   getWalletAddress, 
-  getRpcUrl, 
+  getTradingRpcUrl,
   getTradingConfig, 
   getApiEndpoints, 
-  getContractAddresses 
+  getTradingContractAddresses,
+  CHAIN_ID_ETHEREAL,
 } from "../utils/blockchain.js";
 import { 
   getCurrentMakerNonce, 
@@ -56,19 +57,6 @@ export const tradingAction: Action = {
     callback?: HandlerCallback,
   ) => {
     try {
-      // Check if trading is enabled via environment variable or AUTONOMOUS_MODE
-      const tradingEnabled = 
-        process.env.ENABLE_TRADING === "true" || 
-        (process.env.AUTONOMOUS_MODE || "").toLowerCase().includes("trade");
-      if (!tradingEnabled) {
-        elizaLogger.info("[Trading] Trading disabled via ENABLE_TRADING env var");
-        await callback?.({
-          text: "Trading is disabled. Set ENABLE_TRADING=true or AUTONOMOUS_MODE=trade to enable.",
-          content: {},
-        });
-        return;
-      }
-
       // Parse trade data from message - expect multiple market predictions
       const text = message.content?.text || "";
       const jsonMatch = text.match(/\{[\s\S]*\}$/);
@@ -101,10 +89,10 @@ export const tradingAction: Action = {
         return;
       }
 
-      // Get wallet details
+      // Get wallet details - trading uses Ethereal chain
       const privateKey = getPrivateKey();
       const walletAddress = getWalletAddress();
-      const rpcUrl = getRpcUrl();
+      const rpcUrl = getTradingRpcUrl();
       const { wagerAmount } = getTradingConfig();
 
       elizaLogger.info(`[Trading] Starting trading auction with ${markets.length} legs`);
@@ -205,20 +193,19 @@ async function startTradingAuction({
         const contractNonce = await getCurrentMakerNonce(walletAddress as `0x${string}`, rpcUrl);
         elizaLogger.info(`[Trading] Using contract taker nonce: ${contractNonce}`);
 
-        const { UMA_RESOLVER } = getContractAddresses();
+        // Trading uses Ethereal chain with lzPMResolver
+        const { RESOLVER } = getTradingContractAddresses();
         const predictedOutcomes = await encodeTradeOutcomes(markets, predictions);
-
-        const chainId = parseInt(process.env.CHAIN_ID || "42161");
 
         const auctionMessage = {
           type: "auction.start",
           payload: {
             taker: walletAddress,
             wager: wagerAmount,
-            resolver: UMA_RESOLVER,
+            resolver: RESOLVER,
             predictedOutcomes,
             takerNonce: contractNonce,
-            chainId: chainId,
+            chainId: CHAIN_ID_ETHEREAL,
           },
         };
 
@@ -337,7 +324,8 @@ async function acceptBid({
       maker: makerAddress,
     });
 
-    const { PREDICTION_MARKET } = getContractAddresses();
+    // Trading uses Ethereal chain
+    const { PREDICTION_MARKET } = getTradingContractAddresses();
     
     const currentMakerNonce = await getCurrentMakerNonce(makerAddress, rpcUrl);
     elizaLogger.info(`[Trading] Contract maker nonce: ${currentMakerNonce}, Bid maker nonce: ${bid.makerNonce}`);
@@ -348,13 +336,14 @@ async function acceptBid({
       amount: bid.takerCollateral || bid.wager || '0',
     });
 
-    elizaLogger.info("[Trading] Executing trade mint transaction...");
+    elizaLogger.info("[Trading] Executing trade mint transaction on Ethereal...");
     elizaLogger.info(`[Trading] Mint details - Maker: ${bid.maker}, Taker: ${bid.taker}`);
     elizaLogger.info(`[Trading] Collateral - Maker: ${bid.makerWager}, Taker: ${bid.takerCollateral}`);
     elizaLogger.info(`[Trading] Maker nonce: ${bid.makerNonce}`);
     
     const mintTx = await submitTransaction({
       rpc: rpcUrl,
+      chainId: CHAIN_ID_ETHEREAL,
       privateKey: privateKey as `0x${string}`,
       tx: {
         to: PREDICTION_MARKET,

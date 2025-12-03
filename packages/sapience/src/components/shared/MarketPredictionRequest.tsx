@@ -122,7 +122,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           return best;
         }
       }, list[0]);
-      
+
       const taker = BigInt(String(lastTakerWagerWei || '0')) || ONE_DOLLAR_18D;
       const maker = BigInt(String(best?.makerWager || '0'));
       const denom = maker + taker;
