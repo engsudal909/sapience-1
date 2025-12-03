@@ -2,6 +2,16 @@ import { privateKeyToAddress } from "viem/accounts";
 import { elizaLogger } from "@elizaos/core";
 
 /**
+ * Check if private key is available in environment variables
+ */
+export function hasPrivateKey(): boolean {
+  return !!(process.env.ETHEREUM_PRIVATE_KEY ||
+    process.env.EVM_PRIVATE_KEY ||
+    process.env.PRIVATE_KEY ||
+    process.env.WALLET_PRIVATE_KEY);
+}
+
+/**
  * Get the private key from environment variables
  */
 export function getPrivateKey(): `0x${string}` {
@@ -53,11 +63,11 @@ export function getContractAddresses() {
  */
 export function getTradingConfig() {
   return {
-    wagerAmount: process.env.PARLAY_WAGER_AMOUNT || "1000000000000000000",
-    minConfidence: parseFloat(process.env.MIN_PARLAY_CONFIDENCE || "0.6"),
-    auctionTimeoutMs: parseInt(process.env.PARLAY_AUCTION_TIMEOUT_MS || "300000"),
-    keepAliveMs: parseInt(process.env.PARLAY_KEEPALIVE_INTERVAL_MS || "20000"),
-    statusIntervalMs: parseInt(process.env.PARLAY_STATUS_INTERVAL_MS || "30000"),
+    wagerAmount: process.env.TRADING_WAGER_AMOUNT || "1000000000000000000",
+    minConfidence: parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6"),
+    auctionTimeoutMs: parseInt(process.env.TRADING_AUCTION_TIMEOUT_MS || "300000"),
+    keepAliveMs: parseInt(process.env.TRADING_KEEPALIVE_INTERVAL_MS || "20000"),
+    statusIntervalMs: parseInt(process.env.TRADING_STATUS_INTERVAL_MS || "30000"),
     approvalAmount: process.env.USDE_APPROVAL_AMOUNT || "1000000000000000000000000",
   };
 }

@@ -35,16 +35,17 @@ export async function loadSdk(): Promise<SdkModule> {
   const sdk: SdkModule = { ...originalSdk };
   
   // Add local fallback implementations if missing from SDK
-  if (!sdk.buildAttestationCalldata) {
-    console.log("[SDK] buildAttestationCalldata not found in SDK, using local fallback");
+  if (!sdk.buildForecastCalldata) {
+    console.log("[SDK] buildForecastCalldata not found in SDK, using local fallback");
     try {
-      const { buildAttestationCalldata } = await import("../utils/eas.js");
+      const { buildForecastCalldata, buildAttestationCalldata } = await import("../utils/eas.js");
+      sdk.buildForecastCalldata = buildForecastCalldata;
       sdk.buildAttestationCalldata = buildAttestationCalldata;
     } catch (e) {
-      console.warn("Failed to load local buildAttestationCalldata implementation:", e);
+      console.warn("Failed to load local forecast calldata implementation:", e);
     }
   } else {
-    console.log("[SDK] Using buildAttestationCalldata from @sapience/sdk");
+    console.log("[SDK] Using buildForecastCalldata from @sapience/sdk");
   }
   
   // Add transaction functions from actions if missing
@@ -95,7 +96,8 @@ export async function loadSdk(): Promise<SdkModule> {
         });
         
         const nonce = await publicClient.getTransactionCount({
-          address: account.address
+          address: account.address,
+          blockTag: "pending"
         });
         
         console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address}`);

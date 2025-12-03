@@ -87,7 +87,7 @@ export const attestMarketAction: Action = {
 Question: ${condition?.shortName || condition?.question || "Unknown"}
 {
   "probability": <number 0-100>,
-  "reasoning": "<analysis under 180 chars, lowercase>",
+  "reasoning": "<analysis under 180 chars>",
   "confidence": <number 0.0-1.0>
 }`;
         const response = await runtime.useModel(ModelType.TEXT_SMALL, {
@@ -115,19 +115,17 @@ Question: ${condition?.shortName || condition?.question || "Unknown"}
           throw new Error("Model returned incomplete prediction data");
         }
 
-        const { buildAttestationCalldata } = await loadSdk();
-        const chainId = parseInt(process.env.SAPIENCE_CHAIN_ID || "42161");
-        const attestationData = await buildAttestationCalldata(
-          prediction,
-          chainId,
+        const { buildForecastCalldata } = await loadSdk();
+        const calldata = buildForecastCalldata(
           conditionId,
+          prediction.probability,
+          prediction.reasoning,
         );
-        if (!attestationData) throw new Error("Failed to build attestation");
 
         const transactionData = {
-          to: attestationData.to,
-          data: attestationData.data,
-          value: attestationData.value || "0",
+          to: calldata.to,
+          data: calldata.data,
+          value: calldata.value,
         };
         const transactionMessage: Memory = {
           entityId: message.entityId,
@@ -270,21 +268,29 @@ Question: ${condition?.shortName || condition?.question || "Unknown"}
         elizaLogger.error("Invalid prediction format:", JSON.stringify(prediction));
         throw new Error("Model returned incomplete prediction data");
       }
-      const { buildAttestationCalldata } = await loadSdk();
-      const attestationData = await buildAttestationCalldata(
-        prediction,
-        parseInt(process.env.SAPIENCE_CHAIN_ID || "42161"), // Chain ID
-      );
 
-      if (!attestationData) {
-        throw new Error("Failed to build attestation");
+      // Extract conditionId from market if available
+      const marketConditionId = marketInfo.conditionId || marketInfo.questionId;
+      if (!marketConditionId || !marketConditionId.startsWith("0x") || marketConditionId.length !== 66) {
+        await callback?.({
+          text: `Market #${marketId} does not have a valid conditionId. Please use the condition ID directly: \`attest 0x...\``,
+          content: { prediction, marketInfo },
+        });
+        return;
       }
+
+      const { buildForecastCalldata } = await loadSdk();
+      const calldata = buildForecastCalldata(
+        marketConditionId as `0x${string}`,
+        prediction.probability,
+        prediction.reasoning,
+      );
 
       // Format transaction data for submitTransactionAction
       const transactionData = {
-        to: attestationData.to,
-        data: attestationData.data,
-        value: attestationData.value || "0",
+        to: calldata.to,
+        data: calldata.data,
+        value: calldata.value,
       };
 
       // Create a memory/message with the transaction data that submitTransactionAction can process

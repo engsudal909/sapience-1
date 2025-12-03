@@ -31,7 +31,7 @@ Create `index.ts`:
 ```typescript
 import 'dotenv/config';
 import { gql } from 'graphql-request';
-import { graphqlRequest, postForecastAttestation } from '@sapience/sdk';
+import { graphqlRequest, submitForecast } from '@sapience/sdk';
 
 const CHAIN_ID_ARBITRUM = 42161;
 
@@ -131,15 +131,10 @@ async function main() {
   }
   
   console.log('Publishing attestation...');
-  const { hash } = await postForecastAttestation({
-    prediction: {
-      probability: forecast.probability,
-      reasoning: forecast.reasoning,
-      confidence: 1,
-    },
+  const { hash } = await submitForecast({
     conditionId: condition.id as `0x${string}`,
-    chainId: CHAIN_ID_ARBITRUM,
-    rpc: 'https://arb1.arbitrum.io/rpc',
+    probability: forecast.probability,
+    comment: forecast.reasoning,
     privateKey: process.env.PRIVATE_KEY as `0x${string}`,
   });
   

@@ -17,9 +17,9 @@ interface Bid {
 }
 
 /**
- * Encode parlay outcomes for UMA resolver
+ * Encode trade outcomes for UMA resolver
  */
-export async function encodeParlayOutcomes(markets: any[], predictions: any[]): Promise<string[]> {
+export async function encodeTradeOutcomes(markets: any[], predictions: any[]): Promise<string[]> {
   try {
     const outcomes = markets.map((market, index) => {
       const prediction = predictions[index];
@@ -49,10 +49,10 @@ export async function encodeParlayOutcomes(markets: any[], predictions: any[]): 
       [normalized]
     );
 
-    elizaLogger.info(`[Parlay] Encoded ${outcomes.length} predicted outcomes`);
+    elizaLogger.info(`[Trading] Encoded ${outcomes.length} predicted outcomes`);
     return [encoded];
   } catch (error) {
-    elizaLogger.error("[Parlay] Failed to encode predicted outcomes:", error);
+    elizaLogger.error("[Trading] Failed to encode predicted outcomes:", error);
     return predictions.map(p => `0x${p.probability > 50 ? '01' : '00'}`);
   }
 }
@@ -83,3 +83,4 @@ export function selectBestBid(bids: Bid[]): Bid {
 export function formatWagerAmount(wagerAmount: string): string {
   return `${parseFloat(wagerAmount) / 1e18} USDe`;
 }
+
