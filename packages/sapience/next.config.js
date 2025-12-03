@@ -10,6 +10,22 @@ module.exports = withPWA({
   swcMinify: true,
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
+  images: {
+    // Allow all remote images
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+      },
+    ],
+    // Use custom loader to handle data URIs
+    loader: 'custom',
+    loaderFile: './src/lib/imageLoader.js',
+  },
   eslint: {
     dirs: ['src'],
   },

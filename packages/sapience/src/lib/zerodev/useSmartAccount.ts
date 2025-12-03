@@ -28,7 +28,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 import { createPublicClient, http, type Address, type Hex } from 'viem';
-import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import {
   getBundlerRpc,
   getPaymasterRpc,
@@ -37,6 +36,7 @@ import {
   ZERODEV_PROJECT_ID,
   SESSION_KEY_DEFAULTS,
 } from './config';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 // Check if ZeroDev packages are available
 let createKernelAccount: any;
@@ -44,18 +44,22 @@ let createKernelAccountClient: any;
 let createZeroDevPaymasterClient: any;
 let signerToEcdsaValidator: any;
 let getEntryPoint: any;
+let KERNEL_V3_3: any;
 
 // Dynamic import to check for ZeroDev availability
 async function checkZeroDevAvailability(): Promise<boolean> {
   try {
     const sdk = await import('@zerodev/sdk');
     const ecdsa = await import('@zerodev/ecdsa-validator');
+    const constants = await import('@zerodev/sdk/constants');
 
     createKernelAccount = sdk.createKernelAccount;
     createKernelAccountClient = sdk.createKernelAccountClient;
     createZeroDevPaymasterClient = sdk.createZeroDevPaymasterClient;
-    getEntryPoint = sdk.constants.getEntryPoint;
+    getEntryPoint = constants.getEntryPoint;
     signerToEcdsaValidator = ecdsa.signerToEcdsaValidator;
+    // KERNEL_V3_3 is available from constants for EntryPoint v0.7
+    KERNEL_V3_3 = constants.KERNEL_V3_3;
 
     return true;
   } catch {
@@ -136,6 +140,7 @@ export type UseSmartAccountResult = SmartAccountState & SmartAccountActions;
  */
 export function useSmartAccount(): UseSmartAccountResult {
   const chainId = useChainIdFromLocalStorage();
+  console.log('chainId', chainId);
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -230,6 +235,9 @@ export function useSmartAccount(): UseSmartAccountResult {
         const bundlerRpc = getBundlerRpc(chainId);
         const paymasterRpc = getPaymasterRpc(chainId);
 
+        console.log('bundlerRpc', bundlerRpc);
+        console.log('paymasterRpc', paymasterRpc);
+
         if (!bundlerRpc) {
           throw new Error('ZeroDev bundler RPC not configured');
         }
@@ -242,19 +250,32 @@ export function useSmartAccount(): UseSmartAccountResult {
 
         // Get the entrypoint for v0.7
         const entryPoint = getEntryPoint('0.7');
+        console.log('entryPoint', JSON.stringify(entryPoint, null, 2));
 
+        // Ensure KERNEL_V3_3 is available (should be set during checkZeroDevAvailability)
+        if (!KERNEL_V3_3) {
+          console.log('KERNEL_V3_3 ERROR', JSON.stringify(KERNEL_V3_3, null, 2));
+          throw new Error(
+            'KERNEL_V3_3 constant not available. ZeroDev SDK may not be properly initialized.'
+          );
+        }
+        console.log('KERNEL_V3_3', JSON.stringify(KERNEL_V3_3, null, 2));
         // Create ECDSA validator from the wallet
         const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
           signer: walletClient,
           entryPoint,
+          kernelVersion: KERNEL_V3_3,
         });
 
         // Create Kernel account
+        // KernelVersion must be >= 0.3.0 for EntryPoint v0.7
+        // Use KERNEL_V3_3 constant from ZeroDev SDK (value: "0.3.3")
         const kernelAccount = await createKernelAccount(publicClient, {
           plugins: {
             sudo: ecdsaValidator,
           },
           entryPoint,
+          kernelVersion: KERNEL_V3_3,
         });
 
         // Create kernel account client
@@ -325,9 +346,9 @@ export function useSmartAccount(): UseSmartAccountResult {
   }, []);
 
   // Get the session client for signing
-  const getSessionClient = useCallback((): SmartAccountClient | null => {
+  const getSessionClient = useCallback(async (): Promise<SmartAccountClient | null> => {
     if (!hasValidSession || !kernelClient) {
-      return null;
+      return Promise.resolve(null);
     }
 
     // Wrap the kernel client in our interface

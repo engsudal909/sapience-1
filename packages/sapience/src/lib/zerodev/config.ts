@@ -102,3 +102,10 @@ export const SESSION_KEY_DEFAULTS = {
   /** Maximum session duration in seconds (7 days) */
   maxDurationSeconds: 7 * 24 * 60 * 60,
 } as const;
+
+/**
+ * Kernel version configuration
+ * - EntryPoint v0.6: KernelVersion >= 0.2.2 and <= 0.2.4
+ * - EntryPoint v0.7: KernelVersion >= 0.3.0
+ */
+export const KERNEL_VERSION = '0.3.0';

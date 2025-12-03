@@ -460,6 +460,7 @@ export function useSapienceWriteContract({
 
         // If using ZeroDev session key, use smart account for batched transactions
         if (shouldUseSessionKey) {
+          console.log('shouldUseSessionKey', shouldUseSessionKey);
           setIsSubmitting(true);
           const params = args[0];
           const {
