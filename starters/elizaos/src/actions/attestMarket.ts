@@ -87,7 +87,7 @@ export const attestMarketAction: Action = {
 Question: ${condition?.shortName || condition?.question || "Unknown"}
 {
   "probability": <number 0-100>,
-  "reasoning": "<analysis under 180 chars, lowercase>",
+  "reasoning": "<analysis under 180 chars>",
   "confidence": <number 0.0-1.0>
 }`;
         const response = await runtime.useModel(ModelType.TEXT_SMALL, {

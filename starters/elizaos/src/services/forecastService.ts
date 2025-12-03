@@ -454,7 +454,7 @@ End Date: ${endDate}
 Analyze and respond with ONLY valid JSON:
 {
   "probability": <number 0-100>,
-  "reasoning": "<analysis under 180 chars, lowercase>",
+  "reasoning": "<analysis under 180 chars>",
   "confidence": <number 0.0-1.0>
 }`;
       const response = await this.runtime.useModel(ModelType.TEXT_LARGE, {

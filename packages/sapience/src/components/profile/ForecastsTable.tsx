@@ -15,75 +15,33 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow, format, formatDistanceStrict } from 'date-fns';
-import Link from 'next/link';
-import React from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import EmptyTabState from '~/components/shared/EmptyTabState';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
+import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 import type { FormattedAttestation } from '~/hooks/graphql/useForecasts';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
-import { useSapience } from '~/lib/context/SapienceProvider';
-import {
-  getChainShortName,
-  sqrtPriceX96ToPriceD18,
-  formatNumber,
-} from '~/lib/utils/util';
-import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
-import { MarketGroupClassification } from '~/lib/types';
+import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import ShareDialog from '~/components/shared/ShareDialog';
 import { formatPercentChance } from '~/lib/format/percentChance';
 
-// Helper function to extract market address from context or props
-// Since market address is not available in the attestation data directly,
-// we'll need to use parentMarketAddress when available
-const getMarketAddressForAttestation = (
-  attestation: FormattedAttestation,
-  parentMarketAddress?: string
-): string | null => {
-  // If we have a parent market address (single market context), use it
-  if (parentMarketAddress) {
-    return parentMarketAddress.toLowerCase();
-  }
-
-  if (attestation.marketAddress) {
-    return attestation.marketAddress.toLowerCase();
-  }
-
-  return null;
-};
-
-// Helper function to extract market ID from attestation data
-const extractMarketIdHex = (
-  attestation: FormattedAttestation
-): string | null => {
-  // Use the marketId directly from the formatted attestation
-  return attestation.marketId || null;
-};
-
-// Helper function to check if market group has multiple markets
-const hasMultipleMarkets = (
-  marketAddress: string,
-  marketGroups: ReturnType<typeof useSapience>['marketGroups']
-): boolean => {
-  const marketGroup = marketGroups.find(
-    (group) => group.address?.toLowerCase() === marketAddress
-  );
-
-  return Boolean(
-    marketGroup &&
-      marketGroup.markets &&
-      Array.isArray(marketGroup.markets) &&
-      marketGroup.markets.length > 1
-  );
-};
-
-interface PredictionPositionsTableProps {
+interface ForecastsTableProps {
   attestations: FormattedAttestation[] | undefined;
-  parentMarketAddress?: string;
-  parentChainId?: number;
-  parentMarketId?: number;
 }
+
+type ConditionData = {
+  id: string;
+  question: string;
+  shortName?: string | null;
+  endTime?: number | null;
+  description?: string | null;
+  settled?: boolean;
+  resolvedToYes?: boolean;
+};
 
 const renderSubmittedCell = ({
   row,
@@ -103,156 +61,107 @@ const renderSubmittedCell = ({
     second: '2-digit',
     timeZoneName: 'short',
   });
+
+  const uid = row.original.uid;
+  const truncatedUid = uid ? `${uid.slice(0, 6)}...${uid.slice(-4)}` : '';
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (uid) {
+      await navigator.clipboard.writeText(uid);
+    }
+  };
+
   return (
     <div>
       <div className="whitespace-nowrap font-medium" title={exactLocalDisplay}>
         {createdDisplay}
       </div>
-      <div className="text-sm text-muted-foreground mt-0.5 whitespace-nowrap">
-        {exactLocalDisplay}
-      </div>
+      {uid && (
+        <div className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
+          <span className="font-mono">UID {truncatedUid}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="p-0.5 hover:text-foreground transition-colors"
+            aria-label="Copy attestation ID"
+            title="Copy attestation ID"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
 const renderPredictionCell = ({
   row,
-  marketGroups,
-  isMarketsLoading,
-  parentMarketAddress,
 }: {
   row: { original: FormattedAttestation };
-  marketGroups: ReturnType<typeof useSapience>['marketGroups'];
-  isMarketsLoading: boolean;
-  parentMarketAddress?: string;
 }) => {
-  const marketAddress = getMarketAddressForAttestation(
-    row.original,
-    parentMarketAddress
-  );
-
-  let marketGroup = undefined as
-    | (ReturnType<typeof useSapience>['marketGroups'][number] & {
-        marketClassification?: string | number;
-      })
-    | undefined;
-  if (!isMarketsLoading && marketAddress) {
-    marketGroup = marketGroups.find(
-      (group) => group.address?.toLowerCase() === marketAddress
-    );
-  }
-
-  const classification = marketGroup
-    ? getMarketGroupClassification(marketGroup)
-    : MarketGroupClassification.NUMERIC;
-
-  const baseTokenName = marketGroup?.baseTokenName || '';
-  const quoteTokenName = marketGroup?.quoteTokenName || '';
-
   const { value } = row.original; // sqrtPriceX96 as string
 
-  if (
-    classification === MarketGroupClassification.YES_NO ||
-    classification === MarketGroupClassification.MULTIPLE_CHOICE ||
-    baseTokenName.toLowerCase() === 'yes'
-  ) {
-    const priceD18 = sqrtPriceX96ToPriceD18(BigInt(value));
-    const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
-    const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
-    const percentage = Math.round(Number(percentageD2) / 100);
-
-    const shouldColor = percentage !== 50;
-    const isGreen = shouldColor && percentage > 50;
-    const isRed = shouldColor && percentage < 50;
-    const variant = shouldColor ? 'outline' : 'default';
-    const className = shouldColor
-      ? isGreen
-        ? 'border-green-500/40 bg-green-500/10 text-green-600'
-        : isRed
-          ? 'border-red-500/40 bg-red-500/10 text-red-600'
-          : ''
-      : '';
-
-    return (
-      <Badge
-        variant={variant as any}
-        className={`${className} whitespace-nowrap`}
-      >
-        {`${formatPercentChance(percentage / 100)} Chance`}
-      </Badge>
-    );
-  }
-
-  if (classification === MarketGroupClassification.NUMERIC) {
-    const numericValue = Number(
-      sqrtPriceX96ToPriceD18(BigInt(value)) / BigInt(10 ** 36)
-    );
-    const hideQuote = (quoteTokenName || '').toUpperCase().includes('USD');
-    const basePart = baseTokenName ? ` ${baseTokenName}` : '';
-    const quotePart = !hideQuote && quoteTokenName ? `/${quoteTokenName}` : '';
-    const text = `${numericValue.toString()}${basePart}${quotePart}`;
-    return (
-      <Badge variant="default" className="whitespace-nowrap">
-        {text}
-      </Badge>
-    );
-  }
+  const priceD18 = sqrtPriceX96ToPriceD18(BigInt(value));
+  const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
+  const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
+  const percentage = Math.round(Number(percentageD2) / 100);
 
   return (
-    <Badge variant="default" className="whitespace-nowrap">
-      {`${value} ${baseTokenName || ''}`.trim()}
-    </Badge>
+    <span className="font-mono text-ethena whitespace-nowrap">
+      {`${formatPercentChance(percentage / 100)} chance`}
+    </span>
   );
 };
 
 const renderQuestionCell = ({
   row,
-  marketGroups,
-  isMarketsLoading,
-  parentMarketAddress,
+  conditionsMap,
+  isConditionsLoading,
 }: {
   row: { original: FormattedAttestation };
-  marketGroups: ReturnType<typeof useSapience>['marketGroups'];
-  isMarketsLoading: boolean;
-  parentMarketAddress?: string;
+  conditionsMap?: Record<string, ConditionData>;
+  isConditionsLoading: boolean;
 }) => {
-  const marketAddress = getMarketAddressForAttestation(
-    row.original,
-    parentMarketAddress
-  );
-
-  if (isMarketsLoading) {
+  if (isConditionsLoading) {
     return <span className="text-muted-foreground">Loading question...</span>;
   }
 
-  let content: React.ReactNode = (
-    <span className="text-muted-foreground">Question not available</span>
-  );
+  const questionId = row.original.questionId;
+  let questionText: string | null = null;
+  let conditionData: ConditionData | null = null;
 
-  if (marketAddress) {
-    const marketGroup = marketGroups.find(
-      (group) => group.address?.toLowerCase() === marketAddress
-    );
-    const chainShortName = marketGroup?.chainId
-      ? getChainShortName(marketGroup.chainId)
-      : 'base';
-    const questionText = marketGroup?.question
-      ? typeof marketGroup.question === 'string'
-        ? marketGroup.question
-        : String((marketGroup as any).question?.value || marketGroup.question)
-      : undefined;
-    if (questionText) {
-      content = (
-        <Link
-          href={`/markets/${chainShortName}:${marketAddress}#forecasts`}
-          className="group"
-        >
-          <span className="underline decoration-1 decoration-foreground/10 underline-offset-4 transition-colors group-hover:decoration-foreground/60">
-            {questionText}
-          </span>
-        </Link>
-      );
+  // Look up condition by questionId
+  if (questionId && conditionsMap) {
+    const condition = conditionsMap[questionId.toLowerCase()];
+    if (condition) {
+      questionText = condition.shortName || condition.question;
+      conditionData = condition;
     }
+  }
+
+  // Build content element
+  let content: React.ReactNode;
+  if (conditionData && questionText) {
+    content = (
+      <ConditionTitleLink
+        conditionId={conditionData.id}
+        title={questionText}
+        endTime={conditionData.endTime}
+        description={conditionData.description}
+        clampLines={null}
+      />
+    );
+  } else if (questionId) {
+    content = (
+      <span className="text-muted-foreground">
+        Condition: {questionId.slice(0, 10)}...
+      </span>
+    );
+  } else {
+    content = (
+      <span className="text-muted-foreground">Question not available</span>
+    );
   }
 
   const comment = (row.original.comment || '').trim();
@@ -275,39 +184,24 @@ const renderQuestionCell = ({
 
 const renderActionsCell = ({
   row,
-  marketGroups,
-  isMarketsLoading,
-  parentMarketAddress,
+  conditionsMap,
 }: {
   row: { original: FormattedAttestation };
-  marketGroups: ReturnType<typeof useSapience>['marketGroups'];
-  isMarketsLoading: boolean;
-  parentMarketAddress?: string;
+  conditionsMap?: Record<string, ConditionData>;
 }) => {
   const createdAt = new Date(Number(row.original.rawTime) * 1000);
-  const marketAddress = getMarketAddressForAttestation(
-    row.original,
-    parentMarketAddress
-  );
+  const questionId = row.original.questionId;
 
   let questionText: string = 'Forecast on Sapience';
   let resolutionDate: Date | null = null;
-  if (!isMarketsLoading && marketAddress) {
-    const marketGroup = marketGroups.find(
-      (group) => group.address?.toLowerCase() === marketAddress
-    );
-    if (marketGroup) {
-      const q = marketGroup.question as any;
-      questionText =
-        typeof q === 'string' ? q : String(q?.value || q || questionText);
-      const marketIdHex = extractMarketIdHex(row.original);
-      const marketId = marketIdHex ? parseInt(marketIdHex, 16) : undefined;
-      const market = marketGroup.markets?.find(
-        (m: { marketId: number }) => m.marketId === marketId
-      ) as any;
-      const endTs = Number(market?.endTimestamp || 0);
-      if (endTs > 0) {
-        resolutionDate = new Date(endTs * 1000);
+
+  // Look up condition for question text and end time
+  if (questionId && conditionsMap) {
+    const condition = conditionsMap[questionId.toLowerCase()];
+    if (condition) {
+      questionText = condition.shortName || condition.question;
+      if (condition.endTime) {
+        resolutionDate = new Date(condition.endTime * 1000);
       }
     }
   }
@@ -319,7 +213,7 @@ const renderActionsCell = ({
     ? formatDistanceStrict(createdAt, resolutionDate, { unit: 'day' })
     : '—';
 
-  // Compute odds percentage like the Prediction cell
+  // Compute odds percentage
   let oddsPercent: number | null = null;
   try {
     const priceD18 = sqrtPriceX96ToPriceD18(BigInt(row.original.value));
@@ -344,11 +238,9 @@ const renderActionsCell = ({
       owner={row.original.attester}
       imagePath="/og/forecast"
       extraParams={{
-        // Human-readable fallbacks
         res: resolutionStr,
         hor: horizonStr,
         odds: oddsStr,
-        // Raw timestamps for server-side computation
         created: String(createdTsSec),
         ...(endTsSec ? { end: String(endTsSec) } : {}),
       }}
@@ -358,116 +250,33 @@ const renderActionsCell = ({
 
 const renderResolutionCell = ({
   row,
-  marketGroups,
-  isMarketsLoading,
-  parentMarketAddress,
+  conditionsMap,
 }: {
   row: { original: FormattedAttestation };
-  marketGroups: ReturnType<typeof useSapience>['marketGroups'];
-  isMarketsLoading: boolean;
-  parentMarketAddress?: string;
+  conditionsMap?: Record<string, ConditionData>;
 }) => {
-  const marketAddress = getMarketAddressForAttestation(
-    row.original,
-    parentMarketAddress
-  );
+  const questionId = row.original.questionId;
 
-  if (isMarketsLoading || !marketAddress) {
-    return (
-      <Badge variant="secondary" className="whitespace-nowrap">
-        Pending
-      </Badge>
-    );
-  }
-
-  const marketGroup = marketGroups.find(
-    (group) => group.address?.toLowerCase() === marketAddress
-  );
-
-  if (!marketGroup) {
-    return (
-      <Badge variant="secondary" className="whitespace-nowrap">
-        Pending
-      </Badge>
-    );
-  }
-
-  const classification = getMarketGroupClassification(marketGroup);
-
-  const marketIdHex = extractMarketIdHex(row.original);
-  const marketId = marketIdHex ? parseInt(marketIdHex, 16) : undefined;
-  const market = marketGroup.markets?.find(
-    (m: { marketId: number }) => m.marketId === marketId
-  );
-
-  const isSettled = Boolean(market?.settled);
-
-  if (!isSettled) {
-    return (
-      <Badge variant="secondary" className="whitespace-nowrap">
-        Pending
-      </Badge>
-    );
-  }
-
-  // Settled: compute the outcome label per classification
-  // For markets other than YES_NO/NUMERIC, fall back to Pending semantics
-  if (classification === MarketGroupClassification.MULTIPLE_CHOICE) {
-    return (
-      <Badge variant="secondary" className="whitespace-nowrap">
-        Pending
-      </Badge>
-    );
-  }
-
-  if (classification === MarketGroupClassification.YES_NO) {
-    const sp = market?.settlementPriceD18;
-    if (sp) {
-      const price = Number(sp) / 10 ** 18;
-      const isYes = price === 1;
-      const label = isYes ? 'Yes' : price === 0 ? 'No' : 'Pending';
-      if (label === 'Pending') {
+  // Look up condition for settlement status
+  if (questionId && conditionsMap) {
+    const condition = conditionsMap[questionId.toLowerCase()];
+    if (condition) {
+      if (condition.settled) {
+        const isYes = condition.resolvedToYes === true;
+        const label = isYes ? 'Yes' : 'No';
+        const className = isYes
+          ? 'border-green-500/40 bg-green-500/10 text-green-600'
+          : 'border-red-500/40 bg-red-500/10 text-red-600';
         return (
-          <Badge variant="secondary" className="whitespace-nowrap">
-            Pending
+          <Badge
+            variant="outline"
+            className={`${className} whitespace-nowrap`}
+          >
+            {label}
           </Badge>
         );
       }
-      const className = isYes
-        ? 'border-green-500/40 bg-green-500/10 text-green-600'
-        : 'border-red-500/40 bg-red-500/10 text-red-600';
-      return (
-        <Badge variant="outline" className={`${className} whitespace-nowrap`}>
-          {label}
-        </Badge>
-      );
     }
-    return (
-      <Badge variant="secondary" className="whitespace-nowrap">
-        Pending
-      </Badge>
-    );
-  }
-
-  if (classification === MarketGroupClassification.NUMERIC) {
-    const sp = market?.settlementPriceD18;
-    if (sp) {
-      const value = Number(sp) / 10 ** 18;
-      const text = `${formatNumber(value, 4)} units`;
-      return (
-        <Badge
-          variant="outline"
-          className="border-blue-500/40 bg-blue-500/10 text-blue-600 whitespace-nowrap"
-        >
-          {text}
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="secondary" className="whitespace-nowrap">
-        Pending
-      </Badge>
-    );
   }
 
   return (
@@ -477,35 +286,57 @@ const renderResolutionCell = ({
   );
 };
 
-const ForecastsTable = ({
-  attestations,
-  parentMarketAddress,
-  parentChainId,
-  parentMarketId,
-}: PredictionPositionsTableProps) => {
-  const { marketGroups, isMarketsLoading } = useSapience();
+const ForecastsTable = ({ attestations }: ForecastsTableProps) => {
+  // Collect conditionIds (questionIds) from attestations for batch fetching
+  const conditionIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const att of attestations || []) {
+      if (
+        att.questionId &&
+        typeof att.questionId === 'string' &&
+        att.questionId.startsWith('0x') &&
+        att.questionId !==
+          '0x0000000000000000000000000000000000000000000000000000000000000000'
+      ) {
+        set.add(att.questionId.toLowerCase());
+      }
+    }
+    return Array.from(set);
+  }, [attestations]);
 
-  const isMarketPage = parentMarketAddress && parentChainId && parentMarketId;
-
-  // Memoize the calculation for showing the question column
-  const shouldDisplayQuestionColumn = React.useMemo(() => {
-    // Early returns for simple conditions
-    if (isMarketPage) return false;
-    if (!attestations || attestations.length === 0) return false;
-    if (!marketGroups || marketGroups.length === 0) return false;
-
-    // Check if any attestation has a market with multiple markets
-    return attestations.some((attestation) => {
-      const marketAddress = getMarketAddressForAttestation(
-        attestation,
-        parentMarketAddress
-      );
-
-      if (!marketAddress) return false;
-
-      return hasMultipleMarkets(marketAddress, marketGroups);
-    });
-  }, [isMarketPage, attestations, marketGroups, parentMarketAddress]);
+  // Fetch condition details for condition-based forecasts
+  const { data: conditionsMap, isLoading: isConditionsLoading } = useQuery<
+    Record<string, ConditionData>
+  >({
+    queryKey: ['conditionsByIds', conditionIds.sort().join(',')],
+    enabled: conditionIds.length > 0,
+    staleTime: 60_000,
+    gcTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const query = /* GraphQL */ `
+        query ConditionsByIds($ids: [String!]) {
+          conditions(where: { id: { in: $ids } }) {
+            id
+            question
+            shortName
+            endTime
+            description
+            settled
+            resolvedToYes
+          }
+        }
+      `;
+      type Result = {
+        conditions: ConditionData[];
+      };
+      const res = await graphqlRequest<Result>(query, { ids: conditionIds });
+      const map: Record<string, ConditionData> = {};
+      for (const c of res.conditions || []) {
+        map[c.id.toLowerCase()] = c;
+      }
+      return map;
+    },
+  });
 
   const columns: ColumnDef<FormattedAttestation>[] = React.useMemo(
     () => [
@@ -527,7 +358,7 @@ const ForecastsTable = ({
                   : 'descending'
             }
           >
-            Time
+            Created
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp className="ml-1 h-4 w-4" />
             ) : column.getIsSorted() === 'desc' ? (
@@ -546,9 +377,8 @@ const ForecastsTable = ({
       {
         id: 'question',
         accessorFn: (row) => {
-          // Use comment + resolved question text for a stable string to sort on
           const comment = (row.comment || '').trim();
-          return comment.length > 0 ? comment : extractMarketIdHex(row) || '';
+          return comment.length > 0 ? comment : row.questionId || '';
         },
         header: ({ column }) => (
           <Button
@@ -578,9 +408,8 @@ const ForecastsTable = ({
         cell: (info) =>
           renderQuestionCell({
             row: info.row,
-            marketGroups,
-            isMarketsLoading,
-            parentMarketAddress,
+            conditionsMap,
+            isConditionsLoading,
           }),
       },
       {
@@ -601,7 +430,7 @@ const ForecastsTable = ({
                   : 'descending'
             }
           >
-            Prediction
+            Forecast
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp className="ml-1 h-4 w-4" />
             ) : column.getIsSorted() === 'desc' ? (
@@ -614,42 +443,17 @@ const ForecastsTable = ({
         cell: (info) =>
           renderPredictionCell({
             row: info.row,
-            marketGroups,
-            isMarketsLoading,
-            parentMarketAddress,
           }),
       },
       {
         id: 'resolution',
         accessorFn: (row) => {
-          const marketAddress = getMarketAddressForAttestation(
-            row,
-            parentMarketAddress
-          );
-          if (!marketAddress) return 'Pending';
-          const group = marketGroups.find(
-            (g) => g.address?.toLowerCase() === marketAddress
-          );
-          if (!group) return 'Pending';
-          const classification = getMarketGroupClassification(group);
-          const marketIdHex = extractMarketIdHex(row);
-          const marketId = marketIdHex ? parseInt(marketIdHex, 16) : undefined;
-          const market = group.markets?.find(
-            (m: { marketId: number }) => m.marketId === marketId
-          );
-          const isSettled = Boolean(market?.settled);
-          if (!isSettled) return 'Pending';
-          if (classification === MarketGroupClassification.YES_NO) {
-            const sp = market?.settlementPriceD18;
-            if (!sp) return 'Pending';
-            const price = Number(sp) / 10 ** 18;
-            return price === 1 ? 'Yes' : price === 0 ? 'No' : 'Pending';
-          }
-          if (classification === MarketGroupClassification.NUMERIC) {
-            const sp = market?.settlementPriceD18;
-            if (!sp) return 'Pending';
-            const value = Number(sp) / 10 ** 18;
-            return value; // Allow numeric sorting
+          const questionId = row.questionId;
+          if (questionId && conditionsMap) {
+            const condition = conditionsMap[questionId.toLowerCase()];
+            if (condition?.settled) {
+              return condition.resolvedToYes ? 'Yes' : 'No';
+            }
           }
           return 'Pending';
         },
@@ -681,26 +485,20 @@ const ForecastsTable = ({
         cell: (info) =>
           renderResolutionCell({
             row: info.row,
-            marketGroups,
-            isMarketsLoading,
-            parentMarketAddress,
+            conditionsMap,
           }),
       },
-      // Comment is now rendered under Question, so we omit a separate Comment column
       {
         id: 'actions',
         enableSorting: false,
         cell: (info) =>
           renderActionsCell({
             row: info.row,
-            marketGroups,
-            isMarketsLoading,
-            parentMarketAddress,
+            conditionsMap,
           }),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [marketGroups, isMarketsLoading, isMarketPage, shouldDisplayQuestionColumn]
+    [conditionsMap, isConditionsLoading]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -743,7 +541,7 @@ const ForecastsTable = ({
   };
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+    <div className="border-y border-border rounded-none overflow-hidden bg-brand-black">
       <Table>
         <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -790,9 +588,9 @@ const ForecastsTable = ({
                   const colId = cell.column.id;
                   const mobileLabel =
                     colId === 'value'
-                      ? 'Prediction'
+                      ? 'Forecast'
                       : colId === 'rawTime'
-                        ? 'Time'
+                        ? 'Created'
                         : undefined;
                   return (
                     <TableCell
@@ -806,7 +604,7 @@ const ForecastsTable = ({
                       {mobileLabel ? (
                         <div
                           className={`text-xs text-muted-foreground xl:hidden ${
-                            mobileLabel === 'Prediction' ? 'mb-1.5' : ''
+                            mobileLabel === 'Forecast' ? 'mb-1.5' : ''
                           }`}
                         >
                           {mobileLabel}

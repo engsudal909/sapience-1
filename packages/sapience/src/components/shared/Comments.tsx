@@ -1,52 +1,22 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { FrownIcon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import { AddressDisplay } from './AddressDisplay';
 import LottieLoader from './LottieLoader';
 import { useInfiniteForecasts } from '~/hooks/graphql/useForecasts';
 import { SCHEMA_UID } from '~/lib/constants/eas';
-import { useEnrichedMarketGroups } from '~/hooks/graphql/useMarketGroups';
-import { useConditions } from '~/hooks/graphql/useConditions';
-import { tickToPrice } from '~/lib/utils/tickUtils';
-import { sqrtPriceX96ToPriceD18, getChainShortName } from '~/lib/utils/util';
+import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import { formatRelativeTime } from '~/lib/utils/timeUtils';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { formatPercentChance } from '~/lib/format/percentChance';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
-
-// Helper function to check if a market is active
-function isMarketActive(market: any): boolean {
-  const now = Math.floor(Date.now() / 1000);
-  const start = market.startTimestamp;
-  const end = market.endTimestamp;
-
-  return (
-    market.public &&
-    typeof start === 'number' &&
-    !Number.isNaN(start) &&
-    typeof end === 'number' &&
-    !Number.isNaN(end) &&
-    now >= start &&
-    now < end
-  );
-}
-
-// Helper function to check if a condition is active
-function isConditionActive(condition: any): boolean {
-  const now = Math.floor(Date.now() / 1000);
-  const end = condition.endTime;
-
-  return (
-    condition.public &&
-    typeof end === 'number' &&
-    !Number.isNaN(end) &&
-    now < end
-  );
-}
+import MarketBadge from '~/components/markets/MarketBadge';
+import { getFocusAreaMap } from '~/lib/constants/focusAreas';
 
 export enum Answer {
   Yes = 'yes',
@@ -55,7 +25,6 @@ export enum Answer {
 
 export enum CommentFilters {
   SelectedQuestion = 'selected',
-  AllMultichoiceQuestions = 'all-multichoice-questions',
   FilterByAccount = 'my-predictions',
   EconomyFinanceCategory = 'economy-finance',
   DecentralizedComputeCategory = 'crypto',
@@ -68,6 +37,15 @@ export enum CommentFilters {
   AthleticsCategory = 'sports',
 }
 
+type ConditionData = {
+  id: string;
+  question: string;
+  shortName?: string | null;
+  endTime?: number | null;
+  description?: string | null;
+  category?: { slug?: string | null } | null;
+};
+
 interface Comment {
   id: string;
   address: string;
@@ -78,18 +56,9 @@ interface Comment {
   question: string;
   category?: string;
   answer: Answer;
-  marketClassification?: string;
-  optionIndex?: number;
-  totalOptions?: number;
-  numericValue?: number;
-  lowerBound?: number;
-  upperBound?: number;
-  isActive?: boolean;
-  marketAddress?: string;
-  marketId?: string;
-  chainShortName?: string;
-  isParlayCondition?: boolean;
   conditionId?: string;
+  endTime?: number | null;
+  description?: string | null;
 }
 
 interface CommentsProps {
@@ -99,177 +68,67 @@ interface CommentsProps {
   selectedCategory?: CommentFilters | null;
   address?: string | null;
   refetchTrigger?: number;
-  marketGroupAddress?: string | null;
   fullBleed?: boolean;
 }
 
-// Helper to extract decoded data from attestation, handling .decodedData, .value.value, etc.
+// Helper to extract decoded data from attestation
 function getDecodedDataFromAttestation(att: any): {
-  marketAddress: string;
-  marketId: number;
   prediction: bigint;
   commentText: string;
 } {
   return {
-    marketAddress: att.marketAddress,
-    marketId: att.marketId,
     prediction: BigInt(att.value),
     commentText: att.comment,
   };
 }
 
-// Helper to parse EAS attestation data to Comment type for SCHEMA_UID
+// Helper to parse EAS attestation data to Comment type
 function attestationToComment(
   att: any,
-  marketGroups: any[] | undefined,
-  conditions: any[] | undefined
+  conditionsMap: Record<string, ConditionData> | undefined,
+  isConditionsLoading: boolean
 ): Comment {
-  // Schema: address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment
-  const { marketAddress, marketId, prediction, commentText } =
-    getDecodedDataFromAttestation(att);
+  const { prediction, commentText } = getDecodedDataFromAttestation(att);
 
   // Extract questionId from the attestation
   const questionId = att.questionId;
 
-  // Find the category, question, and marketClassification using marketGroups or conditions
+  // Find the condition data using questionId
   let category: string | undefined = undefined;
-  let question: string = marketId?.toString() || '';
-  let marketClassification: string | undefined = undefined;
-  let baseTokenName: string | undefined = undefined;
-  let quoteTokenName: string | undefined = undefined;
-  let optionIndex: number | undefined = undefined;
-  let totalOptions: number | undefined = undefined;
-  let numericValue: number | undefined = undefined;
-  let lowerBound: number | undefined = undefined;
-  let upperBound: number | undefined = undefined;
-  let isActive: boolean = false;
-  let chainShortName: string | undefined = undefined;
+  let question: string = isConditionsLoading
+    ? 'Loading question...'
+    : 'Unknown question';
+  let endTime: number | null | undefined = undefined;
+  let description: string | null | undefined = undefined;
 
-  // Check if this is a parlay condition attestation (questionId != 0x0000...)
+  // Look up condition by questionId
   const isZeroQuestionId =
     !questionId ||
     questionId ===
       '0x0000000000000000000000000000000000000000000000000000000000000000';
-  const isParlayCondition =
-    !isZeroQuestionId &&
-    marketId?.toString() === '0' &&
-    marketAddress?.toLowerCase() ===
-      '0x0000000000000000000000000000000000000000';
 
-  if (isParlayCondition && conditions && questionId) {
-    // This is a parlay condition attestation - look up condition data
-    const condition = conditions.find(
-      (c) => c.id?.toLowerCase() === questionId.toLowerCase()
-    );
+  if (!isZeroQuestionId && conditionsMap && questionId) {
+    const condition = conditionsMap[questionId.toLowerCase()];
     if (condition) {
       question = condition.shortName || condition.question;
-      category = condition.category?.slug;
-      isActive = isConditionActive(condition);
-      chainShortName = getChainShortName(condition.chainId || 42161); // Default to Arbitrum
-      marketClassification = '2'; // Treat parlay conditions as YES_NO markets
-    }
-  } else if (marketGroups && marketAddress && marketId) {
-    // This is a regular market attestation - look up market group data
-    const group = marketGroups.find(
-      (g) => g.address?.toLowerCase() === marketAddress.toLowerCase()
-    );
-    if (group) {
-      if (group.chainId !== undefined) {
-        chainShortName = getChainShortName(group.chainId);
-      }
-      // Find the market in the group
-      const market = group.markets?.find(
-        (m: any) => m.marketId?.toString() === marketId?.toString()
-      );
-      // Check if the market is active
-      if (market) {
-        isActive = isMarketActive(market);
-      }
-      if (market && market.question) {
-        if (typeof market.question === 'string') {
-          question = market.question;
-        } else if (market.question.value) {
-          question = String(market.question.value);
-        } else {
-          question = String(market.question);
-        }
-      }
-      if (market && group.category?.slug) {
-        category = group.category.slug;
-      } else if (group.category?.slug) {
-        category = group.category.slug;
-      }
-      if (group.marketClassification) {
-        marketClassification = group.marketClassification;
-      }
-      if (group.baseTokenName) baseTokenName = group.baseTokenName;
-      if (group.quoteTokenName) quoteTokenName = group.quoteTokenName;
-      // Multiple choice: find index and total
-      if (marketClassification === '1' && group.markets) {
-        optionIndex = group.markets.findIndex(
-          (m: any) => m.marketId?.toString() === marketId?.toString()
-        );
-        totalOptions = group.markets.length;
-      }
-      // Numeric: get value and bounds
-      if (marketClassification === '3' && market) {
-        numericValue = Number(
-          sqrtPriceX96ToPriceD18(prediction) / BigInt(10 ** 36)
-        );
-        lowerBound =
-          market.baseAssetMinPriceTick !== undefined
-            ? Number(market.baseAssetMinPriceTick)
-            : undefined;
-        upperBound =
-          market.baseAssetMaxPriceTick !== undefined
-            ? Number(market.baseAssetMaxPriceTick)
-            : undefined;
-      }
+      category = condition.category?.slug || undefined;
+      endTime = condition.endTime;
+      description = condition.description;
     }
   }
 
-  // Format prediction text based on market type
+  // Format prediction text - all condition forecasts are YES_NO
   let predictionText = '';
   let predictionPercent: number | undefined = undefined;
-  if (marketClassification === '2') {
-    // YES_NO - show percentage chance
-    const priceD18 = sqrtPriceX96ToPriceD18(prediction);
-    const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
-    const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
-    predictionPercent = Math.round(Number(percentageD2) / 100);
-    {
-      const prob = Number.isFinite(predictionPercent)
-        ? Number(predictionPercent) / 100
-        : NaN;
-      predictionText = `${formatPercentChance(prob)} Chance`;
-    }
-  } else if (marketClassification === '1') {
-    // MULTIPLE_CHOICE - show percentage chance for yes/no within multiple choice
 
-    const priceD18 = sqrtPriceX96ToPriceD18(prediction);
-    const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
-    const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
-    predictionPercent = Math.round(Number(percentageD2) / 100);
-    {
-      const prob = Number.isFinite(predictionPercent)
-        ? Number(predictionPercent) / 100
-        : NaN;
-      predictionText = `${formatPercentChance(prob)} Chance`;
-    }
-  } else if (marketClassification === '3') {
-    // NUMERIC - show numeric value
-    const hideQuote = (quoteTokenName || '').toUpperCase().includes('USD');
-    const basePart = baseTokenName ? ` ${baseTokenName}` : '';
-    const quotePart = !hideQuote && quoteTokenName ? `/${quoteTokenName}` : '';
-    predictionText = `${numericValue?.toString()}${basePart}${quotePart}`;
-  } else {
-    // Fallback
-    const prob =
-      typeof numericValue === 'number' && Number.isFinite(numericValue)
-        ? numericValue / 100
-        : NaN;
-    predictionText = `${formatPercentChance(prob)} Chance`;
-  }
+  const priceD18 = sqrtPriceX96ToPriceD18(prediction);
+  const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
+  const percentageD2 = (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
+  predictionPercent = Math.round(Number(percentageD2) / 100);
+  const prob = Number.isFinite(predictionPercent)
+    ? Number(predictionPercent) / 100
+    : NaN;
+  predictionText = `${formatPercentChance(prob)} Chance`;
 
   return {
     id: att.id,
@@ -278,21 +137,12 @@ function attestationToComment(
     timestamp: new Date(Number(att.rawTime) * 1000).toISOString(),
     prediction: predictionText,
     predictionPercent,
-    answer: Answer.Yes, // Not available in this schema, default to Yes
+    answer: Answer.Yes,
     question,
     category,
-    marketClassification,
-    optionIndex,
-    totalOptions,
-    numericValue,
-    lowerBound,
-    upperBound,
-    isActive,
-    marketAddress,
-    marketId: marketId?.toString(),
-    chainShortName,
-    isParlayCondition,
-    conditionId: isParlayCondition ? questionId : undefined,
+    conditionId: isZeroQuestionId ? undefined : questionId,
+    endTime,
+    description,
   };
 }
 
@@ -302,7 +152,6 @@ const Comments = ({
   selectedCategory: selectedFilter = null,
   address = null,
   refetchTrigger,
-  marketGroupAddress,
   fullBleed = false,
 }: CommentsProps) => {
   // Fetch EAS attestations
@@ -332,58 +181,87 @@ const Comments = ({
     }
   }, [refetchTrigger, refetch]);
 
-  // Fetch all market groups for category lookup
-  const { data: marketGroups } = useEnrichedMarketGroups
-    ? useEnrichedMarketGroups()
-    : { data: undefined };
+  // Collect unique conditionIds from attestations for batch fetching
+  const conditionIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const att of easAttestations || []) {
+      const questionId = att.questionId;
+      if (
+        questionId &&
+        typeof questionId === 'string' &&
+        questionId.startsWith('0x') &&
+        questionId !==
+          '0x0000000000000000000000000000000000000000000000000000000000000000'
+      ) {
+        set.add(questionId.toLowerCase());
+      }
+    }
+    return Array.from(set);
+  }, [easAttestations]);
 
-  // Fetch all conditions for parlay condition lookup
-  const { data: conditions } = useConditions({ chainId: 42161 });
+  // Fetch condition details for the attestations
+  const { data: conditionsMap, isLoading: isConditionsLoading } = useQuery<
+    Record<string, ConditionData>
+  >({
+    queryKey: ['conditionsByIds', conditionIds.sort().join(',')],
+    enabled: conditionIds.length > 0,
+    staleTime: 60_000,
+    gcTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const query = /* GraphQL */ `
+        query ConditionsByIds($ids: [String!]) {
+          conditions(where: { id: { in: $ids } }) {
+            id
+            question
+            shortName
+            endTime
+            description
+            category {
+              slug
+            }
+          }
+        }
+      `;
+      type Result = {
+        conditions: ConditionData[];
+      };
+      const res = await graphqlRequest<Result>(query, { ids: conditionIds });
+      const map: Record<string, ConditionData> = {};
+      for (const c of res.conditions || []) {
+        map[c.id.toLowerCase()] = c;
+      }
+      return map;
+    },
+  });
 
   // Convert EAS attestations to Comment objects with category
-  const easComments: Comment[] = (easAttestations || []).map((att) =>
-    attestationToComment(att, marketGroups, conditions)
+  const easComments: Comment[] = useMemo(
+    () =>
+      (easAttestations || []).map((att) =>
+        attestationToComment(att, conditionsMap, isConditionsLoading)
+      ),
+    [easAttestations, conditionsMap, isConditionsLoading]
   );
 
   // Filter comments based on selected category and question
-  const displayComments = (() => {
+  const displayComments = useMemo(() => {
     let filtered = easComments;
 
-    // Filter by category if one is selected (but not for 'selected' tab)
+    // Filter by category if one is selected (but not for 'selected' tab or account filter)
     if (
       selectedFilter &&
       selectedFilter !== CommentFilters.SelectedQuestion &&
-      selectedFilter !== CommentFilters.FilterByAccount &&
-      selectedFilter !== CommentFilters.AllMultichoiceQuestions
+      selectedFilter !== CommentFilters.FilterByAccount
     ) {
       filtered = filtered.filter(
         (comment) => comment.category === selectedFilter
       );
     }
 
-    // Filter by address if 'my-predictions' tab is selected
-
-    // Filter by question prop if set (but not for AllMultichoiceQuestions)
-    if (
-      question &&
-      selectedFilter !== null &&
-      selectedFilter !== CommentFilters.AllMultichoiceQuestions
-    ) {
+    // Filter by question prop if set
+    if (question && selectedFilter !== null) {
       filtered = filtered.filter((comment) => {
         return comment.question === question;
-      });
-    }
-
-    // Filter by marketGroupAddress if AllMultichoiceQuestions is selected
-    if (
-      selectedFilter === CommentFilters.AllMultichoiceQuestions &&
-      marketGroupAddress
-    ) {
-      filtered = filtered.filter((comment) => {
-        return (
-          comment.marketAddress?.toLowerCase() ===
-          marketGroupAddress.toLowerCase()
-        );
       });
     }
 
@@ -395,30 +273,8 @@ const Comments = ({
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
 
-    // Filter out numeric comments outside the range
-    filtered = filtered.filter((comment) => {
-      if (
-        comment.marketClassification === '3' &&
-        comment.numericValue !== undefined &&
-        comment.lowerBound !== undefined &&
-        comment.upperBound !== undefined
-      ) {
-        const min = tickToPrice(comment.lowerBound);
-        const max = tickToPrice(comment.upperBound);
-        const val = comment.numericValue;
-        return val >= min && val <= max;
-      }
-      return true;
-    });
-
-    // Filter out inactive comments
-    filtered = filtered.filter((comment) => {
-      // For attestation comments (from EAS), check if the market is active
-      return comment.isActive !== false;
-    });
-
     return filtered;
-  })();
+  }, [easComments, selectedFilter, question]);
 
   // Infinite scroll: observe the last rendered comment
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -441,6 +297,11 @@ const Comments = ({
     [fetchNextPage, hasNextPage]
   );
 
+  const isLoading = isEasLoading || isConditionsLoading;
+
+  // Get focus area map for category colors
+  const focusAreaMap = useMemo(() => getFocusAreaMap(), []);
+
   return (
     <div className={`${className || ''}`}>
       {selectedFilter === CommentFilters.SelectedQuestion && !question && (
@@ -451,7 +312,7 @@ const Comments = ({
       )}
       {!(selectedFilter === CommentFilters.SelectedQuestion && !question) && (
         <>
-          {isEasLoading ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16">
               <LottieLoader width={32} height={32} />
             </div>
@@ -475,30 +336,32 @@ const Comments = ({
                       <div
                         className={`${fullBleed ? 'px-10' : 'px-6'} py-5 ${hasText ? 'space-y-4' : 'space-y-3'}`}
                       >
-                        {/* Question and Prediction */}
-                        <div className="space-y-3">
-                          {comment.isParlayCondition ? (
-                            <ConditionTitleLink
-                              conditionId={comment.conditionId}
-                              title={comment.question}
-                              className="font-medium"
-                              clampLines={null}
+                        {/* Question with category icon */}
+                        <div className="flex items-start gap-2.5">
+                          {comment.category && (
+                            <MarketBadge
+                              label={comment.question}
+                              size={28}
+                              color={focusAreaMap.get(comment.category)?.color}
+                              categorySlug={comment.category}
                             />
-                          ) : comment.marketAddress ? (
-                            <Link
-                              href={`/markets/${comment.chainShortName || 'arb1'}:${comment.marketAddress.toLowerCase()}#forecasts`}
-                              className="group"
-                            >
-                              <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors group-hover:decoration-brand-white/80 break-words whitespace-normal">
+                          )}
+                          <div className="flex-grow min-w-0">
+                            {comment.conditionId ? (
+                              <ConditionTitleLink
+                                conditionId={comment.conditionId}
+                                title={comment.question}
+                                endTime={comment.endTime}
+                                description={comment.description}
+                                className="font-medium"
+                                clampLines={null}
+                              />
+                            ) : (
+                              <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors break-words whitespace-normal">
                                 {comment.question}
                               </div>
-                            </Link>
-                          ) : (
-                            <div className="font-mono font-medium text-brand-white underline decoration-dotted decoration-1 decoration-brand-white/40 underline-offset-4 transition-colors break-words whitespace-normal">
-                              {comment.question}
-                            </div>
-                          )}
-                          {/* Meta row is rendered below content */}
+                            )}
+                          </div>
                         </div>
                         {/* Comment content */}
                         {(comment.content || '').trim().length > 0 && (
@@ -514,8 +377,6 @@ const Comments = ({
                         >
                           {comment.prediction &&
                             (() => {
-                              const isNumericMarket =
-                                comment.marketClassification === '3';
                               const percent = comment.predictionPercent;
                               const baseClasses =
                                 'px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 uppercase font-mono';
@@ -523,11 +384,7 @@ const Comments = ({
                               let variant: 'default' | 'outline' = 'default';
                               let className = baseClasses;
 
-                              if (isNumericMarket) {
-                                className =
-                                  baseClasses +
-                                  ' bg-secondary text-secondary-foreground';
-                              } else if (
+                              if (
                                 typeof percent === 'number' &&
                                 percent !== 50
                               ) {

@@ -617,18 +617,10 @@ const MarketGroupPageContent = () => {
                         <div className="space-y-4">
                           {isPastEnd ? (
                             <Comments
-                              selectedCategory={
-                                marketClassification ===
-                                MarketGroupClassification.MULTIPLE_CHOICE
-                                  ? CommentFilters.AllMultichoiceQuestions
-                                  : CommentFilters.SelectedQuestion
-                              }
+                              selectedCategory={CommentFilters.SelectedQuestion}
                               question={activeMarket?.question?.toString()}
                               address={authenticatedAddress}
                               refetchTrigger={userPositionsTrigger}
-                              marketGroupAddress={
-                                marketGroupData?.address || null
-                              }
                               fullBleed
                             />
                           ) : (
@@ -643,18 +635,10 @@ const MarketGroupPageContent = () => {
                               />
                               {/* Comments */}
                               <Comments
-                                selectedCategory={
-                                  marketClassification ===
-                                  MarketGroupClassification.MULTIPLE_CHOICE
-                                    ? CommentFilters.AllMultichoiceQuestions
-                                    : CommentFilters.SelectedQuestion
-                                }
+                                selectedCategory={CommentFilters.SelectedQuestion}
                                 question={activeMarket?.question?.toString()}
                                 address={authenticatedAddress}
                                 refetchTrigger={userPositionsTrigger}
-                                marketGroupAddress={
-                                  marketGroupData?.address || null
-                                }
                                 fullBleed
                               />
                             </>
