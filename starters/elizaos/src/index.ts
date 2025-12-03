@@ -6,7 +6,7 @@ import {
 } from "@elizaos/core";
 import customActionsPlugin from "./plugin";
 import { character } from "./character";
-import { AttestationService } from "./services/attestationService";
+import { ForecastService } from "./services/forecastService";
 import dotenv from "dotenv";
 
 // Load environment variables
@@ -28,9 +28,9 @@ const initCharacter = async ({ runtime }: { runtime: IAgentRuntime }) => {
     } as any);
   }
 
-  // Initialize AttestationService - it will wait for Sapience plugin and auto-start if enabled
-  new AttestationService(runtime);
-  logger.info("🤖 AttestationService initialization started");
+  // Initialize ForecastService - it will wait for Sapience plugin and auto-start if enabled
+  new ForecastService(runtime);
+  logger.info("🤖 ForecastService initialization started");
 };
 
 export const projectAgent: ProjectAgent = {
