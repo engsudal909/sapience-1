@@ -24,7 +24,7 @@ export interface MarketPredictionRequestProps {
   eager?: boolean;
 }
 
-const ONE_DOLLAR = BigInt(10 ** 18);
+const ONE_DOLLAR_18D = BigInt(10 ** 18);
 
 const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   conditionId,
@@ -122,7 +122,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           return best;
         }
       }, list[0]);
-      const taker = BigInt(String(lastTakerWagerWei || '0')) === 0n ? ONE_DOLLAR : BigInt(String(lastTakerWagerWei || '0'));
+      
+      const taker = BigInt(String(lastTakerWagerWei || '0')) || ONE_DOLLAR_18D;
       const maker = BigInt(String(best?.makerWager || '0'));
       const denom = maker + taker;
       const prob = denom > 0n ? Number(taker) / Number(denom) : 0.5;
