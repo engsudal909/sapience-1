@@ -2,9 +2,13 @@
 
 This script builds on the [forecasting agent](/builder-guide/guides/forecasting-agent) to execute trades based on a single prediction.
 
+:::warning
+Check your local regulations. Start with small amounts and monitor performance. Use a dedicated wallet for your agent and never commit your private key to source control.
+:::
+
 ### How It Works
 
-1. **Fetch a Market** - Gets one active prediction market
+1. **Fetch a Question** - Gets one active condition (question)
 2. **Generate Forecast** - Uses an LLM to predict probability
 3. **Trade** - If probability is above 50%, trade YES; below 50%, trade NO
 4. **Start Auction** - Broadcasts request via WebSocket to market makers
@@ -59,18 +63,31 @@ const WAGER = '1000000000000000000'; // 1 USDe (18 decimals)
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
 
-// 1. Fetch one active market from Sapience API
-async function fetchMarket() {
+// 1. Fetch one active condition from Sapience API
+async function fetchCondition() {
+  const nowSec = Math.floor(Date.now() / 1000);
   const query = gql`
-    query {
-      markets(where: { question_not: null }, orderBy: endTimestamp, first: 1) {
+    query Conditions($chainId: Int, $nowSec: Int) {
+      conditions(
+        where: { 
+          chainId: { equals: $chainId }
+          public: { equals: true }
+          endTime: { gt: $nowSec }
+        }
+        orderBy: { endTime: asc }
+        take: 1
+      ) {
         id
         question
+        shortName
       }
     }
   `;
-  const { markets } = await graphqlRequest<{ markets: any[] }>(query);
-  return markets[0];
+  const { conditions } = await graphqlRequest<{ conditions: any[] }>(query, {
+    chainId: CHAIN_ID_ETHEREAL,
+    nowSec,
+  });
+  return conditions[0];
 }
 
 // 2. Generate forecast using LLM
@@ -179,13 +196,14 @@ async function executeTrade(bid: any) {
 
 // Main
 async function main() {
-  // 1. Fetch one market
-  console.log('Fetching market...');
-  const market = await fetchMarket();
-  console.log(`\nMarket: ${market.question}`);
+  // 1. Fetch one condition
+  console.log('Fetching condition...');
+  const condition = await fetchCondition();
+  const question = condition.shortName || condition.question;
+  console.log(`\nCondition: ${question}`);
 
   // 2. Generate forecast
-  const forecast = await generateForecast(market.question);
+  const forecast = await generateForecast(question);
   const position = forecast.probability > 50 ? 'YES' : 'NO';
   console.log(`Forecast: ${forecast.probability}% - ${forecast.reasoning}`);
   console.log(`Trading: ${position}\n`);
@@ -195,7 +213,7 @@ async function main() {
   await approveTokens();
 
   // 4. Start auction
-  const encodedOutcomes = encodePrediction(market.id, forecast.probability);
+  const encodedOutcomes = encodePrediction(condition.id, forecast.probability);
   const takerNonce = Date.now();
   let auctionId: string | null = null;
 

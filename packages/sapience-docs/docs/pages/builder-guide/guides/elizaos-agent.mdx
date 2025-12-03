@@ -1,4 +1,9 @@
-## ElizaOS Forecasting Agent
+---
+title: "ElizaOS Agent"
+description: "Deploy an autonomous forecasting and trading agent with the ElizaOS framework."
+---
+
+# ElizaOS Agent
 
 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
   <a href="https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos">
@@ -6,9 +11,9 @@
   </a>
 </div>
 
-The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) is a complete autonomous forecasting agent built with the [ElizaOS framework](https://elizaos.ai/). It can generate forecasts on prediction markets, publish onchain attestations, and execute trades through Sapience's auction system.
+The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) is a complete autonomous forecasting agent built with the [ElizaOS framework](https://elizaos.ai/). It can generate forecasts on prediction markets, publish forecasts onchain (Arbitrum), and execute trades through Sapience's auction system (Ethereal).
 
-### Quick Start
+## Quick Start
 
 Clone the starter repository and install dependencies:
 
@@ -26,13 +31,13 @@ bun run dev
 
 This launches the ElizaOS runtime with a chat interface where you can interact with your agent.
 
-### Configuration
+## Configuration
 
 Create a `.env` file in the `starters/elizaos` directory with your API keys.
 
 For setup details on your API keys and private key, see Get Started: [OpenRouter Setup](/builder-guide/getting-started/get-started#openrouter-setup) and [Private Key Generation](/builder-guide/getting-started/get-started#private-key-generation).
 
-#### Required Keys
+### Required Keys
 
 | Variable | Notes |
 | --- | --- |
@@ -48,22 +53,11 @@ EVM_PRIVATE_KEY=0x...your-private-key
 
 Without a private key, the agent still generates forecasts—they just won't be submitted onchain.
 
-### Chatting with Your Agent
+## Actions
 
-Once running, you can chat with the agent directly. It understands forecasting concepts and can answer questions about prediction markets, probabilities, and market analysis.
+### Forecast
 
-Try asking things like:
-- "What do you think about the likelihood of X happening?"
-- "How should I think about this prediction market?"
-- "What factors would influence the probability of Y?"
-
-The agent responds with calibrated probability estimates and evidence-based rationale.
-
-### Actions
-
-#### Forecast Action
-
-Trigger a forecast cycle that analyzes prediction markets and publishes onchain attestations:
+Trigger a forecast cycle that analyzes prediction markets and publishes onchain attestations on **Arbitrum**:
 
 ```
 forecast sapience prediction markets
@@ -73,43 +67,26 @@ The agent will:
 1. Fetch active prediction markets from Sapience
 2. Analyze each market using the configured LLM
 3. Generate probability estimates with confidence levels
-4. Submit forecasts as onchain attestations (if a private key is configured)
+4. Submit forecasts as EAS attestations on Arbitrum (if a private key is configured)
 
-#### Trade Action
+### Trade
 
-Execute trades on prediction markets based on the agent's analysis:
+Execute trades on prediction markets on **Ethereal** based on the agent's analysis:
 
 ```
 trade sapience prediction markets
 ```
 
-Or use:
-- `run trade`
-- `trade markets`
-- `execute trades`
-
 The agent will:
 1. Analyze markets for high-confidence trading opportunities
-2. Identify predictions from different categories (required for parlay trades)
+2. Identify predictions from different categories
 3. Start an auction on the Sapience auction rail
 4. Accept the best bid from market makers
-5. Execute the trade onchain
+5. Execute the trade on Ethereal
 
-**Note:** Trading requires USDe tokens in your wallet on Arbitrum.
+**Note:** Trading requires USDe tokens in your wallet on [Ethereal](https://ethereal.trade) (chain ID `5064014`).
 
-#### Autonomous Mode
-
-Control whether the agent runs forecast and trade cycles automatically:
-
-| Command | Description |
-| --- | --- |
-| `start auto` | Start autonomous mode |
-| `stop auto` | Stop autonomous mode |
-| `agent status` | View current status and available commands |
-
-### Customization
-
-#### Autonomous Mode
+## Autonomous Mode
 
 Enable automatic forecast and trade cycles by setting the `AUTONOMOUS_MODE` environment variable:
 
@@ -124,7 +101,13 @@ AUTONOMOUS_MODE=trade
 AUTONOMOUS_MODE=forecast,trade
 ```
 
-#### Forecast Settings
+See [Deployment](#deployment) for instructions on deploying with autonomous mode enabled.
+
+## Customization
+
+### Forecast Settings (Arbitrum)
+
+Forecasts are attested on Arbitrum chain (ID `42161`).
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -133,8 +116,11 @@ AUTONOMOUS_MODE=forecast,trade
 | `FORECAST_BATCH_SIZE` | `5` | Number of markets to process per cycle |
 | `PROBABILITY_CHANGE_THRESHOLD` | `10` | Percentage change required for re-forecasting |
 | `MIN_HOURS_BETWEEN_FORECASTS` | `24` | Hours between forecasts on same market |
+| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum RPC endpoint |
 
-#### Trading Settings
+### Trading Settings (Ethereal)
+
+Trading executes on Ethereal chain (ID `5064014`).
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -142,16 +128,9 @@ AUTONOMOUS_MODE=forecast,trade
 | `MIN_TRADING_CONFIDENCE` | `0.6` | Minimum confidence for predictions |
 | `TRADING_MARKETS_FETCH_LIMIT` | `100` | Number of markets to fetch from GraphQL |
 | `TRADING_AUCTION_TIMEOUT_MS` | `300000` | Auction timeout in milliseconds (5 minutes) |
+| `TRADING_RPC_URL` | `https://rpc.ethereal.trade` | Ethereal RPC endpoint |
 
-#### Network & Contracts
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum RPC endpoint |
-| `PREDICTION_MARKET_ADDRESS` | `0xb04841cad1147675505816e2ec5c915430857b40` | PredictionMarket contract |
-| `USDE_TOKEN_ADDRESS` | `0xfEb8C4d5eFbaFf6e928eA090Bc660c363f883DBA` | USDe collateral token |
-
-#### Customize the Agent Persona
+### Customize the Agent Persona
 
 Edit `src/character.ts` to customize your agent's personality and behavior:
 
@@ -172,7 +151,7 @@ Key areas to customize:
 - `bio` and `lore`: Background information the agent uses for context
 - `style`: Formatting and tone guidelines
 
-#### Change the Model
+### Change the Model
 
 The default model is `openai/gpt-4o-search-preview` via OpenRouter. To change it, edit `src/character.ts`:
 
@@ -186,11 +165,9 @@ settings: {
 
 Or set via environment variable for quick testing.
 
----
+## Deployment
 
-### Deployment
-
-#### One-Click Deploy
+### One-Click Deploy
 
 Deploy to [Railway](https://railway.com/) in minutes:
 
@@ -201,7 +178,7 @@ After deploying:
 2. Set `AUTONOMOUS_MODE=forecast` (or `forecast,trade`) to enable automatic operation
 3. Your agent will begin running forecast cycles automatically
 
-#### Eject to Your Own Repository
+### Eject to Your Own Repository
 
 Once deployed on Railway, you can eject the code to your own GitHub repository for full customization.
 
@@ -240,7 +217,7 @@ bun run dev
 
 5. Push changes to your repo. Enable Autodeploy in Railway so pushes trigger automatic redeployments.
 
-#### Manual Deployment
+### Manual Deployment
 
 For other platforms or manual deployment, see the [Railway CLI guide](https://docs.railway.com/guides/cli) or build the project directly:
 

@@ -219,12 +219,7 @@ const UserPositionsTable: React.FC<UserPositionsTableProps> = ({
         )}
 
         <TabsContent value="forecasts">
-          <ForecastsTable
-            attestations={safeAttestations}
-            parentMarketAddress={marketAddress}
-            parentChainId={chainId}
-            parentMarketId={marketId}
-          />
+          <ForecastsTable attestations={safeAttestations} />
         </TabsContent>
       </Tabs>
     </div>

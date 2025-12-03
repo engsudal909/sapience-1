@@ -132,11 +132,10 @@ export function formatMoney(numStr: string): string {
   return addThousandsSeparators(numStr);
 }
 
-// Normalize currency symbols used on OG cards. If empty or USDe, fallback to testUSDe.
+// Normalize currency symbols used on OG cards. Default to USDe if empty.
 export function normalizeSymbol(symbol?: string | null): string {
   const s = (symbol || '').trim();
-  if (!s) return 'testUSDe';
-  if (s.toLowerCase() === 'usde') return 'testUSDe';
+  if (!s) return 'USDe';
   return s;
 }
 

@@ -887,7 +887,7 @@ const TerminalPageContent: React.FC = () => {
                           >
                             Make a prediction
                           </a>{' '}
-                          to see an auction here.
+                          in another window to see an auction here
                         </p>
                       </div>
                     </div>

@@ -1,7 +1,7 @@
 import { elizaLogger, IAgentRuntime, ModelType } from "@elizaos/core";
 import { getApiEndpoints } from "../utils/blockchain.js";
 
-interface ParlayPrediction {
+interface TradingPrediction {
   marketId: string;
   market: any;
   probability: number;
@@ -10,21 +10,17 @@ interface ParlayPrediction {
   outcome: boolean;
 }
 
-let lastParlayTimestamp = 0;
-
-export class ParlayMarketService {
+export class TradingMarketService {
   private runtime: IAgentRuntime;
-  private readonly MIN_CONFIDENCE_THRESHOLD = parseFloat(process.env.MIN_PARLAY_CONFIDENCE || "0.6");
-  private readonly MIN_HOURS_BETWEEN_PARLAYS = parseFloat(process.env.MIN_HOURS_BETWEEN_PARLAYS || "24");
-  private readonly MIN_PREDICTION_CHANGE = parseFloat(process.env.MIN_PARLAY_PREDICTION_CHANGE || "10");
+  private readonly MIN_CONFIDENCE_THRESHOLD = parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6");
   
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
   }
 
-  async fetchParlayMarkets(): Promise<any[]> {
+  async fetchTradingMarkets(): Promise<any[]> {
     try {
-      elizaLogger.info("[ParlayMarket] Fetching parlay conditions from GraphQL API");
+      elizaLogger.info("[TradingMarket] Fetching trading conditions from GraphQL API");
       
       const { sapienceGraphql } = getApiEndpoints();
       const query =  /* GraphQL */ `
@@ -56,38 +52,38 @@ export class ParlayMarketService {
         body: JSON.stringify({
           query,
           variables: { 
-            take: parseInt(process.env.PARLAY_MARKETS_FETCH_LIMIT || "100"), 
-            skip: parseInt(process.env.PARLAY_MARKETS_SKIP || "0") 
+            take: parseInt(process.env.TRADING_MARKETS_FETCH_LIMIT || "100"), 
+            skip: parseInt(process.env.TRADING_MARKETS_SKIP || "0") 
           }
         })
       });
 
       const responseText = await response.text();
-      elizaLogger.info(`[ParlayMarket] GraphQL response status: ${response.status}`);
-      elizaLogger.info(`[ParlayMarket] GraphQL response preview: ${responseText.substring(0, 200)}...`);
+      elizaLogger.info(`[TradingMarket] GraphQL response status: ${response.status}`);
+      elizaLogger.info(`[TradingMarket] GraphQL response preview: ${responseText.substring(0, 200)}...`);
       
       if (!response.ok) {
-        elizaLogger.error(`[ParlayMarket] GraphQL request failed with status ${response.status}`);
+        elizaLogger.error(`[TradingMarket] GraphQL request failed with status ${response.status}`);
         return [];
       }
       
       const data = JSON.parse(responseText);
       
       if (data.errors) {
-        elizaLogger.error(`[ParlayMarket] GraphQL errors: ${JSON.stringify(data.errors)}`);
+        elizaLogger.error(`[TradingMarket] GraphQL errors: ${JSON.stringify(data.errors)}`);
         return [];
       }
       
       const conditions = data.data?.conditions || [];
       
       if (conditions.length === 0) {
-        elizaLogger.warn("[ParlayMarket] No conditions found in GraphQL response");
+        elizaLogger.warn("[TradingMarket] No conditions found in GraphQL response");
         return [];
       }
 
       return this.filterActiveConditions(conditions);
     } catch (error) {
-      elizaLogger.error("[ParlayMarket] Error fetching parlay conditions:", error);
+      elizaLogger.error("[TradingMarket] Error fetching trading conditions:", error);
       return [];
     }
   }
@@ -100,17 +96,17 @@ export class ParlayMarketService {
              condition.endTime > now;
     });
 
-    elizaLogger.info(`[ParlayMarket] Found ${activeConditions.length} active parlay conditions out of ${conditions.length} total`);
+    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} active trading conditions out of ${conditions.length} total`);
     
     if (activeConditions.length > 0) {
-      elizaLogger.info(`[ParlayMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
+      elizaLogger.info(`[TradingMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
     }
     
     return activeConditions;
   }
 
-  async generateParlayPredictions(conditions: any[]): Promise<ParlayPrediction[]> {
-    const predictions: ParlayPrediction[] = [];
+  async generateTradingPredictions(conditions: any[]): Promise<TradingPrediction[]> {
+    const predictions: TradingPrediction[] = [];
     
     for (const condition of conditions) {
       try {
@@ -119,19 +115,19 @@ export class ParlayMarketService {
           predictions.push(prediction);
         }
       } catch (error) {
-        elizaLogger.error(`[ParlayMarket] Failed to generate prediction for condition ${condition.id}:`, error);
+        elizaLogger.error(`[TradingMarket] Failed to generate prediction for condition ${condition.id}:`, error);
       }
     }
 
     return predictions;
   }
 
-  private async generateSinglePrediction(condition: any): Promise<ParlayPrediction | null> {
+  private async generateSinglePrediction(condition: any): Promise<TradingPrediction | null> {
     try {
       const endDate = condition.endTime ? new Date(condition.endTime * 1000).toISOString() : "Unknown";
       
       const predictionPrompt = `
-You are analyzing a prediction condition for parlay betting. Provide a focused analysis.
+You are analyzing a prediction condition for trading. Provide a focused analysis.
 
 Question: ${condition.question}
 Claim Statement: ${condition.claimStatement}
@@ -177,71 +173,61 @@ Focus on objective factors and data-driven analysis.`;
         outcome: predictionData.probability > 50, // YES if >50%, NO if <=50%
       };
     } catch (error) {
-      elizaLogger.error(`[ParlayMarket] Failed to generate prediction for condition ${condition.id}:`, error);
+      elizaLogger.error(`[TradingMarket] Failed to generate prediction for condition ${condition.id}:`, error);
       return null;
     }
   }
 
-  selectParlayLegs(predictions: ParlayPrediction[]): ParlayPrediction[] {
+  selectTradingLegs(predictions: TradingPrediction[]): TradingPrediction[] {
+    // Filter to high-confidence predictions
     const eligible = predictions.filter(p => p.confidence >= this.MIN_CONFIDENCE_THRESHOLD);
     
-    if (eligible.length === 0) {
-      elizaLogger.info("[ParlayMarket] No predictions meet confidence threshold");
+    if (eligible.length < 2) {
+      elizaLogger.info("[TradingMarket] Not enough predictions meet confidence threshold (need at least 2)");
       return [];
     }
 
-    eligible.sort((a, b) => b.confidence - a.confidence);
-
-    const selected: ParlayPrediction[] = [];
-    let targetCount = 3;
-    
-    for (let i = 0; i < eligible.length && i < targetCount; i++) {
-      selected.push(eligible[i]);
-      
-      if (i === 2 && i + 1 < eligible.length && 
-          eligible[i].confidence === eligible[i + 1].confidence) {
-        targetCount++;
-      }
+    // Group by category
+    const byCategory = new Map<number, TradingPrediction[]>();
+    for (const p of eligible) {
+      const catId = p.market.category?.id ?? -1;
+      if (!byCategory.has(catId)) byCategory.set(catId, []);
+      byCategory.get(catId)!.push(p);
     }
 
-    elizaLogger.info(`[ParlayMarket] Selected ${selected.length} legs for parlay:
-${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${p.confidence})`).join('\n')}`);
+    // Need at least 2 different categories
+    if (byCategory.size < 2) {
+      elizaLogger.info("[TradingMarket] Not enough different categories for trade (need at least 2)");
+      return [];
+    }
+
+    // Pick one random prediction from two different categories
+    const categories = [...byCategory.keys()];
+    const shuffled = categories.sort(() => Math.random() - 0.5);
+    const cat1 = shuffled[0];
+    const cat2 = shuffled[1];
+
+    const cat1Predictions = byCategory.get(cat1)!;
+    const cat2Predictions = byCategory.get(cat2)!;
+    
+    const pick1 = cat1Predictions[Math.floor(Math.random() * cat1Predictions.length)];
+    const pick2 = cat2Predictions[Math.floor(Math.random() * cat2Predictions.length)];
+
+    const selected = [pick1, pick2];
+
+    elizaLogger.info(`[TradingMarket] Selected 2 legs for trade from different categories:
+${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${p.confidence})`).join('\n')}`);
 
     return selected;
   }
 
-  canPlaceParlay(): { allowed: boolean; reason: string } {
-    if (lastParlayTimestamp === 0) {
-      return { allowed: true, reason: "First parlay bet" };
-    }
-
-    const hoursSinceLastParlay = (Date.now() - lastParlayTimestamp) / (1000 * 60 * 60);
-    
-    if (hoursSinceLastParlay < this.MIN_HOURS_BETWEEN_PARLAYS) {
-      return { 
-        allowed: false, 
-        reason: `Only ${hoursSinceLastParlay.toFixed(1)} hours since last parlay (need ${this.MIN_HOURS_BETWEEN_PARLAYS} hours)` 
-      };
-    }
-
-    return { 
-      allowed: true, 
-      reason: "24 hours have passed since last parlay" 
-    };
-  }
-
-  recordParlayBet(): void {
-    lastParlayTimestamp = Date.now();
-    elizaLogger.info("[ParlayMarket] Recorded parlay bet timestamp for rate limiting");
-  }
-
-  async analyzeParlayOpportunity(): Promise<{
-    predictions: ParlayPrediction[];
+  async analyzeTradingOpportunity(): Promise<{
+    predictions: TradingPrediction[];
     canTrade: boolean;
     reason: string;
   }> {
     try {
-      const conditions = await this.fetchParlayMarkets();
+      const conditions = await this.fetchTradingMarkets();
       if (conditions.length === 0) {
         return {
           predictions: [],
@@ -250,7 +236,7 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
         };
       }
 
-      const allPredictions = await this.generateParlayPredictions(conditions);
+      const allPredictions = await this.generateTradingPredictions(conditions);
       if (allPredictions.length === 0) {
         return {
           predictions: [],
@@ -259,31 +245,30 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
         };
       }
 
-      const selectedPredictions = this.selectParlayLegs(allPredictions);
+      const selectedPredictions = this.selectTradingLegs(allPredictions);
       if (selectedPredictions.length < 2) {
         return {
           predictions: [],
           canTrade: false,
-          reason: "Not enough high-confidence predictions for parlay",
+          reason: "Not enough high-confidence predictions from different categories (need 2)",
         };
       }
 
-      const rateCheck = this.canPlaceParlay();
-      
       return {
         predictions: selectedPredictions,
-        canTrade: rateCheck.allowed,
-        reason: rateCheck.reason,
+        canTrade: true,
+        reason: `Found ${selectedPredictions.length} high-confidence predictions from different categories`,
       };
     } catch (error) {
-      elizaLogger.error("[ParlayMarket] Error analyzing parlay opportunity:", error);
+      elizaLogger.error("[TradingMarket] Error analyzing trading opportunity:", error);
       return {
         predictions: [],
         canTrade: false,
-        reason: `Error: ${error.message}`,
+        reason: `Error: ${(error as Error).message}`,
       };
     }
   }
 }
 
-export default ParlayMarketService;
+export default TradingMarketService;
+

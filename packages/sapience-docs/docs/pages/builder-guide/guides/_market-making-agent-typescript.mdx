@@ -11,6 +11,10 @@
 
 The [market-maker starter](https://github.com/sapiencexyz/sapience/tree/main/starters/market-maker) is a ready-to-run TypeScript bot that provides liquidity by bidding on auction requests.
 
+:::warning
+Check your local regulations. Start with small amounts and monitor performance. Use a dedicated wallet for your agent and never commit your private key to source control.
+:::
+
 ### What It Does
 
 - Connects to the Auction Relayer WebSocket
@@ -108,15 +112,6 @@ The starter is intentionally simple. Extend it by:
 - **Filtering by market** using decoded `predictedOutcomes` to target specific topics
 - **Adding risk limits** like max total exposure or per-taker rate limits
 - **Integrating forecasts** to price bids based on your probability estimates
-
-### Safety Notes
-
-:::warning
-- Use a dedicated wallet with limited funds
-- Start with small `BID_AMOUNT` values while testing
-- Token approvals are set to MAX by default
-- Never commit your `PRIVATE_KEY` to source control
-:::
 
 ### Resources
 

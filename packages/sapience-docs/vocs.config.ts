@@ -54,6 +54,7 @@ export default defineConfig({
             link: "/builder-guide/guides/market-making-agent",
           },
           { text: "Apps and Interfaces", link: "/builder-guide/guides/prediction-market-app" },
+          { text: "ElizaOS Agent", link: "/builder-guide/guides/elizaos-agent" },
         ],
       },
       {

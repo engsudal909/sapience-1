@@ -35,16 +35,17 @@ export async function loadSdk(): Promise<SdkModule> {
   const sdk: SdkModule = { ...originalSdk };
   
   // Add local fallback implementations if missing from SDK
-  if (!sdk.buildAttestationCalldata) {
-    console.log("[SDK] buildAttestationCalldata not found in SDK, using local fallback");
+  if (!sdk.buildForecastCalldata) {
+    console.log("[SDK] buildForecastCalldata not found in SDK, using local fallback");
     try {
-      const { buildAttestationCalldata } = await import("../utils/eas.js");
+      const { buildForecastCalldata, buildAttestationCalldata } = await import("../utils/eas.js");
+      sdk.buildForecastCalldata = buildForecastCalldata;
       sdk.buildAttestationCalldata = buildAttestationCalldata;
     } catch (e) {
-      console.warn("Failed to load local buildAttestationCalldata implementation:", e);
+      console.warn("Failed to load local forecast calldata implementation:", e);
     }
   } else {
-    console.log("[SDK] Using buildAttestationCalldata from @sapience/sdk");
+    console.log("[SDK] Using buildForecastCalldata from @sapience/sdk");
   }
   
   // Add transaction functions from actions if missing
@@ -65,16 +66,23 @@ export async function loadSdk(): Promise<SdkModule> {
   
   if (!sdk.submitTransaction) {
     sdk.submitTransaction = async (args: any) => {
-      const { createWalletClient, http } = await import("viem");
+      const { createWalletClient, createPublicClient, http } = await import("viem");
       const { privateKeyToAccount } = await import("viem/accounts");
       const { arbitrum } = await import("viem/chains");
+      const { etherealChain, CHAIN_ID_ETHEREAL } = await import("./blockchain.js");
       
       if (!args.privateKey) throw new Error("Missing private key for transaction submission");
+      
+      // Determine which chain to use based on chainId or RPC URL
+      const isEthereal = args.chainId === CHAIN_ID_ETHEREAL || 
+                         (args.rpc && args.rpc.includes('ethereal'));
+      const chain = isEthereal ? etherealChain : arbitrum;
+      const chainName = isEthereal ? 'ethereal' : 'arbitrum';
       
       const account = privateKeyToAccount(args.privateKey);
       const client = createWalletClient({
         account,
-        chain: arbitrum,
+        chain,
         transport: http(args.rpc)
       });
       
@@ -83,22 +91,22 @@ export async function loadSdk(): Promise<SdkModule> {
         to: args.tx.to,
         data: args.tx.data ? `${args.tx.data.slice(0, 10)}...` : undefined,
         value: args.tx.value,
-        chain: "arbitrum"
+        chain: chainName
       });
       
       try {
         // Get the current nonce to prevent nonce conflicts
-        const { createPublicClient } = await import("viem");
         const publicClient = createPublicClient({
-          chain: arbitrum,
+          chain,
           transport: http(args.rpc)
         });
         
         const nonce = await publicClient.getTransactionCount({
-          address: account.address
+          address: account.address,
+          blockTag: "pending"
         });
         
-        console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address}`);
+        console.log(`[SDK] Using nonce: ${nonce} for address: ${account.address} on ${chainName}`);
         
         const hash = await client.sendTransaction({
           to: args.tx.to,
@@ -106,7 +114,7 @@ export async function loadSdk(): Promise<SdkModule> {
           value: BigInt(args.tx.value || 0),
           nonce,
           account,
-          chain: arbitrum
+          chain
         });
         
         console.log("[SDK] Transaction submitted:", hash);

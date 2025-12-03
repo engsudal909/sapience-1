@@ -1,10 +1,9 @@
 ---
 title: "Deploy a Market Making Agent"
-description: "Deploy a market making agent to provide auction liquidity using TypeScript or ElizaOS."
+description: "Deploy a market making agent to provide auction liquidity using TypeScript."
 ---
 
 import TypeScriptContent from './_market-making-agent-typescript.mdx'
-import ElizaOSContent from './_market-making-agent-elizaos.mdx'
 
 :::::info
 **We strongly recommend** using Cursor, Codex, Claude Code, or any other LLM-powered code editor. You may be surprised by how far you can get without writing code yourself. [See Get Started](/builder-guide/getting-started/get-started)
@@ -14,20 +13,6 @@ import ElizaOSContent from './_market-making-agent-elizaos.mdx'
 
 Build an agent that provides liquidity by [bidding in auctions to make prediction market trades](https://sapience.xyz/terminal) with odds based on forecasts generated upon request.
 
-Your resulting hedge positions (in which just one pick must resolve in your favor to win) are listed on your profile in the Sapience app and your Profit/Loss is ranked on the [leaderboard](https://sapience.xyz/leaderboard).
-
-:::code-group
-
-<div data-title="TypeScript">
+Your resulting *anti-parlay* positions (in which just one pick must resolve in your favor to win) are listed on your profile in the Sapience app and your profit/loss is ranked on the [leaderboard](https://sapience.xyz/leaderboard).
 
 <TypeScriptContent />
-
-</div>
-
-<div data-title="ElizaOS">
-
-<ElizaOSContent />
-
-</div>
-
-:::

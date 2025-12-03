@@ -1,6 +1,6 @@
 ## Boilerplate AI Forecasting Script
 
-This simple script fetches open questions, generates LLM-based predictions, and publishes attestations to EAS.
+This simple script fetches a random open condition (question), generates an LLM-based prediction, and publishes an attestation to EAS on Arbitrum.
 
 ### Prerequisites
 
@@ -31,29 +31,40 @@ Create `index.ts`:
 ```typescript
 import 'dotenv/config';
 import { gql } from 'graphql-request';
-import {
-  graphqlRequest,
-  postForecastAttestation,
-  CHAIN_ID_ARBITRUM,
-} from '@sapience/sdk';
+import { graphqlRequest, submitForecast } from '@sapience/sdk';
 
-const RPC_URL = 'https://arb1.arbitrum.io/rpc';
+const CHAIN_ID_ARBITRUM = 42161;
 
-// 1. Fetch active markets from Sapience API
-async function fetchMarkets() {
+// 1. Fetch one random active condition from Sapience API
+async function fetchRandomCondition() {
+  const nowSec = Math.floor(Date.now() / 1000);
   const query = gql`
-    query {
-      markets(where: { question_not: null }, orderBy: endTimestamp, first: 5) {
+    query Conditions($nowSec: Int) {
+      conditions(
+        where: { 
+          public: { equals: true }
+          endTime: { gt: $nowSec }
+        }
+        take: 50
+      ) {
         id
-        marketId
-        address
         question
-        endTimestamp
+        shortName
+        endTime
       }
     }
   `;
-  const { markets } = await graphqlRequest<{ markets: any[] }>(query);
-  return markets;
+  const { conditions } = await graphqlRequest<{ conditions: any[] }>(query, {
+    nowSec,
+  });
+  
+  if (conditions.length === 0) {
+    throw new Error('No active conditions found');
+  }
+  
+  // Pick a random condition
+  const randomIndex = Math.floor(Math.random() * conditions.length);
+  return conditions[randomIndex];
 }
 
 // 2. Generate forecast using LLM
@@ -65,52 +76,69 @@ async function generateForecast(question: string): Promise<{ probability: number
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-4o-mini',
+      model: 'openai/gpt-4o-search-preview',
       messages: [{
         role: 'user',
-        content: `Analyze this prediction market question and provide a probability (0-100) that the answer is YES: "${question}". 
-        
-Respond in JSON format: { "probability": <number>, "reasoning": "<brief explanation>" }`
+        content: `You are a forecaster. Estimate the probability (0-100) that the answer to this question is YES.
+
+Question: "${question}"
+
+First, provide brief reasoning (1-2 sentences, under 160 characters total, no URLs or citations). Then on the final line, output ONLY the probability as a number (e.g., "75").`
       }],
     }),
   });
+  
   const data = await response.json();
-  const result = JSON.parse(data.choices[0].message.content);
+  const content = data.choices[0].message.content.trim();
+  
+  // Extract probability from last line
+  const lines = content.split('\n').filter((line: string) => line.trim());
+  const lastLine = lines[lines.length - 1];
+  const probability = parseInt(lastLine.replace(/[^0-9]/g, ''), 10);
+  
+  // Reasoning is everything except the last line
+  const reasoning = lines.slice(0, -1).join(' ').trim();
+  
   return {
-    probability: Math.max(0, Math.min(100, result.probability)),
-    reasoning: result.reasoning,
+    probability: Math.max(0, Math.min(100, probability)),
+    reasoning,
   };
 }
 
 // Main
 async function main() {
-  console.log('Fetching active markets...');
-  const markets = await fetchMarkets();
+  console.log('Fetching a random active condition...');
+  const condition = await fetchRandomCondition();
   
-  for (const market of markets) {
-    const forecast = await generateForecast(market.question);
-    console.log(`\n${market.question}`);
-    console.log(`Forecast: ${forecast.probability}% - ${forecast.reasoning}`);
-    
-    // 3. Publish attestation using SDK
-    const { hash } = await postForecastAttestation({
-      market: {
-        marketId: market.marketId,
-        address: market.address,
-        question: market.question,
-      },
-      prediction: {
-        probability: forecast.probability,
-        reasoning: forecast.reasoning,
-        confidence: 1,
-      },
-      chainId: CHAIN_ID_ARBITRUM,
-      rpc: RPC_URL,
-      privateKey: process.env.PRIVATE_KEY as `0x${string}`,
+  const question = condition.shortName || condition.question;
+  console.log(`\nSelected: ${question}`);
+  console.log(`Condition ID: ${condition.id}\n`);
+  
+  console.log('Generating forecast...');
+  const forecast = await generateForecast(question);
+  console.log(`Forecast: ${forecast.probability}%`);
+  console.log(`Reasoning: ${forecast.reasoning}\n`);
+  
+  // 3. Publish attestation to Arbitrum
+  if (!process.env.PRIVATE_KEY) {
+    console.log('No PRIVATE_KEY set - skipping attestation submission');
+    console.log('Would have published:', {
+      conditionId: condition.id,
+      probability: forecast.probability,
+      reasoning: forecast.reasoning,
     });
-    
-    console.log(`Attestation tx: ${hash}`);
+    return;
   }
+  
+  console.log('Publishing attestation...');
+  const { hash } = await submitForecast({
+    conditionId: condition.id as `0x${string}`,
+    probability: forecast.probability,
+    comment: forecast.reasoning,
+    privateKey: process.env.PRIVATE_KEY as `0x${string}`,
+  });
+  
+  console.log(`Attestation tx: ${hash}`);
 }
 
 main().catch(console.error);
