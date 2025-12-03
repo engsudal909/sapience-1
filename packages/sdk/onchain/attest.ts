@@ -12,12 +12,14 @@ export async function postForecastAttestation(args: {
   rpc: string;
   privateKey?: Hex;
   account?: any;
+  conditionId?: Hex;
 }): Promise<{ hash: Hex; calldata: AttestationCalldata }>
 {
   const calldata = await buildAttestationCalldata(
     args.market,
     args.prediction,
     args.chainId,
+    args.conditionId,
   );
   if (!calldata) throw new Error('Failed to build attestation calldata');
 

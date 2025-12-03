@@ -1,3 +1,5 @@
+import TradingRiskWarning from '../../../components/TradingRiskWarning'
+
 ## TypeScript Market Maker Starter
 
 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -10,6 +12,8 @@
 </div>
 
 The [market-maker starter](https://github.com/sapiencexyz/sapience/tree/main/starters/market-maker) is a ready-to-run TypeScript bot that provides liquidity by bidding on auction requests.
+
+<TradingRiskWarning />
 
 ### What It Does
 
@@ -108,15 +112,6 @@ The starter is intentionally simple. Extend it by:
 - **Filtering by market** using decoded `predictedOutcomes` to target specific topics
 - **Adding risk limits** like max total exposure or per-taker rate limits
 - **Integrating forecasts** to price bids based on your probability estimates
-
-### Safety Notes
-
-:::warning
-- Use a dedicated wallet with limited funds
-- Start with small `BID_AMOUNT` values while testing
-- Token approvals are set to MAX by default
-- Never commit your `PRIVATE_KEY` to source control
-:::
 
 ### Resources
 

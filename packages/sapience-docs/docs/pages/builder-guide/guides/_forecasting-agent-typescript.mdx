@@ -1,6 +1,6 @@
 ## Boilerplate AI Forecasting Script
 
-This simple script fetches open questions, generates LLM-based predictions, and publishes attestations to EAS.
+This simple script fetches open conditions (questions), generates LLM-based predictions, and publishes attestations to EAS.
 
 ### Prerequisites
 
@@ -38,22 +38,34 @@ import {
 } from '@sapience/sdk';
 
 const RPC_URL = 'https://arb1.arbitrum.io/rpc';
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-// 1. Fetch active markets from Sapience API
-async function fetchMarkets() {
+// 1. Fetch active conditions from Sapience API
+async function fetchConditions() {
+  const nowSec = Math.floor(Date.now() / 1000);
   const query = gql`
-    query {
-      markets(where: { question_not: null }, orderBy: endTimestamp, first: 5) {
+    query Conditions($chainId: Int, $nowSec: Int) {
+      conditions(
+        where: { 
+          chainId: { equals: $chainId }
+          public: { equals: true }
+          endTime: { gt: $nowSec }
+        }
+        orderBy: { endTime: asc }
+        take: 5
+      ) {
         id
-        marketId
-        address
         question
-        endTimestamp
+        shortName
+        endTime
       }
     }
   `;
-  const { markets } = await graphqlRequest<{ markets: any[] }>(query);
-  return markets;
+  const { conditions } = await graphqlRequest<{ conditions: any[] }>(query, {
+    chainId: CHAIN_ID_ARBITRUM,
+    nowSec,
+  });
+  return conditions;
 }
 
 // 2. Generate forecast using LLM
@@ -84,26 +96,28 @@ Respond in JSON format: { "probability": <number>, "reasoning": "<brief explanat
 
 // Main
 async function main() {
-  console.log('Fetching active markets...');
-  const markets = await fetchMarkets();
+  console.log('Fetching active conditions...');
+  const conditions = await fetchConditions();
   
-  for (const market of markets) {
-    const forecast = await generateForecast(market.question);
-    console.log(`\n${market.question}`);
+  for (const condition of conditions) {
+    const question = condition.shortName || condition.question;
+    const forecast = await generateForecast(question);
+    console.log(`\n${question}`);
     console.log(`Forecast: ${forecast.probability}% - ${forecast.reasoning}`);
     
     // 3. Publish attestation using SDK
     const { hash } = await postForecastAttestation({
       market: {
-        marketId: market.marketId,
-        address: market.address,
-        question: market.question,
+        marketId: 0,
+        address: ZERO_ADDRESS,
+        question,
       },
       prediction: {
         probability: forecast.probability,
         reasoning: forecast.reasoning,
         confidence: 1,
       },
+      conditionId: condition.id as `0x${string}`,
       chainId: CHAIN_ID_ARBITRUM,
       rpc: RPC_URL,
       privateKey: process.env.PRIVATE_KEY as `0x${string}`,

@@ -1,3 +1,5 @@
+import TradingRiskWarning from '../../../components/TradingRiskWarning'
+
 ## ElizaOS Trading Agent
 
 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -9,6 +11,8 @@
 The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) includes built-in auction trading capabilities. Enable trading by setting `ENABLE_PARLAY_TRADING=true`.
 
 **Code reference:** [`src/actions/parlayTradingAction.ts`](https://github.com/sapiencexyz/sapience/blob/main/starters/elizaos/src/actions/parlayTradingAction.ts)
+
+<TradingRiskWarning />
 
 ### Enable Auction Trading
 
@@ -52,9 +56,3 @@ The agent bundles 3+ high-confidence predictions into a single auction trade:
 - [ElizaOS Starter Repository](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos)
 - [Forecasting Agent Guide](/builder-guide/guides/forecasting-agent) - Generate predictions
 - [Auction Relayer API](/builder-guide/api/auction-relayer) - WebSocket protocol
-
-:::warning
-**Risk Warning**: Automated trading involves financial risk. Start with small amounts and monitor performance.
-:::
-
-
