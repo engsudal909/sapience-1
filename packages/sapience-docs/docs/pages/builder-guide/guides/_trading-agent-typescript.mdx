@@ -1,14 +1,14 @@
-import TradingRiskWarning from '../../../components/TradingRiskWarning'
-
 ## Boilerplate AI Prediction Market Trading Script
 
 This script builds on the [forecasting agent](/builder-guide/guides/forecasting-agent) to execute trades based on a single prediction.
 
-<TradingRiskWarning />
+:::warning
+Check your local regulations. Start with small amounts and monitor performance. Use a dedicated wallet for your agent and never commit your private key to source control.
+:::
 
 ### How It Works
 
-1. **Fetch a Condition** - Gets one active condition (question)
+1. **Fetch a Question** - Gets one active condition (question)
 2. **Generate Forecast** - Uses an LLM to predict probability
 3. **Trade** - If probability is above 50%, trade YES; below 50%, trade NO
 4. **Start Auction** - Broadcasts request via WebSocket to market makers

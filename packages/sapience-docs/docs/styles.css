@@ -104,3 +104,8 @@
 .vocs_CodeGroup [role="tabpanel"] .vocs_Paragraph {
   margin-bottom: 24px;
 }
+
+/* Reduce extra bottom padding in callouts */
+.vocs_Callout .vocs_Paragraph:last-child {
+  margin-bottom: 0;
+}
