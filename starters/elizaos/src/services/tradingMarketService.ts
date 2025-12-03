@@ -10,13 +10,9 @@ interface TradingPrediction {
   outcome: boolean;
 }
 
-let lastTradeTimestamp = 0;
-
 export class TradingMarketService {
   private runtime: IAgentRuntime;
   private readonly MIN_CONFIDENCE_THRESHOLD = parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6");
-  private readonly MIN_HOURS_BETWEEN_TRADES = parseFloat(process.env.MIN_HOURS_BETWEEN_TRADES || "24");
-  private readonly MIN_PREDICTION_CHANGE = parseFloat(process.env.MIN_TRADING_PREDICTION_CHANGE || "10");
   
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -183,56 +179,46 @@ Focus on objective factors and data-driven analysis.`;
   }
 
   selectTradingLegs(predictions: TradingPrediction[]): TradingPrediction[] {
+    // Filter to high-confidence predictions
     const eligible = predictions.filter(p => p.confidence >= this.MIN_CONFIDENCE_THRESHOLD);
     
-    if (eligible.length === 0) {
-      elizaLogger.info("[TradingMarket] No predictions meet confidence threshold");
+    if (eligible.length < 2) {
+      elizaLogger.info("[TradingMarket] Not enough predictions meet confidence threshold (need at least 2)");
       return [];
     }
 
-    eligible.sort((a, b) => b.confidence - a.confidence);
-
-    const selected: TradingPrediction[] = [];
-    let targetCount = 3;
-    
-    for (let i = 0; i < eligible.length && i < targetCount; i++) {
-      selected.push(eligible[i]);
-      
-      if (i === 2 && i + 1 < eligible.length && 
-          eligible[i].confidence === eligible[i + 1].confidence) {
-        targetCount++;
-      }
+    // Group by category
+    const byCategory = new Map<number, TradingPrediction[]>();
+    for (const p of eligible) {
+      const catId = p.market.category?.id ?? -1;
+      if (!byCategory.has(catId)) byCategory.set(catId, []);
+      byCategory.get(catId)!.push(p);
     }
 
-    elizaLogger.info(`[TradingMarket] Selected ${selected.length} legs for trade:
-${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${p.confidence})`).join('\n')}`);
+    // Need at least 2 different categories
+    if (byCategory.size < 2) {
+      elizaLogger.info("[TradingMarket] Not enough different categories for trade (need at least 2)");
+      return [];
+    }
+
+    // Pick one random prediction from two different categories
+    const categories = [...byCategory.keys()];
+    const shuffled = categories.sort(() => Math.random() - 0.5);
+    const cat1 = shuffled[0];
+    const cat2 = shuffled[1];
+
+    const cat1Predictions = byCategory.get(cat1)!;
+    const cat2Predictions = byCategory.get(cat2)!;
+    
+    const pick1 = cat1Predictions[Math.floor(Math.random() * cat1Predictions.length)];
+    const pick2 = cat2Predictions[Math.floor(Math.random() * cat2Predictions.length)];
+
+    const selected = [pick1, pick2];
+
+    elizaLogger.info(`[TradingMarket] Selected 2 legs for trade from different categories:
+${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${p.confidence})`).join('\n')}`);
 
     return selected;
-  }
-
-  canPlaceTrade(): { allowed: boolean; reason: string } {
-    if (lastTradeTimestamp === 0) {
-      return { allowed: true, reason: "First trade" };
-    }
-
-    const hoursSinceLastTrade = (Date.now() - lastTradeTimestamp) / (1000 * 60 * 60);
-    
-    if (hoursSinceLastTrade < this.MIN_HOURS_BETWEEN_TRADES) {
-      return { 
-        allowed: false, 
-        reason: `Only ${hoursSinceLastTrade.toFixed(1)} hours since last trade (need ${this.MIN_HOURS_BETWEEN_TRADES} hours)` 
-      };
-    }
-
-    return { 
-      allowed: true, 
-      reason: "24 hours have passed since last trade" 
-    };
-  }
-
-  recordTrade(): void {
-    lastTradeTimestamp = Date.now();
-    elizaLogger.info("[TradingMarket] Recorded trade timestamp for rate limiting");
   }
 
   async analyzeTradingOpportunity(): Promise<{
@@ -264,23 +250,21 @@ ${selected.map(p => `  - ${p.market.question?.substring(0, 50)}... (${p.probabil
         return {
           predictions: [],
           canTrade: false,
-          reason: "Not enough high-confidence predictions for trade",
+          reason: "Not enough high-confidence predictions from different categories (need 2)",
         };
       }
 
-      const rateCheck = this.canPlaceTrade();
-      
       return {
         predictions: selectedPredictions,
-        canTrade: rateCheck.allowed,
-        reason: rateCheck.reason,
+        canTrade: true,
+        reason: `Found ${selectedPredictions.length} high-confidence predictions from different categories`,
       };
     } catch (error) {
       elizaLogger.error("[TradingMarket] Error analyzing trading opportunity:", error);
       return {
         predictions: [],
         canTrade: false,
-        reason: `Error: ${error.message}`,
+        reason: `Error: ${(error as Error).message}`,
       };
     }
   }

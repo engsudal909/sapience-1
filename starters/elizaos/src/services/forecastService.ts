@@ -366,8 +366,8 @@ export class ForecastService {
       }
 
       if (analysis.predictions.length < 2) {
-        elizaLogger.info("[Trade] Not enough high-confidence predictions for trade");
-        result.reason = "Not enough high-confidence predictions (need at least 2)";
+        elizaLogger.info("[Trade] Not enough high-confidence predictions from different categories for trade");
+        result.reason = "Not enough high-confidence predictions from different categories (need at least 2)";
         return result;
       }
 
@@ -379,7 +379,7 @@ export class ForecastService {
         outcome: p.outcome,
       }));
 
-      console.log(`🎯 Found ${analysis.predictions.length}-leg trading opportunity!`);
+      console.log(`🎯 Found 2-leg trading opportunity from different categories!`);
 
       const tradingAction = this.runtime.actions?.find((a) => a.name === "TRADING");
       if (!tradingAction) {

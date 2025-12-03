@@ -43,7 +43,7 @@ interface Bid {
 
 export const tradingAction: Action = {
   name: "TRADING",
-  description: "Start trading auction with 3+ legs and accept best bid from takers",
+  description: "Start trading auction with 2 legs from different categories and accept best bid from takers",
   similes: ["trade markets", "make trade", "start auction", "bet trade"],
 
   validate: async () => true,
@@ -92,10 +92,10 @@ export const tradingAction: Action = {
 
       const { markets, predictions } = data;
 
-      // Validate we have at least 3 legs for trade
-      if (!markets || !predictions || markets.length < 3 || predictions.length < 3) {
+      // Validate we have at least 2 legs for trade (from different categories)
+      if (!markets || !predictions || markets.length < 2 || predictions.length < 2) {
         await callback?.({
-          text: "Trading requires at least 3 market predictions",
+          text: "Trading requires at least 2 market predictions from different categories",
           content: {},
         });
         return;

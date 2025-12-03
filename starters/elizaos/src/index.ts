@@ -17,17 +17,6 @@ const initCharacter = async ({ runtime }: { runtime: IAgentRuntime }) => {
   logger.info({ name: character.name }, "Character:");
   logger.info({ plugins: character.plugins }, "Plugins:");
 
-  // Log configuration
-  const settings = runtime?.character?.settings as any;
-  if (settings?.autonomousMode) {
-    logger.info("Autonomous mode configuration:", {
-      enabled: settings.autonomousMode.enabled,
-      interval: settings.autonomousMode.interval,
-      minConfidence: settings.autonomousMode.minConfidence,
-      batchSize: settings.autonomousMode.batchSize,
-    } as any);
-  }
-
   // Initialize ForecastService - it will wait for Sapience plugin and auto-start if enabled
   new ForecastService(runtime);
   logger.info("🤖 ForecastService initialization started");
