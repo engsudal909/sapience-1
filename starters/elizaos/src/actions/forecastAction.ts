@@ -65,7 +65,7 @@ export const forecastAction: Action = {
 
       if (result.predictions.length > 0) {
         const predictionsSummary = result.predictions
-          .map(p => `• ${p.market}: ${p.probability}% (Confidence: ${(p.confidence * 100).toFixed(0)}%)`)
+          .map(p => `• ${p.market}: ${p.probability}% chance (Confidence: ${(p.confidence * 100).toFixed(0)}%)`)
           .join('\n\n');
         
         responseText = `**Forecasting Complete**
@@ -116,7 +116,7 @@ No markets needed new forecasts at this time. Markets are either:
       {
         name: "{{agent}}",
         content: { 
-          text: "**Forecasting Complete**\n\nMarkets Analyzed: 15\n\nForecasts Submitted: 3\n\n**Predictions:**\n\n• Will X happen?: 65% (Confidence: 70%)",
+          text: "**Forecasting Complete**\n\nMarkets Analyzed: 15\n\nForecasts Submitted: 3\n\n**Predictions:**\n\n• Will X happen?: 65% chance (Confidence: 70%)",
           action: "FORECAST"
         },
       },
@@ -129,7 +129,7 @@ No markets needed new forecasts at this time. Markets are either:
       {
         name: "{{agent}}",
         content: { 
-          text: "**Forecasting Complete**\n\nMarkets Analyzed: 12\n\nForecasts Submitted: 2\n\n**Predictions:**\n\n• Market question?: 55% (Confidence: 65%)",
+          text: "**Forecasting Complete**\n\nMarkets Analyzed: 12\n\nForecasts Submitted: 2\n\n**Predictions:**\n\n• Market question?: 55% chance (Confidence: 65%)",
           action: "FORECAST"
         },
       },

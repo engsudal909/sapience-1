@@ -457,7 +457,7 @@ Analyze and respond with ONLY valid JSON:
   "reasoning": "<analysis under 180 chars, lowercase>",
   "confidence": <number 0.0-1.0>
 }`;
-      const response = await this.runtime.useModel(ModelType.TEXT_SMALL, {
+      const response = await this.runtime.useModel(ModelType.TEXT_LARGE, {
         prompt: predictionPrompt,
       });
       let prediction;
