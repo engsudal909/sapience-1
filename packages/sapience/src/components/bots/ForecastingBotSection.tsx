@@ -27,7 +27,7 @@ export default function ForecastingBotSection() {
               </p>
 
               <p className="headline text-lg md:text-xl lg:text-2xl">
-                <Link href="/forecast" className="gold-link">
+                <Link href="/forecasts" className="gold-link">
                   Forecasts
                 </Link>{' '}
                 can be submitted without any wager attached. Sapience ranks your

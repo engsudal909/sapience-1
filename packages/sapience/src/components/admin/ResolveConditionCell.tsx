@@ -110,7 +110,6 @@ const ResolveConditionCell = ({
   const bondCurrency = umaConfig?.[2] || zeroAddress;
   const bondAmount = umaConfig?.[3] || 0n;
 
-
   const OPTIMISTIC_ORACLE_V3_ADDRESS =
     '0xa6147867264374F324524E30C02C331cF28aa879' as `0x${string}`;
   const optimisticOracleV3 = umaConfig?.[1] || OPTIMISTIC_ORACLE_V3_ADDRESS;
@@ -126,7 +125,6 @@ const ResolveConditionCell = ({
       query: { enabled: Boolean(marketId && UMA_RESOLVER_ADDRESS) },
     });
 
- 
   const assertionId = (propAssertionId as `0x${string}`) || contractAssertionId;
 
   const assertionSubmitted =

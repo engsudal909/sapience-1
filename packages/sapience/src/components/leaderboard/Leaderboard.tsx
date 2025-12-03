@@ -128,7 +128,7 @@ const Leaderboard = () => {
           <p className="text-xl font-heading font-normal mb-6 text-muted-foreground leading-relaxed">
             The accuracy score ranks{' '}
             <Link
-              href="/forecast"
+              href="/forecasts"
               className="underline decoration-1 decoration-foreground/10 underline-offset-4 hover:decoration-foreground/60"
             >
               forecasters

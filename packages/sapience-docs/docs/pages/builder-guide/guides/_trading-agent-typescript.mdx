@@ -1,0 +1,152 @@
+## TypeScript Implementation
+
+Build a standalone trading agent that submits auction requests and executes trades on prediction markets.
+
+### Prerequisites
+
+- Node.js >= 20.14
+- pnpm or npm
+- Ethereum private key with USDe on Arbitrum
+
+### Setup
+
+```bash
+mkdir my-trading-agent && cd my-trading-agent
+pnpm init
+pnpm add @sapience/sdk viem graphql-request ws
+pnpm add -D tsx typescript @types/ws
+```
+
+### Trading Script
+
+Create `index.ts`:
+
+```typescript
+import WebSocket from 'ws';
+import { GraphQLClient, gql } from 'graphql-request';
+import { parseEther, encodeAbiParameters, type Address, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { buildTakerAuctionTypedData, signTakerAuction } from '@sapience/sdk/auction';
+
+// Configuration
+const GRAPHQL_URL = 'https://api.sapience.xyz/graphql';
+const WS_URL = 'wss://api.sapience.xyz/auction';
+const RESOLVER = '0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9' as Address;
+const CHAIN_ID = 42161; // Arbitrum
+
+const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
+const account = privateKeyToAccount(PRIVATE_KEY);
+const WAGER = parseEther('1'); // $1 USDe
+
+const client = new GraphQLClient(GRAPHQL_URL);
+
+// 1. Fetch active markets
+async function fetchMarkets() {
+  const query = gql`
+    query {
+      conditions(where: { status: ACTIVE }, orderBy: endTimestamp, first: 5) {
+        id
+        question
+      }
+    }
+  `;
+  const { conditions } = await client.request<{ conditions: any[] }>(query);
+  return conditions;
+}
+
+// 2. Generate simple prediction (replace with your strategy)
+function predictOutcome(market: any): boolean {
+  // Example: random prediction - replace with your LLM or strategy
+  return Math.random() > 0.5;
+}
+
+// 3. Encode predicted outcomes for auction
+function encodePredictions(markets: any[]) {
+  const predictions = markets.map(m => ({
+    marketId: m.id as Hex,
+    prediction: predictOutcome(m),
+  }));
+  
+  return encodeAbiParameters(
+    [{ type: 'tuple[]', components: [
+      { name: 'marketId', type: 'bytes32' },
+      { name: 'prediction', type: 'bool' },
+    ]}],
+    [predictions]
+  );
+}
+
+// 4. Start auction and handle bids
+async function startAuction() {
+  const markets = await fetchMarkets();
+  if (markets.length < 3) {
+    console.log('Need at least 3 markets for auction');
+    return;
+  }
+
+  const predictedOutcomes = [encodePredictions(markets.slice(0, 3))];
+  const takerNonce = Date.now();
+
+  const ws = new WebSocket(WS_URL);
+
+  ws.on('open', () => {
+    console.log('Starting auction...');
+    ws.send(JSON.stringify({
+      type: 'auction.start',
+      payload: {
+        taker: account.address,
+        wager: WAGER.toString(),
+        resolver: RESOLVER,
+        predictedOutcomes,
+        takerNonce,
+        chainId: CHAIN_ID,
+      },
+    }));
+  });
+
+  ws.on('message', async (data) => {
+    const msg = JSON.parse(data.toString());
+    
+    if (msg.type === 'auction.started') {
+      console.log(`Auction ${msg.payload.auctionId} started, waiting for bids...`);
+    }
+    
+    if (msg.type === 'auction.bids' && msg.payload.bids?.length > 0) {
+      const bestBid = msg.payload.bids[0];
+      console.log(`Best bid: ${bestBid.makerWager} from ${bestBid.maker}`);
+      
+      // Accept bid - sign and execute trade
+      // See SDK for full EIP-712 signing and contract execution
+    }
+  });
+
+  ws.on('error', (err) => console.error('WebSocket error:', err));
+}
+
+startAuction().catch(console.error);
+```
+
+### Run Your Agent
+
+```bash
+export PRIVATE_KEY=0x_your_private_key
+
+pnpm tsx index.ts
+```
+
+### How It Works
+
+1. **Fetch Markets** - Gets active prediction markets from Sapience API
+2. **Generate Predictions** - Creates YES/NO predictions for each market (replace with your strategy)
+3. **Encode Bundle** - Packs 3+ predictions into the auction format
+4. **Start Auction** - Broadcasts request via WebSocket to market makers
+5. **Handle Bids** - Receives and evaluates competing bids
+6. **Execute Trade** - Signs winning bid and calls contract
+
+### Next Steps
+
+- Add [forecasting](/builder-guide/guides/forecasting-agent) to generate prediction signals
+- Implement bid evaluation logic before accepting
+- Add USDe token approval for the PredictionMarket contract
+- See [Auction Relayer API](/builder-guide/api/auction-relayer) for full WebSocket protocol
+

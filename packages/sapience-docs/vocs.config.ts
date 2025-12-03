@@ -47,17 +47,13 @@ export default defineConfig({
           { text: "Forecasting Agent", link: "/builder-guide/guides/forecasting-agent" },
           {
             text: "Trading Agent",
-            link: "/builder-guide/guides/trading-auction-intent-markets",
+            link: "/builder-guide/guides/trading-agent",
           },
           {
             text: "Market Making Agent",
             link: "/builder-guide/guides/market-making-agent",
           },
-          { text: "Customize Trading App", link: "/builder-guide/guides/customize-trading-app" },
-          {
-            text: "Dashboards, Games, and more",
-            link: "/builder-guide/guides/design-dashboards-games",
-          },
+          { text: "Apps and Interfaces", link: "/builder-guide/guides/prediction-market-app" },
         ],
       },
       {
