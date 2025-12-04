@@ -60,7 +60,7 @@ export default defineConfig({
       {
         text: "API",
         items: [
-          { text: "GraphQL", link: "/builder-guide/api/graphql" },
+          { text: "Data", link: "/builder-guide/api/graphql" },
           { text: "Auction Relayer", link: "/builder-guide/api/auction-relayer" },
           { text: "MCP", link: "/builder-guide/api/mcp" },
         ],
@@ -73,6 +73,7 @@ export default defineConfig({
             link: "/builder-guide/reference/contracts-and-addresses",
           },
           { text: "UI Components", link: "/builder-guide/storybook" },
+          { text: "Source Code", link: "https://github.com/sapiencexyz/sapience" },
         ],
       },
     ],
