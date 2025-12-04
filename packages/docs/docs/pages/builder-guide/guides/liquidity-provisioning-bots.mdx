@@ -67,7 +67,7 @@ If you're familiar with traditional order book market making, here's how LP tran
 
 This strategy works well for volatile markets where you want steady fee income without constantly rebalancing positions.
 
-> **Note**: These examples use internal hooks from the Sapience monorepo (`packages/sapience/src/hooks/contract`). If building a standalone app, you'll need to implement equivalent hooks using viem's contract interaction methods or adapt the SDK patterns.
+> **Note**: These examples use internal hooks from the Sapience monorepo (`packages/app/src/hooks/contract`). If building a standalone app, you'll need to implement equivalent hooks using viem's contract interaction methods or adapt the SDK patterns.
 
 ```tsx
 import { useCreateLiquidityQuoter, useCreateLP } from '@sapience/app/hooks/contract';
