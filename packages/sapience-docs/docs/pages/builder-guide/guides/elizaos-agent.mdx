@@ -11,7 +11,7 @@ description: "Deploy an autonomous forecasting and trading agent with the ElizaO
   </a>
 </div>
 
-The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) is a complete autonomous forecasting agent built with the [ElizaOS framework](https://elizaos.ai/). It can generate forecasts on prediction markets, publish forecasts onchain (Arbitrum), and execute trades through Sapience's auction system (Ethereal).
+The [ElizaOS starter](https://github.com/sapiencexyz/sapience/tree/main/starters/elizaos) is a complete autonomous forecasting agent built with the [ElizaOS framework](https://elizaos.ai/). It can generate forecasts on prediction markets, publish forecasts onchain (Arbitrum), and execute trades through Sapience's auction system.
 
 ## Quick Start
 
@@ -80,7 +80,7 @@ trade sapience prediction markets
 The agent will:
 1. Analyze markets for high-confidence trading opportunities
 2. Identify predictions from different categories
-3. Start an auction on the Sapience auction rail
+3. Start an [auction](https://sapience.xyz/terminal) on the Sapience auction rail
 4. Accept the best bid from market makers
 5. Execute the trade on Ethereal
 
@@ -105,7 +105,7 @@ See [Deployment](#deployment) for instructions on deploying with autonomous mode
 
 ## Customization
 
-### Forecast Settings (Arbitrum)
+### Forecast Settings
 
 Forecasts are attested on Arbitrum chain (ID `42161`).
 
@@ -118,7 +118,7 @@ Forecasts are attested on Arbitrum chain (ID `42161`).
 | `MIN_HOURS_BETWEEN_FORECASTS` | `24` | Hours between forecasts on same market |
 | `EVM_PROVIDER_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum RPC endpoint |
 
-### Trading Settings (Ethereal)
+### Trading Settings
 
 Trading executes on Ethereal chain (ID `5064014`).
 

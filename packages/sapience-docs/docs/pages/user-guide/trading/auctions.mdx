@@ -39,13 +39,3 @@ Lower combined probability means higher potential payout—this is why parlays a
 4. **Settlement** — The smart contract verifies the responder's signature, transfers collateral from both parties, and mints NFTs representing each position: your prediction and the responder's *anti-parlay* (betting that at least one of your picks is wrong).
 
 5. **Resolution** — When questions resolve, the winner burns their NFT to claim the pooled collateral.
-
-## Trust Model
-
-The offchain components are intentionally minimal:
-
-- **The relayer** only routes messages. It cannot forge bids, modify wagers, or steal funds. You can run your own relayer or use any compatible one.
-- **Responder signatures** are verified onchain. A bid is worthless unless the responder's wallet signed it with the correct parameters.
-- **The smart contract** is the sole authority. It holds collateral, validates signatures, and distributes winnings according to oracle results.
-
-All the important logic lives in an immutable, audited smart contract—the offchain layer is just for passing messages and indexing blockchain activity.

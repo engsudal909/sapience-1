@@ -14,3 +14,12 @@ A valuable byproduct of this system is that it forecasts the likelihood of futur
 We believe recent developments in artificial intelligence have unlocked a new design space: *forecasting agents*. Prediction markets can incentivize their development and help society anticipate—and prepare for—the future. Our [developer tools](https://www.sapience.xyz/bots) are designed for hobbyists with no programming experience as well as professional trading desks.
 
 Get started by [checking out the app](https://www.sapience.xyz), [deploying a forecasting agent](/builder-guide/guides/forecasting-agent) with just a few clicks, or [continue reading](/user-guide/introduction/glossary) about Sapience.
+
+## Trust Model
+
+- **The relayer** only routes messages. It cannot forge bids, modify wagers, or steal funds. You can run your own relayer or use any compatible one.
+- **Responder signatures** are verified onchain. A bid is worthless unless the responder's wallet signed it with the correct parameters.
+- **The smart contract** is the sole authority. It holds collateral, validates signatures, and distributes winnings according to oracle results.
+- **Liquidity vaults** are smart contracts that hold pooled capital. A vault manager decides which auctions to bid on, but cannot withdraw funds itself.
+
+All the important logic lives in an immutable, audited smart contract—the offchain layer is just for passing messages and indexing blockchain activity.

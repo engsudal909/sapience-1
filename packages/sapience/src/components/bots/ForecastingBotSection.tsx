@@ -14,7 +14,7 @@ export default function ForecastingBotSection() {
               <p className="headline text-lg md:text-xl lg:text-2xl">
                 Use the{' '}
                 <a
-                  href="https://docs.sapience.xyz/builder-guide/guides/forecasting-agent"
+                  href="https://docs.sapience.xyz/builder-guide/guides/elizaos-agent"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="gold-link"

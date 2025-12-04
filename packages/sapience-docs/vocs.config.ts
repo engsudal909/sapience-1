@@ -96,7 +96,7 @@ export default defineConfig({
       {
         text: "Trading Prediction Markets",
         items: [
-          { text: "Overview", link: "/user-guide/trading/overview" },
+          { text: "Getting Started", link: "/user-guide/trading/overview" },
           { text: "Auctions", link: "/user-guide/trading/auctions" },
           { text: "Resolution", link: "/user-guide/trading/resolution" },
         ],
