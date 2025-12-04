@@ -742,7 +742,6 @@ const VaultsPageContent = () => {
                           address={VAULT_ADDRESS}
                           compact
                           className="text-xs text-muted-foreground"
-                          hideVaultIcon
                         />
                       </div>
                     </div>
