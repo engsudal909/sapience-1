@@ -1,0 +1,423 @@
+'use client';
+
+import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
+import { useQuery } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
+import type { Address } from 'viem';
+import { formatEther } from 'viem';
+
+import EnableBridgedMarketGroupButton from './EnableBridgedMarketGroupButton';
+import MarketGroupDeployButton from './MarketGroupDeployButton';
+import EditMarketGroupDialog from './EditMarketGroupDialog';
+import { shortenAddress, getChainShortName } from '~/lib/utils/util';
+import type { EnrichedMarketGroup } from '~/hooks/graphql/useMarketGroups';
+import { useMarketGroupBridgeStatus } from '~/hooks/contract/useMarketGroupBridgeStatus';
+import DeleteUndeployedGroupButton from '~/components/admin/DeleteUndeployedGroupButton';
+// Markets are edited within EditMarketGroupDialog; remove separate Markets dialog
+
+// GraphQL query for index price at time
+const INDEX_PRICE_AT_TIME_QUERY = /* GraphQL */ `
+  query IndexPriceAtTime(
+    $address: String!
+    $chainId: Int!
+    $marketId: String!
+    $timestamp: Int!
+  ) {
+    indexPriceAtTime(
+      address: $address
+      chainId: $chainId
+      marketId: $marketId
+      timestamp: $timestamp
+    ) {
+      timestamp
+      close
+    }
+  }
+`;
+
+// Type definition for GraphQL response
+type IndexPriceAtTimeResponse = {
+  indexPriceAtTime: {
+    timestamp: number;
+    close: string;
+  } | null;
+};
+
+// Helper function to convert gwei to ether
+const gweiToEther = (value: bigint): string => {
+  return formatEther(value * BigInt(1e9));
+};
+
+// Hook to get market price data
+function useMarketPriceData(
+  marketAddress: string,
+  chainId: number,
+  marketId: number,
+  endTimestamp: number,
+  enabled: boolean
+) {
+  const now = Math.floor(Date.now() / 1000);
+  // Determine if the market is active *before* calculating the timestamp
+  const isActive = now < endTimestamp;
+  // Use (current time - 60 seconds) if active, otherwise use current time
+  const timestampToUse = isActive ? now - 60 : now;
+  // Use the lesser of the calculated time (or now-60) and the end time.
+  // This ensures settled markets still use endTimestamp.
+  // Rename this timestamp as it's used for the API call.
+  const timestampForApi = Math.min(timestampToUse, endTimestamp);
+
+  // Calculate a stable timestamp for the queryKey when the market is active.
+  // Round down to the nearest 5 minutes (300 seconds) to prevent rapid key changes.
+  const queryKeyTimestampInterval = 300;
+  const timestampForKey = isActive
+    ? Math.floor(timestampForApi / queryKeyTimestampInterval) *
+      queryKeyTimestampInterval
+    : timestampForApi; // Use the precise timestamp for the key if not active
+
+  const { data, isLoading, error } = useQuery({
+    // Use the stabilized timestamp in the query key
+    queryKey: [
+      'marketPriceData',
+      `${chainId}:${marketAddress}`,
+      marketId,
+      timestampForKey,
+    ],
+    queryFn: async () => {
+      if (!enabled) {
+        return null;
+      }
+      // Use the API timestamp for the enabled check
+      if (!marketAddress || !chainId || !marketId || !timestampForApi) {
+        return null;
+      }
+
+      const responseData = await graphqlRequest<IndexPriceAtTimeResponse>(
+        INDEX_PRICE_AT_TIME_QUERY,
+        {
+          address: marketAddress,
+          chainId,
+          marketId: marketId.toString(),
+          timestamp: timestampForApi,
+        }
+      );
+
+      const priceData = responseData?.indexPriceAtTime;
+      if (!priceData) {
+        return null;
+      }
+
+      const indexPrice = Number(gweiToEther(BigInt(priceData.close)));
+
+      return {
+        timestamp: priceData.timestamp,
+        indexPrice,
+      };
+    },
+    // Use the API timestamp for the enabled check
+    enabled:
+      !!enabled &&
+      !!marketAddress &&
+      !!chainId &&
+      !!marketId &&
+      !!timestampForApi,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  return {
+    indexPrice: data?.indexPrice,
+    timestamp: data?.timestamp,
+    isLoading,
+    error,
+    isActive,
+  };
+}
+
+// Using shared getChainShortName from util
+
+const OwnerCell = ({ group }: { group: EnrichedMarketGroup }) => {
+  if (!group.owner) {
+    return <span className="text-muted-foreground">N/A</span>;
+  }
+  return <span>{shortenAddress(group.owner)}</span>;
+};
+
+// Settlement Price Cell Component
+const SettlementPriceCell = ({ group }: { group: EnrichedMarketGroup }) => {
+  // Find the current/active market or the most recent settled market
+  const now = Math.floor(Date.now() / 1000);
+  const currentMarket = group.markets.find((m) => {
+    const start = m.startTimestamp ?? 0;
+    const end = m.endTimestamp ?? 0;
+    return start <= now && now <= end;
+  });
+
+  const mostRecentSettledMarket = group.markets
+    .filter((m) => (m.endTimestamp ?? 0) < now)
+    .sort((a, b) => (b.endTimestamp ?? 0) - (a.endTimestamp ?? 0))[0];
+
+  const marketToUse = currentMarket || mostRecentSettledMarket;
+
+  // Always call the hook, even if values are missing
+  const marketId = Number(marketToUse?.marketId) || 0;
+  const endTimestamp = marketToUse?.endTimestamp || 0;
+  const address = group.address || '';
+  const chainId = group.chainId || 0;
+  const hasResource = !!group.resource;
+
+  const { indexPrice, isLoading, error, isActive } = useMarketPriceData(
+    address,
+    chainId,
+    marketId,
+    endTimestamp,
+    hasResource
+  );
+
+  // Now handle early returns after the hook call
+  if (!hasResource) {
+    return <span className="text-muted-foreground">N/A</span>;
+  }
+
+  if (!address) {
+    return <span className="text-muted-foreground">N/A</span>;
+  }
+
+  if (!marketToUse) {
+    return <span className="text-muted-foreground">No markets</span>;
+  }
+
+  if (isLoading) {
+    return <span className="text-muted-foreground">Loading...</span>;
+  }
+
+  if (error) {
+    // Check if the error message is about a missing resource
+    const isResourceNotFound =
+      typeof error?.message === 'string' &&
+      error.message.includes('Resource not found for market');
+    return (
+      <span className="text-muted-foreground">
+        {isResourceNotFound ? 'No price data' : 'N/A'}
+      </span>
+    );
+  }
+
+  if (indexPrice === undefined || indexPrice === null) {
+    return <span className="text-muted-foreground">N/A</span>;
+  }
+
+  return (
+    <div className="flex flex-col">
+      <span className="font-mono text-sm">{indexPrice.toFixed(4)}</span>
+      <span className="text-xs text-muted-foreground">
+        {isActive ? 'Current' : 'Settlement'}
+      </span>
+    </div>
+  );
+};
+
+const ActionsCell = ({ group }: { group: EnrichedMarketGroup }) => {
+  // Check if this is a bridged market group that needs to be enabled
+  const bridgeAddress = group.isBridged
+    ? (group.marketParamsOptimisticoraclev3 as Address)
+    : undefined;
+  const { isEnabled: isGroupEnabled, isLoading: isBridgeStatusLoading } =
+    useMarketGroupBridgeStatus(group.address as Address, bridgeAddress);
+  const needsEnable =
+    group.address &&
+    group.isBridged &&
+    !isGroupEnabled &&
+    !isBridgeStatusLoading;
+
+  if (group.address) {
+    return (
+      <div className="flex items-center gap-2 justify-end">
+        {needsEnable && <EnableBridgedMarketGroupButton group={group} />}
+        <Button variant="outline" size="sm" asChild>
+          <a
+            href={`/admin/${encodeURIComponent(`${getChainShortName(group.chainId)}:${group.address}`)}`}
+          >
+            Edit
+          </a>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <a
+            href={`/markets/${getChainShortName(group.chainId)}:${group.address}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 justify-end">
+      <Button variant="outline" size="sm" asChild>
+        <a
+          href={`/markets/${getChainShortName(group.chainId)}:mg-${group.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Preview
+        </a>
+      </Button>
+      <EditMarketGroupDialog group={group} />
+      <MarketGroupDeployButton group={group} />
+      <DeleteUndeployedGroupButton group={group} />
+    </div>
+  );
+};
+
+// Renders status badges for a market group
+const StatusBadges = ({ group }: { group: EnrichedMarketGroup }) => {
+  const nowSeconds = Date.now() / 1000;
+
+  const needsSettlement = group.markets.some((m) => {
+    const isDeployed = !!m.poolAddress;
+    const isPastEnd = (m.endTimestamp ?? 0) < nowSeconds;
+    const notSettled = !(m.settled ?? false);
+    return isDeployed && isPastEnd && notSettled;
+  });
+
+  const activeMarket = group.markets.some((m) => {
+    const start = m.startTimestamp ?? 0;
+    const end = m.endTimestamp ?? 0;
+    return start < nowSeconds && end > nowSeconds;
+  });
+
+  const upcomingMarket = group.markets.some((m) => {
+    const start = m.startTimestamp ?? 0;
+    return start > nowSeconds;
+  });
+
+  const needsDeployment =
+    !group.address || group.markets.some((m) => !m.poolAddress);
+
+  const allSettled =
+    group.markets.length > 0 &&
+    !needsSettlement &&
+    !activeMarket &&
+    !upcomingMarket;
+
+  const badges: React.ReactNode[] = [];
+
+  if (needsSettlement) {
+    badges.push(
+      <Badge
+        key="needsSettlement"
+        variant="destructive"
+        className="whitespace-nowrap"
+      >
+        Needs Settlement
+      </Badge>
+    );
+  }
+
+  if (activeMarket) {
+    badges.push(
+      <Badge key="active" className="whitespace-nowrap">
+        Active Market
+      </Badge>
+    );
+  }
+
+  if (upcomingMarket) {
+    badges.push(
+      <Badge key="upcoming" variant="secondary" className="whitespace-nowrap">
+        Upcoming Markets
+      </Badge>
+    );
+  }
+
+  if (needsDeployment) {
+    badges.push(
+      <Badge
+        key="needsDeploy"
+        variant="destructive"
+        className="whitespace-nowrap"
+      >
+        Needs Deployment
+      </Badge>
+    );
+  }
+
+  if (allSettled) {
+    badges.push(
+      <Badge key="settled" variant="outline" className="whitespace-nowrap">
+        Settled
+      </Badge>
+    );
+  }
+
+  if (badges.length === 0) return null;
+
+  return <div className="flex flex-col items-start gap-1">{badges}</div>;
+};
+
+const columns: ColumnDef<EnrichedMarketGroup>[] = [
+  {
+    id: 'badges',
+    header: () => null,
+    cell: ({ row }) => <StatusBadges group={row.original} />,
+  },
+  {
+    accessorKey: 'question',
+    header: 'Question',
+    cell: ({ row }) => {
+      const group = row.original;
+      return (
+        <div className="font-medium flex items-center gap-2">
+          {group.category && (
+            <div
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ backgroundColor: group.category.color }}
+              title={group.category.name}
+            />
+          )}
+          <span>{group.question}</span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'address',
+    header: 'Address',
+    cell: ({ row }) => {
+      const group = row.original;
+      if (!group.address) {
+        return (
+          <span className="text-muted-foreground">
+            Chain ID: {group.chainId}
+          </span>
+        );
+      }
+      return (
+        <div>
+          {getChainShortName(group.chainId)}:{shortenAddress(group.address)}
+        </div>
+      );
+    },
+  },
+  {
+    id: 'settlementPrice',
+    header: 'Settlement Price',
+    cell: ({ row }) => <SettlementPriceCell group={row.original} />,
+  },
+  {
+    accessorKey: 'owner',
+    header: 'Owner',
+    cell: ({ row }) => <OwnerCell group={row.original} />,
+  },
+  {
+    id: 'actions',
+    cell: ({ row }) => <ActionsCell group={row.original} />,
+    header: () => <div className="text-right" />,
+  },
+];
+
+export default columns;

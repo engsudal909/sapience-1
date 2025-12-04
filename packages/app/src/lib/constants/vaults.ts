@@ -1,0 +1,2 @@
+export const PROTOCOL_VAULT_ADDRESS =
+  '0xcc1c64e849395d31d059a4bd19391af64d8855d7';
