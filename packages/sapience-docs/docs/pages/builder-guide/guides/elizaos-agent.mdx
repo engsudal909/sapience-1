@@ -71,6 +71,10 @@ The agent will:
 
 ### Trade
 
+:::warning
+Check your local regulations. Start with small amounts and monitor performance. Use a dedicated wallet for your agent and never commit your private key to source control.
+:::
+
 Execute trades on prediction markets on **Ethereal** based on the agent's analysis:
 
 ```
@@ -152,6 +156,8 @@ Key areas to customize:
 - `style`: Formatting and tone guidelines
 
 ### Change the Model
+
+*Be sure to use a model with web search capability unless you've built a different workflow/pipeline to injest current information.*
 
 The default model is `openai/gpt-4o-search-preview` via OpenRouter. To change it, edit `src/character.ts`:
 

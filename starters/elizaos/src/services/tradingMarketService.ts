@@ -91,12 +91,18 @@ export class TradingMarketService {
   private filterActiveConditions(conditions: any[]): any[] {
     const now = Math.floor(Date.now() / 1000);
     const activeConditions = conditions.filter((condition: any) => {
+      // Must be public, not expired, and have at least one similar market to trade (most likely to attract bids)
+      const hasSimilarMarkets = condition.similarMarkets && 
+                                Array.isArray(condition.similarMarkets) && 
+                                condition.similarMarkets.length > 0;
+      
       return condition.public && 
              condition.endTime && 
-             condition.endTime > now;
+             condition.endTime > now &&
+             hasSimilarMarkets;
     });
 
-    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} active trading conditions out of ${conditions.length} total`);
+    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} tradeable conditions out of ${conditions.length} total (filtered for similarMarkets)`);
     
     if (activeConditions.length > 0) {
       elizaLogger.info(`[TradingMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
