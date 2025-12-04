@@ -61,7 +61,6 @@ const GET_CONDITIONS = /* GraphQL */ `
   }
 `;
 
-
 function buildWhereClause(
   chainId?: number,
   filters?: ConditionFilters

@@ -887,7 +887,9 @@ export default function QuestionPageContent({
                       // Get open interest from data and format it
                       const openInterestWei = data?.openInterest || '0';
                       try {
-                        const etherValue = parseFloat(formatEther(BigInt(openInterestWei)));
+                        const etherValue = parseFloat(
+                          formatEther(BigInt(openInterestWei))
+                        );
                         const formattedValue = formatFiveSigFigs(etherValue);
                         return `${formattedValue} USDe`;
                       } catch {

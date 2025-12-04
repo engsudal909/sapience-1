@@ -31,7 +31,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useReadContract } from 'wagmi';
 import { toHex, concatHex, keccak256 } from 'viem';
 import { umaResolver } from '@sapience/sdk/contracts';
@@ -52,7 +51,7 @@ import TableFilters, {
 interface MarketsDataTableProps {
   conditions: ConditionType[];
   isLoading?: boolean;
- 
+
   searchTerm: string;
   onSearchChange: (value: string) => void;
   filters: FilterState;
@@ -386,16 +385,14 @@ const columns: ColumnDef<ConditionType>[] = [
     cell: ({ row }) => {
       const condition = row.original;
       const openInterest = condition.openInterest || '0';
-      
+
       // Convert from wei to ether using viem's formatEther, then format with 5 significant figures
       const etherValue = parseFloat(formatEther(BigInt(openInterest)));
       const formattedValue = etherValue.toFixed(2);
-      
+
       return (
         <div className="text-sm whitespace-nowrap text-right">
-          <span className="tabular-nums font-mono">
-            {formattedValue}
-          </span>
+          <span className="tabular-nums font-mono">{formattedValue}</span>
           <span className="ml-1 text-muted-foreground">USDe</span>
         </div>
       );
@@ -470,7 +467,6 @@ export default function MarketsDataTable({
     []
   );
 
-  
   const filterBounds = React.useMemo(() => {
     const openInterestBounds: [number, number] = [0, 100000];
     const timeToResolutionBounds: [number, number] = [-1000, 1000];
@@ -482,13 +478,12 @@ export default function MarketsDataTable({
   const [displayCount, setDisplayCount] = React.useState(BATCH_SIZE);
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
- 
   React.useEffect(() => {
     setDisplayCount(BATCH_SIZE);
   }, [conditions]);
 
   const table = useReactTable({
-    data: conditions, 
+    data: conditions,
     columns,
     state: {
       sorting,
