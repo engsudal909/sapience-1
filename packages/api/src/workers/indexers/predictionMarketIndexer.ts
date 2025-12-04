@@ -678,6 +678,17 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         },
       });
 
+      // Update open interest for all conditions in this parlay
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+      const collateralStr = eventData.totalCollateral; 
+      for (const conditionId of conditionIds) {
+        await prisma.$executeRaw`
+          UPDATE condition 
+          SET "openInterest" = (COALESCE("openInterest"::NUMERIC, 0) + ${collateralStr}::NUMERIC)::TEXT
+          WHERE id = ${conditionId}
+        `;
+      }
+
       console.log(
         `[PredictionMarketIndexer] Processed PredictionMinted: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}`
       );

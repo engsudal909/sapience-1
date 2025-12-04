@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@/sapience/ui/index';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import {
   Dialog,
@@ -8,24 +7,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
-import Image from 'next/image';
+import { Info } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
-import { formatUnits, parseUnits } from 'viem';
+import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { WagerInput } from '~/components/markets/forms';
-import WagerDisclaimer from '~/components/markets/forms/shared/WagerDisclaimer';
+import BidDisplay from '~/components/markets/forms/shared/BidDisplay';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
-import { formatNumber } from '~/lib/utils/util';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
 import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
+import { getCategoryIcon } from '~/lib/theme/categoryIcons';
+import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
 interface BetslipParlayFormProps {
   methods: UseFormReturn<{
@@ -112,6 +113,18 @@ export default function BetslipParlayForm({
     const wagerNum = Number(parlayWagerAmount);
     return !Number.isNaN(wagerNum) && wagerNum > 1000;
   }, [parlayWagerAmount]);
+
+  // Calculate taker wager in wei for auction chart
+  const takerWagerWei = useMemo(() => {
+    try {
+      const decimals = Number.isFinite(collateralDecimals as number)
+        ? (collateralDecimals as number)
+        : 18;
+      return parseUnits(parlayWagerAmount || '0', decimals).toString();
+    } catch {
+      return '0';
+    }
+  }, [parlayWagerAmount, collateralDecimals]);
 
   const bestBid = useMemo(() => {
     if (!bids || bids.length === 0) return null;
@@ -268,51 +281,91 @@ export default function BetslipParlayForm({
     <FormProvider {...methods}>
       <form
         onSubmit={methods.handleSubmit(onSubmit)}
-        className="space-y-4 px-4 pb-4 pt-0"
+        className="space-y-4 px-4 pb-4 pt-4"
       >
         <div>
-          {parlaySelections.map((s) => (
-            <div
-              key={s.id}
-              className="-mx-4 px-4 py-2.5 border-b border-brand-white/10 first:border-t"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-md text-foreground">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="min-w-0 flex-1">
-                        <ConditionTitleLink
-                          conditionId={s.conditionId}
-                          title={s.question}
-                          endTime={undefined}
-                          description={undefined}
-                          clampLines={1}
-                        />
+          <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono mb-3 flex justify-between items-center">
+            <span>
+              {parlaySelections.length}{' '}
+              {parlaySelections.length !== 1 ? 'PICKS' : 'PICK'}
+            </span>
+            <AnimatePresence>
+              {parlaySelections.length > 1 && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-muted-foreground/50 flex items-center gap-1 ml-2"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                  ALL MUST BE CORRECT TO WIN
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
+          {parlaySelections.map((s, index) => {
+            const CategoryIcon = getCategoryIcon(s.categorySlug);
+            const categoryColor = getCategoryStyle(s.categorySlug).color;
+            // Match MarketBadge style: 10% opacity background, category color icon
+            const bgWithAlpha = categoryColor.startsWith('hsl(')
+              ? `hsl(${categoryColor.slice(4, -1)} / 0.1)`
+              : categoryColor.startsWith('rgb(')
+                ? `rgb(${categoryColor.slice(4, -1)} / 0.1)`
+                : `${categoryColor}1a`; // hex with ~10% alpha
+            return (
+              <div
+                key={s.id}
+                className={`-mx-4 px-4 py-2.5 border-b border-brand-white/10 ${index === 0 ? 'border-t' : ''}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
+                    style={{ backgroundColor: bgWithAlpha }}
+                  >
+                    <CategoryIcon
+                      className="w-[60%] h-[60%]"
+                      style={{ color: categoryColor, strokeWidth: 1 }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-md text-foreground">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          <ConditionTitleLink
+                            conditionId={s.conditionId}
+                            title={s.question}
+                            endTime={undefined}
+                            description={undefined}
+                            clampLines={1}
+                            useDialog
+                          />
+                        </div>
+                        <span className="shrink-0">
+                          <Badge
+                            variant="outline"
+                            className={`w-9 px-0 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono flex items-center justify-center ${s.prediction ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90' : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'}`}
+                          >
+                            {s.prediction ? 'YES' : 'NO'}
+                          </Badge>
+                        </span>
                       </div>
-                      <span className="relative -top-0.5 shrink-0">
-                        <Badge
-                          variant="outline"
-                          className={`${s.prediction ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono' : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono'}`}
-                        >
-                          {s.prediction ? 'Yes' : 'No'}
-                        </Badge>
-                      </span>
                     </div>
                   </div>
+                  <button
+                    onClick={() => removeParlaySelection(s.id)}
+                    className="text-[22px] leading-none text-muted-foreground hover:text-foreground"
+                    type="button"
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeParlaySelection(s.id)}
-                  className="text-[22px] leading-none text-muted-foreground hover:text-foreground"
-                  type="button"
-                  aria-label="Remove"
-                >
-                  ×
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
-          <div className="mt-4">
+          <div className="mt-5">
             <WagerInput
               minAmount={minWager}
               maxAmount={isEtherealChain ? '1000000' : undefined}
@@ -322,164 +375,36 @@ export default function BetslipParlayForm({
             />
           </div>
 
-          <div className="mt-3 space-y-1">
-            {bestBid ? (
-              <div className="text-center">
-                {(() => {
-                  const makerWagerStr = methods.getValues('wagerAmount') || '0';
-                  const decimals = Number.isFinite(collateralDecimals as number)
-                    ? (collateralDecimals as number)
-                    : 18;
-                  let makerWagerWei: bigint = 0n;
-                  try {
-                    makerWagerWei = parseUnits(makerWagerStr, decimals);
-                  } catch {
-                    makerWagerWei = 0n;
-                  }
-                  const totalWei = (() => {
-                    try {
-                      return makerWagerWei + BigInt(bestBid.makerWager);
-                    } catch {
-                      return 0n;
-                    }
-                  })();
-                  const symbol = collateralSymbol;
-                  const humanTotal = (() => {
-                    try {
-                      const human = Number(formatUnits(totalWei, decimals));
-                      return formatNumber(human, 2);
-                    } catch {
-                      return '0.00';
-                    }
-                  })();
-                  const remainingMs = bestBid.makerDeadline * 1000 - nowMs;
-                  const secs = Math.max(0, Math.ceil(remainingMs / 1000));
-                  const suffix = secs === 1 ? 'second' : 'seconds';
-
-                  return (
-                    <div className="mt-3 mb-4">
-                      <div className="flex items-center gap-1.5 rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-3 py-2.5 w-full min-h-[48px] shadow-[0_0_10px_rgba(136,180,245,0.25)]">
-                        <span className="inline-flex items-center gap-2 whitespace-nowrap shrink-0">
-                          <Image
-                            src="/usde.svg"
-                            alt="USDe"
-                            width={24}
-                            height={24}
-                            className="opacity-90 ml-[-2px] w-6 h-6"
-                          />
-                          <span className="font-medium text-brand-white">
-                            To Win:
-                          </span>
-                          <span className="text-brand-white inline-flex items-center whitespace-nowrap">
-                            {humanTotal} {symbol}
-                          </span>
-                        </span>
-                        <span className="ml-auto text-xs font-normal text-brand-white text-right">
-                          <span className="whitespace-nowrap">Expires in</span>
-                          <br />
-                          <span className="whitespace-nowrap">
-                            {secs} {suffix}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-                <RestrictedJurisdictionBanner
-                  show={!isPermitLoading && isRestricted}
-                  className="mb-3"
-                />
-                <Button
-                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 cursor-pointer disabled:cursor-not-allowed ${
-                    isRainbowHoverEnabled
-                      ? 'betslip-submit hover:text-brand-white'
-                      : ''
-                  }`}
-                  disabled={
-                    isSubmitting ||
-                    bestBid.makerDeadline * 1000 - nowMs <= 0 ||
-                    isPermitLoading ||
-                    isRestricted
-                  }
-                  type="submit"
-                  size="lg"
-                  variant="default"
-                >
-                  {isSubmitting
-                    ? 'Submitting Prediction...'
-                    : 'Submit Prediction'}
-                </Button>
-                <div className="mt-0.5 py-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1 text-foreground">
-                    <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
-                    <span>Broadcasting a request for bids...</span>
-                  </span>
-                  <button
-                    type="button"
-                    className="text-foreground underline"
-                    onClick={() => setIsLimitDialogOpen(true)}
-                  >
-                    Limit Order
-                  </button>
-                </div>
-                <WagerDisclaimer className="mt-3" />
-              </div>
-            ) : (
-              <div className="text-center">
-                <RestrictedJurisdictionBanner
-                  show={!isPermitLoading && isRestricted}
-                  className="mb-3"
-                />
-                <Button
-                  className={`w-full py-6 text-lg font-medium bg-foreground text-background hover:bg-foreground/90 cursor-pointer disabled:cursor-not-allowed ${
-                    isRainbowHoverEnabled
-                      ? 'betslip-submit hover:text-brand-white'
-                      : ''
-                  }`}
-                  disabled={!showNoBidsHint}
-                  type="button"
-                  size="lg"
-                  variant="default"
-                  onClick={() =>
-                    showNoBidsHint &&
-                    triggerAuctionRequest({ forceRefresh: true })
-                  }
-                >
-                  {showNoBidsHint ? 'Request Bids' : 'Waiting for Bids...'}
-                </Button>
-                <div className="mt-1 py-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1 text-foreground">
-                    <span className="inline-block h-[6px] w-[6px] rounded-full bg-foreground opacity-80 animate-ping mr-1.5" />
-                    <span>Broadcasting a request for bids...</span>
-                  </span>
-                  <button
-                    type="button"
-                    className="text-foreground underline"
-                    onClick={() => setIsLimitDialogOpen(true)}
-                  >
-                    Limit Order
-                  </button>
-                </div>
-                {hintMounted ? (
-                  <div
-                    className={`text-xs text-foreground font-medium mt-2 transition-opacity duration-300 ${
-                      hintVisible ? 'opacity-100' : 'opacity-0'
-                    }`}
-                  >
-                    <span className="text-accent-gold">
-                      Some combinations may not receive bids
-                    </span>
-                  </div>
-                ) : null}
-                {disclaimerMounted ? (
-                  <WagerDisclaimer
-                    className={`mt-3 transition-opacity duration-300 ${
-                      disclaimerVisible ? 'opacity-100' : 'opacity-0'
-                    }`}
-                  />
-                ) : null}
-              </div>
-            )}
+          <div className="mt-5 space-y-1">
+            <RestrictedJurisdictionBanner
+              show={!isPermitLoading && isRestricted}
+              className="mb-3"
+            />
+            <BidDisplay
+              bestBid={bestBid}
+              wagerAmount={parlayWagerAmount || '0'}
+              collateralSymbol={collateralSymbol}
+              collateralDecimals={collateralDecimals}
+              nowMs={nowMs}
+              isWaitingForBids={recentlyRequested && !bestBid}
+              showRequestBidsButton={showNoBidsHint}
+              onRequestBids={() =>
+                triggerAuctionRequest({ forceRefresh: true })
+              }
+              isSubmitting={isSubmitting}
+              onSubmit={onSubmit}
+              isSubmitDisabled={isPermitLoading || isRestricted}
+              enableRainbowHover={isRainbowHoverEnabled}
+              onLimitOrderClick={() => setIsLimitDialogOpen(true)}
+              showNoBidsHint={showNoBidsHint}
+              hintVisible={hintVisible}
+              hintMounted={hintMounted}
+              disclaimerVisible={disclaimerVisible}
+              disclaimerMounted={disclaimerMounted}
+              allBids={bids}
+              takerWagerWei={takerWagerWei}
+              takerAddress={selectedTakerAddress}
+            />
           </div>
           {error && (
             <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">

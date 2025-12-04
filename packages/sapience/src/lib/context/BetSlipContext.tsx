@@ -51,6 +51,7 @@ export interface ParlaySelection {
   conditionId: string;
   question: string;
   prediction: boolean; // true = yes, false = no
+  categorySlug?: string | null; // category slug for icon display
 }
 
 // Interface for market data with position

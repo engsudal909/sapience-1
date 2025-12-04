@@ -262,7 +262,9 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     >
       {requestedPrediction == null ? (
         isRequesting ? (
-          <span className="text-foreground/70">Requesting...</span>
+          <span className="text-foreground/70 animate-pulse">
+            Requesting...
+          </span>
         ) : (
           <button
             type="button"
@@ -276,8 +278,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
         <PercentChance
           probability={requestedPrediction}
           showLabel={true}
-          label="Chance"
-          className="text-foreground font-medium"
+          label="chance"
+          className="font-mono text-ethena"
         />
       )}
     </div>
