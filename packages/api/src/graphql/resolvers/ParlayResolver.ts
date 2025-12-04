@@ -345,4 +345,119 @@ export class ParlayResolver {
 
     return processRows(rows);
   }
+
+  @Query(() => [ParlayType])
+  async parlaysByConditionId(
+    @Arg('conditionId', () => String) conditionId: string,
+    @Arg('take', () => Int, { defaultValue: 100 }) take: number,
+    @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
+    @Arg('chainId', () => Int, { nullable: true }) chainId?: number
+  ): Promise<ParlayType[]> {
+    // Use raw SQL to filter parlays where predictedOutcomes JSON contains the conditionId
+    // PostgreSQL JSONB path query: check if any element in the array has conditionId matching
+    const conditionIdLower = conditionId.toLowerCase();
+    
+    let rows: Parlay[];
+    if (chainId !== undefined && chainId !== null) {
+      rows = await prisma.$queryRaw<Parlay[]>`
+        SELECT * FROM parlay
+        WHERE "chainId" = ${chainId}
+          AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements("predictedOutcomes"::jsonb) AS outcome
+            WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
+          )
+        ORDER BY "mintedAt" DESC
+        LIMIT ${take}
+        OFFSET ${skip}
+      `;
+    } else {
+      rows = await prisma.$queryRaw<Parlay[]>`
+        SELECT * FROM parlay
+        WHERE EXISTS (
+          SELECT 1 FROM jsonb_array_elements("predictedOutcomes"::jsonb) AS outcome
+          WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
+        )
+        ORDER BY "mintedAt" DESC
+        LIMIT ${take}
+        OFFSET ${skip}
+      `;
+    }
+
+    // Reuse the processRows helper from userParlays
+    const processRows = async (rows: Parlay[]): Promise<ParlayType[]> => {
+      // Collect condition ids
+      const conditionSet = new Set<string>();
+      for (const r of rows) {
+        // Parse predictedOutcomes if it's a string (from raw SQL)
+        let predictedOutcomesParsed = r.predictedOutcomes;
+        if (typeof predictedOutcomesParsed === 'string') {
+          try {
+            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+          } catch {
+            predictedOutcomesParsed = [];
+          }
+        }
+        const outcomes =
+          (predictedOutcomesParsed as unknown as { conditionId: string }[]) ||
+          [];
+        for (const o of outcomes) conditionSet.add(o.conditionId);
+      }
+      const conditionIds = Array.from(conditionSet);
+      const conditions = conditionIds.length
+        ? await prisma.condition.findMany({
+            where: { id: { in: conditionIds } },
+            select: {
+              id: true,
+              question: true,
+              shortName: true,
+              endTime: true,
+            },
+          })
+        : [];
+      const condMap = new Map(conditions.map((c) => [c.id, c]));
+
+      return rows.map((r) => {
+        // Parse predictedOutcomes if it's a string (from raw SQL)
+        let predictedOutcomesParsed = r.predictedOutcomes;
+        if (typeof predictedOutcomesParsed === 'string') {
+          try {
+            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+          } catch {
+            predictedOutcomesParsed = [];
+          }
+        }
+        const outcomesRaw =
+          (predictedOutcomesParsed as unknown as {
+            conditionId: string;
+            prediction: boolean;
+          }[]) || [];
+        const outcomes: PredictedOutcomeType[] = outcomesRaw.map((o) => ({
+          conditionId: o.conditionId,
+          prediction: o.prediction,
+          condition: condMap.get(o.conditionId) || null,
+        }));
+        return {
+          id: r.id,
+          chainId: r.chainId,
+          marketAddress: r.marketAddress,
+          maker: r.maker,
+          taker: r.taker,
+          makerNftTokenId: r.makerNftTokenId,
+          takerNftTokenId: r.takerNftTokenId,
+          totalCollateral: r.totalCollateral,
+          makerCollateral: r.makerCollateral ?? null,
+          takerCollateral: r.takerCollateral ?? null,
+          refCode: r.refCode,
+          status: r.status as unknown as ParlayType['status'],
+          makerWon: r.makerWon,
+          mintedAt: r.mintedAt,
+          settledAt: r.settledAt ?? null,
+          endsAt: r.endsAt ?? null,
+          predictedOutcomes: outcomes,
+        };
+      });
+    };
+
+    return processRows(rows);
+  }
 }

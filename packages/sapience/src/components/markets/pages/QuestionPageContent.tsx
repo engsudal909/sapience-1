@@ -42,7 +42,6 @@ import {
   PopoverTrigger,
 } from '@sapience/sdk/ui/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
-import { formatEther } from 'viem';
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import {
   flexRender,
@@ -82,130 +81,9 @@ import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import MarketBadge from '~/components/markets/MarketBadge';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
-import { useForecasts } from '~/hooks/graphql/useForecasts';
-import { sqrtPriceX96ToPriceD18, formatFiveSigFigs } from '~/lib/utils/util';
-import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
-
-// Placeholder data for the scatter plot and predictions table
-const placeholderPredictions = [
-  {
-    x: Date.now() - 7 * 24 * 60 * 60 * 1000,
-    y: 30,
-    wager: 50,
-    maker: '0x1234567890abcdef1234567890abcdef12345678',
-    taker: '0xabcdef0123456789abcdef0123456789abcdef01',
-    makerPrediction: true, // maker predicts YES, taker predicts NO
-    time: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 6 * 24 * 60 * 60 * 1000,
-    y: 50,
-    wager: 120,
-    maker: '0xabcdef0123456789abcdef0123456789abcdef01',
-    taker: '0x234567890abcdef1234567890abcdef123456789',
-    makerPrediction: false, // maker predicts NO, taker predicts YES
-    time: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    y: 35,
-    wager: 25,
-    maker: '0x234567890abcdef1234567890abcdef123456789',
-    taker: '0xbcdef0123456789abcdef0123456789abcdef012',
-    makerPrediction: true,
-    time: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 4 * 24 * 60 * 60 * 1000,
-    y: 70,
-    wager: 200,
-    maker: '0xbcdef0123456789abcdef0123456789abcdef012',
-    taker: '0x3456789abcdef0123456789abcdef0123456789a',
-    makerPrediction: true,
-    time: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toLocaleString(),
-    combinedPredictions: [
-      {
-        question: 'Will BTC reach $100k by end of 2025?',
-        prediction: true,
-        categorySlug: 'crypto',
-      },
-      {
-        question: 'Will ETH flip BTC market cap?',
-        prediction: false,
-        categorySlug: 'crypto',
-      },
-      {
-        question: 'Will Solana reach $500?',
-        prediction: true,
-        categorySlug: 'crypto',
-      },
-    ],
-    combinedWithYes: true, // the combined predictions are tied to the YES outcome
-  },
-  {
-    x: Date.now() - 3 * 24 * 60 * 60 * 1000,
-    y: 45,
-    wager: 75,
-    maker: '0x3456789abcdef0123456789abcdef0123456789a',
-    taker: '0xcdef0123456789abcdef0123456789abcdef0123',
-    makerPrediction: false,
-    time: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    y: 60,
-    wager: 150,
-    maker: '0xcdef0123456789abcdef0123456789abcdef0123',
-    taker: '0x456789abcdef0123456789abcdef0123456789ab',
-    makerPrediction: true,
-    time: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 1 * 24 * 60 * 60 * 1000,
-    y: 55,
-    wager: 40,
-    maker: '0x456789abcdef0123456789abcdef0123456789ab',
-    taker: '0xdef0123456789abcdef0123456789abcdef01234',
-    makerPrediction: false,
-    time: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 12 * 60 * 60 * 1000,
-    y: 80,
-    wager: 300,
-    maker: '0xdef0123456789abcdef0123456789abcdef01234',
-    taker: '0x56789abcdef0123456789abcdef0123456789abc',
-    makerPrediction: true,
-    time: new Date(Date.now() - 12 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 6 * 60 * 60 * 1000,
-    y: 65,
-    wager: 90,
-    maker: '0x56789abcdef0123456789abcdef0123456789abc',
-    taker: '0xef0123456789abcdef0123456789abcdef012345',
-    makerPrediction: true,
-    time: new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleString(),
-  },
-  {
-    x: Date.now() - 1 * 60 * 60 * 1000,
-    y: 75,
-    wager: 175,
-    maker: '0xef0123456789abcdef0123456789abcdef012345',
-    taker: '0x1234567890abcdef1234567890abcdef12345678',
-    makerPrediction: false,
-    time: new Date(Date.now() - 1 * 60 * 60 * 1000).toLocaleString(),
-  },
-];
-
-const LottieLoader = dynamic(() => import('~/components/shared/LottieLoader'), {
-  ssr: false,
-  loading: () => <div className="w-8 h-8" />,
-});
-
-interface QuestionPageContentProps {
-  conditionId: string;
-}
+import { useParlaysByConditionId } from '~/hooks/graphql/useParlaysByConditionId';
+import { formatFiveSigFigs } from '~/lib/utils/util';
+import { formatEther } from 'viem';
 
 // Type for combined prediction in a parlay
 type CombinedPrediction = {
@@ -222,6 +100,8 @@ type PredictionData = {
   maker: string;
   taker: string;
   makerPrediction: boolean; // true = maker predicts YES, false = maker predicts NO
+  makerCollateral: number; // Maker's wager amount
+  takerCollateral: number; // Taker's wager amount
   time: string;
   combinedPredictions?: CombinedPrediction[];
   combinedWithYes?: boolean; // true = combined predictions are tied to YES outcome
@@ -229,6 +109,16 @@ type PredictionData = {
   attester?: string; // Forecaster's address
   predictionPercent?: number; // Prediction as percentage (0-100)
 };
+
+
+const LottieLoader = dynamic(() => import('~/components/shared/LottieLoader'), {
+  ssr: false,
+  loading: () => <div className="w-8 h-8" />,
+});
+
+interface QuestionPageContentProps {
+  conditionId: string;
+}
 
 export default function QuestionPageContent({
   conditionId,
@@ -445,64 +335,144 @@ export default function QuestionPageContent({
     enabled: !!predictionMarketAddress && !!collateralToken,
   });
 
-  // Fetch predictions (forecasts) for this condition
-  const { data: predictions } = useForecasts({
+  // Fetch parlays for this condition
+  const { data: parlays, isLoading: isLoadingParlays } = useParlaysByConditionId({
     conditionId,
+    chainId,
     options: {
       enabled: Boolean(conditionId),
     },
   });
 
-  // Transform predictions data for scatter plot
+  // Transform parlay data for scatter plot
   // x = time (unix timestamp), y = prediction probability (0-100), wager = amount wagered
   const scatterData = useMemo((): PredictionData[] => {
-    // If no real predictions, use placeholder data
-    if (!predictions || predictions.length === 0) {
-      return placeholderPredictions;
+    // If no real parlays, return empty array
+    if (!parlays || parlays.length === 0) {
+      return [];
     }
 
-    // Pre-calculate YES price for percentage conversion
-    const YES_SQRT_X96_PRICE_D18 = sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
-
-    const realData = predictions
-      .map((p) => {
-        // Convert sqrtPriceX96 to percentage (0-100)
-        // The value is stored as a BigInt string representation of sqrtPriceX96
+    const realData = parlays
+      .map((parlay) => {
         try {
-          const predictionBigInt = BigInt(p.value);
-          const priceD18 = sqrtPriceX96ToPriceD18(predictionBigInt);
-          const percentageD2 =
-            (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
-          const predictionPercent = Math.round(Number(percentageD2) / 100);
+          // Find the prediction for the current conditionId in this parlay
+          const currentConditionOutcome = parlay.predictedOutcomes.find(
+            (outcome) => outcome.conditionId.toLowerCase() === conditionId.toLowerCase()
+          );
 
-          if (
-            !Number.isFinite(predictionPercent) ||
-            predictionPercent < 0 ||
-            predictionPercent > 100
-          )
+          if (!currentConditionOutcome) {
             return null;
+          }
+
+          // Get other conditions in the parlay (for combined predictions)
+          const otherOutcomes = parlay.predictedOutcomes.filter(
+            (outcome) => outcome.conditionId.toLowerCase() !== conditionId.toLowerCase()
+          );
+
+          // Calculate individual collateral amounts
+          let makerCollateral = 0;
+          let takerCollateral = 0;
+          try {
+            makerCollateral = parlay.makerCollateral
+              ? parseFloat(formatEther(BigInt(parlay.makerCollateral)))
+              : 0;
+            takerCollateral = parlay.takerCollateral
+              ? parseFloat(formatEther(BigInt(parlay.takerCollateral)))
+              : 0;
+          } catch {
+            // Fallback: try to derive from totalCollateral if individual amounts not available
+            try {
+              const totalCollateralWei = BigInt(parlay.totalCollateral || '0');
+              const totalCollateral = parseFloat(formatEther(totalCollateralWei));
+              // If individual amounts not available, split evenly (fallback)
+              makerCollateral = totalCollateral / 2;
+              takerCollateral = totalCollateral / 2;
+            } catch {
+              makerCollateral = 0;
+              takerCollateral = 0;
+            }
+          }
+
+          // Calculate total wager (for sizing)
+          const wager = makerCollateral + takerCollateral;
+
+          // Determine maker's prediction for this condition
+          const makerPrediction = currentConditionOutcome.prediction;
+
+          // Build combined predictions array if there are other conditions
+          const combinedPredictions: CombinedPrediction[] | undefined =
+            otherOutcomes.length > 0
+              ? otherOutcomes.map((outcome) => ({
+                  question:
+                    outcome.condition?.shortName ||
+                    outcome.condition?.question ||
+                    outcome.conditionId,
+                  prediction: outcome.prediction,
+                  categorySlug: outcome.condition?.category?.slug,
+                }))
+              : undefined;
+
+          // Convert mintedAt (seconds) to milliseconds
+          const timestamp = parlay.mintedAt * 1000;
+          const date = new Date(timestamp);
+
+          // Calculate implied probability of YES from wager amounts
+          // If maker predicts YES: implied YES probability = makerCollateral / (makerCollateral + takerCollateral)
+          // If maker predicts NO: implied YES probability = takerCollateral / (makerCollateral + takerCollateral)
+          let predictionPercent = 50; // Default fallback
+          const totalWager = makerCollateral + takerCollateral;
+          if (totalWager > 0) {
+            if (makerPrediction) {
+              // Maker predicts YES, so YES probability = maker's share
+              predictionPercent = (makerCollateral / totalWager) * 100;
+            } else {
+              // Maker predicts NO, so YES probability = taker's share
+              predictionPercent = (takerCollateral / totalWager) * 100;
+            }
+            // Clamp to 0-100 range
+            predictionPercent = Math.max(0, Math.min(100, predictionPercent));
+          }
 
           return {
-            x: p.rawTime * 1000, // Convert to milliseconds for Date
+            x: timestamp,
             y: predictionPercent,
-            wager: 100, // Default wager for real data (TODO: get from actual data when available)
-            maker: p.attester,
-            taker: p.attester, // Use attester for both for now until we have real trade data
-            makerPrediction: true, // Default to true for now until we have real trade data
-            time: p.time,
-            comment: p.comment || undefined, // Include comment from forecast
-            attester: p.attester, // Forecaster's address
-            predictionPercent, // Prediction as percentage (0-100)
+            wager,
+            maker: parlay.maker,
+            taker: parlay.taker,
+            makerPrediction,
+            makerCollateral,
+            takerCollateral,
+            time: date.toLocaleString(),
+            combinedPredictions,
+            combinedWithYes: makerPrediction, // Combined predictions are tied to maker's prediction
           };
-        } catch {
+        } catch (error) {
+          console.error('Error processing parlay:', error);
           return null;
         }
       })
       .filter(Boolean) as PredictionData[];
 
-    // If all real data failed to parse, fall back to placeholder
-    return realData.length > 0 ? realData : placeholderPredictions;
-  }, [predictions]);
+    return realData;
+  }, [parlays, conditionId]);
+
+  // Calculate wager range from actual data for dynamic sizing
+  const wagerRange = useMemo(() => {
+    if (scatterData.length === 0) {
+      return { wagerMin: 0, wagerMax: 100 };
+    }
+    const wagers = scatterData.map((d) => d.wager).filter((w) => w > 0);
+    if (wagers.length === 0) {
+      return { wagerMin: 0, wagerMax: 100 };
+    }
+    const wagerMin = Math.min(...wagers);
+    const wagerMax = Math.max(...wagers);
+    // If all wagers are the same, add a small range to avoid division by zero
+    if (wagerMin === wagerMax) {
+      return { wagerMin: Math.max(0, wagerMin - 1), wagerMax: wagerMax + 1 };
+    }
+    return { wagerMin, wagerMax };
+  }, [scatterData]);
 
   // Filter predictions that have comments for the comment scatter layer
   const commentScatterData = useMemo(() => {
@@ -612,7 +582,7 @@ export default function QuestionPageContent({
               onClick={() => column.toggleSorting(sorted === 'asc')}
               className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
             >
-              Wager
+              Total Wagered
               {sorted === 'asc' ? (
                 <ChevronUp className="h-4 w-4" />
               ) : sorted === 'desc' ? (
@@ -640,11 +610,29 @@ export default function QuestionPageContent({
             Forecast
           </span>
         ),
-        cell: ({ row }) => (
-          <span className="font-mono text-ethena whitespace-nowrap">
-            {row.original.y}% chance
-          </span>
-        ),
+        cell: ({ row }) => {
+          // Calculate implied probability from wager amounts
+          const { makerCollateral, takerCollateral, makerPrediction } = row.original;
+          const totalWager = makerCollateral + takerCollateral;
+          let impliedPercent = 50; // Default fallback
+          
+          if (totalWager > 0) {
+            if (makerPrediction) {
+              // Maker predicts YES, so YES probability = maker's share
+              impliedPercent = (makerCollateral / totalWager) * 100;
+            } else {
+              // Maker predicts NO, so YES probability = taker's share
+              impliedPercent = (takerCollateral / totalWager) * 100;
+            }
+            impliedPercent = Math.max(0, Math.min(100, impliedPercent));
+          }
+          
+          return (
+            <span className="font-mono text-ethena whitespace-nowrap">
+              {Math.round(impliedPercent)}% chance
+            </span>
+          );
+        },
         enableSorting: false,
       },
       {
@@ -913,7 +901,19 @@ export default function QuestionPageContent({
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
             {/* Scatterplot - height matches the PredictionForm dynamically */}
             <div className="relative w-full min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
-              <ResponsiveContainer width="100%" height="100%">
+              {isLoadingParlays ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <LottieLoader width={32} height={32} />
+                </div>
+              ) : scatterData.length === 0 ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <Telescope className="h-12 w-12 text-muted-foreground/40" />
+                  <span className="text-muted-foreground text-sm">
+                    No predictions yet
+                  </span>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart
                   margin={{ top: 20, right: 24, bottom: 5, left: -10 }}
                 >
@@ -1062,7 +1062,7 @@ export default function QuestionPageContent({
                                 Forecast
                               </span>
                               <span className="font-mono text-sm text-ethena">
-                                {point.y}% chance
+                                {point.y.toFixed(2)}% chance
                               </span>
                             </div>
                           </div>
@@ -1203,20 +1203,26 @@ export default function QuestionPageContent({
                     shape={(props: any) => {
                       const { cx, cy, payload } = props;
                       // Scale wager to radius: min 4px, max 20px
-                      // Assuming wagers range from ~25 to ~300
+                      // Use actual wager range from data
                       const minR = 4;
                       const maxR = 20;
-                      const minWager = 25;
-                      const maxWager = 300;
-                      const wager = payload?.wager || 100;
+                      const { wagerMin, wagerMax } = wagerRange;
+                      const wager = payload?.wager ?? 0;
+                      
+                      // Normalize wager to the calculated range
                       const normalizedWager = Math.max(
-                        minWager,
-                        Math.min(maxWager, wager)
+                        wagerMin,
+                        Math.min(wagerMax, wager)
                       );
+                      
+                      // Calculate radius based on normalized wager
+                      const wagerRangeSize = wagerMax - wagerMin;
                       const radius =
-                        minR +
-                        ((normalizedWager - minWager) / (maxWager - minWager)) *
-                          (maxR - minR);
+                        wagerRangeSize > 0
+                          ? minR +
+                            ((normalizedWager - wagerMin) / wagerRangeSize) *
+                              (maxR - minR)
+                          : minR; // Fallback if range is 0
 
                       // Check if this is a combined prediction (parlay)
                       if (payload?.combinedPredictions?.length > 0) {
@@ -1422,7 +1428,8 @@ export default function QuestionPageContent({
                     }}
                   />
                 </ScatterChart>
-              </ResponsiveContainer>
+                </ResponsiveContainer>
+              )}
 
               {/* Comment popover - positioned absolutely relative to scatter plot container */}
               <AnimatePresence>
@@ -1558,7 +1565,11 @@ export default function QuestionPageContent({
                 </div>
                 {/* Content area */}
                 <TabsContent value="predictions" className="m-0">
-                  {scatterData.length > 0 ? (
+                  {isLoadingParlays ? (
+                    <div className="flex items-center justify-center p-12">
+                      <LottieLoader width={32} height={32} />
+                    </div>
+                  ) : scatterData.length > 0 ? (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -1619,7 +1630,8 @@ export default function QuestionPageContent({
                       </Table>
                     </div>
                   ) : (
-                    <div className="p-6 text-center">
+                    <div className="flex flex-col items-center justify-center p-12 gap-3">
+                      <Telescope className="h-12 w-12 text-muted-foreground/40" />
                       <span className="text-muted-foreground text-sm">
                         No predictions yet
                       </span>
