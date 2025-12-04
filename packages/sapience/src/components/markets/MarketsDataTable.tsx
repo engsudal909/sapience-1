@@ -389,7 +389,7 @@ const columns: ColumnDef<ConditionType>[] = [
       
       // Convert from wei to ether using viem's formatEther, then format with 5 significant figures
       const etherValue = parseFloat(formatEther(BigInt(openInterest)));
-      const formattedValue = formatFiveSigFigs(etherValue);
+      const formattedValue = etherValue.toFixed(2);
       
       return (
         <div className="text-sm whitespace-nowrap text-right">
