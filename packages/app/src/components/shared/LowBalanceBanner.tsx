@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useEffectiveBalance } from '~/hooks/blockchain/useEffectiveBalance';
+import { useAccount } from 'wagmi';
+import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
+import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
 const STARGATE_DEPOSIT_URL =
   'https://stargate.finance/?dstChain=ethereal&dstToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
@@ -11,16 +13,23 @@ type LowBalanceBannerProps = {
 };
 
 /**
- * Banner displayed when the user's balance is low or fully allocated as margin.
- * Uses fixed positioning with high z-index to overlay above all content.
+ * Banner displayed when the user's collateral balance is zero or negative.
  */
 const LowBalanceBanner: React.FC<LowBalanceBannerProps> = ({ className }) => {
-  const { isLowBalance, isLoading, isConnected } = useEffectiveBalance();
+  const { address, isConnected } = useAccount();
+  const chainId = useChainIdFromLocalStorage();
+  const { balance, isLoading } = useCollateralBalance({
+    address,
+    chainId,
+    enabled: isConnected && !!address,
+  });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isLowBalance = isConnected && balance <= 0;
 
   // Don't show if not connected, still loading, or balance is fine
   if (!isConnected || isLoading || !isLowBalance) return null;
