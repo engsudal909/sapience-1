@@ -358,6 +358,7 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     id: 'openInterest',
+    accessorFn: (row) => row.openInterest || '0',
     header: ({ column }) => {
       const sorted = column.getIsSorted();
       return (
