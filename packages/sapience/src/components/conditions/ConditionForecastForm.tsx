@@ -81,7 +81,7 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
     marketId,
     comment,
     onSuccess,
-    conditionIdHex: conditionId as `0x${string}`,
+    condition: conditionId as `0x${string}`,
   });
 
   const handleSubmit = async () => {

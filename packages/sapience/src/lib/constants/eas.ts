@@ -7,8 +7,9 @@ const EAS_EXPLORER_URLS: Record<number, string> = {
   42161: 'https://arbitrum.easscan.org', // Arbitrum
 };
 
+// Schema: address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment
 export const SCHEMA_UID =
-  '0x2dbb0921fa38ebc044ab0a7fe109442c456fb9ad39a68ce0a32f193744d17744';
+  '0x6ad0b3db05192b2fc9cc02e4ca7e1faa76959037b96823eb83e2f711a395a21f';
 
 // Utility functions
 export const getEASExplorerURL = (chainId: number): string => {

@@ -20,8 +20,9 @@ const EAS_ADDRESS_ARBITRUM: Address = '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c45
 const ARBITRUM_CHAIN_ID = 42161;
 
 // EAS schema id for prediction market attestations
+// Schema: address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment
 const SCHEMA_ID: Hex =
-  '0x2dbb0921fa38ebc044ab0a7fe109442c456fb9ad39a68ce0a32f193744d17744';
+  '0x6ad0b3db05192b2fc9cc02e4ca7e1faa76959037b96823eb83e2f711a395a21f';
 
 // EAS ABI (attest)
 const EAS_ABI = [
@@ -58,15 +59,12 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
 
 /**
- * Convert probability (0-100) to sqrtPriceX96 format
- * This is the standard format used by Uniswap V3 style AMMs
- * Formula: sqrtPriceX96 = sqrt(price) * 2^96
+ * Convert probability (0-100) to D18 format
+ * D18 means 18 decimal places, so 50% = 50 * 10^18
  */
-function probabilityToSqrtPriceX96(prob: number): bigint {
-  const price = prob / 100;
-  const sqrtPrice = Math.sqrt(price);
-  const Q96 = BigInt('79228162514264337593543950336'); // 2^96
-  return BigInt(Math.round(sqrtPrice * Number(Q96)));
+function probabilityToD18(prob: number): bigint {
+  // prob is 0-100, so multiply by 10^18
+  return BigInt(Math.round(prob * 1e18));
 }
 
 export type ForecastCalldata = {
@@ -78,15 +76,21 @@ export type ForecastCalldata = {
 
 /**
  * Build calldata for submitting a forecast attestation to Arbitrum EAS.
- * 
- * @param conditionId - The condition/question ID (bytes32)
+ *
+ * @param resolver - The resolver contract address
+ * @param condition - The condition data (bytes)
  * @param probability - Probability 0-100 that the condition resolves YES
  * @param comment - Optional comment/reasoning (max 180 chars, will be truncated)
+ * @param marketAddress - Optional market address (defaults to zero address)
+ * @param marketId - Optional market ID (defaults to 0)
  */
 export function buildForecastCalldata(
-  conditionId: Hex,
+  resolver: Address,
+  condition: Hex,
   prob: number,
   comment?: string,
+  marketAddress?: Address,
+  marketId?: bigint,
 ): ForecastCalldata {
   if (prob < 0 || prob > 100) {
     throw new Error(`Probability must be between 0 and 100, got ${prob}`);
@@ -100,13 +104,14 @@ export function buildForecastCalldata(
 
   const encodedData = encodeAbiParameters(
     parseAbiParameters(
-      'address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment',
+      'address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment',
     ),
     [
-      ZERO_ADDRESS,
-      0n,
-      conditionId,
-      probabilityToSqrtPriceX96(prob),
+      marketAddress || ZERO_ADDRESS,
+      marketId || 0n,
+      resolver,
+      condition,
+      probabilityToD18(prob),
       truncatedComment,
     ],
   );
@@ -139,20 +144,24 @@ export function buildForecastCalldata(
 
 /**
  * Submit a forecast attestation to Arbitrum EAS.
- * 
+ *
  * This is the main entry point for agents to submit forecasts.
  * Always submits to Arbitrum mainnet.
- * 
- * @param conditionId - The condition/question ID (bytes32)
+ *
+ * @param resolver - The resolver contract address
+ * @param condition - The condition data (bytes)
  * @param probability - Probability 0-100 that the condition resolves YES
  * @param comment - Optional comment/reasoning (max 180 chars)
  * @param privateKey - Wallet private key for signing
  * @param rpc - Arbitrum RPC URL (defaults to public endpoint)
- * 
+ * @param marketAddress - Optional market address
+ * @param marketId - Optional market ID
+ *
  * @example
  * ```ts
  * const { hash } = await submitForecast({
- *   conditionId: '0x1234...abcd',
+ *   resolver: '0x1234...abcd',
+ *   condition: '0x...',
  *   probability: 75,
  *   comment: 'High confidence based on recent polling data',
  *   privateKey: '0x...',
@@ -160,16 +169,22 @@ export function buildForecastCalldata(
  * ```
  */
 export async function submitForecast(args: {
-  conditionId: Hex;
+  resolver: Address;
+  condition: Hex;
   probability: number;
   comment?: string;
   privateKey: Hex;
   rpc?: string;
+  marketAddress?: Address;
+  marketId?: bigint;
 }): Promise<{ hash: Hex; calldata: ForecastCalldata }> {
   const calldata = buildForecastCalldata(
-    args.conditionId,
+    args.resolver,
+    args.condition,
     args.probability,
     args.comment,
+    args.marketAddress,
+    args.marketId,
   );
 
   const rpc = args.rpc || 'https://arb1.arbitrum.io/rpc';

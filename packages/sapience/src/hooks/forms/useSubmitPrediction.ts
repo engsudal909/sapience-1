@@ -14,12 +14,14 @@ const ARBITRUM_CHAIN_ID = 42161;
 interface UseSubmitPredictionProps {
   marketAddress: string;
   marketClassification: MarketGroupClassification;
-  submissionValue: string; // Value from the form (e.g. "1.23" for numeric, "marketId" for MCQ, pre-calc sqrtPriceX96 for Yes/No)
+  submissionValue: string; // Value from the form - probability 0-100 (will be converted to D18)
   marketId: number; // Specific market ID for the attestation (for MCQ, this is the ID of the chosen option)
   comment?: string; // Optional comment field
   onSuccess?: () => void; // Callback for successful submission
-  /** Optional condition id hex (bytes32). When provided, encoded as questionId */
-  conditionIdHex?: `0x${string}`;
+  /** Resolver contract address */
+  resolver?: `0x${string}`;
+  /** Condition data (bytes) */
+  condition?: `0x${string}`;
 }
 
 export function useSubmitPrediction({
@@ -29,7 +31,8 @@ export function useSubmitPrediction({
   marketId,
   comment = '',
   onSuccess,
-  conditionIdHex,
+  resolver,
+  condition,
 }: UseSubmitPredictionProps) {
   const { address } = useAccount();
 
@@ -73,11 +76,11 @@ export function useSubmitPrediction({
       predictionInput: string,
       classification: MarketGroupClassification,
       _comment: string,
-      _questionIdHex?: `0x${string}`
+      _resolver?: `0x${string}`,
+      _condition?: `0x${string}`
     ) => {
       try {
         let finalPredictionBigInt: bigint;
-        const JS_2_POW_96 = 2 ** 96;
 
         switch (classification) {
           case MarketGroupClassification.NUMERIC: {
@@ -88,19 +91,23 @@ export function useSubmitPrediction({
                 'Numeric prediction input must be a valid non-negative number.'
               );
             }
-            const effectivePrice = inputNum * 10 ** 18;
-            const sqrtEffectivePrice = Math.sqrt(effectivePrice);
-            const sqrtPriceX96Float = sqrtEffectivePrice * JS_2_POW_96;
-            finalPredictionBigInt = BigInt(Math.round(sqrtPriceX96Float));
+            // D18 format: value * 10^18
+            finalPredictionBigInt = BigInt(Math.round(inputNum * 1e18));
             break;
           }
           case MarketGroupClassification.YES_NO:
             console.log('predictionInput yes no', predictionInput);
-            finalPredictionBigInt = BigInt(predictionInput);
+            // predictionInput is probability 0-100, convert to D18
+            finalPredictionBigInt = BigInt(
+              Math.round(parseFloat(predictionInput) * 1e18)
+            );
             break;
           case MarketGroupClassification.MULTIPLE_CHOICE:
             console.log('predictionInput multiple choice', predictionInput);
-            finalPredictionBigInt = BigInt(predictionInput);
+            // predictionInput is probability 0-100, convert to D18
+            finalPredictionBigInt = BigInt(
+              Math.round(parseFloat(predictionInput) * 1e18)
+            );
             break;
           default: {
             // This will catch any unhandled enum members at compile time
@@ -113,13 +120,14 @@ export function useSubmitPrediction({
 
         return encodeAbiParameters(
           parseAbiParameters(
-            'address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment'
+            'address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment'
           ),
           [
             _marketAddress as `0x${string}`,
             BigInt(_marketId),
-            _questionIdHex ||
-              (`0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`),
+            _resolver ||
+              ('0x0000000000000000000000000000000000000000' as `0x${string}`),
+            _condition || ('0x' as `0x${string}`),
             finalPredictionBigInt,
             _comment,
           ]
@@ -154,7 +162,8 @@ export function useSubmitPrediction({
         submissionValue,
         marketClassification,
         comment,
-        conditionIdHex
+        resolver,
+        condition
       );
       await writeContract({
         chainId: ARBITRUM_CHAIN_ID,
@@ -190,7 +199,8 @@ export function useSubmitPrediction({
     submissionValue,
     marketId,
     comment,
-    conditionIdHex,
+    resolver,
+    condition,
     encodeSchemaData,
     writeContract,
     reset,
