@@ -336,6 +336,7 @@ const columns: ColumnDef<ConditionType>[] = [
             description={condition.description}
             clampLines={1}
             className="text-sm"
+            useDialog
           />
         </div>
       );
@@ -529,16 +530,16 @@ export default function MarketsDataTable({
 
   return (
     <div className="space-y-4">
-      <TableFilters
-        filters={filters}
-        onFiltersChange={onFiltersChange}
-        openInterestBounds={filterBounds.openInterestBounds}
-        timeToResolutionBounds={filterBounds.timeToResolutionBounds}
-        categories={categories}
-        searchTerm={searchTerm}
-        onSearchChange={onSearchChange}
-        className="mt-4"
-      />
+        <TableFilters
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          openInterestBounds={filterBounds.openInterestBounds}
+          timeToResolutionBounds={filterBounds.timeToResolutionBounds}
+          categories={categories}
+          searchTerm={searchTerm}
+          onSearchChange={onSearchChange}
+          className="mt-4"
+        />
       <div className="rounded-md border border-brand-white/20 overflow-hidden">
         <Table>
           <TableHeader>

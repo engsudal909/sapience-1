@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { Dialog, DialogTrigger } from '@sapience/sdk/ui/components/ui/dialog';
+import ConditionDialog from '~/components/markets/ConditionDialog';
 
 export type ConditionTitleLinkProps = {
   conditionId?: string;
@@ -24,15 +26,22 @@ export type ConditionTitleLinkProps = {
    * Useful for horizontally scrolling tickers where items can exceed viewport width.
    */
   noWrap?: boolean;
+  /**
+   * When true, clicking opens a dialog instead of navigating to the question page.
+   */
+  useDialog?: boolean;
 };
 
 export default function ConditionTitleLink({
   conditionId,
   title,
+  endTime,
+  description,
   className,
   clampLines = 1,
   trailing,
   noWrap = false,
+  useDialog = false,
 }: ConditionTitleLinkProps) {
   // Compute style based on clamp behavior
   const linkStyle: React.CSSProperties = React.useMemo(() => {
@@ -89,6 +98,39 @@ export default function ConditionTitleLink({
 
   // Wrapper display: block for single-line clamp, inline otherwise
   const wrapperDisplay = clampLines === 1 ? 'block' : 'inline align-baseline';
+
+  // If useDialog is true, render with Dialog/DialogTrigger
+  if (useDialog) {
+    return (
+      <span
+        className={`${wrapperDisplay} min-w-0 max-w-full ${className ?? ''}`}
+      >
+        <Dialog>
+          <DialogTrigger asChild>
+            <button
+              type="button"
+              className={`${baseClickableClass} min-w-0 max-w-full cursor-pointer`}
+              style={linkStyle}
+            >
+              {title}
+            </button>
+          </DialogTrigger>
+          <ConditionDialog
+            conditionId={conditionId}
+            title={title}
+            endTime={endTime}
+            description={description}
+          />
+        </Dialog>
+        {trailing ? (
+          <>
+            {' '}
+            <span className="ml-1 align-baseline">{trailing}</span>
+          </>
+        ) : null}
+      </span>
+    );
+  }
 
   return (
     <span className={`${wrapperDisplay} min-w-0 max-w-full ${className ?? ''}`}>

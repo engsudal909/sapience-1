@@ -338,6 +338,7 @@ export default function BetslipParlayForm({
                             endTime={undefined}
                             description={undefined}
                             clampLines={1}
+                            useDialog
                           />
                         </div>
                         <span className="shrink-0">

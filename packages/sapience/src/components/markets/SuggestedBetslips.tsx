@@ -498,6 +498,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                                   endTime={combo[0].condition.endTime}
                                   description={combo[0].condition.description}
                                   clampLines={1}
+                                  useDialog
                                 />
                               </span>
                               <Badge
@@ -558,6 +559,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                                                 }
                                                 clampLines={1}
                                                 className="text-sm"
+                                                useDialog
                                               />
                                               <Badge
                                                 variant="outline"
