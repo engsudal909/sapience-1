@@ -322,7 +322,7 @@ const columns: ColumnDef<ConditionType>[] = [
       const color = getCategoryColor(categorySlug);
       const displayQ = condition.shortName || condition.question;
       return (
-        <div className="flex items-center gap-3 max-w-[400px]">
+        <div className="flex items-center gap-3 max-w-[200px] md:max-w-[400px] min-w-0">
           <MarketBadge
             label={displayQ}
             size={32}
@@ -335,7 +335,7 @@ const columns: ColumnDef<ConditionType>[] = [
             endTime={condition.endTime}
             description={condition.description}
             clampLines={1}
-            className="text-sm"
+            className="text-sm min-w-0"
             useDialog
           />
         </div>
@@ -393,8 +393,10 @@ const columns: ColumnDef<ConditionType>[] = [
 
       return (
         <div className="text-sm whitespace-nowrap text-right">
-          <span className="tabular-nums font-mono">{formattedValue}</span>
-          <span className="ml-1 text-muted-foreground">USDe</span>
+          <span className="tabular-nums font-mono text-brand-white">
+            {formattedValue}
+          </span>
+          <span className="ml-1 font-mono text-brand-white">USDe</span>
         </div>
       );
     },
@@ -530,16 +532,16 @@ export default function MarketsDataTable({
 
   return (
     <div className="space-y-4">
-        <TableFilters
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          openInterestBounds={filterBounds.openInterestBounds}
-          timeToResolutionBounds={filterBounds.timeToResolutionBounds}
-          categories={categories}
-          searchTerm={searchTerm}
-          onSearchChange={onSearchChange}
-          className="mt-4"
-        />
+      <TableFilters
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        openInterestBounds={filterBounds.openInterestBounds}
+        timeToResolutionBounds={filterBounds.timeToResolutionBounds}
+        categories={categories}
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        className="mt-4"
+      />
       <div className="rounded-md border border-brand-white/20 overflow-hidden">
         <Table>
           <TableHeader>
@@ -647,4 +649,3 @@ export default function MarketsDataTable({
     </div>
   );
 }
-

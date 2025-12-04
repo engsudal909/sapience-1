@@ -262,7 +262,13 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     >
       {requestedPrediction == null ? (
         isRequesting ? (
-          <span className="text-foreground/70 animate-pulse">
+          <span
+            className="text-muted-foreground"
+            style={{
+              animation: 'subtle-pulse 3s ease-in-out infinite',
+            }}
+          >
+            <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
             Requesting...
           </span>
         ) : (

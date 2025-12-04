@@ -101,8 +101,8 @@ const BestBid: React.FC<BestBidProps> = ({
                     <PercentChance
                       probability={lastTrade.pct / 100}
                       showLabel={true}
-                      label="Chance"
-                      className="whitespace-nowrap"
+                      label="chance"
+                      className="font-mono text-ethena whitespace-nowrap"
                     />
                   </button>
                 </PopoverTrigger>
@@ -209,8 +209,8 @@ const BestBid: React.FC<BestBidProps> = ({
                             <PercentChance
                               probability={pct / 100}
                               showLabel={true}
-                              label="Chance"
-                              className="font-mono text-brand-white whitespace-nowrap"
+                              label="chance"
+                              className="font-mono text-ethena whitespace-nowrap"
                             />
                           ) : (
                             <span />
