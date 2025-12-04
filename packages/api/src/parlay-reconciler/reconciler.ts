@@ -115,7 +115,9 @@ export class ParlayReconciler {
         const resolverAddress =
           pmResolverEntry?.address || umaResolverEntry?.address;
 
-        const addresses: `0x${string}`[] = [contractEntry.address as `0x${string}`];
+        const addresses: `0x${string}`[] = [
+          contractEntry.address as `0x${string}`,
+        ];
         if (resolverAddress) {
           addresses.push(resolverAddress as `0x${string}`);
         }

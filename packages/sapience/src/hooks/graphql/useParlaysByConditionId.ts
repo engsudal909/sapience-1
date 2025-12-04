@@ -57,23 +57,11 @@ export function useParlaysByConditionId(params: {
     refetchOnReconnect?: boolean;
   };
 }) {
-  const {
-    conditionId,
-    take = 100,
-    skip = 0,
-    chainId,
-    options,
-  } = params;
+  const { conditionId, take = 100, skip = 0, chainId, options } = params;
   const enabled = options?.enabled ?? Boolean(conditionId);
-  
+
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: [
-      'parlaysByConditionId',
-      conditionId,
-      take,
-      skip,
-      chainId,
-    ],
+    queryKey: ['parlaysByConditionId', conditionId, take, skip, chainId],
     enabled,
     staleTime: options?.staleTime ?? 30_000,
     gcTime: 5 * 60 * 1000,
@@ -81,7 +69,7 @@ export function useParlaysByConditionId(params: {
     refetchOnReconnect: options?.refetchOnReconnect ?? false,
     queryFn: async () => {
       if (!conditionId) return [];
-      
+
       const resp = await graphqlRequest<{ parlaysByConditionId: Parlay[] }>(
         PARLAYS_BY_CONDITION_ID_QUERY,
         {
@@ -153,7 +141,7 @@ export function useParlaysByConditionId(params: {
       }));
     },
   });
-  
+
   return {
     data: data ?? [],
     isLoading: !!enabled && (isLoading || isFetching),

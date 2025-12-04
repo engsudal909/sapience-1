@@ -356,7 +356,7 @@ export class ParlayResolver {
     // Use raw SQL to filter parlays where predictedOutcomes JSON contains the conditionId
     // PostgreSQL JSONB path query: check if any element in the array has conditionId matching
     const conditionIdLower = conditionId.toLowerCase();
-    
+
     let rows: Parlay[];
     if (chainId !== undefined && chainId !== null) {
       rows = await prisma.$queryRaw<Parlay[]>`

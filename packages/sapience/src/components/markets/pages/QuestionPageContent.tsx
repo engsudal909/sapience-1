@@ -82,7 +82,9 @@ import MarketBadge from '~/components/markets/MarketBadge';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useParlaysByConditionId } from '~/hooks/graphql/useParlaysByConditionId';
-import { formatFiveSigFigs } from '~/lib/utils/util';
+import { useForecasts } from '~/hooks/graphql/useForecasts';
+import { formatFiveSigFigs, sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
+import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { formatEther } from 'viem';
 
 // Type for combined prediction in a parlay
@@ -110,7 +112,6 @@ type PredictionData = {
   predictionPercent?: number; // Prediction as percentage (0-100)
 };
 
-
 const LottieLoader = dynamic(() => import('~/components/shared/LottieLoader'), {
   ssr: false,
   loading: () => <div className="w-8 h-8" />,
@@ -129,6 +130,13 @@ export default function QuestionPageContent({
   const [hoveredPoint, setHoveredPoint] = React.useState<PredictionData | null>(
     null
   );
+  const [hoveredForecast, setHoveredForecast] = React.useState<{
+    x: number;
+    y: number;
+    time: string;
+    attester: string;
+    comment: string;
+  } | null>(null);
   const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
   const isTooltipHoveredRef = React.useRef(false);
   const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -336,13 +344,40 @@ export default function QuestionPageContent({
   });
 
   // Fetch parlays for this condition
-  const { data: parlays, isLoading: isLoadingParlays } = useParlaysByConditionId({
+  const { data: parlays, isLoading: isLoadingParlays } =
+    useParlaysByConditionId({
+      conditionId,
+      chainId,
+      options: {
+        enabled: Boolean(conditionId),
+      },
+    });
+
+  // Fetch forecasts for this condition
+  const { data: forecasts } = useForecasts({
     conditionId,
-    chainId,
     options: {
       enabled: Boolean(conditionId),
     },
   });
+
+  // Debug: Log forecasts data
+  React.useEffect(() => {
+    if (forecasts) {
+      console.log('[QuestionPageContent] Forecasts fetched:', {
+        count: forecasts.length,
+        conditionId,
+        forecasts: forecasts.map((f) => ({
+          id: f.id,
+          attester: f.attester,
+          value: f.value,
+          rawTime: f.rawTime,
+          comment: f.comment,
+          questionId: f.questionId,
+        })),
+      });
+    }
+  }, [forecasts, conditionId]);
 
   // Transform parlay data for scatter plot
   // x = time (unix timestamp), y = prediction probability (0-100), wager = amount wagered
@@ -357,7 +392,8 @@ export default function QuestionPageContent({
         try {
           // Find the prediction for the current conditionId in this parlay
           const currentConditionOutcome = parlay.predictedOutcomes.find(
-            (outcome) => outcome.conditionId.toLowerCase() === conditionId.toLowerCase()
+            (outcome) =>
+              outcome.conditionId.toLowerCase() === conditionId.toLowerCase()
           );
 
           if (!currentConditionOutcome) {
@@ -366,7 +402,8 @@ export default function QuestionPageContent({
 
           // Get other conditions in the parlay (for combined predictions)
           const otherOutcomes = parlay.predictedOutcomes.filter(
-            (outcome) => outcome.conditionId.toLowerCase() !== conditionId.toLowerCase()
+            (outcome) =>
+              outcome.conditionId.toLowerCase() !== conditionId.toLowerCase()
           );
 
           // Calculate individual collateral amounts
@@ -383,7 +420,9 @@ export default function QuestionPageContent({
             // Fallback: try to derive from totalCollateral if individual amounts not available
             try {
               const totalCollateralWei = BigInt(parlay.totalCollateral || '0');
-              const totalCollateral = parseFloat(formatEther(totalCollateralWei));
+              const totalCollateral = parseFloat(
+                formatEther(totalCollateralWei)
+              );
               // If individual amounts not available, split evenly (fallback)
               makerCollateral = totalCollateral / 2;
               takerCollateral = totalCollateral / 2;
@@ -396,8 +435,11 @@ export default function QuestionPageContent({
           // Calculate total wager (for sizing)
           const wager = makerCollateral + takerCollateral;
 
-          // Determine maker's prediction for this condition
-          const makerPrediction = currentConditionOutcome.prediction;
+          // predictedOutcomes represents the taker's predictions
+          // So if taker predicts YES (prediction = true), maker predicts NO (opposite)
+          // If taker predicts NO (prediction = false), maker predicts YES (opposite)
+          const takerPrediction = currentConditionOutcome.prediction;
+          const makerPrediction = !takerPrediction; // Maker has opposite prediction
 
           // Build combined predictions array if there are other conditions
           const combinedPredictions: CombinedPrediction[] | undefined =
@@ -417,17 +459,18 @@ export default function QuestionPageContent({
           const date = new Date(timestamp);
 
           // Calculate implied probability of YES from wager amounts
-          // If maker predicts YES: implied YES probability = makerCollateral / (makerCollateral + takerCollateral)
-          // If maker predicts NO: implied YES probability = takerCollateral / (makerCollateral + takerCollateral)
+          // predictedOutcomes represents taker's predictions
+          // - If taker predicts YES: YES prob = takerCollateral / totalWager
+          // - If taker predicts NO: YES prob = 1 - (takerCollateral / totalWager)
           let predictionPercent = 50; // Default fallback
           const totalWager = makerCollateral + takerCollateral;
           if (totalWager > 0) {
-            if (makerPrediction) {
-              // Maker predicts YES, so YES probability = maker's share
-              predictionPercent = (makerCollateral / totalWager) * 100;
-            } else {
-              // Maker predicts NO, so YES probability = taker's share
+            if (takerPrediction) {
+              // Taker predicts YES: YES probability = takerCollateral / totalWager
               predictionPercent = (takerCollateral / totalWager) * 100;
+            } else {
+              // Taker predicts NO: YES probability = 1 - (takerCollateral / totalWager)
+              predictionPercent = (1 - takerCollateral / totalWager) * 100;
             }
             // Clamp to 0-100 range
             predictionPercent = Math.max(0, Math.min(100, predictionPercent));
@@ -444,7 +487,7 @@ export default function QuestionPageContent({
             takerCollateral,
             time: date.toLocaleString(),
             combinedPredictions,
-            combinedWithYes: makerPrediction, // Combined predictions are tied to maker's prediction
+            combinedWithYes: takerPrediction, // Combined predictions are tied to taker's prediction
           };
         } catch (error) {
           console.error('Error processing parlay:', error);
@@ -478,6 +521,103 @@ export default function QuestionPageContent({
   const commentScatterData = useMemo(() => {
     return scatterData.filter((d) => d.comment && d.comment.trim().length > 0);
   }, [scatterData]);
+
+  // Transform forecasts data for scatter plot
+  // Forecasts are user-submitted probability predictions (not parlays)
+  const forecastScatterData = useMemo(() => {
+    if (!forecasts || forecasts.length === 0) {
+      console.log('[QuestionPageContent] No forecasts data to transform');
+      return [];
+    }
+
+    console.log('[QuestionPageContent] Transforming forecasts:', {
+      count: forecasts.length,
+      rawForecasts: forecasts,
+    });
+
+    const transformed = forecasts
+      .map(
+        (forecast: {
+          value: string;
+          rawTime: number;
+          attester: string;
+          comment?: string;
+        }) => {
+          try {
+            // Parse prediction value (stored as sqrtPriceX96 bigint string)
+            // Convert from sqrtPriceX96 to percentage (0-100)
+            let predictionPercent = 50; // Default fallback
+            const predictionValue = forecast.value;
+            if (predictionValue) {
+              try {
+                // Convert sqrtPriceX96 to percentage
+                const prediction = BigInt(predictionValue);
+                const priceD18 = sqrtPriceX96ToPriceD18(prediction);
+                const YES_SQRT_X96_PRICE_D18 =
+                  sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
+                const percentageD2 =
+                  (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
+                predictionPercent = Math.round(Number(percentageD2) / 100);
+                // Clamp to 0-100 range
+                predictionPercent = Math.max(
+                  0,
+                  Math.min(100, predictionPercent)
+                );
+              } catch (error) {
+                console.warn(
+                  '[QuestionPageContent] Error converting sqrtPriceX96 to percentage:',
+                  {
+                    value: predictionValue,
+                    error,
+                    forecast,
+                  }
+                );
+              }
+            }
+
+            // Convert time (Unix timestamp in seconds) to milliseconds
+            const timestamp = forecast.rawTime * 1000;
+            const date = new Date(timestamp);
+
+            const result = {
+              x: timestamp,
+              y: predictionPercent,
+              time: date.toLocaleString(),
+              attester: forecast.attester,
+              comment: forecast.comment || '',
+            };
+
+            console.log('[QuestionPageContent] Transformed forecast:', {
+              original: forecast,
+              transformed: result,
+            });
+
+            return result;
+          } catch (error) {
+            console.error(
+              '[QuestionPageContent] Error processing forecast:',
+              error,
+              forecast
+            );
+            return null;
+          }
+        }
+      )
+      .filter(Boolean) as Array<{
+      x: number;
+      y: number;
+      time: string;
+      attester: string;
+      comment: string;
+    }>;
+
+    console.log('[QuestionPageContent] Final forecastScatterData:', {
+      count: transformed.length,
+      data: transformed,
+    });
+
+    return transformed;
+  }, [forecasts]);
 
   // Calculate X axis domain and ticks based on predictions data
   const { xDomain, xTicks, xTickLabels } = useMemo(() => {
@@ -612,23 +752,37 @@ export default function QuestionPageContent({
         ),
         cell: ({ row }) => {
           // Calculate implied probability from wager amounts
-          const { makerCollateral, takerCollateral, makerPrediction } = row.original;
+          // predictedOutcomes represents taker's predictions
+          // - If taker predicts YES: YES prob = takerCollateral / totalWager
+          // - If taker predicts NO: YES prob = 1 - (takerCollateral / totalWager)
+          const {
+            makerCollateral,
+            takerCollateral,
+            makerPrediction,
+            combinedPredictions,
+            combinedWithYes,
+          } = row.original;
+          // makerPrediction is actually derived from taker's prediction (opposite)
+          const takerPrediction = !makerPrediction;
           const totalWager = makerCollateral + takerCollateral;
           let impliedPercent = 50; // Default fallback
-          
+
           if (totalWager > 0) {
-            if (makerPrediction) {
-              // Maker predicts YES, so YES probability = maker's share
-              impliedPercent = (makerCollateral / totalWager) * 100;
-            } else {
-              // Maker predicts NO, so YES probability = taker's share
+            if (takerPrediction) {
+              // Taker predicts YES: YES probability = takerCollateral / totalWager
               impliedPercent = (takerCollateral / totalWager) * 100;
+            } else {
+              // Taker predicts NO: YES probability = 1 - (takerCollateral / totalWager)
+              impliedPercent = (1 - takerCollateral / totalWager) * 100;
             }
             impliedPercent = Math.max(0, Math.min(100, impliedPercent));
           }
-          
+
           return (
             <span className="font-mono text-ethena whitespace-nowrap">
+              {combinedPredictions &&
+                combinedPredictions.length > 0 &&
+                `${combinedWithYes === false ? '>' : '<'}`}
               {Math.round(impliedPercent)}% chance
             </span>
           );
@@ -650,6 +804,9 @@ export default function QuestionPageContent({
         ),
         cell: ({ row }) => {
           const { maker, taker, makerPrediction } = row.original;
+          // makerPrediction is derived from taker's prediction (opposite)
+          // If maker predicts YES, taker predicts NO, so YES address = maker
+          // If maker predicts NO, taker predicts YES, so YES address = taker
           const yesAddress = makerPrediction ? maker : taker;
           return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -675,6 +832,9 @@ export default function QuestionPageContent({
         ),
         cell: ({ row }) => {
           const { maker, taker, makerPrediction } = row.original;
+          // makerPrediction is derived from taker's prediction (opposite)
+          // If maker predicts YES, taker predicts NO, so NO address = taker
+          // If maker predicts NO, taker predicts YES, so NO address = maker
           const noAddress = makerPrediction ? taker : maker;
           return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -914,330 +1074,530 @@ export default function QuestionPageContent({
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart
-                  margin={{ top: 20, right: 24, bottom: 5, left: -10 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--brand-white) / 0.1)"
-                  />
-                  <XAxis
-                    type="number"
-                    dataKey="x"
-                    name="Time"
-                    domain={xDomain}
-                    ticks={xTicks}
-                    tickFormatter={(value) => {
-                      // Find the closest tick label
-                      const closest = xTicks.reduce((prev, curr) =>
-                        Math.abs(curr - value) < Math.abs(prev - value)
-                          ? curr
-                          : prev
-                      );
-                      return xTickLabels[closest] || '';
-                    }}
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 11,
-                      fontFamily:
-                        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-                    }}
-                    axisLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                    tickLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="y"
-                    name="Probability"
-                    domain={[0, 100]}
-                    tickFormatter={(value) => `${value}%`}
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 11,
-                      fontFamily:
-                        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-                    }}
-                    axisLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                    tickLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                  />
-                  <Tooltip
-                    cursor={false}
-                    animationDuration={150}
-                    wrapperStyle={{ pointerEvents: 'auto', zIndex: 50 }}
-                    active={!!(hoveredPoint || isTooltipHovered)}
-                    payload={
-                      hoveredPoint ? [{ payload: hoveredPoint }] : undefined
-                    }
-                    content={({ active, payload }) => {
-                      // Use hovered point state for persistent tooltip
-                      const point =
-                        hoveredPoint ||
-                        (active &&
-                          (payload?.[0]?.payload as
-                            | PredictionData
-                            | undefined));
+                  <ScatterChart
+                    margin={{ top: 20, right: 24, bottom: 5, left: -10 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--brand-white) / 0.1)"
+                    />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      name="Time"
+                      domain={xDomain}
+                      ticks={xTicks}
+                      tickFormatter={(value) => {
+                        // Find the closest tick label
+                        const closest = xTicks.reduce((prev, curr) =>
+                          Math.abs(curr - value) < Math.abs(prev - value)
+                            ? curr
+                            : prev
+                        );
+                        return xTickLabels[closest] || '';
+                      }}
+                      tick={{
+                        fill: 'hsl(var(--muted-foreground))',
+                        fontSize: 11,
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
+                      }}
+                      axisLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
+                      tickLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      name="Probability"
+                      domain={[0, 100]}
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{
+                        fill: 'hsl(var(--muted-foreground))',
+                        fontSize: 11,
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
+                      }}
+                      axisLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
+                      tickLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
+                    />
+                    <Tooltip
+                      cursor={false}
+                      animationDuration={150}
+                      wrapperStyle={{ pointerEvents: 'auto', zIndex: 50 }}
+                      active={
+                        !!(hoveredPoint || hoveredForecast || isTooltipHovered)
+                      }
+                      payload={
+                        hoveredPoint
+                          ? [{ payload: hoveredPoint }]
+                          : hoveredForecast
+                            ? [{ payload: hoveredForecast }]
+                            : undefined
+                      }
+                      content={({ active, payload }) => {
+                        // Use hovered point/forecast state for persistent tooltip
+                        const point =
+                          hoveredPoint ||
+                          hoveredForecast ||
+                          (active &&
+                            (payload?.[0]?.payload as
+                              | PredictionData
+                              | {
+                                  x: number;
+                                  y: number;
+                                  time: string;
+                                  attester: string;
+                                  comment: string;
+                                }
+                              | undefined));
 
-                      if (!point) return null;
+                        if (!point) return null;
 
-                      const date = new Date(point.x);
-                      const relativeTime = formatDistanceToNow(date, {
-                        addSuffix: true,
-                      });
-                      const exactTime = date.toLocaleString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: '2-digit',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        timeZoneName: 'short',
-                      });
-                      const {
-                        maker,
-                        taker,
-                        makerPrediction,
-                        combinedPredictions,
-                        combinedWithYes,
-                      } = point;
-                      const yesAddress = makerPrediction ? maker : taker;
-                      const noAddress = makerPrediction ? taker : maker;
-                      const getCategoryColor = (slug?: string) =>
-                        getCategoryStyle(slug).color;
+                        const date = new Date(point.x);
+                        const relativeTime = formatDistanceToNow(date, {
+                          addSuffix: true,
+                        });
+                        const exactTime = date.toLocaleString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          timeZoneName: 'short',
+                        });
+                        // Check if this is a forecast (has attester but no maker/taker)
+                        const isForecast =
+                          'attester' in point && !('maker' in point);
 
-                      return (
-                        <div
-                          className="rounded-lg border scatter-tooltip overflow-hidden"
-                          style={{
-                            backgroundColor: 'hsl(var(--brand-black))',
-                            border: '1px solid hsl(var(--brand-white) / 0.2)',
-                          }}
-                          onMouseEnter={() => {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current);
-                              tooltipTimeoutRef.current = null;
-                            }
-                            isTooltipHoveredRef.current = true;
-                            setIsTooltipHovered(true);
-                          }}
-                          onMouseLeave={() => {
-                            isTooltipHoveredRef.current = false;
-                            setIsTooltipHovered(false);
-                            tooltipTimeoutRef.current = setTimeout(() => {
-                              setHoveredPoint(null);
-                            }, 100);
-                          }}
-                        >
-                          {/* Top section: Time, Forecast, Wager */}
-                          <div className="px-3 py-2.5 space-y-2">
-                            {/* Time row */}
-                            <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                Time
-                              </span>
-                              <TooltipProvider>
-                                <UITooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-sm text-muted-foreground cursor-help">
-                                      {relativeTime}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <span>{exactTime}</span>
-                                  </TooltipContent>
-                                </UITooltip>
-                              </TooltipProvider>
-                            </div>
-                            {/* Wager row */}
-                            <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                Wager
-                              </span>
-                              <span className="text-sm text-foreground">
-                                {point.wager} USDe
-                              </span>
-                            </div>
-                            {/* Forecast row */}
-                            <div className="flex items-center justify-between gap-6">
-                              <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                Forecast
-                              </span>
-                              <span className="font-mono text-sm text-ethena">
-                                {point.y.toFixed(2)}% chance
-                              </span>
-                            </div>
-                          </div>
+                        const {
+                          maker,
+                          taker,
+                          makerPrediction,
+                          combinedPredictions,
+                          combinedWithYes,
+                        } = point as PredictionData;
+                        const yesAddress = makerPrediction ? maker : taker;
+                        const noAddress = makerPrediction ? taker : maker;
+                        const getCategoryColor = (slug?: string) =>
+                          getCategoryStyle(slug).color;
 
-                          {/* Divider */}
-                          <div className="border-t border-brand-white/10" />
-
-                          {/* Middle section: YES/NO predictors */}
-                          <div className="px-3 py-2.5 space-y-2">
-                            {/* YES predictor */}
-                            <div className="flex items-center justify-between gap-4">
-                              <Badge
-                                variant="outline"
-                                className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono"
-                              >
-                                YES
-                              </Badge>
-                              <div className="flex items-center gap-1.5">
-                                <EnsAvatar
-                                  address={yesAddress}
-                                  width={16}
-                                  height={16}
-                                />
-                                <AddressDisplay address={yesAddress} compact />
+                        return (
+                          <div
+                            className="rounded-lg border scatter-tooltip overflow-hidden"
+                            style={{
+                              backgroundColor: 'hsl(var(--brand-black))',
+                              border: '1px solid hsl(var(--brand-white) / 0.2)',
+                            }}
+                            onMouseEnter={() => {
+                              if (tooltipTimeoutRef.current) {
+                                clearTimeout(tooltipTimeoutRef.current);
+                                tooltipTimeoutRef.current = null;
+                              }
+                              isTooltipHoveredRef.current = true;
+                              setIsTooltipHovered(true);
+                            }}
+                            onMouseLeave={() => {
+                              isTooltipHoveredRef.current = false;
+                              setIsTooltipHovered(false);
+                              tooltipTimeoutRef.current = setTimeout(() => {
+                                setHoveredPoint(null);
+                                setHoveredForecast(null);
+                              }, 100);
+                            }}
+                          >
+                            {/* Top section: Time, Forecast, Wager */}
+                            <div className="px-3 py-2.5 space-y-2">
+                              {/* Time row */}
+                              <div className="flex items-center justify-between gap-6">
+                                <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                  Time
+                                </span>
+                                <TooltipProvider>
+                                  <UITooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-sm text-muted-foreground cursor-help">
+                                        {relativeTime}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <span>{exactTime}</span>
+                                    </TooltipContent>
+                                  </UITooltip>
+                                </TooltipProvider>
                               </div>
-                            </div>
-                            {/* NO predictor */}
-                            <div className="flex items-center justify-between gap-4">
-                              <Badge
-                                variant="outline"
-                                className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono"
-                              >
-                                NO
-                              </Badge>
-                              <div className="flex items-center gap-1.5">
-                                <EnsAvatar
-                                  address={noAddress}
-                                  width={16}
-                                  height={16}
-                                />
-                                <AddressDisplay address={noAddress} compact />
+                              {/* Forecast row */}
+                              <div className="flex items-center justify-between gap-6">
+                                <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                  Forecast
+                                </span>
+                                <span className="font-mono text-sm text-ethena">
+                                  {!isForecast &&
+                                    combinedPredictions &&
+                                    combinedPredictions.length > 0 &&
+                                    `${combinedWithYes === false ? '>' : '<'} `}
+                                  {point.y.toFixed(2)}% chance
+                                </span>
                               </div>
-                            </div>
-                          </div>
-
-                          {/* Combined predictions section (if parlay) */}
-                          {combinedPredictions &&
-                            combinedPredictions.length > 0 && (
-                              <>
-                                <div className="border-t border-brand-white/10" />
-                                <div className="px-3 py-2.5">
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                      Combined
-                                    </span>
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <button
-                                          type="button"
-                                          className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
-                                        >
-                                          {combinedPredictions.length}{' '}
-                                          prediction
-                                          {combinedPredictions.length !== 1
-                                            ? 's'
-                                            : ''}
-                                        </button>
-                                      </PopoverTrigger>
-                                      <PopoverContent
-                                        className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
-                                        align="start"
-                                      >
-                                        <div className="flex flex-col divide-y divide-brand-white/20">
-                                          <div className="flex items-center gap-3 px-3 py-2">
-                                            <span className="text-sm text-brand-white">
-                                              Predicted with
-                                            </span>
-                                            <Badge
-                                              variant="outline"
-                                              className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                combinedWithYes
-                                                  ? 'border-yes/40 bg-yes/10 text-yes'
-                                                  : 'border-no/40 bg-no/10 text-no'
-                                              }`}
-                                            >
-                                              {combinedWithYes ? 'YES' : 'NO'}
-                                            </Badge>
-                                          </div>
-                                          {combinedPredictions.map(
-                                            (pred, i) => (
-                                              <div
-                                                key={`scatter-combined-${i}`}
-                                                className="flex items-center gap-3 px-3 py-2"
-                                              >
-                                                <MarketBadge
-                                                  label={pred.question}
-                                                  size={32}
-                                                  color={getCategoryColor(
-                                                    pred.categorySlug
-                                                  )}
-                                                  categorySlug={
-                                                    pred.categorySlug
-                                                  }
-                                                />
-                                                <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
-                                                  {pred.question}
-                                                </span>
-                                                <Badge
-                                                  variant="outline"
-                                                  className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                    pred.prediction
-                                                      ? 'border-yes/40 bg-yes/10 text-yes'
-                                                      : 'border-no/40 bg-no/10 text-no'
-                                                  }`}
-                                                >
-                                                  {pred.prediction
-                                                    ? 'YES'
-                                                    : 'NO'}
-                                                </Badge>
-                                              </div>
-                                            )
-                                          )}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
+                              {/* Wager row - only for predictions */}
+                              {!isForecast && 'wager' in point && (
+                                <div className="flex items-center justify-between gap-6">
+                                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                    Wager
+                                  </span>
+                                  <span className="text-sm text-foreground">
+                                    {point.wager} USDe
+                                  </span>
+                                </div>
+                              )}
+                              {/* Forecaster row - only for forecasts */}
+                              {isForecast && (
+                                <div className="flex items-center justify-between gap-6">
+                                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                    Forecaster
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <EnsAvatar
+                                      address={
+                                        (point as { attester: string }).attester
+                                      }
+                                      width={16}
+                                      height={16}
+                                    />
+                                    <AddressDisplay
+                                      address={
+                                        (point as { attester: string }).attester
+                                      }
+                                      compact
+                                    />
                                   </div>
                                 </div>
-                              </>
-                            )}
-                        </div>
-                      );
-                    }}
-                  />
-                  <Scatter
-                    name="Predictions"
-                    data={scatterData}
-                    fill="hsl(var(--ethena))"
-                    shape={(props: any) => {
-                      const { cx, cy, payload } = props;
-                      // Scale wager to radius: min 4px, max 20px
-                      // Use actual wager range from data
-                      const minR = 4;
-                      const maxR = 20;
-                      const { wagerMin, wagerMax } = wagerRange;
-                      const wager = payload?.wager ?? 0;
-                      
-                      // Normalize wager to the calculated range
-                      const normalizedWager = Math.max(
-                        wagerMin,
-                        Math.min(wagerMax, wager)
-                      );
-                      
-                      // Calculate radius based on normalized wager
-                      const wagerRangeSize = wagerMax - wagerMin;
-                      const radius =
-                        wagerRangeSize > 0
-                          ? minR +
-                            ((normalizedWager - wagerMin) / wagerRangeSize) *
-                              (maxR - minR)
-                          : minR; // Fallback if range is 0
+                              )}
+                            </div>
 
-                      // Check if this is a combined prediction (parlay)
-                      if (payload?.combinedPredictions?.length > 0) {
-                        // Render horizontal line with gradient ray
-                        const width = radius * 2.5;
-                        const lineWidth = width * 2;
-                        const rayLength = lineWidth * 0.6; // Ray height proportional to line width
-                        const gradientId = `bracket-ray-gradient-${payload.x}`;
-                        // Determine ray direction based on combinedWithYes:
-                        // - YES in parlay (combinedWithYes: true) → ray UP (floor/minimum)
-                        // - NO in parlay (combinedWithYes: false) → ray DOWN (ceiling/maximum)
-                        const rayUp = payload.combinedWithYes === true;
+                            {/* Comment section - for forecasts */}
+                            {isForecast &&
+                              (point as { comment: string }).comment && (
+                                <>
+                                  <div className="border-t border-brand-white/10" />
+                                  <div className="px-3 py-2.5">
+                                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-wider mb-2">
+                                      Comment
+                                    </div>
+                                    <div className="text-sm text-foreground whitespace-pre-wrap break-words">
+                                      <SafeMarkdown
+                                        content={
+                                          (point as { comment: string }).comment
+                                        }
+                                        className="prose prose-invert prose-sm max-w-none"
+                                      />
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+
+                            {/* Divider - only for predictions */}
+                            {!isForecast && (
+                              <div className="border-t border-brand-white/10" />
+                            )}
+
+                            {/* Middle section: YES/NO predictors - only for predictions */}
+                            {!isForecast && (
+                              <div className="px-3 py-2.5 space-y-2">
+                                {/* YES predictor */}
+                                <div className="flex items-center justify-between gap-4">
+                                  <Badge
+                                    variant="outline"
+                                    className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono"
+                                  >
+                                    YES
+                                  </Badge>
+                                  <div className="flex items-center gap-1.5">
+                                    <EnsAvatar
+                                      address={yesAddress}
+                                      width={16}
+                                      height={16}
+                                    />
+                                    <AddressDisplay
+                                      address={yesAddress}
+                                      compact
+                                    />
+                                  </div>
+                                </div>
+                                {/* NO predictor */}
+                                <div className="flex items-center justify-between gap-4">
+                                  <Badge
+                                    variant="outline"
+                                    className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono"
+                                  >
+                                    NO
+                                  </Badge>
+                                  <div className="flex items-center gap-1.5">
+                                    <EnsAvatar
+                                      address={noAddress}
+                                      width={16}
+                                      height={16}
+                                    />
+                                    <AddressDisplay
+                                      address={noAddress}
+                                      compact
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Combined predictions section (if parlay) */}
+                            {!isForecast &&
+                              combinedPredictions &&
+                              combinedPredictions.length > 0 && (
+                                <>
+                                  <div className="border-t border-brand-white/10" />
+                                  <div className="px-3 py-2.5">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                                        Combined
+                                      </span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
+                                          >
+                                            {combinedPredictions.length}{' '}
+                                            prediction
+                                            {combinedPredictions.length !== 1
+                                              ? 's'
+                                              : ''}
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                          className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
+                                          align="start"
+                                        >
+                                          <div className="flex flex-col divide-y divide-brand-white/20">
+                                            <div className="flex items-center gap-3 px-3 py-2">
+                                              <span className="text-sm text-brand-white">
+                                                Predicted with
+                                              </span>
+                                              <Badge
+                                                variant="outline"
+                                                className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                                  combinedWithYes
+                                                    ? 'border-yes/40 bg-yes/10 text-yes'
+                                                    : 'border-no/40 bg-no/10 text-no'
+                                                }`}
+                                              >
+                                                {combinedWithYes ? 'YES' : 'NO'}
+                                              </Badge>
+                                            </div>
+                                            {combinedPredictions.map(
+                                              (pred, i) => (
+                                                <div
+                                                  key={`scatter-combined-${i}`}
+                                                  className="flex items-center gap-3 px-3 py-2"
+                                                >
+                                                  <MarketBadge
+                                                    label={pred.question}
+                                                    size={32}
+                                                    color={getCategoryColor(
+                                                      pred.categorySlug
+                                                    )}
+                                                    categorySlug={
+                                                      pred.categorySlug
+                                                    }
+                                                  />
+                                                  <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
+                                                    {pred.question}
+                                                  </span>
+                                                  <Badge
+                                                    variant="outline"
+                                                    className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
+                                                      pred.prediction
+                                                        ? 'border-yes/40 bg-yes/10 text-yes'
+                                                        : 'border-no/40 bg-no/10 text-no'
+                                                    }`}
+                                                  >
+                                                    {pred.prediction
+                                                      ? 'YES'
+                                                      : 'NO'}
+                                                  </Badge>
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Scatter
+                      name="Predictions"
+                      data={scatterData}
+                      fill="hsl(var(--ethena))"
+                      shape={(props: any) => {
+                        const { cx, cy, payload } = props;
+                        // Scale wager to radius: min 4px, max 20px
+                        // Use actual wager range from data
+                        const minR = 4;
+                        const maxR = 20;
+                        const { wagerMin, wagerMax } = wagerRange;
+                        const wager = payload?.wager ?? 0;
+
+                        // Normalize wager to the calculated range
+                        const normalizedWager = Math.max(
+                          wagerMin,
+                          Math.min(wagerMax, wager)
+                        );
+
+                        // Calculate radius based on normalized wager
+                        const wagerRangeSize = wagerMax - wagerMin;
+                        const radius =
+                          wagerRangeSize > 0
+                            ? minR +
+                              ((normalizedWager - wagerMin) / wagerRangeSize) *
+                                (maxR - minR)
+                            : minR; // Fallback if range is 0
+
+                        // Check if this is a combined prediction (parlay)
+                        if (payload?.combinedPredictions?.length > 0) {
+                          // Render horizontal line with gradient ray
+                          const width = radius * 2.5;
+                          const lineWidth = width * 2;
+                          const rayLength = lineWidth * 0.6; // Ray height proportional to line width
+                          const gradientId = `bracket-ray-gradient-${payload.x}`;
+                          // Determine ray direction based on combinedWithYes (taker's prediction):
+                          // - Taker predicts YES (combinedWithYes: true) → ray DOWN (toward 100%)
+                          // - Taker predicts NO (combinedWithYes: false) → ray UP (toward 0%)
+                          const rayUp = payload.combinedWithYes === false;
+                          return (
+                            <g
+                              className="bracket-combined"
+                              onMouseEnter={() => {
+                                if (tooltipTimeoutRef.current) {
+                                  clearTimeout(tooltipTimeoutRef.current);
+                                  tooltipTimeoutRef.current = null;
+                                }
+                                setHoveredPoint(payload as PredictionData);
+                              }}
+                              onMouseLeave={() => {
+                                // Delay clearing to allow moving to tooltip
+                                tooltipTimeoutRef.current = setTimeout(() => {
+                                  if (!isTooltipHoveredRef.current) {
+                                    setHoveredPoint(null);
+                                  }
+                                }, 150);
+                              }}
+                            >
+                              {/* Gradient definition for the ray - direction based on combinedWithYes */}
+                              <defs>
+                                <linearGradient
+                                  id={gradientId}
+                                  x1="0%"
+                                  y1="0%"
+                                  x2="0%"
+                                  y2="100%"
+                                >
+                                  {rayUp ? (
+                                    <>
+                                      {/* UP: solid at bottom (100%), transparent at top (0%) */}
+                                      <stop
+                                        offset="0%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0"
+                                      />
+                                      <stop
+                                        offset="30%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.1"
+                                      />
+                                      <stop
+                                        offset="60%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.3"
+                                      />
+                                      <stop
+                                        offset="85%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.6"
+                                      />
+                                      <stop
+                                        offset="100%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.9"
+                                      />
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* DOWN: solid at top (0%), transparent at bottom (100%) */}
+                                      <stop
+                                        offset="0%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.9"
+                                      />
+                                      <stop
+                                        offset="15%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.6"
+                                      />
+                                      <stop
+                                        offset="40%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.3"
+                                      />
+                                      <stop
+                                        offset="70%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0.1"
+                                      />
+                                      <stop
+                                        offset="100%"
+                                        stopColor="hsl(var(--ethena))"
+                                        stopOpacity="0"
+                                      />
+                                    </>
+                                  )}
+                                </linearGradient>
+                              </defs>
+                              {/* Gradient ray coming out of line - direction based on combinedWithYes */}
+                              <rect
+                                x={cx - width}
+                                y={rayUp ? cy - rayLength : cy}
+                                width={width * 2}
+                                height={rayLength}
+                                fill={`url(#${gradientId})`}
+                                className="bracket-ray"
+                              />
+                              {/* Horizontal line */}
+                              <line
+                                x1={cx - width}
+                                y1={cy}
+                                x2={cx + width}
+                                y2={cy}
+                                stroke="hsl(var(--ethena) / 0.8)"
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                className="scatter-dot"
+                              />
+                            </g>
+                          );
+                        }
+
+                        // Regular circle for non-combined predictions
                         return (
-                          <g
-                            className="bracket-combined"
+                          <circle
+                            cx={cx}
+                            cy={cy}
+                            r={radius}
+                            fill="hsl(var(--ethena) / 0.2)"
+                            stroke="hsl(var(--ethena) / 0.8)"
+                            strokeWidth={1.5}
+                            className="scatter-dot"
                             onMouseEnter={() => {
                               if (tooltipTimeoutRef.current) {
                                 clearTimeout(tooltipTimeoutRef.current);
@@ -1253,181 +1613,105 @@ export default function QuestionPageContent({
                                 }
                               }, 150);
                             }}
-                          >
-                            {/* Gradient definition for the ray - direction based on combinedWithYes */}
-                            <defs>
-                              <linearGradient
-                                id={gradientId}
-                                x1="0%"
-                                y1="0%"
-                                x2="0%"
-                                y2="100%"
-                              >
-                                {rayUp ? (
-                                  <>
-                                    {/* UP: solid at bottom (100%), transparent at top (0%) */}
-                                    <stop
-                                      offset="0%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0"
-                                    />
-                                    <stop
-                                      offset="30%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.1"
-                                    />
-                                    <stop
-                                      offset="60%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.3"
-                                    />
-                                    <stop
-                                      offset="85%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.6"
-                                    />
-                                    <stop
-                                      offset="100%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.9"
-                                    />
-                                  </>
-                                ) : (
-                                  <>
-                                    {/* DOWN: solid at top (0%), transparent at bottom (100%) */}
-                                    <stop
-                                      offset="0%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.9"
-                                    />
-                                    <stop
-                                      offset="15%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.6"
-                                    />
-                                    <stop
-                                      offset="40%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.3"
-                                    />
-                                    <stop
-                                      offset="70%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0.1"
-                                    />
-                                    <stop
-                                      offset="100%"
-                                      stopColor="hsl(var(--ethena))"
-                                      stopOpacity="0"
-                                    />
-                                  </>
-                                )}
-                              </linearGradient>
-                            </defs>
-                            {/* Gradient ray coming out of line - direction based on combinedWithYes */}
-                            <rect
-                              x={cx - width}
-                              y={rayUp ? cy - rayLength : cy}
-                              width={width * 2}
-                              height={rayLength}
-                              fill={`url(#${gradientId})`}
-                              className="bracket-ray"
-                            />
-                            {/* Horizontal line */}
-                            <line
-                              x1={cx - width}
-                              y1={cy}
-                              x2={cx + width}
-                              y2={cy}
-                              stroke="hsl(var(--ethena) / 0.8)"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              className="scatter-dot"
-                            />
-                          </g>
+                          />
                         );
-                      }
-
-                      // Regular circle for non-combined predictions
-                      return (
-                        <circle
-                          cx={cx}
-                          cy={cy}
-                          r={radius}
-                          fill="hsl(var(--ethena) / 0.2)"
-                          stroke="hsl(var(--ethena) / 0.8)"
-                          strokeWidth={1.5}
-                          className="scatter-dot"
-                          onMouseEnter={() => {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current);
-                              tooltipTimeoutRef.current = null;
+                      }}
+                    />
+                    {/* Comment squares - rendered on top of prediction dots */}
+                    <Scatter
+                      name="Comments"
+                      data={commentScatterData}
+                      fill="hsl(var(--brand-white))"
+                      shape={(props: any) => {
+                        const { cx, cy, payload } = props;
+                        const size = 6;
+                        const isHovered =
+                          hoveredComment?.data?.x === payload?.x &&
+                          hoveredComment?.data?.attester === payload?.attester;
+                        return (
+                          <rect
+                            x={cx - size / 2}
+                            y={cy - size / 2}
+                            width={size}
+                            height={size}
+                            fill={
+                              isHovered
+                                ? 'hsl(var(--brand-white))'
+                                : 'hsl(var(--brand-white) / 0.9)'
                             }
-                            setHoveredPoint(payload as PredictionData);
-                          }}
-                          onMouseLeave={() => {
-                            // Delay clearing to allow moving to tooltip
-                            tooltipTimeoutRef.current = setTimeout(() => {
-                              if (!isTooltipHoveredRef.current) {
-                                setHoveredPoint(null);
+                            stroke="hsl(var(--brand-white))"
+                            strokeWidth={1}
+                            className="cursor-pointer"
+                            style={{
+                              filter: isHovered
+                                ? 'drop-shadow(0 0 4px hsl(var(--brand-white) / 0.5))'
+                                : undefined,
+                            }}
+                            onMouseEnter={() => {
+                              cancelCommentTooltipHide();
+                              if (
+                                typeof cx === 'number' &&
+                                typeof cy === 'number'
+                              ) {
+                                setHoveredComment({
+                                  x: cx,
+                                  y: cy,
+                                  data: payload as PredictionData,
+                                });
                               }
-                            }, 150);
-                          }}
-                        />
-                      );
-                    }}
-                  />
-                  {/* Comment squares - rendered on top of prediction dots */}
-                  <Scatter
-                    name="Comments"
-                    data={commentScatterData}
-                    fill="hsl(var(--brand-white))"
-                    shape={(props: any) => {
-                      const { cx, cy, payload } = props;
-                      const size = 6;
-                      const isHovered =
-                        hoveredComment?.data?.x === payload?.x &&
-                        hoveredComment?.data?.attester === payload?.attester;
-                      return (
-                        <rect
-                          x={cx - size / 2}
-                          y={cy - size / 2}
-                          width={size}
-                          height={size}
-                          fill={
-                            isHovered
-                              ? 'hsl(var(--brand-white))'
-                              : 'hsl(var(--brand-white) / 0.9)'
-                          }
-                          stroke="hsl(var(--brand-white))"
-                          strokeWidth={1}
-                          className="cursor-pointer"
-                          style={{
-                            filter: isHovered
-                              ? 'drop-shadow(0 0 4px hsl(var(--brand-white) / 0.5))'
-                              : undefined,
-                          }}
-                          onMouseEnter={() => {
-                            cancelCommentTooltipHide();
-                            if (
-                              typeof cx === 'number' &&
-                              typeof cy === 'number'
-                            ) {
-                              setHoveredComment({
-                                x: cx,
-                                y: cy,
-                                data: payload as PredictionData,
-                              });
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            scheduleCommentTooltipHide(150);
-                          }}
-                        />
-                      );
-                    }}
-                  />
-                </ScatterChart>
+                            }}
+                            onMouseLeave={() => {
+                              scheduleCommentTooltipHide(150);
+                            }}
+                          />
+                        );
+                      }}
+                    />
+                    {/* Forecast dots - white dots for user-submitted forecasts */}
+                    <Scatter
+                      name="Forecasts"
+                      data={forecastScatterData}
+                      fill="hsl(var(--brand-white) / 0.5)"
+                      shape={(props: any) => {
+                        const { cx, cy, payload } = props;
+                        const radius = 4;
+                        return (
+                          <circle
+                            cx={cx}
+                            cy={cy}
+                            r={radius}
+                            fill="hsl(var(--brand-white) / 0.5)"
+                            stroke="hsl(var(--brand-white))"
+                            strokeWidth={1.5}
+                            className="cursor-pointer scatter-dot"
+                            onMouseEnter={() => {
+                              if (tooltipTimeoutRef.current) {
+                                clearTimeout(tooltipTimeoutRef.current);
+                                tooltipTimeoutRef.current = null;
+                              }
+                              setHoveredForecast(
+                                payload as {
+                                  x: number;
+                                  y: number;
+                                  time: string;
+                                  attester: string;
+                                  comment: string;
+                                }
+                              );
+                            }}
+                            onMouseLeave={() => {
+                              // Delay clearing to allow moving to tooltip
+                              tooltipTimeoutRef.current = setTimeout(() => {
+                                if (!isTooltipHoveredRef.current) {
+                                  setHoveredForecast(null);
+                                }
+                              }, 150);
+                            }}
+                          />
+                        );
+                      }}
+                    />
+                  </ScatterChart>
                 </ResponsiveContainer>
               )}
 
@@ -1651,6 +1935,7 @@ export default function QuestionPageContent({
                   <Comments
                     selectedCategory={CommentFilters.SelectedQuestion}
                     question={data.shortName || data.question}
+                    conditionId={conditionId}
                     refetchTrigger={refetchTrigger}
                   />
                 </TabsContent>
