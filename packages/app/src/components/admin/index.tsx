@@ -16,23 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sapience/sdk/ui/components/ui/select';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from '@sapience/sdk/ui/components/ui/tabs';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useResources } from '@sapience/sdk/queries';
-import { Plus, RefreshCw, Loader2, Upload } from 'lucide-react';
+import { Plus, Loader2, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { CHAIN_ID_ETHEREAL } from '../settings/pages/SettingsPageContent';
-import { DEFAULT_FACTORY_ADDRESS } from './constants';
 import RFQTab from './RFQTab';
-import CLCsvImportDialog from './CLCsvImportDialog';
-import LiquidTab from './LiquidTab';
 import ReindexPredictionMarketForm from './ReindexPredictionMarketForm';
 import { useAdminApi } from '~/hooks/useAdminApi';
 import { useSettings } from '~/lib/context/SettingsContext';
@@ -119,105 +109,6 @@ const ReindexAccuracyForm = () => {
           </>
         ) : (
           'Reindex Accuracy Scores'
-        )}
-      </Button>
-    </form>
-  );
-};
-
-const ReindexFactoryForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const [factoryAddress, setFactoryAddress] = useState(DEFAULT_FACTORY_ADDRESS);
-  const [chainId, setChainId] = useState('42161'); // Default to Arbitrum
-  const { postJson: postJson2 } = useAdminApi();
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Basic validation
-    if (!factoryAddress.startsWith('0x')) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid address',
-        description: 'Factory address must start with 0x',
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      // Construct the API URL from settings admin base
-      await postJson2(`/reindex/market-group-factory`, {
-        chainId: Number(chainId),
-        factoryAddress,
-      });
-
-      toast({
-        title: 'Reindex started',
-        description: 'The market group factory reindexing process has started.',
-      });
-
-      // Reset form
-      setFactoryAddress('');
-    } catch (error) {
-      console.error('Reindex factory error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'An unknown error occurred',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label htmlFor="factoryAddress" className="text-sm font-medium">
-          Factory Address
-        </label>
-        <Input
-          id="factoryAddress"
-          placeholder="0x..."
-          value={factoryAddress}
-          onChange={(e) => setFactoryAddress(e.target.value)}
-        />
-        {factoryAddress && !factoryAddress.startsWith('0x') && (
-          <p className="text-sm text-red-500">Address must start with 0x</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor="chainSelect" className="text-sm font-medium">
-          Chain
-        </label>
-        <Select value={chainId} onValueChange={setChainId}>
-          <SelectTrigger id="chainSelect" className="w-full">
-            <SelectValue placeholder="Select chain" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">Ethereum</SelectItem>
-            <SelectItem value="10">Optimism</SelectItem>
-            <SelectItem value="8453">Base</SelectItem>
-            <SelectItem value="42161">Arbitrum</SelectItem>
-            <SelectItem value="137">Polygon</SelectItem>
-            <SelectItem value="432">Converge</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? (
-          <>
-            <LottieLoader width={16} height={16} />
-            <span className="ml-2">Processing...</span>
-          </>
-        ) : (
-          'Reindex Factory'
         )}
       </Button>
     </form>
@@ -443,13 +334,11 @@ const RefreshCacheForm = () => {
 };
 
 const Admin = () => {
-  const [reindexDialogOpen, setReindexDialogOpen] = useState(false);
   const [indexResourceOpen, setIndexResourceOpen] = useState(false);
   const [refreshCacheOpen, setRefreshCacheOpen] = useState(false);
   const [accuracyReindexOpen, setAccuracyReindexOpen] = useState(false);
   const [createConditionOpen, setCreateConditionOpen] = useState(false);
   const [rfqCsvImportOpen, setRfqCsvImportOpen] = useState(false);
-  const [clCsvImportOpen, setClCsvImportOpen] = useState(false);
   const [predictionMarketReindexOpen, setPredictionMarketReindexOpen] =
     useState(false);
   const { adminBaseUrl, setAdminBaseUrl, defaults } = useSettings();
@@ -458,106 +347,6 @@ const Admin = () => {
     adminBaseUrl ?? defaults.adminBaseUrl
   );
   const [adminError, setAdminError] = useState<string | null>(null);
-  const [isEtherealChain, setIsEtherealChain] = useState(false);
-  // Initialize with safe default to avoid hydration mismatch
-  const [activeTab, setActiveTab] = useState<'liquid' | 'rfq'>('liquid');
-
-  // Check if we're on Ethereal chain and update state
-  useEffect(() => {
-    const checkChainId = () => {
-      try {
-        if (typeof window === 'undefined') return;
-        const chainId = window.localStorage.getItem(
-          'sapience.settings.selectedChainId'
-        );
-        const isEthereal = chainId === CHAIN_ID_ETHEREAL;
-        setIsEtherealChain(isEthereal);
-      } catch {
-        return;
-      }
-    };
-
-    // Check on mount
-    checkChainId();
-
-    // Listen for storage changes (e.g., when chain ID changes in settings from other tabs)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'sapience.settings.selectedChainId') {
-        checkChainId();
-      }
-    };
-
-    // Also check when window regains focus (handles same-tab changes)
-    const handleFocus = () => {
-      checkChainId();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
-
-  // Force to rfq tab when on Ethereal chain
-  useEffect(() => {
-    if (isEtherealChain && activeTab !== 'rfq') {
-      setActiveTab('rfq');
-    }
-  }, [isEtherealChain, activeTab]);
-
-  // Sync tabs with URL hash for direct linking and back/forward navigation
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    // If on Ethereal, don't sync with hash
-    if (isEtherealChain) {
-      return;
-    }
-
-    const hashToTab = (hash: string): 'liquid' | 'rfq' => {
-      const h = (hash || '').toLowerCase();
-      if (
-        h === '#rfq' ||
-        h === '#ba' ||
-        h === '#batch-auction' ||
-        h === '#batch-auction-settlement'
-      ) {
-        return 'rfq';
-      }
-      // default and aliases for concentrated liquidity
-      return 'liquid';
-    };
-
-    const applyHashToTab = () => {
-      if (typeof window === 'undefined') return;
-      setActiveTab(hashToTab(window.location.hash));
-    };
-
-    // Initialize from hash or set default hash without adding history entry
-    if (window.location.hash) {
-      applyHashToTab();
-    } else {
-      try {
-        const defaultHash = '#liquid';
-        if (window.location.hash !== defaultHash) {
-          window.history.replaceState(
-            null,
-            '',
-            `${window.location.pathname}${defaultHash}`
-          );
-          // Manually sync since replaceState doesn't trigger hashchange
-          applyHashToTab();
-        }
-      } catch {
-        return;
-      }
-    }
-
-    window.addEventListener('hashchange', applyHashToTab);
-    return () => window.removeEventListener('hashchange', applyHashToTab);
-  }, [isEtherealChain]);
 
   const isHttpUrl = (value: string) => {
     try {
@@ -710,103 +499,28 @@ const Admin = () => {
           </Dialog>
         </div>
       </header>
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          // Prevent switching tabs when on Ethereal chain
-          if (isEtherealChain) {
-            return;
-          }
-          const next = v as 'liquid' | 'rfq';
-          setActiveTab(next);
-          try {
-            if (typeof window === 'undefined') return;
-            const nextHash = next === 'liquid' ? '#liquid' : '#rfq';
-            if (window.location.hash !== nextHash) {
-              window.location.hash = nextHash;
-            }
-          } catch {
-            return;
-          }
-        }}
-        className="w-full"
-      >
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          {!isEtherealChain && (
-            <TabsList>
-              <TabsTrigger value="liquid">
-                Concentrated Liquidity Markets
-              </TabsTrigger>
-              <TabsTrigger value="rfq">Batch Auction Settlement</TabsTrigger>
-            </TabsList>
-          )}
-          {activeTab === 'liquid' ? (
-            <div className="md:ml-auto flex items-center gap-2">
-              <Button size="sm" asChild>
-                <a href="/admin/create">
-                  <Plus className="mr-1 h-4 w-4" />
-                  New Market Group
-                </a>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setClCsvImportOpen(true)}
-              >
-                <Upload className="mr-1 h-4 w-4" />
-                Import CSV
-              </Button>
-              <Dialog
-                open={reindexDialogOpen}
-                onOpenChange={setReindexDialogOpen}
-              >
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <RefreshCw className="mr-1 h-4 w-4 text-accent-gold" />
-                    Reindex Factory
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="overflow-hidden max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Reindex Market Group Factory</DialogTitle>
-                  </DialogHeader>
-                  <ReindexFactoryForm />
-                </DialogContent>
-              </Dialog>
-              <CLCsvImportDialog
-                open={clCsvImportOpen}
-                onOpenChange={setClCsvImportOpen}
-              />
-            </div>
-          ) : activeTab === 'rfq' ? (
-            <div className="md:ml-auto flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setRfqCsvImportOpen(true)}
-              >
-                <Upload className="mr-1 h-4 w-4" />
-                Import CSV
-              </Button>
-              <Button size="sm" onClick={() => setCreateConditionOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" />
-                New Condition
-              </Button>
-            </div>
-          ) : null}
-        </div>
-        <TabsContent value="liquid">
-          <LiquidTab />
-        </TabsContent>
-        <TabsContent value="rfq">
-          <RFQTab
-            createOpen={createConditionOpen}
-            setCreateOpen={setCreateConditionOpen}
-            csvImportOpen={rfqCsvImportOpen}
-            onCsvImportOpenChange={setRfqCsvImportOpen}
-          />
-        </TabsContent>
-      </Tabs>
+      <RFQTab
+        createOpen={createConditionOpen}
+        setCreateOpen={setCreateConditionOpen}
+        csvImportOpen={rfqCsvImportOpen}
+        onCsvImportOpenChange={setRfqCsvImportOpen}
+        actionButtons={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRfqCsvImportOpen(true)}
+            >
+              <Upload className="mr-1 h-4 w-4" />
+              Import CSV
+            </Button>
+            <Button size="sm" onClick={() => setCreateConditionOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              New Condition
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 };

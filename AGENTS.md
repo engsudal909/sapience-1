@@ -5,7 +5,7 @@ This document captures the context agents need when working in the Sapience mono
 ## Project Snapshot
 - Workspace manager: `pnpm` (Node >= 20.14, pnpm 9.x). Install everything with `pnpm install`.
 - Monorepo packages:
-  - `packages/protocol` – Foundry/Cannon Solidity contracts for the Foil protocol (see `packages/protocol/CLAUDE.md` for a deeper contract-specific brief).
+  - `packages/protocol` – Solidity smart contracts for the Sapience protocol (see `packages/protocol/CLAUDE.md` for a deeper contract-specific brief).
   - `packages/api` – TypeGraphQL + Prisma application with background workers, candle cache, and auction utilities.
   - `packages/app` – Next.js 14 product app consuming the SDK and API.
   - `packages/sdk` – Shared TypeScript SDK (ABIs, hooks, UI kit, GraphQL helpers) built via `tsup` and Storybook.

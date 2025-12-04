@@ -104,6 +104,8 @@ type RFQTabProps = {
   // Optional external control for CSV Import dialog
   csvImportOpen?: boolean;
   onCsvImportOpenChange?: (open: boolean) => void;
+  // Optional action buttons to render on the right side of the filter row
+  actionButtons?: React.ReactNode;
 };
 
 type ConditionFilter = 'all' | 'needs-settlement' | 'upcoming' | 'settled';
@@ -113,6 +115,7 @@ const RFQTab = ({
   setCreateOpen,
   csvImportOpen: csvImportOpenProp,
   onCsvImportOpenChange,
+  actionButtons,
 }: RFQTabProps) => {
   const { toast } = useToast();
   const { postJson, putJson } = useAdminApi();
@@ -835,7 +838,7 @@ const RFQTab = ({
   return (
     <div className="space-y-4">
       {/* Filter and Import Controls */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium">Settlement:</span>
           <Select
@@ -878,17 +881,21 @@ const RFQTab = ({
           )}
         </div>
 
-        {/* CSV Import Button (only when uncontrolled) */}
-        {onCsvImportOpenChange ? null : (
-          <Button
-            onClick={() => setCsvImportOpen(true)}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Import CSV
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* CSV Import Button (only when uncontrolled) */}
+          {onCsvImportOpenChange ? null : (
+            <Button
+              onClick={() => setCsvImportOpen(true)}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+          )}
+          {/* External action buttons */}
+          {actionButtons}
+        </div>
       </div>
 
       {/* CSV Import Dialog */}
