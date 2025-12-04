@@ -287,7 +287,7 @@ export default function BetslipParlayForm({
           <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono mb-3 flex justify-between items-center">
             <span>
               {parlaySelections.length}{' '}
-              {parlaySelections.length !== 1 ? 'PICKS' : 'PICK'}
+              {parlaySelections.length !== 1 ? 'PREDICTIONS' : 'PREDICTION'}
             </span>
             <AnimatePresence>
               {parlaySelections.length > 1 && (

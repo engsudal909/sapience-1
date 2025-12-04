@@ -86,7 +86,7 @@ export const BetslipContent = ({
           <div className="relative px-4 pt-2 pb-2 lg:hidden">
             <div className="flex items-center justify-between">
               <h3 className="eyebrow text-foreground font-sans">
-                Make a Prediction
+                Take a Position
               </h3>
               <Button
                 variant="ghost"

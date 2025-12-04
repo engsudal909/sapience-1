@@ -8,6 +8,7 @@ import { TooltipProvider } from '@sapience/sdk/ui/components/ui/tooltip';
 import Providers from '~/app/providers';
 import Layout from '~/components/layout';
 import GlobalLoader from '~/components/shared/GlobalLoader';
+import HackathonBanner from '~/components/shared/HackathonBanner';
 import LowBalanceBanner from '~/components/shared/LowBalanceBanner';
 import { LoadingProvider } from '~/lib/context/LoadingContext';
 import { ChatProvider } from '~/lib/context/ChatContext';
@@ -111,6 +112,7 @@ const RootLayout = ({ children }: RootLayoutProps) => {
     <html lang="en" className={`${ibmPlexMono.variable}`}>
       <body className="overflow-x-hidden">
         <Providers>
+          <HackathonBanner />
           <LowBalanceBanner />
           <LoadingProvider>
             <ChatProvider>

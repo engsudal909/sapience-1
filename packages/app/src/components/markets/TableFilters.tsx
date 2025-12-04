@@ -18,6 +18,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/command';
 import { ChevronsUpDown, Check, Search } from 'lucide-react';
 import { cn } from '@sapience/sdk/ui/lib/utils';
+import { useIsMobile } from '@sapience/sdk/ui/hooks/use-mobile';
 
 export interface CategoryOption {
   id: number;
@@ -339,6 +340,8 @@ export default function TableFilters({
   onSearchChange,
   className,
 }: TableFiltersProps) {
+  const isMobile = useIsMobile();
+
   const handleOpenInterestChange = (value: [number, number]) => {
     onFiltersChange({ ...filters, openInterestRange: value });
   };
@@ -358,19 +361,19 @@ export default function TableFilters({
   return (
     <div
       className={cn(
-        'grid gap-2 md:gap-4 grid-cols-1 md:grid-cols-4',
+        'grid gap-2 md:gap-4 grid-cols-2 md:grid-cols-4',
         className
       )}
     >
       {/* Search input */}
       <div className="relative flex items-center">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none z-10" />
+        <Search className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none z-10" />
         <input
           type="text"
-          placeholder="Search questions and keywords"
+          placeholder={isMobile ? 'Search questions' : 'Search questions and keywords'}
           value={searchTerm}
           onChange={handleSearchInputChange}
-          className="w-full h-8 rounded-md border border-border bg-muted/30 text-left pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring"
+          className="w-full h-8 rounded-md border border-border bg-muted/30 text-left pl-3 md:pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring"
         />
       </div>
       <CategoryMultiSelect
