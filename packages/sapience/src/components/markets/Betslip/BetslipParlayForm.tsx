@@ -160,9 +160,9 @@ export default function BetslipParlayForm({
   // Check if we received bids but they've all expired
   const allBidsExpired = bids.length > 0 && !bestBid;
 
-  // Check if we recently made a request (within 3 seconds) - show "Waiting for Bids..." during cooldown
+  // Check if we recently made a request (within 5 seconds) - show "Waiting for Bids..." during cooldown
   const recentlyRequested =
-    lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 3000;
+    lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 5000;
 
   // Derive a stable dependency for form validation state
   const hasFormErrors = Object.keys(methods.formState.errors).length > 0;
@@ -217,7 +217,7 @@ export default function BetslipParlayForm({
 
   // Show "Request Bids" button when:
   // 1. No valid bids exist (never received or all expired)
-  // 2. Not in the 3-second cooldown period after making a request
+  // 2. Not in the 5-second cooldown period after making a request
   const showNoBidsHint =
     !bestBid &&
     !recentlyRequested &&

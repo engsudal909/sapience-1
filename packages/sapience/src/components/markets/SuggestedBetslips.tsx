@@ -4,7 +4,6 @@ import * as React from 'react';
 import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
@@ -14,37 +13,33 @@ import {
   TableBody,
   TableCell,
 } from '@sapience/sdk/ui/components/ui/table';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
 import { RefreshCw } from 'lucide-react';
 import {
   useConditions,
   type ConditionType,
 } from '~/hooks/graphql/useConditions';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
-import { getCategoryStyle } from '~/lib/utils/categoryStyle';
-import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
-import MarketBadge from '~/components/markets/MarketBadge';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import hub from '~/lib/auction/useAuctionBidsHub';
+import {
+  StackedIcons,
+  StackedPredictionsTitle,
+  type Pick,
+} from '~/components/shared/StackedPredictions';
 
 type SuggestedBetslipsProps = {
   className?: string;
 };
 
-type ComboLeg = { condition: ConditionType; prediction: boolean };
+type ComboPick = { condition: ConditionType; prediction: boolean };
 
 type ComboWithQuote = {
-  combo: ComboLeg[];
+  combo: ComboPick[];
   auctionId: string | null;
   probability: number | null;
   status: 'pending' | 'requesting' | 'received' | 'error';
@@ -94,13 +89,23 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
     return () => off();
   }, [wsUrl]);
 
-  const getCategoryColor = React.useCallback((slug?: string | null) => {
-    return getCategoryStyle(slug).color;
-  }, []);
+  // Convert ComboPick[] to Pick[] for the shared component
+  const comboToLegs = React.useCallback(
+    (combo: ComboPick[]): Pick[] =>
+      combo.map((leg) => ({
+        question: leg.condition.shortName || leg.condition.question,
+        choice: leg.prediction ? ('Yes' as const) : ('No' as const),
+        conditionId: leg.condition.id,
+        categorySlug: leg.condition.category?.slug,
+        endTime: leg.condition.endTime,
+        description: leg.condition.description,
+      })),
+    []
+  );
 
   // Generate 9 random parlays
   const generateCombos = React.useCallback(
-    (conditions: ConditionType[]): ComboLeg[][] => {
+    (conditions: ConditionType[]): ComboPick[][] => {
       const nowSec = Math.floor(Date.now() / 1000);
       const publicConditions = conditions.filter((c) => {
         if (!c.public) return false;
@@ -123,8 +128,8 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
         return arr[Math.floor(Math.random() * arr.length)];
       }
 
-      const makeOneCombo = (): ComboLeg[] => {
-        const result: ComboLeg[] = [];
+      const makeOneCombo = (): ComboPick[] => {
+        const result: ComboPick[] = [];
         const shuffledCats = [...categorySlugs].sort(() => Math.random() - 0.5);
         for (const cat of shuffledCats) {
           if (result.length >= 3) break;
@@ -304,7 +309,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
   }, [comboQuotes]);
 
   const handlePickParlay = React.useCallback(
-    (combo: ComboLeg[]) => {
+    (combo: ComboPick[]) => {
       clearParlaySelections();
       combo.forEach((leg) => {
         addParlaySelection({
@@ -417,9 +422,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                   ))
                 : topCombos.map((item) => {
                     const { combo, probability, status } = item;
-                    const colors = combo.map((leg) =>
-                      getCategoryColor(leg.condition.category?.slug)
-                    );
+                    const legs = comboToLegs(combo);
                     // Create a stable key from condition IDs and predictions
                     const comboKey = combo
                       .map(
@@ -439,147 +442,22 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                       >
                         {/* Desktop icons cell - hidden on mobile */}
                         <TableCell className="hidden md:table-cell py-3 pl-4 pr-3 w-[56px] shrink-0">
-                          <div className="flex items-center -space-x-2">
-                            {combo.map((leg, i) => {
-                              const CategoryIcon = getCategoryIcon(
-                                leg.condition.category?.slug
-                              );
-                              const color =
-                                colors[i] || 'hsl(var(--muted-foreground))';
-                              return (
-                                <div
-                                  key={`icon-${leg.condition.id}-${i}`}
-                                  className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center ring-2 ring-background"
-                                  style={{
-                                    backgroundColor: color,
-                                    zIndex: combo.length - i,
-                                  }}
-                                >
-                                  <CategoryIcon className="h-3 w-3 text-white/80" />
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <StackedIcons legs={legs} />
                         </TableCell>
                         {/* Question cell - includes all content on mobile */}
                         <TableCell className="py-3 pl-4 md:pl-1 pr-4 md:pr-0 min-w-0">
                           <div className="flex flex-col gap-2 min-w-0">
                             {/* Mobile Row 1: Icons (on their own line) */}
-                            <div className="flex md:hidden items-center -space-x-2">
-                              {combo.map((leg, i) => {
-                                const CategoryIcon = getCategoryIcon(
-                                  leg.condition.category?.slug
-                                );
-                                const color =
-                                  colors[i] || 'hsl(var(--muted-foreground))';
-                                return (
-                                  <div
-                                    key={`icon-mobile-${leg.condition.id}-${i}`}
-                                    className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center ring-2 ring-background"
-                                    style={{
-                                      backgroundColor: color,
-                                      zIndex: combo.length - i,
-                                    }}
-                                  >
-                                    <CategoryIcon className="h-3 w-3 text-white/80" />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            {/* Row 2: Question + Badge + "and 2 others" (desktop: inline with icons) */}
-                            <div className="flex items-center gap-2 flex-wrap md:gap-x-2">
-                              <span className="text-sm max-w-[300px] truncate">
-                                <ConditionTitleLink
-                                  conditionId={combo[0].condition.id}
-                                  title={
-                                    combo[0].condition.shortName ||
-                                    combo[0].condition.question
-                                  }
-                                  endTime={combo[0].condition.endTime}
-                                  description={combo[0].condition.description}
-                                  clampLines={1}
-                                  useDialog
-                                />
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                  combo[0].prediction
-                                    ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
-                                    : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
-                                }`}
-                              >
-                                {combo[0].prediction ? 'YES' : 'NO'}
-                              </Badge>
-                              {/* "and two others" popover */}
-                              {combo.length > 1 && (
-                                <>
-                                  <span className="text-sm text-muted-foreground shrink-0">
-                                    and
-                                  </span>
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <button
-                                        type="button"
-                                        className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 shrink-0 transition-colors"
-                                      >
-                                        2 others
-                                      </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                      className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
-                                      align="start"
-                                    >
-                                      <div className="flex flex-col divide-y divide-brand-white/20">
-                                        {combo.slice(1).map((leg, i) => {
-                                          const displayQ =
-                                            leg.condition.shortName ||
-                                            leg.condition.question;
-                                          return (
-                                            <div
-                                              key={leg.condition.id + '-' + i}
-                                              className="flex items-center gap-3 px-3 py-2"
-                                            >
-                                              <MarketBadge
-                                                label={displayQ}
-                                                size={32}
-                                                color={getCategoryColor(
-                                                  leg.condition.category?.slug
-                                                )}
-                                                categorySlug={
-                                                  leg.condition.category?.slug
-                                                }
-                                              />
-                                              <ConditionTitleLink
-                                                conditionId={leg.condition.id}
-                                                title={displayQ}
-                                                endTime={leg.condition.endTime}
-                                                description={
-                                                  leg.condition.description
-                                                }
-                                                clampLines={1}
-                                                className="text-sm"
-                                                useDialog
-                                              />
-                                              <Badge
-                                                variant="outline"
-                                                className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                  leg.prediction
-                                                    ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90'
-                                                    : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'
-                                                }`}
-                                              >
-                                                {leg.prediction ? 'YES' : 'NO'}
-                                              </Badge>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
-                                </>
-                              )}
-                            </div>
+                            <StackedIcons
+                              legs={legs}
+                              className="flex md:hidden"
+                            />
+                            {/* Row 2: Question + Badge + "and N others" */}
+                            <StackedPredictionsTitle
+                              legs={legs}
+                              useDialog
+                              className="md:gap-x-2"
+                            />
                             {/* Mobile Row 3: Probability info */}
                             <div className="md:hidden text-sm">
                               {status === 'received' && probability !== null ? (
@@ -663,7 +541,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
           </TableBody>
         </Table>
       </div>
-      <hr className="gold-hr mt-8" />
+      <hr className="gold-hr mt-6 -mb-2" />
     </div>
   );
 };

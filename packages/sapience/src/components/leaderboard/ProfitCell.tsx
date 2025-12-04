@@ -17,12 +17,12 @@ const PnLDisplay = ({ value }: { value: number }) => {
   }
 
   return (
-    <span>
+    <span className="font-mono text-brand-white">
       {usdValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}
-      {'USDe'}
+      {' USDe'}
     </span>
   );
 };

@@ -193,13 +193,13 @@ const PnLLeaderboard = () => {
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="hover:bg-transparent border-b"
+              className="hover:!bg-background bg-background border-b border-brand-white/20 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
             >
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
                   className={cn(
-                    'p-3 text-left text-brand-white font-medium text-xs md:text-sm',
+                    'p-3 text-left text-muted-foreground font-normal text-xs md:text-sm',
                     {
                       'text-center': header.id === 'rank',
                       'w-14 md:w-16': header.id === 'rank',
@@ -379,13 +379,13 @@ const AccuracyLeaderboard = () => {
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="hover:bg-transparent border-b"
+              className="hover:!bg-background bg-background border-b border-brand-white/20 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
             >
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
                   className={cn(
-                    'p-3 text-left text-brand-white font-medium text-xs md:text-sm',
+                    'p-3 text-left text-muted-foreground font-normal text-xs md:text-sm',
                     {
                       'text-center': header.id === 'rank',
                       'w-14 md:w-16': header.id === 'rank',

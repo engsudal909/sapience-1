@@ -9,6 +9,10 @@ type PredictedOutcome = {
     question?: string | null;
     shortName?: string | null;
     endTime?: number | null;
+    description?: string | null;
+    category?: {
+      slug: string;
+    } | null;
   } | null;
 };
 
@@ -159,34 +163,50 @@ export function useUserParlays(params: {
 
       if (conditionIds.length === 0) return base;
 
-      // Fetch shortName values for these condition IDs and join client-side
+      // Fetch shortName, description, category values for these condition IDs and join client-side
       const CONDITIONS_BY_IDS = /* GraphQL */ `
         query ConditionsByIds($ids: [String!]!) {
           conditions(where: { id: { in: $ids } }, take: 1000) {
             id
             shortName
+            description
+            category {
+              slug
+            }
           }
         }
       `;
 
-      type CondRow = { id: string; shortName?: string | null };
+      type CondRow = {
+        id: string;
+        shortName?: string | null;
+        description?: string | null;
+        category?: { slug: string } | null;
+      };
       const condResp = await graphqlRequest<{ conditions: CondRow[] }>(
         CONDITIONS_BY_IDS,
         { ids: conditionIds }
       );
-      const idToShortName = new Map(
-        (condResp?.conditions || []).map((c) => [c.id, c.shortName])
+      const conditionDataMap = new Map(
+        (condResp?.conditions || []).map((c) => [c.id, c])
       );
 
-      // Enrich predictedOutcomes.condition.shortName if available
+      // Enrich predictedOutcomes.condition with shortName, description, category if available
       return base.map((p) => ({
         ...p,
         predictedOutcomes: (p.predictedOutcomes || []).map((o) => {
-          const shortName = idToShortName.get(o.conditionId);
-          if (!shortName) return o;
+          const condData = conditionDataMap.get(o.conditionId);
+          if (!condData) return o;
           return {
             ...o,
-            condition: o.condition ? { ...o.condition, shortName } : undefined,
+            condition: o.condition
+              ? {
+                  ...o.condition,
+                  shortName: condData.shortName ?? o.condition.shortName,
+                  description: condData.description ?? o.condition.description,
+                  category: condData.category ?? o.condition.category,
+                }
+              : undefined,
           };
         }),
       }));

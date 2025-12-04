@@ -411,11 +411,11 @@ const columns: ColumnDef<ConditionType>[] = [
     header: ({ column }) => {
       const sorted = column.getIsSorted();
       return (
-        <div className="flex justify-start">
+        <div className="flex justify-end">
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(sorted === 'asc')}
-            className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
+            className="-mr-4 px-0 gap-1 hover:bg-transparent whitespace-nowrap"
           >
             Ends
             {sorted === 'asc' ? (
@@ -445,7 +445,7 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     id: 'predict',
-    header: () => <span>Select Predictions</span>,
+    header: () => <span className="block text-right">Select Predictions</span>,
     cell: ({ row }) => {
       return <PredictCell condition={row.original} />;
     },
@@ -556,7 +556,7 @@ export default function MarketsDataTable({
                   if (colId === 'question') {
                     className = 'pl-4 max-w-[400px]';
                   } else if (colId === 'endTime') {
-                    className = 'pl-4';
+                    className = 'pr-4';
                   }
                   return (
                     <TableHead key={header.id} className={className}>
@@ -603,7 +603,7 @@ export default function MarketsDataTable({
                     ) {
                       className = 'py-2 text-right';
                     } else if (colId === 'endTime') {
-                      className = 'py-2 pl-4 text-left';
+                      className = 'py-2 text-right';
                     } else if (colId === 'predict') {
                       className = 'py-2 pr-4';
                     }

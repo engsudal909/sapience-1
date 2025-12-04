@@ -22,7 +22,6 @@ import {
 } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import * as React from 'react';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { useReadContracts, useAccount } from 'wagmi';
 import type { Abi } from 'abitype';
 import { predictionMarketAbi } from '@sapience/sdk';
@@ -49,8 +48,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import EmptyTabState from '~/components/shared/EmptyTabState';
+import StackedPredictions, {
+  type Pick,
+} from '~/components/shared/StackedPredictions';
+import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
 import {
   useUserParlays,
@@ -62,103 +64,8 @@ import ShareDialog from '~/components/shared/ShareDialog';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge';
 import EnsAvatar from '~/components/shared/EnsAvatar';
-import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
 import LottieLoader from '~/components/shared/LottieLoader';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
-
-function PredictionsScroller({
-  legs,
-  showAntiParlay,
-}: {
-  legs: {
-    question: string;
-    choice: 'Yes' | 'No';
-    conditionId?: string;
-    endTime?: number | null;
-    description?: string | null;
-  }[];
-  showAntiParlay: boolean;
-}) {
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const [showRightGradient, setShowRightGradient] = React.useState(false);
-
-  const updateGradientVisibility = React.useCallback(() => {
-    const el = containerRef.current;
-    if (!el) {
-      setShowRightGradient(false);
-      return;
-    }
-    const canScroll = el.scrollWidth > el.clientWidth + 1;
-    if (!canScroll) {
-      setShowRightGradient(false);
-      return;
-    }
-    const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
-    setShowRightGradient(!atEnd);
-  }, []);
-
-  React.useEffect(() => {
-    updateGradientVisibility();
-    const el = containerRef.current;
-    if (!el) return;
-    const onScroll = () => updateGradientVisibility();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const onResize = () => updateGradientVisibility();
-    window.addEventListener('resize', onResize);
-    const ro = new ResizeObserver(() => updateGradientVisibility());
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-      ro.disconnect();
-    };
-  }, [updateGradientVisibility]);
-
-  return (
-    <div className="relative w-full max-w-full xl:max-w-[320px]">
-      <div
-        ref={containerRef}
-        className="overflow-hidden xl:overflow-x-auto whitespace-normal xl:whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none]"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        <div className="flex items-start gap-3 pr-0 xl:pr-16 flex-wrap xl:flex-nowrap">
-          {showAntiParlay && (
-            <div className="shrink-0">
-              <AntiParlayBadge />
-            </div>
-          )}
-          {legs.map((l, idx) => (
-            <div key={idx} className="flex items-center gap-2 shrink-0">
-              <ConditionTitleLink
-                conditionId={l.conditionId}
-                title={l.question}
-                endTime={l.endTime}
-                description={l.description}
-                clampLines={1}
-              />
-              <Badge
-                variant="outline"
-                className={
-                  l.choice === 'Yes'
-                    ? 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-green-500/40 bg-green-500/10 text-green-600 font-mono'
-                    : 'px-1.5 py-0.5 text-xs font-medium !rounded-md border-red-500/40 bg-red-500/10 text-red-600 font-mono'
-                }
-              >
-                {l.choice}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      </div>
-      {showRightGradient && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-brand-black to-transparent group-hover:from-muted/50 transition-colors"
-        />
-      )}
-    </div>
-  );
-}
 
 function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
@@ -215,13 +122,7 @@ export default function UserParlaysTable({
         .catch(() => {});
     },
   });
-  type UILeg = {
-    question: string;
-    choice: 'Yes' | 'No';
-    conditionId?: string;
-    endTime?: number | null;
-    description?: string | null;
-  };
+  type UILeg = Pick;
   type UIParlay = {
     uniqueRowKey: string;
     positionId: number;
@@ -321,8 +222,9 @@ export default function UserParlaysTable({
       const legs: UILeg[] = (p.predictedOutcomes || []).map((o: any) => ({
         question:
           o?.condition?.shortName || o?.condition?.question || o.conditionId,
-        choice: o.prediction ? 'Yes' : 'No',
+        choice: o.prediction ? ('Yes' as const) : ('No' as const),
         conditionId: o?.conditionId,
+        categorySlug: o?.condition?.category?.slug ?? null,
         endTime: o?.condition?.endTime ?? null,
         description: o?.condition?.description ?? null,
       }));
@@ -750,7 +652,7 @@ export default function UserParlaysTable({
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <div className="text-sm text-muted-foreground whitespace-nowrap">{`Position #${row.original.positionId}`}</div>
+              <div className="text-sm text-muted-foreground whitespace-nowrap font-mono uppercase">{`ID #${row.original.positionId}`}</div>
             </div>
           );
         },
@@ -767,10 +669,17 @@ export default function UserParlaysTable({
             <div className="xl:hidden text-xs text-muted-foreground mb-1">
               Predictions
             </div>
-            <PredictionsScroller
-              legs={row.original.legs}
-              showAntiParlay={row.original.addressRole === 'taker'}
-            />
+            <div className="flex flex-col gap-2">
+              {row.original.addressRole === 'taker' && (
+                <div className="mb-1">
+                  <AntiParlayBadge />
+                </div>
+              )}
+              <StackedPredictions
+                legs={row.original.legs}
+                className="max-w-full xl:max-w-[320px]"
+              />
+            </div>
           </div>
         ),
       },
