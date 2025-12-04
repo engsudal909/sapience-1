@@ -1,9 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSignMessage } from 'wagmi';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
+import {
+  signAuctionRequest,
+  extractSiweDomainAndUri,
+} from './auctionSigning';
 
 export interface PredictedOutcomeInput {
   marketGroup: string; // address
@@ -68,6 +73,7 @@ export function useAuctionStart() {
   const [bids, setBids] = useState<QuoteBid[]>([]);
   const inflightRef = useRef<string>('');
   const { apiBaseUrl } = useSettings();
+  const { signMessageAsync } = useSignMessage();
   const apiBase = useMemo(() => {
     if (apiBaseUrl && apiBaseUrl.length > 0) return apiBaseUrl;
     const root = process.env.NEXT_PUBLIC_FOIL_API_URL as string;
@@ -179,12 +185,48 @@ export function useAuctionStart() {
         lastAuctionRef.current = params;
         setCurrentAuctionParams(params);
 
+        // Generate SIWE signature for the auction request
+        let takerSignature: string | undefined;
+        let takerSignedAt: string | undefined;
+        try {
+          const { domain, uri } = extractSiweDomainAndUri(wsUrl);
+          const result = await signAuctionRequest(
+            {
+              wager: params.wager,
+              predictedOutcomes: params.predictedOutcomes,
+              resolver: params.resolver,
+              taker: params.taker,
+              takerNonce: params.takerNonce,
+              chainId: params.chainId,
+            },
+            domain,
+            uri,
+            signMessageAsync
+          );
+          takerSignature = result.signature;
+          takerSignedAt = result.issuedAt;
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[AuctionStart] Generated SIWE signature');
+          }
+        } catch (signError) {
+          // If signature fails, log but continue without it (optional signature)
+          console.warn(
+            '[AuctionStart] Failed to sign auction request:',
+            signError
+          );
+        }
+
+        // Add signature and timestamp to request payload if available
+        const payloadWithSignature = takerSignature && takerSignedAt
+          ? { ...requestPayload, takerSignature, takerSignedAt }
+          : requestPayload;
+
         // Use sendWithAck for proper request/response correlation
         // Server echoes back the request ID, allowing parallel requests
         try {
           const response = await client.sendWithAck<{ auctionId?: string }>(
             'auction.start',
-            requestPayload,
+            payloadWithSignature,
             { timeoutMs: 10000 }
           );
           const newId = response?.auctionId || null;
@@ -199,7 +241,7 @@ export function useAuctionStart() {
         }
       }, 400);
     },
-    [wsUrl]
+    [wsUrl, signMessageAsync]
   );
 
   const acceptBid = useCallback(
