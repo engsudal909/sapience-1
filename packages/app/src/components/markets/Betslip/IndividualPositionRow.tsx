@@ -125,7 +125,7 @@ export default function IndividualPositionRow({
           <div className="text-md text-foreground pr-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="min-w-0 flex-1">
-                <ConditionTitleLink title={question} clampLines={1} useDialog />
+                <ConditionTitleLink title={question} clampLines={1} />
               </div>
               <span className="relative -top-[0.75px] shrink-0">
                 <ReadOnlyPredictionBadge

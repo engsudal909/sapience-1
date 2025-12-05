@@ -455,7 +455,6 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                             {/* Row 2: Question + Badge + "and N others" */}
                             <StackedPredictionsTitle
                               legs={legs}
-                              useDialog
                               className="md:gap-x-2"
                               maxWidthClass="max-w-[calc(100%-160px)] md:max-w-[300px]"
                             />

@@ -24,8 +24,6 @@ export interface StackedPredictionsProps {
   legs: Pick[];
   /** Show icons stacked before the question (default: true) */
   showIcons?: boolean;
-  /** Use dialog instead of link navigation (default: false) */
-  useDialog?: boolean;
   /** Additional className for the container */
   className?: string;
   /** Maximum width class for the question text (default: 'max-w-[300px]') */
@@ -81,12 +79,10 @@ export function StackedIcons({
  */
 export function StackedPredictionsTitle({
   legs,
-  useDialog = false,
   className,
   maxWidthClass = 'max-w-[300px]',
 }: {
   legs: Pick[];
-  useDialog?: boolean;
   className?: string;
   maxWidthClass?: string;
 }) {
@@ -104,10 +100,7 @@ export function StackedPredictionsTitle({
         <ConditionTitleLink
           conditionId={firstLeg.conditionId}
           title={firstLeg.question}
-          endTime={firstLeg.endTime}
-          description={firstLeg.description}
           clampLines={1}
-          useDialog={useDialog}
         />
       </span>
       <Badge
@@ -153,11 +146,8 @@ export function StackedPredictionsTitle({
                     <ConditionTitleLink
                       conditionId={leg.conditionId}
                       title={leg.question}
-                      endTime={leg.endTime}
-                      description={leg.description}
                       clampLines={1}
                       className="text-sm"
-                      useDialog={useDialog}
                     />
                     <Badge
                       variant="outline"
@@ -192,7 +182,6 @@ export function StackedPredictionsTitle({
 export default function StackedPredictions({
   legs,
   showIcons = true,
-  useDialog = false,
   className,
   maxWidthClass = 'max-w-[300px]',
 }: StackedPredictionsProps) {
@@ -204,11 +193,7 @@ export default function StackedPredictions({
     <div className={className}>
       <div className="flex flex-col gap-2 min-w-0">
         {showIcons && <StackedIcons legs={legs} />}
-        <StackedPredictionsTitle
-          legs={legs}
-          useDialog={useDialog}
-          maxWidthClass={maxWidthClass}
-        />
+        <StackedPredictionsTitle legs={legs} maxWidthClass={maxWidthClass} />
       </div>
     </div>
   );
