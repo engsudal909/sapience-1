@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 // localStorage key for parlay selections persistence
-const STORAGE_KEY_PARLAYS = 'sapience:betslip-parlays';
+const STORAGE_KEY_PARLAYS = 'sapience:position-parlays';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -24,10 +24,10 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 import type { MarketGroup as MarketGroupType } from '@sapience/sdk/types/graphql';
 import type { MarketGroupClassification } from '~/lib/types';
 import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/lib/types';
-import { createPositionDefaults } from '~/lib/utils/betslipUtils';
+import { createPositionDefaults } from '~/lib/utils/positionFormUtils';
 
-// Updated BetSlipPosition type based on requirements
-export interface BetSlipPosition {
+// Updated CreatePositionEntry type based on requirements
+export interface CreatePositionEntry {
   id: string;
   prediction: boolean;
   marketAddress: string;
@@ -40,7 +40,7 @@ export interface BetSlipPosition {
 
 // Lightweight parlay selection for OTC conditions (no on-chain market data)
 export interface ParlaySelection {
-  id: string; // unique within betslip
+  id: string; // unique within position form
   conditionId: string;
   question: string;
   prediction: boolean; // true = yes, false = no
@@ -49,22 +49,22 @@ export interface ParlaySelection {
 
 // Interface for market data with position
 export interface PositionWithMarketData {
-  position: BetSlipPosition;
+  position: CreatePositionEntry;
   marketGroupData: MarketGroupType | undefined;
   marketClassification: MarketGroupClassification | undefined;
   isLoading: boolean;
   error: boolean | null;
 }
 
-interface BetSlipContextType {
+interface CreatePositionContextType {
   // Separate lists: single positions (on-chain) and parlay selections (RFQ conditions)
-  betSlipPositions: BetSlipPosition[]; // legacy alias to singlePositions for backward compat
-  singlePositions: BetSlipPosition[];
+  createPositionEntries: CreatePositionEntry[]; // legacy alias to singlePositions for backward compat
+  singlePositions: CreatePositionEntry[];
   parlaySelections: ParlaySelection[];
-  addPosition: (position: Omit<BetSlipPosition, 'id'>) => void;
+  addPosition: (position: Omit<CreatePositionEntry, 'id'>) => void;
   removePosition: (id: string) => void;
-  updatePosition: (id: string, updates: Partial<BetSlipPosition>) => void;
-  clearBetSlip: () => void;
+  updatePosition: (id: string, updates: Partial<CreatePositionEntry>) => void;
+  clearPositionForm: () => void;
   // Parlay selections API
   addParlaySelection: (selection: Omit<ParlaySelection, 'id'>) => void;
   removeParlaySelection: (id: string) => void;
@@ -76,22 +76,30 @@ interface BetSlipContextType {
   positionsWithMarketData: PositionWithMarketData[];
 }
 
-const BetSlipContext = createContext<BetSlipContextType | undefined>(undefined);
+const CreatePositionContext = createContext<
+  CreatePositionContextType | undefined
+>(undefined);
 
-export const useBetSlipContext = () => {
-  const context = useContext(BetSlipContext);
+export const useCreatePositionContext = () => {
+  const context = useContext(CreatePositionContext);
   if (!context) {
-    throw new Error('useBetSlipContext must be used within a BetSlipProvider');
+    throw new Error(
+      'useCreatePositionContext must be used within a CreatePositionProvider'
+    );
   }
   return context;
 };
 
-interface BetSlipProviderProps {
+interface CreatePositionProviderProps {
   children: React.ReactNode;
 }
 
-export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
-  const [singlePositions, setSinglePositions] = useState<BetSlipPosition[]>([]);
+export const CreatePositionProvider = ({
+  children,
+}: CreatePositionProviderProps) => {
+  const [singlePositions, setSinglePositions] = useState<CreatePositionEntry[]>(
+    []
+  );
   const [parlaySelections, setParlaySelections] = useState<ParlaySelection[]>(
     () => loadFromStorage(STORAGE_KEY_PARLAYS, [])
   );
@@ -114,7 +122,7 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
   );
 
   const addPosition = useCallback(
-    (position: Omit<BetSlipPosition, 'id'>) => {
+    (position: Omit<CreatePositionEntry, 'id'>) => {
       // Create intelligent defaults based on market classification
       const defaults = createPositionDefaults(position.marketClassification);
 
@@ -171,7 +179,7 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
         );
       } else {
         const id = `${position.marketAddress}-${position.marketId}-${position.prediction}-${Date.now()}`;
-        const enhancedPosition: BetSlipPosition = {
+        const enhancedPosition: CreatePositionEntry = {
           ...position,
           id,
           wagerAmount: position.wagerAmount || defaults.wagerAmount,
@@ -194,7 +202,7 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
   );
 
   const updatePosition = useCallback(
-    (id: string, updates: Partial<BetSlipPosition>) => {
+    (id: string, updates: Partial<CreatePositionEntry>) => {
       setSinglePositions((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
       );
@@ -202,7 +210,7 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
     []
   );
 
-  const clearBetSlip = useCallback(() => {
+  const clearPositionForm = useCallback(() => {
     setSinglePositions([]);
   }, []);
 
@@ -239,14 +247,14 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
     setParlaySelections([]);
   }, []);
 
-  const value: BetSlipContextType = {
-    betSlipPositions: singlePositions,
+  const value: CreatePositionContextType = {
+    createPositionEntries: singlePositions,
     singlePositions,
     parlaySelections,
     addPosition,
     removePosition,
     updatePosition,
-    clearBetSlip,
+    clearPositionForm,
     addParlaySelection,
     removeParlaySelection,
     clearParlaySelections,
@@ -257,6 +265,8 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
   };
 
   return (
-    <BetSlipContext.Provider value={value}>{children}</BetSlipContext.Provider>
+    <CreatePositionContext.Provider value={value}>
+      {children}
+    </CreatePositionContext.Provider>
   );
 };

@@ -153,7 +153,7 @@ export function useSapienceWriteContract({
           .toLowerCase();
         if (!connectedAddress) return;
 
-        // Check for temporary trade data stored by Betslip or trade forms
+        // Check for temporary trade data stored by CreatePositionForm or trade forms
         let tempTradeData = null;
         if (redirectProfileAnchor === 'trades') {
           try {

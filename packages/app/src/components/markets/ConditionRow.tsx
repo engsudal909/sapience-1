@@ -6,7 +6,7 @@ import { toHex, concatHex, keccak256 } from 'viem';
 import { umaResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import MarketBadge from '~/components/markets/MarketBadge';
@@ -117,7 +117,7 @@ function ForecastCell({
 const ConditionRow: React.FC<ConditionRowProps> = ({ condition, color }) => {
   const { id, question, shortName, endTime, description } = condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
-    useBetSlipContext();
+    useCreatePositionContext();
 
   const displayQ = shortName || question;
 

@@ -4,7 +4,7 @@ import * as React from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 
@@ -24,7 +24,7 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
   const { id, question, shortName, endTime, description, categorySlug } =
     condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
-    useBetSlipContext();
+    useCreatePositionContext();
   const router = useRouter();
 
   const displayQ = shortName || question;

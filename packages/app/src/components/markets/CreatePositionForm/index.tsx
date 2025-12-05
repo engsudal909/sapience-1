@@ -34,9 +34,9 @@ import {
   wagerAmountSchema,
   createWagerAmountSchema,
 } from '~/components/markets/forms/inputs/WagerInput';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 
-import { BetslipContent } from '~/components/markets/Betslip/BetslipContent';
+import { CreatePositionFormContent } from '~/components/markets/CreatePositionForm/CreatePositionFormContent';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
@@ -45,26 +45,28 @@ import {
   DEFAULT_WAGER_AMOUNT,
   getDefaultFormPredictionValue,
   YES_SQRT_PRICE_X96,
-} from '~/lib/utils/betslipUtils';
+} from '~/lib/utils/positionFormUtils';
 import { tickToPrice } from '~/lib/utils/tickUtils';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
 
-interface BetslipProps {
+interface CreatePositionFormProps {
   variant?: 'triggered' | 'panel';
 }
 
-const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
+const CreatePositionForm = ({
+  variant = 'triggered',
+}: CreatePositionFormProps) => {
   const {
-    betSlipPositions,
+    createPositionEntries,
     isPopoverOpen,
     setIsPopoverOpen,
-    clearBetSlip,
+    clearPositionForm,
     parlaySelections,
     clearParlaySelections,
     positionsWithMarketData,
-  } = useBetSlipContext();
+  } = useCreatePositionContext();
 
   // Always use parlay mode (singles/spot mode removed)
   const isParlayMode = true;
@@ -75,7 +77,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
   const { toast } = useToast();
   const chainId = useChainIdFromLocalStorage();
   const parlayChainId =
-    chainId || betSlipPositions[0]?.chainId || DEFAULT_CHAIN_ID;
+    chainId || createPositionEntries[0]?.chainId || DEFAULT_CHAIN_ID;
 
   const {
     auctionId,
@@ -243,7 +245,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
       // Individual mode needs positions with predictions and wagers
       const positionsSchema: Record<string, z.ZodTypeAny> = {};
 
-      betSlipPositions.forEach((position) => {
+      createPositionEntries.forEach((position) => {
         positionsSchema[position.id] = z.object({
           predictionValue: z.string().min(1, 'Please make a prediction'),
           wagerAmount: wagerAmountSchema,
@@ -257,13 +259,13 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
         limitAmount: z.number().min(0).optional(),
       });
     }
-  }, [betSlipPositions, isParlayMode, minWager, chainId]);
+  }, [createPositionEntries, isParlayMode, minWager, chainId]);
 
   // Helper function to generate form values
   const generateFormValues = useMemo(() => {
     return {
       positions: Object.fromEntries(
-        betSlipPositions.map((position) => {
+        createPositionEntries.map((position) => {
           // Use stored market classification for smart defaults
           const classification =
             position.marketClassification || MarketGroupClassification.NUMERIC;
@@ -321,7 +323,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
         })
       ),
     };
-  }, [betSlipPositions, positionsWithMarketData]);
+  }, [createPositionEntries, positionsWithMarketData]);
 
   // Single form for both individual and parlay modes
   const formMethods = useForm<{
@@ -367,7 +369,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
   //   name: 'positions',
   // });
 
-  // Sync form when betslip positions change without clobbering existing values
+  // Sync form when position entries change without clobbering existing values
   useEffect(() => {
     const current = formMethods.getValues();
     const defaults = generateFormValues.positions || {};
@@ -439,7 +441,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
     );
   }, [formMethods, generateFormValues, positionsWithMarketData]);
 
-  // Note: Minimum wager validation is now handled in BetslipParlayForm
+  // Note: Minimum wager validation is now handled in CreatePositionParlayForm
 
   // Calculate and set minimum payout when list length changes (for individual mode)
   // Minimum payout = wagerAmount × 2^(number of positions), formatted to 2 decimals
@@ -515,8 +517,8 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
       collateralToken || '0x0000000000000000000000000000000000000000',
     enabled: !!collateralToken,
     onSuccess: () => {
-      // Clear betslip and close popover; hook handles redirect to profile
-      clearBetSlip();
+      // Clear position form and close popover; hook handles redirect to profile
+      clearPositionForm();
       setIsPopoverOpen(false);
     },
     onOrderCreated: (makerNftId, takerNftId, txHash) => {
@@ -643,7 +645,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
               className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 lg:hidden rounded-full h-10 w-10 p-0 shadow-md"
               size="icon"
               variant="default"
-              aria-label="Open betslip"
+              aria-label="Open position form"
             >
               <Image
                 src="/usde.svg"
@@ -655,11 +657,11 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
             </Button>
           </DrawerTrigger>
           <DrawerContent
-            className="h-[85vh] betslip bg-brand-black overflow-hidden"
+            className="h-[85vh] position-form bg-brand-black overflow-hidden"
             style={
               {
-                '--betslip-gradient': categoryGradient,
-                '--betslip-gradient-stops': categoryGradientStops,
+                '--position-form-gradient': categoryGradient,
+                '--position-form-gradient-stops': categoryGradientStops,
               } as CSSProperties
             }
           >
@@ -667,9 +669,9 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
               <DrawerTitle className="text-left"></DrawerTitle>
             </DrawerHeader>
             <div
-              className={`${betSlipPositions.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full flex flex-col min-h-0`}
+              className={`${createPositionEntries.length === 0 ? 'pt-0 pb-4' : 'p-0'} h-full flex flex-col min-h-0`}
             >
-              <BetslipContent {...contentProps} />
+              <CreatePositionFormContent {...contentProps} />
             </div>
           </DrawerContent>
         </Drawer>
@@ -680,31 +682,31 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
   if (variant === 'panel') {
     const hasItems = isParlayMode
       ? parlaySelections.length > 0
-      : betSlipPositions.length > 0;
+      : createPositionEntries.length > 0;
 
     return (
-      <div className="w-full h-full flex flex-col betslip">
+      <div className="w-full h-full flex flex-col position-form">
         <div className="hidden lg:flex items-center justify-between mb-1 px-1 pt-1">
           <h2 className="sc-heading text-foreground">Take a position</h2>
           <Button
             variant="ghost"
             size="xs"
             className={`uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 transition-opacity ${hasItems ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-            onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
+            onClick={isParlayMode ? clearParlaySelections : clearPositionForm}
             title="Reset"
           >
             CLEAR
           </Button>
         </div>
         <div
-          className={`${betSlipPositions.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
+          className={`${createPositionEntries.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
           <div
-            className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
+            className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden position-form"
             style={
               {
-                '--betslip-gradient': categoryGradient,
-                '--betslip-gradient-stops': categoryGradientStops,
+                '--position-form-gradient': categoryGradient,
+                '--position-form-gradient-stops': categoryGradientStops,
               } as CSSProperties
             }
           >
@@ -712,7 +714,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
               className="hidden lg:block absolute top-0 left-0 right-0 h-px"
               style={{ background: categoryGradient }}
             />
-            <BetslipContent {...contentProps} />
+            <CreatePositionFormContent {...contentProps} />
           </div>
         </div>
       </div>
@@ -721,7 +723,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
 
   const hasTriggeredItems = isParlayMode
     ? parlaySelections.length > 0
-    : betSlipPositions.length > 0;
+    : createPositionEntries.length > 0;
 
   return (
     <>
@@ -737,7 +739,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className={`${betSlipPositions.length === 0 ? 'w-80 h-[24rem] p-0' : 'w-[20rem] p-0'} flex flex-col max-h-[80vh] overflow-hidden bg-transparent border-0 shadow-none betslip`}
+          className={`${createPositionEntries.length === 0 ? 'w-80 h-[24rem] p-0' : 'w-[20rem] p-0'} flex flex-col max-h-[80vh] overflow-hidden bg-transparent border-0 shadow-none position-form`}
           align="end"
         >
           <div className="flex-1 min-h-0">
@@ -748,7 +750,9 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
                   variant="ghost"
                   size="xs"
                   className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
-                  onClick={isParlayMode ? clearParlaySelections : clearBetSlip}
+                  onClick={
+                    isParlayMode ? clearParlaySelections : clearPositionForm
+                  }
                   title="Reset"
                 >
                   CLEAR
@@ -756,11 +760,11 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
               )}
             </div>
             <div
-              className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden betslip"
+              className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden position-form"
               style={
                 {
-                  '--betslip-gradient': categoryGradient,
-                  '--betslip-gradient-stops': categoryGradientStops,
+                  '--position-form-gradient': categoryGradient,
+                  '--position-form-gradient-stops': categoryGradientStops,
                 } as CSSProperties
               }
             >
@@ -768,7 +772,7 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
                 className="hidden lg:block absolute top-0 left-0 right-0 h-px"
                 style={{ background: categoryGradient }}
               />
-              <BetslipContent {...contentProps} />
+              <CreatePositionFormContent {...contentProps} />
             </div>
           </div>
         </PopoverContent>
@@ -777,4 +781,4 @@ const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
   );
 };
 
-export default Betslip;
+export default CreatePositionForm;

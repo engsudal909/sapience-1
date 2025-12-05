@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
@@ -26,7 +26,7 @@ const ParlayConditionCard: React.FC<ParlayConditionCardProps> = ({
   const { id, question, shortName, endTime, description, categorySlug } =
     condition;
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
-    useBetSlipContext();
+    useCreatePositionContext();
 
   const displayQ = shortName || question;
 
