@@ -316,9 +316,6 @@ importers:
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1
-      siwe:
-        specifier: 3.0.0
-        version: 3.0.0(ethers@6.15.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       tailwind-merge:
         specifier: 2.5.4
         version: 2.5.4
