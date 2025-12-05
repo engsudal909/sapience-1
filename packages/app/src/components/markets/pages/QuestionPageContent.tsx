@@ -459,18 +459,18 @@ export default function QuestionPageContent({
           const date = new Date(timestamp);
 
           // Calculate implied probability of YES from wager amounts
-          // predictedOutcomes represents taker's predictions
-          // - If taker predicts YES: YES prob = takerCollateral / totalWager
-          // - If taker predicts NO: YES prob = 1 - (takerCollateral / totalWager)
+          // Always compute based on taker's bet:
+          // - If taker bets YES: probability of YES = takerCollateral / totalWager
+          // - If taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
           let predictionPercent = 50; // Default fallback
           const totalWager = makerCollateral + takerCollateral;
           if (totalWager > 0) {
             if (takerPrediction) {
-              // Taker predicts YES: YES probability = takerCollateral / totalWager
+              // Taker bets YES: probability of YES = takerCollateral / totalWager
               predictionPercent = (takerCollateral / totalWager) * 100;
             } else {
-              // Taker predicts NO: YES probability = 1 - (takerCollateral / totalWager)
-              predictionPercent = (1 - takerCollateral / totalWager) * 100;
+              // Taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
+              predictionPercent = (makerCollateral / totalWager) * 100;
             }
             // Clamp to 0-100 range
             predictionPercent = Math.max(0, Math.min(100, predictionPercent));
@@ -752,9 +752,9 @@ export default function QuestionPageContent({
         ),
         cell: ({ row }) => {
           // Calculate implied probability from wager amounts
-          // predictedOutcomes represents taker's predictions
-          // - If taker predicts YES: YES prob = takerCollateral / totalWager
-          // - If taker predicts NO: YES prob = 1 - (takerCollateral / totalWager)
+          // Always compute based on taker's bet:
+          // - If taker bets YES: probability of YES = takerCollateral / totalWager
+          // - If taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
           const {
             makerCollateral,
             takerCollateral,
@@ -762,18 +762,18 @@ export default function QuestionPageContent({
             combinedPredictions,
             combinedWithYes,
           } = row.original;
-          // makerPrediction is actually derived from taker's prediction (opposite)
-          const takerPrediction = !makerPrediction;
           const totalWager = makerCollateral + takerCollateral;
           let impliedPercent = 50; // Default fallback
 
           if (totalWager > 0) {
+            // takerPrediction = !makerPrediction
+            const takerPrediction = !makerPrediction;
             if (takerPrediction) {
-              // Taker predicts YES: YES probability = takerCollateral / totalWager
+              // Taker bets YES: probability of YES = takerCollateral / totalWager
               impliedPercent = (takerCollateral / totalWager) * 100;
             } else {
-              // Taker predicts NO: YES probability = 1 - (takerCollateral / totalWager)
-              impliedPercent = (1 - takerCollateral / totalWager) * 100;
+              // Taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
+              impliedPercent = (makerCollateral / totalWager) * 100;
             }
             impliedPercent = Math.max(0, Math.min(100, impliedPercent));
           }
@@ -1471,10 +1471,12 @@ export default function QuestionPageContent({
                           const lineWidth = width * 2;
                           const rayLength = lineWidth * 0.6; // Ray height proportional to line width
                           const gradientId = `bracket-ray-gradient-${payload.x}`;
-                          // Determine ray direction based on combinedWithYes (taker's prediction):
-                          // - Taker predicts YES (combinedWithYes: true) → ray DOWN (toward 100%)
-                          // - Taker predicts NO (combinedWithYes: false) → ray UP (toward 0%)
-                          const rayUp = payload.combinedWithYes === false;
+                          // Determine ray direction based on taker's prediction:
+                          // - Taker bets YES (takerPrediction: true) → ray DOWN (toward 100%)
+                          // - Taker bets NO (takerPrediction: false) → ray UP (toward 0%)
+                          // takerPrediction = !makerPrediction
+                          const takerPrediction = !payload.makerPrediction;
+                          const rayUp = takerPrediction === false;
                           return (
                             <g
                               className="bracket-combined"
@@ -1494,7 +1496,7 @@ export default function QuestionPageContent({
                                 }, 150);
                               }}
                             >
-                              {/* Gradient definition for the ray - direction based on combinedWithYes */}
+                              {/* Gradient definition for the ray - direction based on taker's prediction */}
                               <defs>
                                 <linearGradient
                                   id={gradientId}
@@ -1505,7 +1507,7 @@ export default function QuestionPageContent({
                                 >
                                   {rayUp ? (
                                     <>
-                                      {/* UP: solid at bottom (100%), transparent at top (0%) */}
+                                      {/* UP: solid at bottom (100%), transparent at top (0%) - taker bets NO */}
                                       <stop
                                         offset="0%"
                                         stopColor="hsl(var(--ethena))"
@@ -1534,7 +1536,7 @@ export default function QuestionPageContent({
                                     </>
                                   ) : (
                                     <>
-                                      {/* DOWN: solid at top (0%), transparent at bottom (100%) */}
+                                      {/* DOWN: solid at top (0%), transparent at bottom (100%) - taker bets YES */}
                                       <stop
                                         offset="0%"
                                         stopColor="hsl(var(--ethena))"
@@ -1564,7 +1566,7 @@ export default function QuestionPageContent({
                                   )}
                                 </linearGradient>
                               </defs>
-                              {/* Gradient ray coming out of line - direction based on combinedWithYes */}
+                              {/* Gradient ray coming out of line - direction based on taker's prediction */}
                               <rect
                                 x={cx - width}
                                 y={rayUp ? cy - rayLength : cy}
