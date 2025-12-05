@@ -1,42 +1,9 @@
 import { verifyMessage } from 'viem';
+import {
+  createAuctionStartSiweMessage,
+  type AuctionStartSigningPayload,
+} from '@sapience/sdk';
 import { AuctionRequestPayload } from './types';
-
-const QUOTE_MESSAGE_PREFIX = 'Sign to get a quote';
-
-/**
- * Creates a SIWE message for auction request signing
- * @param payload - The auction request payload
- * @param domain - The domain requesting the signature (e.g., 'api.example.com')
- * @param uri - The URI of the request (e.g., 'wss://api.example.com/auction')
- * @returns SIWE message string
- */
-export function createAuctionSiweMessage(
-  payload: Omit<AuctionRequestPayload, 'takerSignature' | 'takerSignedAt'>,
-  domain: string,
-  uri: string,
-  issuedAt: string
-): string {
-  const nonce = payload.takerNonce.toString();
-
-  // Create a compact statement that includes all auction-specific parameters
-  // This must match the client implementation exactly
-  // Encode auction params in the statement to keep it on one line
-  const statement = `Sign to get a quote | Wager: ${payload.wager} | Outcomes: ${payload.predictedOutcomes.join(',')} | Resolver: ${payload.resolver}`;
-
-  // Manually construct the SIWE message following EIP-4361 format
-  // Must be exactly 6 lines to pass SIWE parser validation
-  // Combine fields to meet the 6-line limit: domain+address, statement, URI+Version, Chain ID, Nonce, Issued At
-  const preparedMessage = [
-    `${domain} wants you to sign in with your Ethereum account:\n${payload.taker}`,
-    statement,
-    `URI: ${uri}\nVersion: 1`,
-    `Chain ID: ${payload.chainId}`,
-    `Nonce: ${nonce}`,
-    `Issued At: ${issuedAt}`
-  ].join('\n');
-
-  return preparedMessage;
-}
 
 /**
  * Verifies the taker signature for an auction request
@@ -57,8 +24,16 @@ export async function verifyAuctionSignature(
   try {
     // Reconstruct the message that should have been signed using the payload data + timestamp
     // This matches exactly what the client creates and signs
-    const reconstructedMessage = createAuctionSiweMessage(
-      payload,
+    const signingPayload: AuctionStartSigningPayload = {
+      wager: payload.wager,
+      predictedOutcomes: payload.predictedOutcomes,
+      resolver: payload.resolver,
+      taker: payload.taker,
+      takerNonce: payload.takerNonce,
+      chainId: payload.chainId,
+    };
+    const reconstructedMessage = createAuctionStartSiweMessage(
+      signingPayload,
       domain,
       uri,
       payload.takerSignedAt
@@ -106,6 +81,19 @@ export function generateSigningMessage(
   uri: string,
   issuedAt?: string
 ): string {
-  return createAuctionSiweMessage(payload, domain, uri, issuedAt || new Date().toISOString());
+  const signingPayload: AuctionStartSigningPayload = {
+    wager: payload.wager,
+    predictedOutcomes: payload.predictedOutcomes,
+    resolver: payload.resolver,
+    taker: payload.taker,
+    takerNonce: payload.takerNonce,
+    chainId: payload.chainId,
+  };
+  return createAuctionStartSiweMessage(
+    signingPayload,
+    domain,
+    uri,
+    issuedAt || new Date().toISOString()
+  );
 }
 

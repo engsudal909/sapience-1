@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSignMessage } from 'wagmi';
+import {
+  createAuctionStartSiweMessage,
+  extractSiweDomainAndUri,
+  type AuctionStartSigningPayload,
+} from '@sapience/sdk';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
-import {
-  signAuctionRequest,
-  extractSiweDomainAndUri,
-} from './auctionSigning';
 
 export interface PredictedOutcomeInput {
   marketGroup: string; // address
@@ -190,21 +191,23 @@ export function useAuctionStart() {
         let takerSignedAt: string | undefined;
         try {
           const { domain, uri } = extractSiweDomainAndUri(wsUrl);
-          const result = await signAuctionRequest(
-            {
-              wager: params.wager,
-              predictedOutcomes: params.predictedOutcomes,
-              resolver: params.resolver,
-              taker: params.taker,
-              takerNonce: params.takerNonce,
-              chainId: params.chainId,
-            },
+          const issuedAt = new Date().toISOString();
+          const signingPayload: AuctionStartSigningPayload = {
+            wager: params.wager,
+            predictedOutcomes: params.predictedOutcomes,
+            resolver: params.resolver,
+            taker: params.taker,
+            takerNonce: params.takerNonce,
+            chainId: params.chainId,
+          };
+          const message = createAuctionStartSiweMessage(
+            signingPayload,
             domain,
             uri,
-            signMessageAsync
+            issuedAt
           );
-          takerSignature = result.signature;
-          takerSignedAt = result.issuedAt;
+          takerSignature = await signMessageAsync({ message });
+          takerSignedAt = issuedAt;
           if (process.env.NODE_ENV !== 'production') {
             console.debug('[AuctionStart] Generated SIWE signature');
           }
