@@ -13,7 +13,7 @@ const HackathonBanner: React.FC<HackathonBannerProps> = ({ className }) => {
   return (
     <Link
       href="/hackathon"
-      className={`fixed top-0 z-[9998] bg-accent-gold text-brand-black px-0 md:px-4 py-[2px] leading-none text-center font-mono text-[10px] font-bold uppercase tracking-widest hover:opacity-80 transition-opacity duration-300 ease-out cursor-pointer overflow-hidden block whitespace-nowrap left-1/2 -translate-x-1/2 px-1.5 rounded-b-md md:left-0 md:translate-x-0 md:inset-x-0 md:w-full md:rounded-none ${className ?? ''}`}
+      className={`fixed top-0 inset-x-0 w-full z-[9998] bg-accent-gold text-brand-black px-4 py-[2px] leading-none text-center font-mono text-[10px] font-bold uppercase tracking-widest hover:opacity-80 transition-opacity duration-300 ease-out cursor-pointer overflow-hidden block whitespace-nowrap ${className ?? ''}`}
     >
       <span className="relative z-10">
         Join our inaugural agent-building hackathon
