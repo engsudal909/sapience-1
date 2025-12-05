@@ -18,7 +18,7 @@ import { WagerInput } from '~/components/markets/forms';
 import BidDisplay from '~/components/markets/forms/shared/BidDisplay';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
@@ -28,7 +28,7 @@ import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
-interface BetslipParlayFormProps {
+interface CreatePositionParlayFormProps {
   methods: UseFormReturn<{
     wagerAmount: string;
     limitAmount: string | number;
@@ -55,7 +55,7 @@ interface BetslipParlayFormProps {
   predictionMarketAddress?: `0x${string}`;
 }
 
-export default function BetslipParlayForm({
+export default function CreatePositionParlayForm({
   methods,
   onSubmit,
   isSubmitting,
@@ -68,8 +68,9 @@ export default function BetslipParlayForm({
   collateralDecimals,
   minWager,
   predictionMarketAddress,
-}: BetslipParlayFormProps) {
-  const { parlaySelections, removeParlaySelection } = useBetSlipContext();
+}: CreatePositionParlayFormProps) {
+  const { parlaySelections, removeParlaySelection } =
+    useCreatePositionContext();
   const { address: takerAddress } = useAccount();
   const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;

@@ -270,7 +270,7 @@ const VaultsPageContent = () => {
     return () => window.clearInterval(id);
   }, [isInteractionDelayActive, lastInteractionAt, interactionDelay]);
 
-  // Desktop-only top gradient bar across categories in filter order (match BetSlip)
+  // Desktop-only top gradient bar across categories in filter order (match CreatePositionForm)
   const categoryGradient = useMemo(() => {
     const colors = FOCUS_AREAS.map((fa) => fa.color);
     if (colors.length === 0) return 'transparent';

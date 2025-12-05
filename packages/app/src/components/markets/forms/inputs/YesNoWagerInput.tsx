@@ -7,7 +7,7 @@ import { WagerInput } from './WagerInput';
 import {
   YES_SQRT_PRICE_X96,
   NO_SQRT_PRICE_X96,
-} from '~/lib/utils/betslipUtils';
+} from '~/lib/utils/positionFormUtils';
 
 interface YesNoWagerInputProps {
   marketGroupData: MarketGroupType;
@@ -91,4 +91,4 @@ export default function YesNoWagerInput({
   );
 }
 
-// Constants are now exported from ~/lib/utils/betslipUtils for centralized management
+// Constants are now exported from ~/lib/utils/positionFormUtils for centralized management

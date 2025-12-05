@@ -11,7 +11,7 @@ interface QuoteDisplayProps {
   marketClassification: MarketGroupClassification;
   predictionValue: string;
   displayUnit?: string;
-  variant?: 'form' | 'betslip';
+  variant?: 'form' | 'compact';
   label?: string;
 }
 
@@ -25,9 +25,9 @@ export default function QuoteDisplay({
   label,
 }: QuoteDisplayProps) {
   const labelText = label ?? 'To Win:';
-  const isCompact = variant === 'betslip';
+  const isCompact = variant === 'compact';
 
-  // Compact right-aligned variant for betslip rows (used when multiple items)
+  // Compact right-aligned variant for position form rows (used when multiple items)
   if (isCompact) {
     if (isLoading) {
       return (

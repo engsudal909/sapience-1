@@ -19,7 +19,7 @@ import {
   useConditions,
   type ConditionType,
 } from '~/hooks/graphql/useConditions';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
@@ -32,7 +32,7 @@ import {
   type Pick,
 } from '~/components/shared/StackedPredictions';
 
-type SuggestedBetslipsProps = {
+type ExampleCombosProps = {
   className?: string;
 };
 
@@ -51,13 +51,14 @@ const TAKER_WAGER_WEI = parseUnits('1', 18).toString();
 const NUM_QUOTES_TO_REQUEST = 9;
 const NUM_TO_DISPLAY = 3;
 
-const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
+const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
   const chainId = useChainIdFromLocalStorage();
   const { data: allConditions = [], isLoading } = useConditions({
     take: 200,
     chainId,
   });
-  const { addParlaySelection, clearParlaySelections } = useBetSlipContext();
+  const { addParlaySelection, clearParlaySelections } =
+    useCreatePositionContext();
   const { apiBaseUrl } = useSettings();
   const { address: walletAddress } = useAccount();
 
@@ -547,4 +548,4 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
   );
 };
 
-export default SuggestedBetslips;
+export default ExampleCombos;

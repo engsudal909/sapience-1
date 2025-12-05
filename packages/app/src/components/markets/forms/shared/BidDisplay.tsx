@@ -62,7 +62,7 @@ export interface BidDisplayProps {
 
 /**
  * Shared component for displaying bid information, payout, and submit button.
- * Used by both BetslipParlayForm and PredictionForm.
+ * Used by both CreatePositionParlayForm and PredictionForm.
  */
 export default function BidDisplay({
   bestBid,
@@ -238,7 +238,9 @@ export default function BidDisplay({
       {/* Submit / Request Bids Button */}
       <Button
         className={`w-full py-6 text-lg font-mono font-bold tracking-wider bg-brand-white text-brand-black hover:bg-brand-white/90 cursor-pointer disabled:cursor-not-allowed ${
-          enableRainbowHover ? 'betslip-submit hover:text-brand-white' : ''
+          enableRainbowHover
+            ? 'position-form-submit hover:text-brand-white'
+            : ''
         }`}
         disabled={buttonState.disabled}
         type={buttonState.type}
