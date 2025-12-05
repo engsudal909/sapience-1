@@ -8,7 +8,6 @@ import {
   useCallback,
   useEffect,
 } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 
 // localStorage key for parlay selections persistence
 const STORAGE_KEY_PARLAYS = 'sapience:betslip-parlays';
@@ -26,12 +25,6 @@ import type { MarketGroup as MarketGroupType } from '@sapience/sdk/types/graphql
 import type { MarketGroupClassification } from '~/lib/types';
 import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/lib/types';
 import { createPositionDefaults } from '~/lib/utils/betslipUtils';
-import {
-  prefetchMarketGroup,
-  normalizeMarketIdentifier,
-  useMarketGroupsForPositions,
-} from '~/hooks/graphql/useMarketGroup';
-import { getMarketGroupClassification } from '~/lib/utils/marketUtils';
 
 // Updated BetSlipPosition type based on requirements
 export interface BetSlipPosition {
@@ -103,67 +96,22 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
     () => loadFromStorage(STORAGE_KEY_PARLAYS, [])
   );
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const queryClient = useQueryClient();
-  // Removed manual cache subscription; useQueries handles re-renders
 
   // Persist parlay selections to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PARLAYS, JSON.stringify(parlaySelections));
   }, [parlaySelections]);
 
-  // Hydrate market data for all positions via React Query and map back to positions
-  const { unique, queries } = useMarketGroupsForPositions(singlePositions);
-
-  // Build a lookup from normalizedId:chainId -> query result
-  const resultLookup = (() => {
-    const map = new Map<
-      string,
-      {
-        data: MarketGroupType | undefined;
-        isLoading: boolean;
-        isError: boolean;
-      }
-    >();
-    unique.forEach((u, idx) => {
-      const q = queries[idx];
-      const key = `${u.id}:${u.chainId}`;
-      map.set(key, {
-        data: (q as any)?.data as MarketGroupType | undefined,
-        isLoading: (q as any)?.isLoading ?? false,
-        isError: (q as any)?.isError ?? false,
-      });
-    });
-    return map;
-  })();
-
-  const positionsWithMarketData = singlePositions.map((position) => {
-    const effectiveChainId = position.chainId || 8453;
-    const normalizedIdentifier = normalizeMarketIdentifier(
-      position.marketAddress
-    );
-    const key = `${normalizedIdentifier}:${effectiveChainId}`;
-    const entry = resultLookup.get(key);
-    const marketGroupData = entry?.data;
-    const isLoading = entry?.isLoading ?? false;
-    const isError = entry?.isError ?? false;
-
-    const computedClassification = marketGroupData
-      ? getMarketGroupClassification(marketGroupData)
-      : undefined;
-    const marketClassification =
-      position.marketClassification ?? computedClassification;
-
-    return {
-      position: {
-        ...position,
-        chainId: effectiveChainId,
-      },
-      marketGroupData,
-      marketClassification,
-      isLoading,
-      error: isError,
-    };
-  });
+  // Spot market functionality removed - positionsWithMarketData is empty
+  const positionsWithMarketData: PositionWithMarketData[] = singlePositions.map(
+    (position) => ({
+      position,
+      marketGroupData: undefined,
+      marketClassification: position.marketClassification,
+      isLoading: false,
+      error: null,
+    })
+  );
 
   const addPosition = useCallback(
     (position: Omit<BetSlipPosition, 'id'>) => {
@@ -171,7 +119,6 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
       const defaults = createPositionDefaults(position.marketClassification);
 
       // Special handling for YES/NO: treat the question as a single logical position
-      // and update existing entry for the same market address regardless of marketId
       if (
         position.marketClassification === MarketGroupClassificationEnum.YES_NO
       ) {
@@ -187,7 +134,6 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
               index === existingYesNoIndex
                 ? {
                     ...p,
-                    // Switch to the newly selected side and marketId
                     prediction: position.prediction,
                     marketId: position.marketId,
                     question: position.question,
@@ -197,14 +143,6 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
                 : p
             )
           );
-
-          const effectiveChainId = position.chainId || 8453;
-          void prefetchMarketGroup(
-            queryClient,
-            effectiveChainId,
-            position.marketAddress
-          );
-
           setIsPopoverOpen(true);
           return;
         }
@@ -218,7 +156,6 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
       );
 
       if (existingPositionIndex !== -1) {
-        // Merge into existing position by updating it
         setSinglePositions((prev) =>
           prev.map((p, index) =>
             index === existingPositionIndex
@@ -227,48 +164,25 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
                   prediction: position.prediction,
                   question: position.question,
                   marketClassification: position.marketClassification,
-                  // Preserve existing wager amount if it exists, otherwise use default
                   wagerAmount: p.wagerAmount || defaults.wagerAmount,
                 }
               : p
           )
         );
-
-        const effectiveChainId = position.chainId || 8453;
-        void prefetchMarketGroup(
-          queryClient,
-          effectiveChainId,
-          position.marketAddress
-        );
       } else {
-        // Generate a unique ID for the new position
         const id = `${position.marketAddress}-${position.marketId}-${position.prediction}-${Date.now()}`;
-
-        // Apply intelligent defaults for new positions
         const enhancedPosition: BetSlipPosition = {
           ...position,
           id,
-          // Apply defaults while allowing explicit overrides
           wagerAmount: position.wagerAmount || defaults.wagerAmount,
           prediction: position.prediction ?? defaults.prediction ?? false,
         };
-
-        // Prefetch market data before adding, so collateral is known on first render
-        const effectiveChainId = position.chainId || 8453;
-        void prefetchMarketGroup(
-          queryClient,
-          effectiveChainId,
-          position.marketAddress
-        ).then(() => {
-          setSinglePositions((prev) => [...prev, enhancedPosition]);
-          setIsPopoverOpen(true);
-        });
-        return;
+        setSinglePositions((prev) => [...prev, enhancedPosition]);
       }
 
-      setIsPopoverOpen(true); // Open popover when position is added or updated
+      setIsPopoverOpen(true);
     },
-    [singlePositions, queryClient]
+    [singlePositions]
   );
 
   const removePosition = useCallback(
@@ -304,7 +218,6 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
         );
 
         if (existingIndex !== -1) {
-          // Update the existing leg's prediction while preserving id and question
           return prev.map((s, i) =>
             i === existingIndex ? { ...s, prediction: selection.prediction } : s
           );
@@ -327,7 +240,6 @@ export const BetSlipProvider = ({ children }: BetSlipProviderProps) => {
   }, []);
 
   const value: BetSlipContextType = {
-    // Keep legacy alias for compatibility
     betSlipPositions: singlePositions,
     singlePositions,
     parlaySelections,

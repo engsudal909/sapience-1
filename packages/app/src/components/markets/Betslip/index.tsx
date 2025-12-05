@@ -18,7 +18,6 @@ import { useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
-import { sapienceAbi } from '@sapience/sdk/queries/client/abi';
 import Image from 'next/image';
 import { useEffect, useMemo, type CSSProperties } from 'react';
 import { useForm, type UseFormReturn } from 'react-hook-form';
@@ -27,11 +26,9 @@ import { z } from 'zod';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID, COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
-import erc20ABI from '@sapience/sdk/queries/abis/erc20abi.json';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
 import type { Address } from 'viem';
-import { encodeFunctionData, erc20Abi, formatUnits, parseUnits } from 'viem';
+import { erc20Abi, formatUnits } from 'viem';
 import { useAccount, useReadContracts } from 'wagmi';
 import {
   wagerAmountSchema,
@@ -40,15 +37,9 @@ import {
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 
 import { BetslipContent } from '~/components/markets/Betslip/BetslipContent';
-import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
-import { getQuoteParamsFromPosition } from '~/hooks/forms/useMultiQuoter';
-import type { useQuoter } from '~/hooks/forms/useQuoter';
-import { generateQuoteQueryKey } from '~/hooks/forms/useQuoter';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
-import { COLLATERAL_DECIMALS } from '~/lib/constants/numbers';
-import { useWagerFlip } from '~/lib/context/WagerFlipContext';
 import { MarketGroupClassification } from '~/lib/types';
 import {
   DEFAULT_WAGER_AMOUNT,
@@ -56,22 +47,15 @@ import {
   YES_SQRT_PRICE_X96,
 } from '~/lib/utils/betslipUtils';
 import { tickToPrice } from '~/lib/utils/tickUtils';
-import { calculateCollateralLimit, DEFAULT_SLIPPAGE } from '~/utils/trade';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
 
 interface BetslipProps {
   variant?: 'triggered' | 'panel';
-  isParlayMode?: boolean; // controlled by page-level switch
-  onParlayModeChange?: (enabled: boolean) => void;
 }
 
-const Betslip = ({
-  variant = 'triggered',
-  isParlayMode: externalParlayMode = false,
-  onParlayModeChange,
-}: BetslipProps) => {
+const Betslip = ({ variant = 'triggered' }: BetslipProps) => {
   const {
     betSlipPositions,
     isPopoverOpen,
@@ -81,26 +65,13 @@ const Betslip = ({
     clearParlaySelections,
     positionsWithMarketData,
   } = useBetSlipContext();
-  const { isFlipped } = useWagerFlip();
 
-  const isParlayMode = externalParlayMode;
+  // Always use parlay mode (singles/spot mode removed)
+  const isParlayMode = true;
   const isCompact = useIsBelow(1024);
   const { hasConnectedWallet } = useConnectedWallet();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   const { address } = useAccount();
-  const { sendCalls, isPending: isPendingWriteContract } =
-    useSapienceWriteContract({
-      onSuccess: () => {
-        clearBetSlip();
-      },
-      successMessage: 'Your prediction has been submitted.',
-      fallbackErrorMessage: 'Failed to submit prediction',
-      redirectProfileAnchor: 'trades',
-      shareIntent: {}, // Will be populated dynamically in handleIndividualSubmit
-    });
-
-  // Removed repetitive debug log
-  const queryClient = useQueryClient();
   const { toast } = useToast();
   const chainId = useChainIdFromLocalStorage();
   const parlayChainId =
@@ -557,270 +528,9 @@ const Betslip = ({
     },
   });
 
+  // Individual/spot trading is no longer supported - only parlay mode
   const handleIndividualSubmit = () => {
-    if (!hasConnectedWallet) {
-      try {
-        connectOrCreateWallet();
-      } catch (error) {
-        console.error('connectOrCreateWallet failed', error);
-      }
-      return;
-    }
-
-    // Ensure all positions are on the same chain
-    const chainIds = new Set(
-      positionsWithMarketData.map((p) => p.position.chainId)
-    );
-    if (chainIds.size > 1) {
-      toast({
-        title: 'Multiple chains detected',
-        description:
-          'Please place predictions only on markets from the same chain.',
-        variant: 'destructive',
-        duration: 5000,
-      });
-      return;
-    }
-
-    // Guard: no positions
-    if (positionsWithMarketData.length === 0) return;
-
-    // Compute shared chainId
-    const chainId = positionsWithMarketData[0].position.chainId;
-
-    // Deadline and slippage
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 30 * 60);
-    const slippage = DEFAULT_SLIPPAGE;
-
-    // Read form values once
-    const formValues = formMethods.getValues();
-
-    // Aggregate approvals per marketAddress and collect trades per position
-    const approveByMarket = new Map<
-      string,
-      { totalAmount: bigint; collateralAsset: string }
-    >();
-    const tradeCalls: { to: `0x${string}`; data: `0x${string}` }[] = [];
-
-    for (const pos of positionsWithMarketData) {
-      // Validate required market data
-      if (!pos.marketGroupData || !pos.marketClassification) {
-        toast({
-          title: 'Market data unavailable',
-          description: 'Please wait for market data to load and try again.',
-          variant: 'destructive',
-          duration: 5000,
-        });
-        return;
-      }
-
-      const positionId = pos.position.id;
-      const marketAddress = pos.position.marketAddress as `0x${string}`;
-      // For Multiple Choice, use the current form selection; otherwise use the original
-      const isMulti =
-        pos.marketClassification === MarketGroupClassification.MULTIPLE_CHOICE;
-      const marketId = isMulti
-        ? Number(
-            formValues?.positions?.[positionId]?.predictionValue ??
-              pos.position.marketId
-          )
-        : pos.position.marketId;
-
-      const wagerAmountStr =
-        formValues?.positions?.[positionId]?.wagerAmount ||
-        pos.position.wagerAmount ||
-        '0';
-      const parsedWagerAmount = parseUnits(wagerAmountStr, COLLATERAL_DECIMALS);
-
-      // Aggregate approve per market (spender = marketAddress)
-      const existing = approveByMarket.get(marketAddress);
-      const collateralAsset = pos.marketGroupData
-        .collateralAsset as `0x${string}`;
-      if (existing) {
-        approveByMarket.set(marketAddress, {
-          totalAmount: existing.totalAmount + parsedWagerAmount,
-          collateralAsset: existing.collateralAsset,
-        });
-      } else {
-        approveByMarket.set(marketAddress, {
-          totalAmount: parsedWagerAmount,
-          collateralAsset,
-        });
-      }
-
-      // Build trade params for each position
-      const predictionValue =
-        formValues?.positions?.[positionId]?.predictionValue ?? '';
-      const { expectedPrice } = getQuoteParamsFromPosition({
-        positionId,
-        marketGroupData: pos.marketGroupData,
-        marketClassification: pos.marketClassification,
-        predictionValue,
-        wagerAmount: wagerAmountStr,
-        isFlipped:
-          typeof formValues?.positions?.[positionId]?.isFlipped === 'boolean'
-            ? formValues.positions[positionId].isFlipped
-            : isFlipped,
-      });
-
-      const quoteKey = generateQuoteQueryKey(
-        pos.position.chainId,
-        marketAddress,
-        marketId,
-        expectedPrice,
-        parsedWagerAmount
-      );
-      const quoteData =
-        queryClient.getQueryData<ReturnType<typeof useQuoter>['quoteData']>(
-          quoteKey
-        );
-      if (!quoteData) {
-        toast({
-          title: 'Bid not found',
-          description:
-            'Pricing data for one of your positions is missing. Please refresh the bids.',
-          variant: 'destructive',
-          duration: 5000,
-        });
-        return;
-      }
-
-      const maxCollateral = calculateCollateralLimit(
-        parsedWagerAmount,
-        slippage
-      );
-
-      const tradeParams = {
-        marketId,
-        size: quoteData.maxSize,
-        maxCollateral,
-        deadline,
-      } as const;
-
-      const tradeData = encodeFunctionData({
-        abi: sapienceAbi().abi,
-        functionName: 'createTraderPosition',
-        args: [tradeParams],
-      });
-      tradeCalls.push({ to: marketAddress, data: tradeData });
-    }
-
-    // Build approve calls (one per market)
-    const approveCalls: { to: `0x${string}`; data: `0x${string}` }[] = [];
-    approveByMarket.forEach(
-      ({ totalAmount, collateralAsset }, marketAddress) => {
-        const approveData = encodeFunctionData({
-          abi: erc20ABI,
-          functionName: 'approve',
-          args: [marketAddress, totalAmount],
-        });
-        approveCalls.push({
-          to: collateralAsset as `0x${string}`,
-          data: approveData,
-        });
-      }
-    );
-
-    // Send batched approves then trades
-    const calls = [...approveCalls, ...tradeCalls];
-    if (calls.length === 0) return;
-
-    // Store trade data in sessionStorage for immediate share card
-    // This supplements the shareIntent system
-    if (positionsWithMarketData[0]) {
-      const firstPos = positionsWithMarketData[0];
-      const positionId = firstPos.position.id;
-      const wagerAmount =
-        formValues?.positions?.[positionId]?.wagerAmount || '0';
-      const predictionValue =
-        formValues?.positions?.[positionId]?.predictionValue || '';
-
-      // Get the quote data for this position to get the payout (maxSize)
-      const marketAddress = firstPos.position.marketAddress as `0x${string}`;
-      const marketId =
-        firstPos.marketClassification ===
-        MarketGroupClassification.MULTIPLE_CHOICE
-          ? Number(predictionValue || firstPos.position.marketId)
-          : firstPos.position.marketId;
-
-      const { expectedPrice } = getQuoteParamsFromPosition({
-        positionId,
-        marketGroupData: firstPos.marketGroupData!,
-        marketClassification: firstPos.marketClassification!,
-        predictionValue,
-        wagerAmount: wagerAmount,
-        isFlipped: formValues?.positions?.[positionId]?.isFlipped,
-      });
-
-      const parsedWagerAmount = parseUnits(wagerAmount, COLLATERAL_DECIMALS);
-      const quoteKey = generateQuoteQueryKey(
-        firstPos.position.chainId,
-        marketAddress,
-        marketId,
-        expectedPrice,
-        parsedWagerAmount
-      );
-
-      const quoteData =
-        queryClient.getQueryData<ReturnType<typeof useQuoter>['quoteData']>(
-          quoteKey
-        );
-
-      // Calculate payout from maxSize
-      let payoutAmount = '0';
-      if (quoteData?.maxSize) {
-        try {
-          const maxSizeBigInt = BigInt(quoteData.maxSize);
-          const absMaxSize =
-            maxSizeBigInt < 0n ? -maxSizeBigInt : maxSizeBigInt;
-          // Use Math.floor to match NumberDisplay formatting (rounds down)
-          const numValue = Number(absMaxSize) / 1e18;
-          const precision = 2;
-          const factor = 10 ** precision;
-          const roundedValue = Math.floor(numValue * factor) / factor;
-          payoutAmount = roundedValue.toFixed(precision);
-        } catch {
-          payoutAmount = '0';
-        }
-      }
-
-      // Determine the direction/side based on the prediction value
-      let side = 'Yes'; // default
-      if (firstPos.marketClassification === MarketGroupClassification.YES_NO) {
-        side = predictionValue === YES_SQRT_PRICE_X96 ? 'Yes' : 'No';
-      } else if (
-        firstPos.marketClassification === MarketGroupClassification.NUMERIC
-      ) {
-        // TODO: Determine Long/Short based on market data
-        side = 'Long'; // placeholder
-      }
-
-      // Store supplemental trade data that will be picked up by ShareAfterRedirect
-      const tradeDataIntent = {
-        address: address?.toLowerCase(),
-        anchor: 'trades',
-        clientTimestamp: Date.now(),
-        tradeData: {
-          question: firstPos.marketGroupData?.question || '',
-          wager: wagerAmount,
-          payout: payoutAmount,
-          symbol: firstPos.marketGroupData?.collateralSymbol || 'USDC',
-          side: side,
-          marketId: firstPos.position.marketId,
-        },
-      };
-
-      // Store it temporarily - will be merged with the real intent by useSapienceWriteContract
-      sessionStorage.setItem(
-        'sapience:trade-data-temp',
-        JSON.stringify(tradeDataIntent.tradeData)
-      );
-    }
-
-    sendCalls({
-      calls,
-      chainId,
-    });
+    // Noop - spot trading removed
   };
 
   const handleParlaySubmit = () => {
@@ -891,7 +601,6 @@ const Betslip = ({
 
   const contentProps = {
     isParlayMode,
-    onParlayModeChange,
     individualMethods: formMethods as unknown as UseFormReturn<{
       positions: Record<
         string,
@@ -910,7 +619,7 @@ const Betslip = ({
     handleParlaySubmit,
     isParlaySubmitting,
     parlayError,
-    isSubmitting: Boolean(isPendingWriteContract),
+    isSubmitting: false, // Individual trades removed
     parlayChainId,
     auctionId,
     bids,

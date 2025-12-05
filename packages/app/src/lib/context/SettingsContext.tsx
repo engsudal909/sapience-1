@@ -13,7 +13,6 @@ import {
 type SettingsContextValue = {
   graphqlEndpoint: string | null;
   apiBaseUrl: string | null;
-  quoterBaseUrl: string | null;
   chatBaseUrl: string | null;
   adminBaseUrl: string | null;
   rpcURL: string | null;
@@ -26,7 +25,6 @@ type SettingsContextValue = {
   showAmericanOdds: boolean | null;
   setGraphqlEndpoint: (value: string | null) => void;
   setApiBaseUrl: (value: string | null) => void;
-  setQuoterBaseUrl: (value: string | null) => void;
   setChatBaseUrl: (value: string | null) => void;
   setAdminBaseUrl: (value: string | null) => void;
   setRpcUrl: (value: string | null) => void;
@@ -38,7 +36,6 @@ type SettingsContextValue = {
   defaults: {
     graphqlEndpoint: string;
     apiBaseUrl: string;
-    quoterBaseUrl: string;
     chatBaseUrl: string;
     adminBaseUrl: string;
     rpcURL: string;
@@ -52,7 +49,6 @@ type SettingsContextValue = {
 const STORAGE_KEYS = {
   graphql: 'sapience.settings.graphqlEndpoint',
   api: 'sapience.settings.apiBaseUrl',
-  quoter: 'sapience.settings.quoterBaseUrl',
   chat: 'sapience.settings.chatBaseUrl',
   admin: 'sapience.settings.adminBaseUrl',
   // NOTE: `rpcURL` is a legacy key that is intentionally ignored in favor of
@@ -98,17 +94,6 @@ function getDefaultApiBase(): string {
     return `${u.origin}/auction`;
   } catch {
     return 'https://api.sapience.xyz/auction';
-  }
-}
-
-function getDefaultQuoterBase(): string {
-  const root =
-    process.env.NEXT_PUBLIC_FOIL_API_URL || 'https://api.sapience.xyz';
-  try {
-    const u = new URL(root);
-    return `${u.origin}/quoter`;
-  } catch {
-    return 'https://api.sapience.xyz/quoter';
   }
 }
 
@@ -163,9 +148,6 @@ export const SettingsProvider = ({
 }) => {
   const [graphqlOverride, setGraphqlOverride] = useState<string | null>(null);
   const [apiBaseOverride, setApiBaseOverride] = useState<string | null>(null);
-  const [quoterBaseOverride, setQuoterBaseOverride] = useState<string | null>(
-    null
-  );
   const [chatBaseOverride, setChatBaseOverride] = useState<string | null>(null);
   const [adminBaseOverride, setAdminBaseOverride] = useState<string | null>(
     null
@@ -200,10 +182,6 @@ export const SettingsProvider = ({
       const a =
         typeof window !== 'undefined'
           ? window.localStorage.getItem(STORAGE_KEYS.api)
-          : null;
-      const q =
-        typeof window !== 'undefined'
-          ? window.localStorage.getItem(STORAGE_KEYS.quoter)
           : null;
       const c =
         typeof window !== 'undefined'
@@ -240,8 +218,6 @@ export const SettingsProvider = ({
       if (g && isHttpUrl(g)) setGraphqlOverride(g);
       if (a && isHttpUrl(a))
         setApiBaseOverride(normalizeBaseUrlPreservePath(a));
-      if (q && isHttpUrl(q))
-        setQuoterBaseOverride(normalizeBaseUrlPreservePath(q));
       if (c && isHttpUrl(c))
         setChatBaseOverride(normalizeBaseUrlPreservePath(c));
       if (admin && isHttpUrl(admin))
@@ -270,7 +246,6 @@ export const SettingsProvider = ({
     () => ({
       graphqlEndpoint: getDefaultGraphqlEndpoint(),
       apiBaseUrl: getDefaultApiBase(),
-      quoterBaseUrl: getDefaultQuoterBase(),
       chatBaseUrl: getDefaultChatBase(),
       adminBaseUrl: getDefaultAdminBase(),
       rpcURL: getDefaultRpcURL(),
@@ -305,9 +280,6 @@ export const SettingsProvider = ({
     ? graphqlOverride || defaults.graphqlEndpoint
     : null;
   const apiBaseUrl = mounted ? apiBaseOverride || defaults.apiBaseUrl : null;
-  const quoterBaseUrl = mounted
-    ? quoterBaseOverride || defaults.quoterBaseUrl
-    : null;
   const chatBaseUrl = mounted ? chatBaseOverride || defaults.chatBaseUrl : null;
   const adminBaseUrl = mounted
     ? adminBaseOverride || defaults.adminBaseUrl
@@ -356,23 +328,6 @@ export const SettingsProvider = ({
       if (!isHttpUrl(v)) return;
       window.localStorage.setItem(STORAGE_KEYS.api, v);
       setApiBaseOverride(v);
-    } catch {
-      /* noop */
-    }
-  }, []);
-
-  const setQuoterBaseUrl = useCallback((value: string | null) => {
-    try {
-      if (typeof window === 'undefined') return;
-      if (!value) {
-        window.localStorage.removeItem(STORAGE_KEYS.quoter);
-        setQuoterBaseOverride(null);
-        return;
-      }
-      const v = normalizeBaseUrlPreservePath(value);
-      if (!isHttpUrl(v)) return;
-      window.localStorage.setItem(STORAGE_KEYS.quoter, v);
-      setQuoterBaseOverride(v);
     } catch {
       /* noop */
     }
@@ -517,7 +472,6 @@ export const SettingsProvider = ({
   const value: SettingsContextValue = {
     graphqlEndpoint,
     apiBaseUrl,
-    quoterBaseUrl,
     chatBaseUrl,
     adminBaseUrl,
     rpcURL,
@@ -528,7 +482,6 @@ export const SettingsProvider = ({
     showAmericanOdds,
     setGraphqlEndpoint,
     setApiBaseUrl,
-    setQuoterBaseUrl,
     setChatBaseUrl,
     setAdminBaseUrl,
     setRpcUrl,
@@ -569,10 +522,6 @@ export const settingsStorage = {
   },
   getApiBaseUrl(): string | null {
     const v = this.read('api');
-    return v ? normalizeBaseUrlPreservePath(v) : null;
-  },
-  getQuoterBaseUrl(): string | null {
-    const v = this.read('quoter');
     return v ? normalizeBaseUrlPreservePath(v) : null;
   },
   getChatBaseUrl(): string | null {
