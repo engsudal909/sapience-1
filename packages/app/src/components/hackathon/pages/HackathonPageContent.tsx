@@ -53,7 +53,7 @@ function HackathonHero() {
           'radial-gradient(ellipse 70% 70% at 50% 30%, hsl(var(--accent-gold)/0.12) 0%, hsl(var(--accent-gold)/0.04) 50%, transparent 80%)'
         }
       />
-      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-20 md:pt-36 lg:pt-48 pb-12 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-32 md:pt-36 lg:pt-48 pb-12 flex-1 flex flex-col justify-center">
         <div className="w-full flex flex-col items-center text-center">
           {/* Title */}
           <p className="eyebrow text-foreground mb-6 md:mb-8">
@@ -62,7 +62,7 @@ function HackathonHero() {
 
           {/* H1 (a) - Tagline */}
           <h1 className="font-sans text-2xl md:text-4xl lg:text-5xl text-foreground mb-6 md:mb-8">
-            Build Agents. Win Prizes.{' '}
+            Build Agents. Win Prizes. <br className="md:hidden" />
             <span className="text-accent-gold">Forecast the Future.</span>
           </h1>
 
@@ -72,8 +72,10 @@ function HackathonHero() {
             January 5th
           </p>
           <p className="text-xs font-mono uppercase tracking-wider text-accent-gold mb-6 md:mb-8">
-            Join any time<span className="opacity-50 mx-1.5">·</span>No
-            programming experience required
+            Join any time
+            <span className="hidden md:inline opacity-50 mx-1.5">·</span>
+            <br className="md:hidden" />
+            No programming experience required
           </p>
 
           {/* H3 - Subheadline */}
@@ -131,7 +133,7 @@ function WhatIsSapience() {
   return (
     <section className="relative isolate w-full pt-8 md:pt-12 pb-16 md:pb-24 overflow-hidden">
       <div className="container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8">
-        <CTAButtons className="mb-20 md:mb-24" />
+        <CTAButtons className="mb-20 md:mb-24 lg:mb-28" />
         <div className="flex flex-col items-start">
           <h2 className="eyebrow text-foreground mb-4">What is Sapience?</h2>
           <p className="headline max-w-4xl mb-6">
@@ -329,7 +331,7 @@ function RulesAndSignUp() {
         }
       />
       <div className="container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8">
-        <hr className="gold-hr mb-12 md:mb-16 max-w-md mx-auto" />
+        <hr className="gold-hr mb-16 md:mb-20 max-w-xs mx-auto" />
         <div className="flex flex-col items-center text-center mx-auto">
           <h2 className="eyebrow text-foreground mb-6">Rules</h2>
           <p className="text-base md:text-lg text-foreground/70 leading-relaxed mb-12 md:mb-16 max-w-[560px]">
