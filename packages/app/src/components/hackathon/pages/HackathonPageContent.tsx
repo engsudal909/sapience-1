@@ -10,7 +10,7 @@ function CTAButtons({ className = '' }: { className?: string }) {
       className={`flex flex-wrap items-center justify-center gap-4 ${className}`}
     >
       <a
-        href="#"
+        href="https://forms.gle/ksHWHNoK8sRBgJKm6"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center justify-center px-6 py-3 bg-accent-gold text-brand-black font-semibold text-base rounded-lg hover:bg-accent-gold/90 transition-colors"
