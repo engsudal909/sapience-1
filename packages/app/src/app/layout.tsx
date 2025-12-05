@@ -26,8 +26,11 @@ type RootLayoutProps = {
 const APP_NAME = 'Sapience';
 const APP_DESCRIPTION = 'Sapience Prediction Markets';
 const LARGE_ICON_PATH = '/icons/icon-512x512.png';
-const DEFAULT_OG_IMAGE = 'https://sapience.xyz/og-image.png';
 const APP_URL = 'https://sapience.xyz';
+
+// Bump this version to cache-bust OG images on external platforms (Twitter, Discord, etc.)
+const OG_VERSION = 1;
+const DEFAULT_OG_IMAGE = `${APP_URL}/og-image.png?v=${OG_VERSION}`;
 
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s | ${APP_NAME}` },

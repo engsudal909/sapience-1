@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-
-const STARGATE_DEPOSIT_URL =
-  'https://stargate.finance/?dstChain=ethereal&dstToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+import { STARGATE_DEPOSIT_URL } from '~/lib/constants';
 
 type LowBalanceBannerProps = {
   className?: string;

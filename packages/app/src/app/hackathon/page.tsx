@@ -5,4 +5,3 @@ import HackathonPageContent from '~/components/hackathon/pages/HackathonPageCont
 export default function HackathonPage() {
   return <HackathonPageContent />;
 }
-

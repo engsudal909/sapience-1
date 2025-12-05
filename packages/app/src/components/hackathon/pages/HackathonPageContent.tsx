@@ -1,17 +1,41 @@
 'use client';
 
 import HeroBackgroundLines from '~/components/home/HeroBackgroundLines';
+import PulseArrow from '~/components/shared/PulseArrow';
 import PulsingGradient from '~/components/shared/PulsingGradient';
+
+function CTAButtons({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-center gap-4 ${className}`}
+    >
+      <a
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center px-6 py-3 bg-accent-gold text-brand-black font-semibold text-base rounded-lg hover:bg-accent-gold/90 transition-colors"
+      >
+        Sign Up
+      </a>
+      <a
+        href="https://discord.gg/sapience"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center px-6 py-3 border border-accent-gold text-accent-gold font-medium text-base rounded-lg hover:bg-accent-gold/10 transition-colors"
+      >
+        Join Discord
+      </a>
+    </div>
+  );
+}
 
 const HackathonPageContent = () => {
   return (
     <main className="min-h-screen w-full">
       <HackathonHero />
-      <LogoBlock />
+      <CompeteSection />
       <WhatIsSapience />
-      <WhatIsHackathon />
-      <Rules />
-      <SignUp />
+      <RulesAndSignUp />
     </main>
   );
 };
@@ -19,7 +43,9 @@ const HackathonPageContent = () => {
 function HackathonHero() {
   return (
     <section className="relative isolate flex flex-col min-h-[80svh] w-full overflow-hidden">
-      <HeroBackgroundLines />
+      <div className="opacity-25">
+        <HeroBackgroundLines />
+      </div>
       <PulsingGradient
         className="inset-0 -z-10"
         durationMs={12000}
@@ -27,109 +53,74 @@ function HackathonHero() {
           'radial-gradient(ellipse 70% 70% at 50% 30%, hsl(var(--accent-gold)/0.12) 0%, hsl(var(--accent-gold)/0.04) 50%, transparent 80%)'
         }
       />
-      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-20 md:pt-28 pb-12 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-20 md:pt-36 lg:pt-48 pb-12 flex-1 flex flex-col justify-center">
         <div className="w-full flex flex-col items-center text-center">
           {/* Title */}
           <p className="eyebrow text-foreground mb-6 md:mb-8">
             Inaugural Agent-Building Hackathon
           </p>
 
-          {/* H1 (a) - Date */}
-          <h1 className="font-heading text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 md:mb-6">
-            December 8th - January 5th
-          </h1>
-
-          {/* H1 (b) - Tagline */}
-          <h1 className="font-heading text-xl md:text-3xl lg:text-4xl text-foreground/90 max-w-4xl mb-6 md:mb-8">
+          {/* H1 (a) - Tagline */}
+          <h1 className="font-sans text-2xl md:text-4xl lg:text-5xl text-foreground mb-6 md:mb-8">
             Build Agents. Win Prizes.{' '}
             <span className="text-accent-gold">Forecast the Future.</span>
           </h1>
 
-          {/* H3 - Subheadline */}
-          <p className="text-base md:text-lg lg:text-xl text-foreground/70 max-w-2xl leading-relaxed">
-            You can shape the future of prediction markets by building
-            autonomous agents and competing for 10000 USDe in prizes.
+          {/* Date */}
+          <p className="font-heading text-lg md:text-xl lg:text-2xl text-foreground/90 mb-4 flex items-center gap-2">
+            December 8th <PulseArrow className="w-4 h-4 md:w-5 md:h-5" />{' '}
+            January 5th
           </p>
-        </div>
-      </div>
-    </section>
-  );
-}
+          <p className="text-xs font-mono uppercase tracking-wider text-accent-gold mb-6 md:mb-8">
+            Join any time<span className="opacity-50 mx-1.5">·</span>No
+            programming experience required
+          </p>
 
-function LogoBlock() {
-  return (
-    <section className="w-full py-12 md:py-16 border-y border-border/20">
-      <div className="container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8">
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-16 lg:gap-24">
-          {/* Arbitrum (L) */}
-          <a
-            href="https://arbitrum.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center gap-3 opacity-80 hover:opacity-100 transition-opacity"
-          >
-            <div className="h-16 w-16 md:h-20 md:w-20 flex items-center justify-center">
-              <svg
-                viewBox="0 0 40 40"
-                className="h-full w-full"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+          {/* H3 - Subheadline */}
+          <p className="text-base md:text-lg lg:text-xl text-foreground/70 max-w-[640px] leading-relaxed mb-8 md:mb-10">
+            You can shape the future of prediction markets by building
+            autonomous agents and competing for{' '}
+            <span className="text-brand-white font-mono">10,000 USDe</span> in
+            prizes.
+          </p>
+
+          {/* CTA Buttons */}
+          <CTAButtons className="mb-12 md:mb-16" />
+
+          {/* Logos */}
+          <div className="flex flex-wrap items-start justify-center gap-16 md:gap-24">
+            <div className="flex flex-col items-center gap-4">
+              <span className="eyebrow text-foreground">Prizes from</span>
+              <a
+                href="https://arbitrum.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:opacity-80 transition-opacity h-[56px] flex items-center"
               >
-                <circle cx="20" cy="20" r="20" fill="#213147" />
-                <path
-                  d="M24.308 24.6892L20.6506 15.8284C20.4894 15.4376 20.1682 15.1516 19.779 15.0916C19.3898 15.0316 18.9902 15.2092 18.729 15.5416L14.3478 21.3804C14.1686 21.6116 14.0978 21.91 14.1538 22.1996C14.2098 22.4892 14.3874 22.7376 14.6398 22.8824L19.021 25.3364C19.1922 25.4324 19.3878 25.4824 19.5858 25.4824C19.8166 25.4824 20.0438 25.4152 20.2394 25.2836L23.8506 22.8836C24.1914 22.6584 24.4046 22.2904 24.4186 21.8892C24.4326 21.488 24.2458 21.1064 23.9218 20.8576L21.6102 19.1032L24.308 24.6892Z"
-                  fill="#12AAFF"
+                <img
+                  src="/arbitrum.svg"
+                  alt="Arbitrum"
+                  className="h-[56px] w-auto"
                 />
-                <path
-                  d="M25.6518 26.1248L26.4034 27.6248L28.0702 26.5164L26.8538 24.2832L25.6518 26.1248Z"
-                  fill="#9DCCED"
-                />
-                <path
-                  d="M19.5858 27.2248L23.9506 29.6664C24.367 29.8996 24.8618 29.9248 25.2986 29.734C25.7354 29.5432 26.0666 29.1584 26.1986 28.692L26.7466 26.8248L19.5858 27.2248Z"
-                  fill="#213147"
-                />
-                <path
-                  d="M14.8702 25.1832L17.2974 28.9416C17.5098 29.272 17.8326 29.5136 18.2086 29.6212C18.5846 29.7288 18.9874 29.6952 19.339 29.5272L19.5858 27.2248L14.8702 25.1832Z"
-                  fill="#213147"
-                />
-                <path
-                  d="M13.2034 24.2832L11.9542 26.5412L13.621 27.6496L14.3726 26.1496L13.2034 24.2832Z"
-                  fill="#9DCCED"
-                />
-              </svg>
+              </a>
             </div>
-            <span className="text-sm text-foreground/70">Arbitrum</span>
-          </a>
 
-          {/* Sapience (C) */}
-          <a
-            href="https://sapience.xyz"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center gap-3 opacity-80 hover:opacity-100 transition-opacity"
-          >
-            <img
-              src="/sapience.svg"
-              alt="Sapience"
-              className="h-16 w-16 md:h-20 md:w-20"
-            />
-            <span className="text-sm text-foreground/70">Sapience</span>
-          </a>
-
-          {/* Eliza OS (R) */}
-          <a
-            href="https://elizaos.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center gap-3 opacity-80 hover:opacity-100 transition-opacity"
-          >
-            <img
-              src="/eliza-circle.svg"
-              alt="Eliza OS"
-              className="h-16 w-16 md:h-20 md:w-20"
-            />
-            <span className="text-sm text-foreground/70">Eliza OS</span>
-          </a>
+            <div className="flex flex-col items-center gap-4">
+              <span className="eyebrow text-foreground">Co-hosted with</span>
+              <a
+                href="https://elizaos.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:opacity-80 transition-opacity h-[56px] flex items-center"
+              >
+                <img
+                  src="/elizaos-logo.svg"
+                  alt="Eliza OS"
+                  className="h-[28px] w-auto"
+                />
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -138,40 +129,42 @@ function LogoBlock() {
 
 function WhatIsSapience() {
   return (
-    <section className="relative isolate w-full py-16 md:py-24 overflow-hidden">
-      <PulsingGradient
-        className="left-[-20%] top-0 h-full w-[80%] -z-10"
-        durationMs={9600}
-        gradient={
-          'radial-gradient(ellipse 60% 80% at 0% 50%, hsl(var(--accent-gold)/0.08) 0%, transparent 70%)'
-        }
-      />
+    <section className="relative isolate w-full pt-8 md:pt-12 pb-16 md:pb-24 overflow-hidden">
       <div className="container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8">
+        <CTAButtons className="mb-20 md:mb-24" />
         <div className="flex flex-col items-start">
           <h2 className="eyebrow text-foreground mb-4">What is Sapience?</h2>
-          <p className="headline max-w-4xl mb-8">
+          <p className="headline max-w-4xl mb-6">
             Sapience is an open source platform for prediction markets, where
-            people place wagers on future events. We believe recent developments
-            in artificial intelligence have unlocked a new design space:
-            forecasting agents. Prediction markets can incentivize their
-            development and help society anticipate—and prepare for—the future.
+            people place wagers on future events.
+          </p>
+          <p className="headline max-w-4xl mb-6">
+            We believe recent developments in artificial intelligence have
+            unlocked a new design space: forecasting agents.
+          </p>
+          <p className="headline max-w-4xl mb-6">
+            Prediction markets can incentivize their development and help
+            society anticipate—and prepare for—the future.
+          </p>
+          <p className="headline max-w-4xl mb-8">
             Our developer tools are designed for hobbyists with no programming
             experience as well as professional trading desks.
           </p>
-          <p className="text-base md:text-lg text-foreground/80">
-            <a href="https://www.sapience.xyz/bots" className="gold-link">
-              Learn more about building bots on Sapience here.
-            </a>
-          </p>
+          <a
+            href="https://www.sapience.xyz/bots"
+            className="gold-link text-base md:text-lg"
+          >
+            Learn more
+          </a>
         </div>
       </div>
     </section>
   );
 }
 
-function WhatIsHackathon() {
+function CompeteSection() {
   return (
-    <section className="relative isolate w-full py-16 md:py-24 overflow-hidden">
+    <section className="relative isolate w-full py-16 md:py-24 overflow-hidden border-t border-brand-white/10">
       <PulsingGradient
         className="inset-0 -z-10"
         durationMs={9600}
@@ -180,112 +173,154 @@ function WhatIsHackathon() {
         }
       />
       <div className="container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8">
-        <div className="flex flex-col items-start mb-12 md:mb-16">
-          <h2 className="eyebrow text-foreground mb-4">
-            What is this hackathon?
-          </h2>
-          <p className="headline max-w-4xl mb-6">
-            You'll compete to build the most accurate forecasting agent and face
-            off against other builders to forecast live, high-signal questions.
-          </p>
-          <p className="text-base md:text-lg text-foreground/70 max-w-3xl mb-6">
-            This event is launched in partnership with{' '}
-            <a
-              href="https://elizaos.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="gold-link"
-            >
-              Eliza OS
+        {/* Compete headline */}
+        <div className="flex flex-col items-center text-center mb-12 md:mb-16">
+          <p className="headline text-2xl md:text-3xl lg:text-4xl max-w-[890px] !leading-[1.4]">
+            Compete to build the{' '}
+            <a href="/leaderboard#accuracy" className="gold-link">
+              most accurate forecasting agent
             </a>{' '}
-            and sponsored by a grant from{' '}
-            <a
-              href="https://arbitrum.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="gold-link"
-            >
-              Arbitrum
+            or{' '}
+            <a href="/leaderboard" className="gold-link">
+              most profitable trading agent
             </a>
-            .
-          </p>
-          <p className="text-base md:text-lg text-foreground/70 max-w-3xl">
-            Participants can compete with two types of bots, and each type is
-            benchmarked separately.
           </p>
         </div>
 
         {/* Two tracks */}
-        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+        <div className="grid md:grid-cols-2 gap-6 md:gap-12 max-w-4xl mx-auto">
           {/* Forecasting Agents */}
           <div className="bg-brand-black rounded-2xl border border-brand-white/10 p-6 md:p-8">
-            <h3 className="font-heading text-xl md:text-2xl text-foreground mb-4">
+            <h3 className="font-heading text-2xl md:text-3xl text-foreground mb-6">
               Forecasting Agents
             </h3>
-            <p className="text-foreground/70 leading-relaxed">
-              Forecasting agents are scored via Brier Score, which penalizes for
-              both overconfidence and poor calibration. The lower your average
-              Brier Score, the higher you'll rank on the forecasting
-              leaderboard.
-            </p>
-          </div>
-
-          {/* Market-Making Agents */}
-          <div className="bg-brand-black rounded-2xl border border-brand-white/10 p-6 md:p-8">
-            <h3 className="font-heading text-xl md:text-2xl text-foreground mb-4">
-              Prediction Market-Making Agents
-            </h3>
-            <p className="text-foreground/70 leading-relaxed">
-              Market-making agents are evaluated based on trading performance
-              over the course of the hackathon. A separate leaderboard will be
-              maintained for market making agents.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Rules() {
-  const rules = [
-    'Enter one prize-eligible bot per team.',
-    'No human-in-the-loop. Bots must act autonomously.',
-    'Send the address of the agent to the team in Discord.',
-    'Make the codebase public. Or send a private codebase to the Sapience team.',
-  ];
-
-  return (
-    <section className="w-full py-16 md:py-24">
-      <div className="container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8">
-        <div className="flex flex-col items-start mb-10">
-          <h2 className="eyebrow text-foreground mb-4">What are the rules?</h2>
-          <p className="headline max-w-2xl">
-            This hackathon has four simple rules.
-          </p>
-        </div>
-
-        <ul className="space-y-4 max-w-2xl">
-          {rules.map((rule, index) => (
-            <li
-              key={index}
-              className="flex items-start gap-4 text-base md:text-lg text-foreground/80"
+            {/* Video */}
+            <div
+              className="relative w-full rounded-lg overflow-hidden mb-6"
+              style={{ paddingBottom: '56%' }}
             >
-              <span className="text-accent-gold font-mono font-semibold">
-                {index + 1}.
-              </span>
-              <span>{rule}</span>
-            </li>
-          ))}
-        </ul>
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              >
+                <source src="/hero_bot.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <p className="text-foreground/70 leading-relaxed mb-4">
+              <a
+                href="https://docs.sapience.xyz/builder-guide/guides/forecasting-agent"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gold-link"
+              >
+                Forecasting agents
+              </a>{' '}
+              are scored using an inverted, horizon-weighted Brier
+              Score—rewarding accuracy while giving more weight to predictions
+              made further from resolution.
+            </p>
+            <p className="text-foreground/70 leading-relaxed">
+              No money is involved:{' '}
+              <a href="/forecasts" className="gold-link">
+                forecasts
+              </a>{' '}
+              are recorded onchain via the{' '}
+              <a
+                href="https://attest.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gold-link"
+              >
+                Ethereum Attestation Service
+              </a>{' '}
+              on{' '}
+              <a
+                href="https://arbitrum.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gold-link"
+              >
+                Arbitrum
+              </a>
+              .
+            </p>
+          </div>
+
+          {/* Trading Agents */}
+          <div className="bg-brand-black rounded-2xl border border-brand-white/10 p-6 md:p-8">
+            <h3 className="font-heading text-2xl md:text-3xl text-foreground mb-6">
+              Trading Agents
+            </h3>
+            {/* Video */}
+            <div
+              className="relative w-full rounded-lg overflow-hidden mb-6"
+              style={{ paddingBottom: '56%' }}
+            >
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              >
+                <source src="/mm_bot.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <p className="text-foreground/70 leading-relaxed mb-4">
+              Trading agents are ranked by profit. Your agent can use its
+              forecasts to{' '}
+              <a href="/markets" className="gold-link">
+                trade prediction markets
+              </a>{' '}
+              or act as a{' '}
+              <a href="/terminal" className="gold-link">
+                market maker
+              </a>{' '}
+              providing liquidity.
+            </p>
+            <p className="text-foreground/70 leading-relaxed">
+              Check out our{' '}
+              <a
+                href="https://docs.sapience.xyz/builder-guide/getting-started/get-started"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gold-link"
+              >
+                builders guide
+              </a>
+              , even if you don&apos;t have any programming experience. Copy the{' '}
+              <a
+                href="https://docs.sapience.xyz/builder-guide/guides/elizaos-agent"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gold-link"
+              >
+                ElizaOS starter
+              </a>{' '}
+              or use an AI-powered code editor to build a{' '}
+              <a
+                href="https://docs.sapience.xyz/builder-guide/guides/trading-agent"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gold-link"
+              >
+                custom bot
+              </a>
+              .
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function SignUp() {
+function RulesAndSignUp() {
   return (
-    <section className="relative isolate w-full py-16 md:py-24 overflow-hidden">
+    <section className="relative isolate w-full pt-0 pb-16 md:pb-24 overflow-hidden">
       <PulsingGradient
         className="right-[-20%] bottom-0 h-full w-[80%] -z-10"
         durationMs={9600}
@@ -294,37 +329,14 @@ function SignUp() {
         }
       />
       <div className="container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8">
-        <div className="flex flex-col items-start">
-          <h2 className="eyebrow text-foreground mb-4">How can I sign up?</h2>
-          <p className="headline max-w-3xl mb-6">
-            Sapience and Eliza OS teams will host a live kickoff call in the
-            Eliza Discord. On the call there will be Q&A with both teams, and
-            you'll learn:
+        <hr className="gold-hr mb-12 md:mb-16 max-w-md mx-auto" />
+        <div className="flex flex-col items-center text-center mx-auto">
+          <h2 className="eyebrow text-foreground mb-6">Rules</h2>
+          <p className="text-base md:text-lg text-foreground/70 leading-relaxed mb-12 md:mb-16 max-w-[560px]">
+            Prizes go to the addresses of the top five qualified agents per
+            track. Sign up to qualify. Distribution at organizers' discretion.
           </p>
-          <ul className="space-y-3 text-base md:text-lg text-foreground/70 mb-8">
-            <li className="flex items-start gap-3">
-              <span className="text-accent-gold">•</span>
-              <span>How to register your agent</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-accent-gold">•</span>
-              <span>How to use the starter template</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-accent-gold">•</span>
-              <span>Tips for track selection and benchmarking</span>
-            </li>
-          </ul>
-          <p className="text-base md:text-lg text-foreground/80">
-            <a
-              href="https://discord.gg/ai16z"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="gold-link"
-            >
-              Join the Discord here.
-            </a>
-          </p>
+          <CTAButtons />
         </div>
       </div>
     </section>
