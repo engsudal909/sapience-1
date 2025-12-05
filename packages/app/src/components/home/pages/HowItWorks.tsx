@@ -1,7 +1,7 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
+import PulseArrow from '../../shared/PulseArrow';
 import PulsingGradient from '../../shared/PulsingGradient';
 
 export default function HowItWorks() {
@@ -52,22 +52,15 @@ export default function HowItWorks() {
               </div>
               {index < steps.length - 1 && (
                 <div className="flex xl:hidden items-center justify-center h-10">
-                  <ArrowRight
-                    className="h-5 w-5 text-accent-gold opacity-50 rotate-90 animate-arrow-pulse"
-                    aria-hidden="true"
-                    strokeWidth={1.25}
-                    style={{ animationDelay: `${index * 120}ms` }}
+                  <PulseArrow
+                    className="h-5 w-5 rotate-90"
+                    delay={index * 120}
                   />
                 </div>
               )}
               {index < steps.length - 1 && index % 3 !== 2 && (
                 <span className="hidden xl:block absolute right-[-18px] 2xl:right-[-22px] top-1/2 -translate-y-1/2 translate-x-1/2 pointer-events-none">
-                  <ArrowRight
-                    className="h-5 w-5 text-accent-gold opacity-50 animate-arrow-pulse"
-                    aria-hidden="true"
-                    strokeWidth={1.25}
-                    style={{ animationDelay: `${index * 120}ms` }}
-                  />
+                  <PulseArrow className="h-5 w-5" delay={index * 120} />
                 </span>
               )}
             </div>
