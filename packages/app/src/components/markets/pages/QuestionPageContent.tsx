@@ -722,7 +722,7 @@ export default function QuestionPageContent({
               onClick={() => column.toggleSorting(sorted === 'asc')}
               className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
             >
-              Total Wagered
+              Wagered
               {sorted === 'asc' ? (
                 <ChevronUp className="h-4 w-4" />
               ) : sorted === 'desc' ? (
@@ -738,7 +738,7 @@ export default function QuestionPageContent({
         },
         cell: ({ row }) => (
           <span className="text-foreground whitespace-nowrap">
-            {row.original.wager} USDe
+            {row.original.wager.toFixed(2)} USDe
           </span>
         ),
         sortingFn: (rowA, rowB) => rowA.original.wager - rowB.original.wager,
@@ -1060,7 +1060,7 @@ export default function QuestionPageContent({
           {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
             {/* Scatterplot - height matches the PredictionForm dynamically */}
-            <div className="relative w-full min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
+            <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
               {isLoadingParlays ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <LottieLoader width={32} height={32} />
@@ -1246,7 +1246,7 @@ export default function QuestionPageContent({
                                     Wager
                                   </span>
                                   <span className="text-sm text-foreground">
-                                    {point.wager} USDe
+                                    {point.wager.toFixed(2)} USDe
                                   </span>
                                 </div>
                               )}
@@ -1673,7 +1673,7 @@ export default function QuestionPageContent({
                     <Scatter
                       name="Forecasts"
                       data={forecastScatterData}
-                      fill="hsl(var(--brand-white) / 0.5)"
+                      fill="hsl(var(--brand-white))"
                       shape={(props: any) => {
                         const { cx, cy, payload } = props;
                         const radius = 4;
@@ -1682,7 +1682,7 @@ export default function QuestionPageContent({
                             cx={cx}
                             cy={cy}
                             r={radius}
-                            fill="hsl(var(--brand-white) / 0.5)"
+                            fill="hsl(var(--brand-white))"
                             stroke="hsl(var(--brand-white))"
                             strokeWidth={1.5}
                             className="cursor-pointer scatter-dot"
@@ -1826,10 +1826,10 @@ export default function QuestionPageContent({
           </div>
 
           {/* Row 2: Predictions/Forecasts (left) | Resolution/Contracts (right) */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-12">
             {/* Predictions/Forecasts - Unified container with integrated tabs */}
-            <Tabs defaultValue="predictions" className="w-full">
-              <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black">
+            <Tabs defaultValue="predictions" className="w-full min-w-0">
+              <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
                 {/* Header with integrated tabs */}
                 <div className="flex items-center gap-4 px-4 py-2.5 border-b border-border/60 bg-muted/10">
                   <TabsList className="h-auto p-0 bg-transparent gap-1">
@@ -1856,8 +1856,8 @@ export default function QuestionPageContent({
                       <LottieLoader width={32} height={32} />
                     </div>
                   ) : scatterData.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <Table>
+                    <div className="overflow-x-auto w-full min-w-0">
+                      <Table className="w-full">
                         <TableHeader>
                           {predictionsTable
                             .getHeaderGroups()
