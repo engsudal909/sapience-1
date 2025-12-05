@@ -22,6 +22,14 @@ export type ConditionTitleLinkProps = {
    * Useful for horizontally scrolling tickers where items can exceed viewport width.
    */
   noWrap?: boolean;
+  /**
+   * Optional end time for the condition (currently unused but accepted for API consistency).
+   */
+  endTime?: number | null;
+  /**
+   * Optional description for the condition (currently unused but accepted for API consistency).
+   */
+  description?: string | null;
 };
 
 export default function ConditionTitleLink({
