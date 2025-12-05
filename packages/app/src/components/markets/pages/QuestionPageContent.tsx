@@ -1235,7 +1235,7 @@ export default function QuestionPageContent({
                                   {!isForecast &&
                                     combinedPredictions &&
                                     combinedPredictions.length > 0 &&
-                                    `${combinedWithYes === false ? '>' : '<'} `}
+                                    `${combinedWithYes === false ? '>' : '<'}`}
                                   {point.y.toFixed(2)}% chance
                                 </span>
                               </div>
