@@ -1236,7 +1236,7 @@ export default function QuestionPageContent({
                                     combinedPredictions &&
                                     combinedPredictions.length > 0 &&
                                     `${combinedWithYes === false ? '>' : '<'}`}
-                                  {point.y.toFixed(2)}% chance
+                                  {Math.round(point.y)}% chance
                                 </span>
                               </div>
                               {/* Wager row - only for predictions */}
