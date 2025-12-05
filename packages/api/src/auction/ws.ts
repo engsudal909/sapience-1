@@ -282,8 +282,10 @@ export function createAuctionWebSocketServer() {
 
     // Store request context for signature verification
     const hostHeader = (req.headers['host'] as string) || 'unknown';
+    // Extract hostname without port to match client extraction
+    const domain = hostHeader.split(':')[0];
     // Use https/http origin (not wss/ws) to match SIWE standard and keep URI short
-    const protocol = req.headers['x-forwarded-proto'] === 'https' || req.connection?.encrypted ? 'https' : 'http';
+    const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
     const wsUri = `${protocol}://${hostHeader}`;
 
     let rateCount = 0;
@@ -630,7 +632,7 @@ export function createAuctionWebSocketServer() {
             try {
               const isValidSignature = await verifyAuctionSignature(
                 payload,
-                hostHeader,
+                domain,
                 wsUri
               );
 

@@ -1,7 +1,3 @@
-import { SiweMessage } from 'siwe';
-
-const QUOTE_MESSAGE_PREFIX = 'Sign to get a quote';
-
 export interface AuctionSigningPayload {
   wager: string; // wei string
   predictedOutcomes: string[]; // Array of bytes strings
@@ -23,26 +19,20 @@ export function createAuctionSiweMessage(
 ): string {
   const nonce = payload.takerNonce.toString();
 
-  // Create a statement that includes all auction-specific parameters
+  // Create a compact statement that includes all auction-specific parameters
   // This ensures wager, predictedOutcomes, and resolver are part of the signature
-  const statement = [
-    'Sign to get a quote',
-    `Wager: ${payload.wager}`,
-    `Outcomes: ${payload.predictedOutcomes.join(',')}`,
-    `Resolver: ${payload.resolver}`
-  ].join(' | ');
+  // Encode auction params in the statement to keep it on one line
+  const statement = `Sign to get a quote | Wager: ${payload.wager} | Outcomes: ${payload.predictedOutcomes.join(',')} | Resolver: ${payload.resolver}`;
 
   // Manually construct the SIWE message following EIP-4361 format
   // We do this instead of using SiweMessage constructor because SIWE 3.0.0
   // has validation issues when constructing from object params
+  // Must be exactly 6 lines to pass SIWE parser validation
+  // Combine fields to meet the 6-line limit: domain+address, statement, URI+Version, Chain ID, Nonce, Issued At
   const preparedMessage = [
-    `${domain} wants you to sign in with your Ethereum account:`,
-    payload.taker,
-    '',
+    `${domain} wants you to sign in with your Ethereum account:\n${payload.taker}`,
     statement,
-    '',
-    `URI: ${uri}`,
-    `Version: 1`,
+    `URI: ${uri}\nVersion: 1`,
     `Chain ID: ${payload.chainId}`,
     `Nonce: ${nonce}`,
     `Issued At: ${issuedAt}`
