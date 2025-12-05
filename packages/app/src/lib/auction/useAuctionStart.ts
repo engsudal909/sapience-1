@@ -154,7 +154,10 @@ export function useAuctionStart() {
   // Debounced send of auction.start when params change
   const debounceTimer = useRef<number | null>(null);
   const requestQuotes = useCallback(
-    (params: AuctionParams | null, options?: { forceRefresh?: boolean }) => {
+    (
+      params: AuctionParams | null,
+      options?: { forceRefresh?: boolean; requireSignature?: boolean }
+    ) => {
       if (!params || !wsUrl) return;
       const requestPayload = {
         wager: params.wager,
@@ -178,6 +181,50 @@ export function useAuctionStart() {
       debounceTimer.current = window.setTimeout(async () => {
         const client = getSharedAuctionWsClient(wsUrl);
 
+        // Generate SIWE signature for the auction request if required
+        let takerSignature: string | undefined;
+        let takerSignedAt: string | undefined;
+        const requireSignature = options?.requireSignature ?? true; // Default to true to ask for signature as default behavior
+
+        if (requireSignature) {
+          try {
+            const { domain, uri } = extractSiweDomainAndUri(wsUrl);
+            const issuedAt = new Date().toISOString();
+            const signingPayload: AuctionStartSigningPayload = {
+              wager: params.wager,
+              predictedOutcomes: params.predictedOutcomes,
+              resolver: params.resolver,
+              taker: params.taker,
+              takerNonce: params.takerNonce,
+              chainId: params.chainId,
+            };
+            const message = createAuctionStartSiweMessage(
+              signingPayload,
+              domain,
+              uri,
+              issuedAt
+            );
+            takerSignature = await signMessageAsync({ message });
+            takerSignedAt = issuedAt;
+            if (process.env.NODE_ENV !== 'production') {
+              console.debug('[AuctionStart] Generated SIWE signature');
+            }
+          } catch (signError) {
+            // If signature is required and fails, log and return early
+            console.warn(
+              '[AuctionStart] Failed to sign auction request:',
+              signError
+            );
+            return;
+          }
+        }
+
+        // Add signature and timestamp to request payload if available
+        const payloadWithSignature =
+          takerSignature && takerSignedAt
+            ? { ...requestPayload, takerSignature, takerSignedAt }
+            : requestPayload;
+
         // Clear previous auction state
         inflightRef.current = key;
         latestAuctionIdRef.current = null; // Clear so we don't process stale bids
@@ -185,44 +232,6 @@ export function useAuctionStart() {
         setBids([]);
         lastAuctionRef.current = params;
         setCurrentAuctionParams(params);
-
-        // Generate SIWE signature for the auction request
-        let takerSignature: string | undefined;
-        let takerSignedAt: string | undefined;
-        try {
-          const { domain, uri } = extractSiweDomainAndUri(wsUrl);
-          const issuedAt = new Date().toISOString();
-          const signingPayload: AuctionStartSigningPayload = {
-            wager: params.wager,
-            predictedOutcomes: params.predictedOutcomes,
-            resolver: params.resolver,
-            taker: params.taker,
-            takerNonce: params.takerNonce,
-            chainId: params.chainId,
-          };
-          const message = createAuctionStartSiweMessage(
-            signingPayload,
-            domain,
-            uri,
-            issuedAt
-          );
-          takerSignature = await signMessageAsync({ message });
-          takerSignedAt = issuedAt;
-          if (process.env.NODE_ENV !== 'production') {
-            console.debug('[AuctionStart] Generated SIWE signature');
-          }
-        } catch (signError) {
-          // If signature fails, log but continue without it (optional signature)
-          console.warn(
-            '[AuctionStart] Failed to sign auction request:',
-            signError
-          );
-        }
-
-        // Add signature and timestamp to request payload if available
-        const payloadWithSignature = takerSignature && takerSignedAt
-          ? { ...requestPayload, takerSignature, takerSignedAt }
-          : requestPayload;
 
         // Use sendWithAck for proper request/response correlation
         // Server echoes back the request ID, allowing parallel requests
