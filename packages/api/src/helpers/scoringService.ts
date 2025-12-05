@@ -32,7 +32,7 @@ export async function upsertAttestationScoreFromAttestation(
       attester: att.attester.toLowerCase(),
       marketAddress: att.marketAddress.toLowerCase(),
       marketId: att.marketId,
-      questionId: att.questionId,
+      resolver: att.resolver,
       madeAt: att.time,
       used: false,
       probabilityD18: normalized.probabilityD18,

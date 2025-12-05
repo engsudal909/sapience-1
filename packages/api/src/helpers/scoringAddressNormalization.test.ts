@@ -26,7 +26,8 @@ describe('address normalization in upsertAttestationScoreFromAttestation', () =>
       attester: '0xABCDEF1234',
       marketAddress: '0xDeAdBeEf',
       marketId: '1',
-      questionId: '0x0',
+      resolver: '0x0000000000000000000000000000000000000000',
+      condition: '0x',
       time: 100,
       prediction: '1',
     });
