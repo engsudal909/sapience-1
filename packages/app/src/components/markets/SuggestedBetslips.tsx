@@ -390,7 +390,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                           />
                           {/* Mobile Row 4: Button skeleton */}
                           <div
-                            className="md:hidden w-14 h-7 rounded bg-brand-white/5"
+                            className="md:hidden w-full h-8 rounded bg-brand-white/5"
                             style={{
                               animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
                               animationDelay: `${idx * 0.3 + 0.15}s`,
@@ -457,6 +457,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                               legs={legs}
                               useDialog
                               className="md:gap-x-2"
+                              maxWidthClass="max-w-[calc(100%-160px)] md:max-w-[300px]"
                             />
                             {/* Mobile Row 3: Probability info */}
                             <div className="md:hidden text-sm">
@@ -486,7 +487,7 @@ const SuggestedBetslips: React.FC<SuggestedBetslipsProps> = ({ className }) => {
                             {/* Mobile Row 4: PICK button */}
                             <div className="md:hidden">
                               <Button
-                                className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
+                                className="tracking-wider font-mono text-xs w-full h-8 bg-brand-white text-brand-black"
                                 variant="default"
                                 size="sm"
                                 type="button"

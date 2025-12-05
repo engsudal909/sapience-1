@@ -976,7 +976,7 @@ const Betslip = ({
     return (
       <div className="w-full h-full flex flex-col betslip">
         <div className="hidden lg:flex items-center justify-between mb-1 px-1 pt-1">
-          <h2 className="sc-heading text-foreground">Make a prediction</h2>
+          <h2 className="sc-heading text-foreground">Take a position</h2>
           <Button
             variant="ghost"
             size="xs"
@@ -1033,7 +1033,7 @@ const Betslip = ({
         >
           <div className="flex-1 min-h-0">
             <div className="flex items-center justify-between mb-1 px-1">
-              <h2 className="sc-heading text-foreground">Make a prediction</h2>
+              <h2 className="sc-heading text-foreground">Take a position</h2>
               {hasTriggeredItems && (
                 <Button
                   variant="ghost"

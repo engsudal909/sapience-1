@@ -1545,7 +1545,7 @@ export default function QuestionPageContent({
                       className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
                     >
                       <ArrowLeftRight className="h-3.5 w-3.5" />
-                      Predictions
+                      Positions
                     </TabsTrigger>
                     <TabsTrigger
                       value="forecasts"

@@ -114,7 +114,7 @@ export function fontsFromData(fonts: {
 
 export function commonAssets(req: Request) {
   return {
-    logoUrl: new URL('/sapience.svg', req.url).toString(),
+    logoUrl: new URL('/logo.svg', req.url).toString(),
     bgUrl: new URL('/share_bg.png', req.url).toString(),
   } as const;
 }
