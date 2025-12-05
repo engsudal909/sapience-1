@@ -2,7 +2,6 @@
 import { type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/sapience/ui/index';
 
-import BetslipSinglesForm from './BetslipSinglesForm';
 import BetslipParlayForm from './BetslipParlayForm';
 import { useBetSlipContext } from '~/lib/context/BetSlipContext';
 
@@ -10,7 +9,6 @@ import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 
 interface BetslipContentProps {
   isParlayMode: boolean;
-  onParlayModeChange?: (enabled: boolean) => void;
   individualMethods: UseFormReturn<{
     positions: Record<
       string,
@@ -48,14 +46,10 @@ interface BetslipContentProps {
 }
 
 export const BetslipContent = ({
-  isParlayMode,
-  individualMethods,
   parlayMethods,
-  handleIndividualSubmit,
   handleParlaySubmit,
   isParlaySubmitting,
   parlayError,
-  isSubmitting,
   parlayChainId,
   bids = [],
   requestQuotes,
@@ -65,19 +59,8 @@ export const BetslipContent = ({
   minWager,
   predictionMarketAddress,
 }: BetslipContentProps) => {
-  const {
-    betSlipPositions,
-    clearBetSlip,
-    parlaySelections,
-    clearParlaySelections,
-  } = useBetSlipContext();
-  const effectiveParlayMode = isParlayMode;
-  const hasItems = effectiveParlayMode
-    ? parlaySelections.length > 0
-    : betSlipPositions.length > 0;
-
-  // Note: RFQ quote request logic is now handled inside BetslipParlayForm
-  // This was moved to reduce prop drilling and keep related logic together
+  const { parlaySelections, clearParlaySelections } = useBetSlipContext();
+  const hasItems = parlaySelections.length > 0;
 
   return (
     <>
@@ -92,9 +75,7 @@ export const BetslipContent = ({
                 variant="ghost"
                 size="xs"
                 className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 relative -top-0.5"
-                onClick={
-                  effectiveParlayMode ? clearParlaySelections : clearBetSlip
-                }
+                onClick={clearParlaySelections}
                 title="Reset"
               >
                 CLEAR
@@ -106,11 +87,7 @@ export const BetslipContent = ({
         <div
           className={`flex-1 min-h-0 ${hasItems ? 'overflow-y-auto pb-4' : ''}`}
         >
-          {(
-            effectiveParlayMode
-              ? parlaySelections.length === 0
-              : betSlipPositions.length === 0
-          ) ? (
+          {parlaySelections.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center text-center">
               <div className="flex flex-col items-center gap-2 py-20">
                 <p className="text-sm font-mono uppercase text-accent-gold max-w-[260px] mx-auto bg-transparent tracking-wide">
@@ -118,12 +95,6 @@ export const BetslipContent = ({
                 </p>
               </div>
             </div>
-          ) : !effectiveParlayMode ? (
-            <BetslipSinglesForm
-              methods={individualMethods}
-              onSubmit={handleIndividualSubmit}
-              isSubmitting={isSubmitting}
-            />
           ) : (
             <BetslipParlayForm
               methods={parlayMethods}
@@ -141,7 +112,6 @@ export const BetslipContent = ({
             />
           )}
         </div>
-        {/* Footer actions removed as Clear all is now in the header */}
       </div>
     </>
   );

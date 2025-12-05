@@ -164,7 +164,6 @@ const SettingsPageContent = () => {
   const {
     graphqlEndpoint,
     apiBaseUrl,
-    quoterBaseUrl,
     chatBaseUrl,
     rpcURL,
     openrouterApiKey,
@@ -174,7 +173,6 @@ const SettingsPageContent = () => {
     showAmericanOdds,
     setGraphqlEndpoint,
     setApiBaseUrl,
-    setQuoterBaseUrl,
     setChatBaseUrl,
     setRpcUrl,
     setOpenrouterApiKey,
@@ -187,7 +185,6 @@ const SettingsPageContent = () => {
   const [mounted, setMounted] = useState(false);
   const [gqlInput, setGqlInput] = useState('');
   const [apiInput, setApiInput] = useState('');
-  const [quoterInput, setQuoterInput] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [rpcInput, setRpcInput] = useState('');
   const [openrouterKeyInput, setOpenrouterKeyInput] = useState('');
@@ -287,7 +284,6 @@ const SettingsPageContent = () => {
     if (!mounted) return;
     setGqlInput(graphqlEndpoint || defaults.graphqlEndpoint);
     setApiInput(apiBaseUrl ?? defaults.apiBaseUrl);
-    setQuoterInput(quoterBaseUrl ?? defaults.quoterBaseUrl);
     setChatInput(chatBaseUrl ?? defaults.chatBaseUrl);
     // If a key exists, show masked dots and disable input
     setOpenrouterKeyInput(
@@ -518,24 +514,6 @@ const SettingsPageContent = () => {
                           chat widget
                         </button>{' '}
                         to send and receive signed messages
-                      </p>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="quoter-endpoint">Quoter Endpoint</Label>
-                      <SettingField
-                        id="quoter-endpoint"
-                        value={quoterInput}
-                        setValue={setQuoterInput}
-                        defaultValue={defaults.quoterBaseUrl}
-                        onPersist={setQuoterBaseUrl}
-                        validate={isHttpUrl}
-                        normalizeOnChange={normalizeBase}
-                        invalidMessage="Must be an absolute http(s) base URL"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Used to generate spot market quotes based on liquidity
-                        available onchain
                       </p>
                     </div>
 
