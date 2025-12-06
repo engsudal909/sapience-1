@@ -8,20 +8,20 @@ import {
 } from '@sapience/sdk/ui/components/ui/popover';
 import * as React from 'react';
 
-export interface ParlayLeg {
+export interface PositionPrediction {
   shortName?: string | null;
   question?: string | null;
   conditionId?: string | null;
   choice: 'Yes' | 'No';
 }
 
-export default function ParlayLegsList({
+export default function PositionPredictionsList({
   legs,
   className,
   layout = 'column',
   maxWidthClass,
 }: {
-  legs: ParlayLeg[];
+  legs: PositionPrediction[];
   className?: string;
   layout?: 'row' | 'column';
   // Optional max width utility classes, e.g. "max-w-[320px]"
@@ -86,7 +86,7 @@ export default function ParlayLegsList({
                           className="font-medium underline decoration-dotted underline-offset-4 hover:opacity-80"
                           aria-label="View missing condition details"
                         >
-                          Parlay Condition Not Found
+                          Condition Not Found
                         </button>
                       </PopoverTrigger>
                       <PopoverContent>
@@ -138,7 +138,7 @@ export default function ParlayLegsList({
                         className="font-medium underline decoration-dotted underline-offset-4 hover:opacity-80"
                         aria-label="View missing condition details"
                       >
-                        Parlay Condition Not Found
+                        Condition Not Found
                       </button>
                     </PopoverTrigger>
                     <PopoverContent>

@@ -20,7 +20,7 @@ import {
   TransactionOwnerCell,
   type UiTransaction,
 } from '~/components/markets/DataDrawer/TransactionCells';
-import ParlayLegsList from '~/components/shared/ParlayLegsList';
+import PositionPredictionsList from '~/components/shared/PositionPredictionsList';
 import { useAuctionRelayerFeed } from '~/lib/auction/useAuctionRelayerFeed';
 import AuctionBidsDialog from '~/components/auction/AuctionBidsDialog';
 import EnsAvatar from '~/components/shared/EnsAvatar';
@@ -282,7 +282,7 @@ const AuctionPageContent: React.FC = () => {
       if (legs.length === 0)
         return <span className="text-muted-foreground">—</span>;
       return (
-        <ParlayLegsList
+        <PositionPredictionsList
           legs={legs}
           layout="row"
           maxWidthClass="max-w-[320px]"

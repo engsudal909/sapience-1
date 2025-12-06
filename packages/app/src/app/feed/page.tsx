@@ -12,8 +12,8 @@ import CombinedFeedTable from './CombinedFeedTable';
 import type { FeedRow } from './FeedTable';
 import {
   TransactionRow,
-  MintParlayNFTTransactionRow,
-  BurnParlayNFTTransactionRow,
+  MintPositionNFTTransactionRow,
+  BurnPositionNFTTransactionRow,
   type UiTransaction,
 } from '~/components/markets/DataDrawer/TransactionCells';
 
@@ -88,14 +88,14 @@ function pickRowComponent(tx: UiTransaction) {
     t === 'mintparlaynft' ||
     t === 'mint_parlay_nfts'
   ) {
-    return MintParlayNFTTransactionRow;
+    return MintPositionNFTTransactionRow;
   }
   if (
     t === 'burnparlaynfts' ||
     t === 'burnparlaynft' ||
     t === 'burn_parlay_nfts'
   ) {
-    return BurnParlayNFTTransactionRow;
+    return BurnPositionNFTTransactionRow;
   }
   return TransactionRow;
 }
@@ -196,7 +196,7 @@ export default function FeedPage() {
             ? fromUserParlays
             : undefined;
         })();
-        const Comp = MintParlayNFTTransactionRow;
+        const Comp = MintPositionNFTTransactionRow;
         const makerTx: UiTransaction = {
           ...(tx as any),
           type: 'Parlay',

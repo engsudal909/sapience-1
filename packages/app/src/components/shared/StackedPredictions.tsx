@@ -191,7 +191,7 @@ export default function StackedPredictions({
 
   return (
     <div className={className}>
-      <div className="flex flex-col gap-2 min-w-0">
+      <div className="flex flex-col xl:flex-row xl:items-center gap-2 min-w-0">
         {showIcons && <StackedIcons legs={legs} />}
         <StackedPredictionsTitle legs={legs} maxWidthClass={maxWidthClass} />
       </div>

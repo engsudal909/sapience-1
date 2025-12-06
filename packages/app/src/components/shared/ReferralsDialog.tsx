@@ -38,13 +38,13 @@ const ReferralVolumeCell = ({ address }: { address: string }) => {
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'USDe';
   const lowerAddress = address.toLowerCase();
 
-  const { data: parlays, isLoading: parlaysLoading } = useUserParlays({
+  const { data: positions, isLoading: positionsLoading } = useUserParlays({
     address: lowerAddress,
     chainId,
   });
 
-  const volume = useProfileVolume(parlays, address);
-  const loading = parlaysLoading;
+  const volume = useProfileVolume(positions, address);
+  const loading = positionsLoading;
 
   return (
     <span className="tabular-nums">

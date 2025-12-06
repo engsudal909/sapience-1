@@ -6,7 +6,7 @@ import { formatUnits } from 'viem';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 
 export function useProfileVolume(
-  parlays: Parlay[] | undefined,
+  positions: Parlay[] | undefined,
   address?: string
 ) {
   return React.useMemo(() => {
@@ -14,23 +14,23 @@ export function useProfileVolume(
       let total = 0;
       const viewer = String(address || '').toLowerCase();
 
-      for (const parlay of parlays || []) {
+      for (const position of positions || []) {
         try {
           const makerIsUser =
-            typeof parlay.maker === 'string' &&
-            parlay.maker.toLowerCase() === viewer;
+            typeof position.maker === 'string' &&
+            position.maker.toLowerCase() === viewer;
           const takerIsUser =
-            typeof parlay.taker === 'string' &&
-            parlay.taker.toLowerCase() === viewer;
-          if (makerIsUser && parlay.makerCollateral) {
+            typeof position.taker === 'string' &&
+            position.taker.toLowerCase() === viewer;
+          if (makerIsUser && position.makerCollateral) {
             const human = Number(
-              formatUnits(BigInt(parlay.makerCollateral), 18)
+              formatUnits(BigInt(position.makerCollateral), 18)
             );
             if (Number.isFinite(human)) total += human;
           }
-          if (takerIsUser && parlay.takerCollateral) {
+          if (takerIsUser && position.takerCollateral) {
             const human = Number(
-              formatUnits(BigInt(parlay.takerCollateral), 18)
+              formatUnits(BigInt(position.takerCollateral), 18)
             );
             if (Number.isFinite(human)) total += human;
           }
@@ -44,5 +44,5 @@ export function useProfileVolume(
     } catch {
       return { value: 0, display: '0' };
     }
-  }, [parlays, address]);
+  }, [positions, address]);
 }
