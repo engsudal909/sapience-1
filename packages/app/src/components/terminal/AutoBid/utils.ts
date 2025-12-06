@@ -8,7 +8,7 @@ import type {
 } from './types';
 import { DEFAULT_CONDITION_ODDS, HOUR_IN_MS } from './constants';
 
-export const sanitizeConditionSelections = (
+const sanitizeConditionSelections = (
   value: unknown
 ): ConditionSelection[] | undefined => {
   if (!Array.isArray(value)) {
@@ -142,7 +142,7 @@ export const sanitizeLogEntry = (value: unknown): AutoBidLogEntry | null => {
   };
 };
 
-export const normalizeHexId = (value?: string | null) => {
+const normalizeHexId = (value?: string | null) => {
   if (typeof value !== 'string') return null;
   return value.toLowerCase();
 };
@@ -290,7 +290,7 @@ export const withAlpha = (color: string, alpha: number): string => {
   return color;
 };
 
-export const formatDurationValue = (value: number) => {
+const formatDurationValue = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return '';
   const fixed = value >= 10 ? value.toFixed(1) : value.toFixed(2);
   return fixed.replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');

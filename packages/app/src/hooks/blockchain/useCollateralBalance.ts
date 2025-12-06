@@ -5,11 +5,11 @@ import {
   COLLATERAL_SYMBOLS,
   CHAIN_ID_ETHEREAL,
   CHAIN_ID_ETHEREAL_TESTNET,
+  DEFAULT_CHAIN_ID,
 } from '@sapience/sdk/constants';
-import {
-  DEFAULT_COLLATERAL_ASSET,
-  GAS_RESERVE,
-} from '~/components/admin/constants';
+import { collateralToken } from '@sapience/sdk/contracts';
+
+const GAS_RESERVE = 0.5;
 
 const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';
 
@@ -80,7 +80,7 @@ export function useCollateralBalance({
     query: { enabled: enabled && Boolean(address) && isEtherealChain },
   });
 
-  const collateralAssetAddress = DEFAULT_COLLATERAL_ASSET;
+  const collateralAssetAddress = collateralToken[DEFAULT_CHAIN_ID]?.address;
 
   const { data: usdeDecimals, isLoading: isLoadingUsdeDecimals } =
     useReadContract({

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
+import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 
 /**
  * Hook to read chainId from localStorage with support for:

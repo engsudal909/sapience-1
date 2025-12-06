@@ -29,8 +29,8 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import LottieLoader from '~/components/shared/LottieLoader';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
-export const CHAIN_ID_ARBITRUM = '42161';
-export const CHAIN_ID_ETHEREAL = '5064014';
+const CHAIN_ID_ARBITRUM = '42161';
+const CHAIN_ID_ETHEREAL = '5064014';
 const CHAIN_ID_STORAGE_KEY = 'sapience.settings.selectedChainId';
 const RPC_STORAGE_KEY = 'sapience.settings.selectedRpcURL';
 

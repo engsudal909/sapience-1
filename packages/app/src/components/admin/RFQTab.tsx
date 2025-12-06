@@ -48,15 +48,18 @@ import { formatDistanceToNow, fromUnixTime } from 'date-fns';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { keccak256, concatHex, toHex } from 'viem';
 import { lzUmaResolver, lzPMResolver } from '@sapience/sdk/contracts';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import {
+  DEFAULT_CHAIN_ID,
+  CHAIN_ID_ARBITRUM,
+  CHAIN_ID_ETHEREAL,
+} from '@sapience/sdk/constants';
 import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
 import ResolveConditionCell from './ResolveConditionCell';
-import { CHAIN_ID_ARBITRUM, CHAIN_ID_ETHEREAL } from './constants';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { parseCsv, mapCsv } from '~/lib/utils/csv';
 import { useAdminApi } from '~/hooks/useAdminApi';
-import { useCategories } from '~/hooks/graphql/useMarketGroups';
+import { useCategories } from '~/hooks/graphql/useCategories';
 import { useConditions } from '~/hooks/graphql/useConditions';
 
 type RFQRow = {
