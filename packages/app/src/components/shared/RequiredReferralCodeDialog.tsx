@@ -31,7 +31,28 @@ const RequiredReferralCodeDialog = ({
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const { toast } = useToast();
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      // Call the provided logout handler (Privy logout)
+      // Even if Privy's session close request fails, the logout() call
+      // will still disconnect the browser wallet successfully since
+      // wallet disconnection happens client-side before the session API call
+      await Promise.resolve(onLogout());
+    } catch {
+      // Privy may throw on session close API errors, but the wallet
+      // should already be disconnected at this point. Swallow the error.
+    }
+    // Always reload after logout attempt to ensure clean state across browsers
+    // This handles edge cases where Privy errors but wallet is disconnected
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     // When a referral code is required, the dialog should not be dismissible
@@ -152,7 +173,6 @@ const RequiredReferralCodeDialog = ({
       <DialogContent
         className="sm:max-w-[520px]"
         hideCloseButton
-        // Trap focus and prevent outside dismiss while a code is required.
         onInteractOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
       >
@@ -183,7 +203,7 @@ const RequiredReferralCodeDialog = ({
           </div>
         </form>
 
-        <div>
+        <div className="space-y-4">
           <p className="text-base text-foreground">
             If you don&apos;t have an invite code, you can request one in{' '}
             <a
@@ -194,17 +214,23 @@ const RequiredReferralCodeDialog = ({
             >
               Discord
             </a>
-            . You can{` `}
-            <button
-              type="button"
-              className="underline underline-offset-2"
-              disabled={submitting}
-              onClick={onLogout}
-            >
-              log out
-            </button>{' '}
-            until you receive one.
+            .
           </p>
+
+          <hr className="gold-hr" />
+          <div>
+            <p className="text-base text-foreground mb-2">
+              You can log out until you receive one.
+            </p>
+            <Button
+              type="button"
+              className="w-full font-semibold"
+              disabled={submitting || loggingOut}
+              onClick={handleLogout}
+            >
+              {loggingOut ? 'Logging out...' : 'Log out'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

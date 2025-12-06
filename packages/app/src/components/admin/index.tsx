@@ -9,16 +9,8 @@ import {
   DialogTrigger,
 } from '@sapience/sdk/ui/components/ui/dialog';
 import { Input } from '@sapience/sdk/ui/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@sapience/sdk/ui/components/ui/select';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
-import { useResources } from '@sapience/sdk/queries';
-import { Plus, Loader2, Upload } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 
@@ -79,7 +71,7 @@ const ReindexAccuracyForm = () => {
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
         <label htmlFor="accuracyAddress" className="text-sm font-medium">
-          Market Group Address (optional)
+          Address (optional)
         </label>
         <Input
           id="accuracyAddress"
@@ -115,227 +107,7 @@ const ReindexAccuracyForm = () => {
   );
 };
 
-const IndexResourceForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const { data: resourcesData } = useResources();
-  const [selectedResource, setSelectedResource] = useState('');
-  const [startTimestamp, setStartTimestamp] = useState('');
-  const [endTimestamp, setEndTimestamp] = useState('');
-  const { postJson: postJson3 } = useAdminApi();
-
-  const handleIndexResource = async () => {
-    try {
-      setIsLoading(true);
-      const response = await postJson3<{ success: boolean; error?: string }>(
-        `/reindex/resource`,
-        {
-          slug: selectedResource,
-          startTimestamp,
-          ...(endTimestamp && { endTimestamp }),
-        }
-      );
-      if (response.success) {
-        toast({
-          title: 'Indexing complete',
-          description: 'Resource has been reindexed successfully',
-          variant: 'default',
-        });
-      } else {
-        toast({
-          title: 'Indexing failed',
-          description: response.error,
-          variant: 'destructive',
-        });
-      }
-    } catch (e: unknown) {
-      console.error('Error in handleIndexResource:', e);
-      toast({
-        title: 'Indexing failed',
-        description: (e as Error)?.message || DEFAULT_ERROR_MESSAGE,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <span className="text-sm font-medium">Resource</span>
-        <Select value={selectedResource} onValueChange={setSelectedResource}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a resource" />
-          </SelectTrigger>
-          <SelectContent>
-            {resourcesData?.map((resource: { slug: string; name: string }) => (
-              <SelectItem key={resource.slug} value={resource.slug}>
-                {resource.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <span className="text-sm font-medium">Start Timestamp</span>
-        <Input
-          type="number"
-          value={startTimestamp}
-          onChange={(e) => setStartTimestamp(e.target.value)}
-          placeholder="Enter Unix timestamp"
-        />
-        <p className="text-sm text-muted-foreground">
-          <a
-            href="https://www.unixtimestamp.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            Unix seconds
-          </a>
-          , 10 digits
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <span className="text-sm font-medium">End Timestamp (Optional)</span>
-        <Input
-          type="number"
-          value={endTimestamp}
-          onChange={(e) => setEndTimestamp(e.target.value)}
-          placeholder="Enter Unix timestamp"
-        />
-        <p className="text-sm text-muted-foreground">
-          <a
-            href="https://www.unixtimestamp.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            Unix seconds
-          </a>
-          , 10 digits
-        </p>
-      </div>
-
-      <Button
-        onClick={handleIndexResource}
-        disabled={!selectedResource || !startTimestamp || isLoading}
-        className="w-full"
-      >
-        {isLoading ? (
-          <div className="animate-spin">
-            <Loader2 className="w-4 h-4" />
-          </div>
-        ) : (
-          'Submit'
-        )}
-      </Button>
-    </div>
-  );
-};
-
-const RefreshCacheForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const { data: resourcesData } = useResources();
-  const [refreshResourceSlug, setRefreshResourceSlug] = useState('all');
-  const { getJson } = useAdminApi();
-
-  const handleRefreshCache = async () => {
-    try {
-      setIsLoading(true);
-      const response = await (refreshResourceSlug &&
-      refreshResourceSlug !== 'all'
-        ? getJson<{ success: boolean; message?: string; error?: string }>(
-            `/cache/refresh-candle-cache/${refreshResourceSlug}`
-          )
-        : getJson<{ success: boolean; message?: string; error?: string }>(
-            `/cache/refresh-candle-cache`
-          ));
-
-      if (response && response.success) {
-        toast({
-          title: 'Cache refreshed',
-          description:
-            refreshResourceSlug && refreshResourceSlug !== 'all'
-              ? `Cache for ${refreshResourceSlug} has been successfully refreshed`
-              : 'Cache has been successfully refreshed for all resources',
-          variant: 'default',
-        });
-        setRefreshResourceSlug('all'); // Reset to "all" instead of empty string
-      } else {
-        toast({
-          title: 'Cache refresh failed',
-          description: response.error || DEFAULT_ERROR_MESSAGE,
-          variant: 'destructive',
-        });
-      }
-    } catch (e: unknown) {
-      console.error('Error in handleRefreshCache:', e);
-      toast({
-        title: 'Cache refresh failed',
-        description: (e as Error)?.message || DEFAULT_ERROR_MESSAGE,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm">
-        This will trigger a hard initialization of the cache. This operation
-        requires authentication.
-      </p>
-
-      <div className="space-y-2">
-        <span className="text-sm font-medium">Resource (Optional)</span>
-        <Select
-          value={refreshResourceSlug}
-          onValueChange={setRefreshResourceSlug}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="All resources (default)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All resources</SelectItem>
-            {resourcesData?.map((resource: { slug: string; name: string }) => (
-              <SelectItem key={resource.slug} value={resource.slug}>
-                {resource.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Select a specific resource to refresh, or leave empty to refresh all
-          resources.
-        </p>
-      </div>
-
-      <Button
-        onClick={handleRefreshCache}
-        disabled={isLoading}
-        className="w-full"
-      >
-        {isLoading ? (
-          <div className="animate-spin">
-            <Loader2 className="w-4 h-4" />
-          </div>
-        ) : (
-          'Refresh Cache'
-        )}
-      </Button>
-    </div>
-  );
-};
-
 const Admin = () => {
-  const [indexResourceOpen, setIndexResourceOpen] = useState(false);
-  const [refreshCacheOpen, setRefreshCacheOpen] = useState(false);
   const [accuracyReindexOpen, setAccuracyReindexOpen] = useState(false);
   const [createConditionOpen, setCreateConditionOpen] = useState(false);
   const [rfqCsvImportOpen, setRfqCsvImportOpen] = useState(false);
@@ -357,26 +129,11 @@ const Admin = () => {
     }
   };
 
-  // Note: Market groups are fetched here for potential future use
-
   return (
     <div className="container pt-24 mx-auto px-6 pb-6">
       <header className="flex items-center justify-between mb-8">
         <h1 className="text-3xl">Control Center</h1>
         <div className="flex items-center space-x-4">
-          <Dialog open={indexResourceOpen} onOpenChange={setIndexResourceOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                Index Resource
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Index Resource</DialogTitle>
-              </DialogHeader>
-              <IndexResourceForm />
-            </DialogContent>
-          </Dialog>
           <Dialog
             open={accuracyReindexOpen}
             onOpenChange={setAccuracyReindexOpen}
@@ -407,19 +164,6 @@ const Admin = () => {
                 <DialogTitle>Reindex Prediction Markets</DialogTitle>
               </DialogHeader>
               <ReindexPredictionMarketForm />
-            </DialogContent>
-          </Dialog>
-          <Dialog open={refreshCacheOpen} onOpenChange={setRefreshCacheOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                Refresh Cache
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Refresh Cache</DialogTitle>
-              </DialogHeader>
-              <RefreshCacheForm />
             </DialogContent>
           </Dialog>
           <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
