@@ -17,6 +17,7 @@ import type {
   AuctionRequestPayload,
   BidPayload,
 } from './types';
+import { verifyAuctionSignature } from './auctionSigVerify';
 
 function isClientMessage(msg: unknown): msg is ClientToServerMessage {
   if (!msg || typeof msg !== 'object' || msg === null || !('type' in msg)) {
@@ -278,6 +279,14 @@ export function createAuctionWebSocketServer() {
       req.socket.remoteAddress ||
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       'unknown';
+
+    // Store request context for signature verification
+    const hostHeader = (req.headers['host'] as string) || 'unknown';
+    // Extract hostname without port to match client extraction
+    const domain = hostHeader.split(':')[0];
+    // Use https/http origin (not wss/ws) to match SIWE standard and keep URI short
+    const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const wsUri = `${protocol}://${hostHeader}`;
 
     let rateCount = 0;
     let rateResetAt = Date.now() + RATE_LIMIT_WINDOW_MS;
@@ -617,6 +626,39 @@ export function createAuctionWebSocketServer() {
       if (isClientMessage(msg)) {
         if (msg.type === 'auction.start') {
           const payload = msg.payload as AuctionRequestPayload;
+
+          // Verify signature if provided
+          if (payload.takerSignature) {
+            try {
+              const isValidSignature = await verifyAuctionSignature(
+                payload,
+                domain,
+                wsUri
+              );
+
+              if (!isValidSignature) {
+                console.warn(
+                  `[Auction-WS] Invalid taker signature for taker=${payload.taker}`
+                );
+                send(ws, {
+                  type: 'auction.ack',
+                  payload: { auctionId: '', error: 'invalid_signature' },
+                });
+                return;
+              }
+              console.log(
+                `[Auction-WS] Valid signature verified for taker=${payload.taker}`
+              );
+            } catch (err) {
+              console.error('[Auction-WS] Signature verification error:', err);
+              send(ws, {
+                type: 'auction.ack',
+                payload: { auctionId: '', error: 'signature_verification_failed' },
+              });
+              return;
+            }
+          }
+
           const auctionId = upsertAuction(payload);
           // Subscribe this client to the auction channel
           subscribeToAuction(auctionId, ws, auctionSubscriptions);

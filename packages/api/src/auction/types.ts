@@ -7,6 +7,8 @@ export interface AuctionRequestPayload {
   taker: string; // EOA address of the taker initiating the auction
   takerNonce: number; // nonce for the taker
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
+  takerSignature?: string; // EIP-191 signature of the taker (optional for price discovery)
+  takerSignedAt?: string; // ISO timestamp when the signature was created (required if takerSignature is provided)
 }
 
 export interface BidQuote {
@@ -65,7 +67,7 @@ export type ClientToServerMessage =
 export type BotToServerMessage = { type: 'bid.submit'; payload: BidPayload };
 
 export type ServerToClientMessage =
-  | { type: 'auction.ack'; payload: { auctionId: string; id?: string } }
+  | { type: 'auction.ack'; payload: { auctionId: string; id?: string; error?: string } }
   | { type: 'bid.ack'; payload: { error?: string } }
   | {
       type: 'auction.bids';
