@@ -14,10 +14,9 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { hashFn } from 'wagmi/query';
 import { SapienceProvider } from '~/lib/context/SapienceProvider';
 import ThemeProvider from '~/lib/context/ThemeProvider';
-import { BetSlipProvider } from '~/lib/context/BetSlipContext';
+import { CreatePositionProvider } from '~/lib/context/CreatePositionContext';
 import { SettingsProvider } from '~/lib/context/SettingsContext';
 import { useSettings } from '~/lib/context/SettingsContext';
-import { WagerFlipProvider } from '~/lib/context/WagerFlipContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -164,9 +163,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
           <SettingsProvider>
             <WagmiRoot>
               <SapienceProvider>
-                <BetSlipProvider>
-                  <WagerFlipProvider>{children}</WagerFlipProvider>
-                </BetSlipProvider>
+                <CreatePositionProvider>{children}</CreatePositionProvider>
               </SapienceProvider>
             </WagmiRoot>
           </SettingsProvider>

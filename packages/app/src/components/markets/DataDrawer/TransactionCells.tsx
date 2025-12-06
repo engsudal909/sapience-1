@@ -157,13 +157,13 @@ export function getRowLeftBarColor(
   return seriesColor;
 }
 
-export function isParlayTransaction(tx: UiTransaction): boolean {
+function isParlayTransaction(tx: UiTransaction): boolean {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
   return normalizedType.includes('parlay');
 }
 
-export function getTransactionTypeDisplay(type: string) {
+function getTransactionTypeDisplay(type: string) {
   switch (type) {
     case 'FORECAST':
     case 'forecast':

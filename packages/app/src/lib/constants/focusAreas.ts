@@ -79,8 +79,6 @@ export const FOCUS_AREAS: FocusArea[] = [
   },
 ];
 
-export const DEFAULT_FOCUS_AREA = FOCUS_AREAS[0];
-
 export const getFocusAreaMap = () => {
   return new Map(
     FOCUS_AREAS.map((area) => [

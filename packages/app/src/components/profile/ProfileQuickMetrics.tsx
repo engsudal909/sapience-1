@@ -19,7 +19,6 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 
-import type { PositionType } from '@sapience/sdk/types';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
 import { useUserProfitRank } from '~/hooks/graphql/useUserProfitRank';
@@ -175,20 +174,10 @@ function useProfileBalance(
 
 import { useProfileVolume } from '~/hooks/useProfileVolume';
 
-function useFirstActivity(
-  positions: PositionType[] | undefined,
-  parlays: Parlay[] | undefined
-) {
+function useFirstActivity(parlays: Parlay[] | undefined) {
   return React.useMemo(() => {
     let earliest: Date | undefined;
     try {
-      for (const p of positions || []) {
-        for (const t of p.transactions || []) {
-          const d = new Date(t.createdAt);
-          if (!Number.isFinite(d.getTime())) continue;
-          if (!earliest || d < earliest) earliest = d;
-        }
-      }
       for (const parlay of parlays || []) {
         const sec = Number(parlay.mintedAt);
         if (!Number.isFinite(sec)) continue;
@@ -226,13 +215,12 @@ function useFirstActivity(
       tooltip: full,
       isNever: false,
     };
-  }, [positions, parlays]);
+  }, [parlays]);
 }
 
 export type ProfileQuickMetricsProps = {
   address: string;
   forecastsCount: number;
-  positions: PositionType[];
   parlays: Parlay[];
   className?: string;
 };
@@ -240,15 +228,14 @@ export type ProfileQuickMetricsProps = {
 export default function ProfileQuickMetrics({
   address,
   forecastsCount,
-  positions,
   parlays,
   className,
 }: ProfileQuickMetricsProps) {
   const chainId = useChainIdFromLocalStorage();
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const balance = useProfileBalance(address, chainId, collateralSymbol);
-  const volume = useProfileVolume(positions, parlays, address);
-  const first = useFirstActivity(positions, parlays);
+  const volume = useProfileVolume(parlays, address);
+  const first = useFirstActivity(parlays);
   const forecastsIsFinite = Number.isFinite(forecastsCount);
   const forecastsUnit = forecastsIsFinite
     ? forecastsCount === 1

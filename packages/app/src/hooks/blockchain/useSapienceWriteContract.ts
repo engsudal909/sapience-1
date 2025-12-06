@@ -47,7 +47,7 @@ interface useSapienceWriteContractProps {
   onTxHash?: (txHash: Hash) => void;
   successMessage?: string;
   fallbackErrorMessage?: string;
-  redirectProfileAnchor?: 'trades' | 'parlays' | 'lp' | 'forecasts';
+  redirectProfileAnchor?: 'parlays' | 'forecasts';
   /**
    * Optional share intent hints. When provided, a durable record will be written
    * to sessionStorage as soon as a tx hash is known (or immediately if not available),
@@ -153,49 +153,13 @@ export function useSapienceWriteContract({
           .toLowerCase();
         if (!connectedAddress) return;
 
-        // Check for temporary trade data stored by Betslip or trade forms
-        let tempTradeData = null;
-        if (redirectProfileAnchor === 'trades') {
-          try {
-            const tempData = window.sessionStorage.getItem(
-              'sapience:trade-data-temp'
-            );
-            if (tempData) {
-              tempTradeData = JSON.parse(tempData);
-              window.sessionStorage.removeItem('sapience:trade-data-temp');
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        // Check for temporary LP data stored by LP forms
-        let tempLpData = null;
-        if (redirectProfileAnchor === 'lp') {
-          try {
-            const tempData = window.sessionStorage.getItem(
-              'sapience:lp-data-temp'
-            );
-            if (tempData) {
-              tempLpData = JSON.parse(tempData);
-              window.sessionStorage.removeItem('sapience:lp-data-temp');
-            }
-          } catch {
-            // ignore
-          }
-        }
-
         const intent = {
           address: connectedAddress,
           anchor: redirectProfileAnchor,
           clientTimestamp: Date.now(),
           txHash: maybeHash || undefined,
-          // Spread all shareIntent properties to allow custom data like tradeData
+          // Spread all shareIntent properties to allow custom data
           ...shareIntent,
-          // Add temporary trade data if available
-          ...(tempTradeData ? { tradeData: tempTradeData } : {}),
-          // Add temporary LP data if available
-          ...(tempLpData ? { lpData: tempLpData } : {}),
         } as Record<string, any>;
 
         window.sessionStorage.setItem(

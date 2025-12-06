@@ -21,7 +21,7 @@ import {
   useConditions,
   type ConditionType,
 } from '~/hooks/graphql/useConditions';
-import { CHAIN_ID_ARBITRUM } from '~/components/admin/constants';
+import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 export interface ConditionSelectProps {
   selectedConditionId?: string | null;

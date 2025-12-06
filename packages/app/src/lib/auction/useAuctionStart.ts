@@ -1,6 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSignMessage } from 'wagmi';
+import {
+  createAuctionStartSiweMessage,
+  extractSiweDomainAndUri,
+  type AuctionStartSigningPayload,
+} from '@sapience/sdk';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
@@ -68,6 +74,7 @@ export function useAuctionStart() {
   const [bids, setBids] = useState<QuoteBid[]>([]);
   const inflightRef = useRef<string>('');
   const { apiBaseUrl } = useSettings();
+  const { signMessageAsync } = useSignMessage();
   const apiBase = useMemo(() => {
     if (apiBaseUrl && apiBaseUrl.length > 0) return apiBaseUrl;
     const root = process.env.NEXT_PUBLIC_FOIL_API_URL as string;
@@ -147,7 +154,10 @@ export function useAuctionStart() {
   // Debounced send of auction.start when params change
   const debounceTimer = useRef<number | null>(null);
   const requestQuotes = useCallback(
-    (params: AuctionParams | null, options?: { forceRefresh?: boolean }) => {
+    (
+      params: AuctionParams | null,
+      options?: { forceRefresh?: boolean; requireSignature?: boolean }
+    ) => {
       if (!params || !wsUrl) return;
       const requestPayload = {
         wager: params.wager,
@@ -171,6 +181,50 @@ export function useAuctionStart() {
       debounceTimer.current = window.setTimeout(async () => {
         const client = getSharedAuctionWsClient(wsUrl);
 
+        // Generate SIWE signature for the auction request if required
+        let takerSignature: string | undefined;
+        let takerSignedAt: string | undefined;
+        const requireSignature = options?.requireSignature ?? true; // Default to true to ask for signature as default behavior
+
+        if (requireSignature) {
+          try {
+            const { domain, uri } = extractSiweDomainAndUri(wsUrl);
+            const issuedAt = new Date().toISOString();
+            const signingPayload: AuctionStartSigningPayload = {
+              wager: params.wager,
+              predictedOutcomes: params.predictedOutcomes,
+              resolver: params.resolver,
+              taker: params.taker,
+              takerNonce: params.takerNonce,
+              chainId: params.chainId,
+            };
+            const message = createAuctionStartSiweMessage(
+              signingPayload,
+              domain,
+              uri,
+              issuedAt
+            );
+            takerSignature = await signMessageAsync({ message });
+            takerSignedAt = issuedAt;
+            if (process.env.NODE_ENV !== 'production') {
+              console.debug('[AuctionStart] Generated SIWE signature');
+            }
+          } catch (signError) {
+            // If signature is required and fails, log and return early
+            console.warn(
+              '[AuctionStart] Failed to sign auction request:',
+              signError
+            );
+            return;
+          }
+        }
+
+        // Add signature and timestamp to request payload if available
+        const payloadWithSignature =
+          takerSignature && takerSignedAt
+            ? { ...requestPayload, takerSignature, takerSignedAt }
+            : requestPayload;
+
         // Clear previous auction state
         inflightRef.current = key;
         latestAuctionIdRef.current = null; // Clear so we don't process stale bids
@@ -184,7 +238,7 @@ export function useAuctionStart() {
         try {
           const response = await client.sendWithAck<{ auctionId?: string }>(
             'auction.start',
-            requestPayload,
+            payloadWithSignature,
             { timeoutMs: 10000 }
           );
           const newId = response?.auctionId || null;
@@ -199,7 +253,7 @@ export function useAuctionStart() {
         }
       }, 400);
     },
-    [wsUrl]
+    [wsUrl, signMessageAsync]
   );
 
   const acceptBid = useCallback(
@@ -277,45 +331,4 @@ export function useAuctionStart() {
     currentAuctionParams,
     buildMintRequestDataFromBid,
   };
-}
-
-// Helper to build PredictionMarket.mint() request from current auction + selected bid
-export function buildMintPredictionRequestData(args: {
-  maker: `0x${string}`;
-  selectedBid: QuoteBid;
-  // Optional overrides if caller wants to provide resolver/outcomes directly
-  resolver?: `0x${string}`;
-  predictedOutcomes?: `0x${string}`[];
-  makerCollateral?: string; // wei
-  refCode?: `0x${string}`; // bytes32
-}): MintPredictionRequestData | null {
-  try {
-    const zeroBytes32 = `0x${'0'.repeat(64)}`;
-    const resolver = args.resolver || ('0x' as const);
-    const predictedOutcomes = args.predictedOutcomes || [];
-    if (!resolver || predictedOutcomes.length === 0) return null;
-
-    const makerCollateral = args.makerCollateral || '0';
-    if (!makerCollateral || BigInt(makerCollateral) === 0n) return null;
-
-    // Contract field names haven't changed - map API roles to contract roles:
-    // Contract "maker" = API "taker" (auction creator)
-    // Contract "taker" = API "maker" (bidder)
-    const out: MintPredictionRequestData = {
-      encodedPredictedOutcomes: predictedOutcomes[0],
-      resolver,
-      makerCollateral: makerCollateral, // Contract maker = API taker (auction creator's wager)
-      takerCollateral: args.selectedBid.makerWager, // Contract taker = API maker (bidder's wager)
-      maker: args.maker, // Contract maker = API taker (auction creator)
-      taker: args.selectedBid.maker as `0x${string}`, // Contract taker = API maker (bidder)
-      takerSignature: args.selectedBid.makerSignature as `0x${string}`, // Contract taker = API maker (bidder's signature)
-      takerDeadline: String(args.selectedBid.makerDeadline), // Contract taker = API maker (bidder's deadline)
-      refCode: args.refCode || (zeroBytes32 as `0x${string}`),
-      makerNonce: undefined, // TODO: Need auction creator's nonce (takerNonce), not from bid
-    };
-
-    return out;
-  } catch {
-    return null;
-  }
 }

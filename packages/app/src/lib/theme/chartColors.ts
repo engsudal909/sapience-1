@@ -9,35 +9,10 @@ export const CHART_SERIES_COLORS: string[] = [
   getChartColor(5),
 ];
 
-export const CHART_INDEX_COLOR =
-  CHART_SERIES_COLORS[0] || 'hsl(var(--chart-1))';
-
 export function getSeriesColorByIndex(seriesIndex: number): string {
   if (Number.isNaN(seriesIndex) || seriesIndex < 0)
     return CHART_SERIES_COLORS[0];
   return CHART_SERIES_COLORS[seriesIndex % CHART_SERIES_COLORS.length];
-}
-
-export function getAccessibleTextColor(color: string): string {
-  const { r, g, b } = parseToRgb(color);
-  // Relative luminance per WCAG
-  const [R, G, B] = [r, g, b].map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  });
-  const luminance = 0.2126 * R + 0.7152 * G + 0.0722 * B;
-  // Return HSL strings instead of hex to comply with lint rules
-  return luminance > 0.5 ? 'hsl(0 0% 0%)' : 'hsl(0 0% 100%)';
-}
-
-export function darken(color: string, amount: number = 0.1): string {
-  const { r, g, b } = parseToRgb(color);
-  const factor = Math.max(0, Math.min(1, 1 - amount));
-  const rr = Math.max(0, Math.min(255, Math.round(r * factor)));
-  const gg = Math.max(0, Math.min(255, Math.round(g * factor)));
-  const bb = Math.max(0, Math.min(255, Math.round(b * factor)));
-  // Return as rgba() to avoid hex literals
-  return `rgba(${rr}, ${gg}, ${bb}, 1)`;
 }
 
 export function withAlpha(color: string, alpha: number): string {

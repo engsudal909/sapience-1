@@ -40,7 +40,7 @@ import ConditionTitleLink from './ConditionTitleLink';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import MarketBadge from './MarketBadge';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
 import TableFilters, {
@@ -230,7 +230,7 @@ function ForecastCell({ condition }: { condition: ConditionType }) {
 // Predict buttons cell component
 function PredictCell({ condition }: { condition: ConditionType }) {
   const { addParlaySelection, removeParlaySelection, parlaySelections } =
-    useBetSlipContext();
+    useCreatePositionContext();
 
   const displayQ = condition.shortName || condition.question;
 

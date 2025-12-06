@@ -12,7 +12,7 @@ export type ChatMessage = {
   error?: string;
 };
 
-export const WEBSOCKET_PATH = '/chat';
+const WEBSOCKET_PATH = '/chat';
 const getBase = (): string => {
   try {
     if (typeof window !== 'undefined') {
@@ -34,8 +34,6 @@ const getBase = (): string => {
     return `https://api.sapience.xyz${WEBSOCKET_PATH}`;
   }
 };
-
-export const API_BASE = getBase();
 
 export const buildWebSocketUrl = () => {
   const base = getBase();

@@ -14,11 +14,3 @@ export function getChartColor(index: number): string {
   const safe = Math.max(1, Math.min(5, Math.floor(index)));
   return getCssVarHsl(`--chart-${safe}`);
 }
-
-export function getUpColor(): string {
-  return getCssVarHsl('--up');
-}
-
-export function getDownColor(): string {
-  return getCssVarHsl('--down');
-}

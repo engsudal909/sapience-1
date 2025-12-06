@@ -3,5 +3,3 @@ export const ADMIN_AUTHENTICATE_MSG =
 
 export const STARGATE_DEPOSIT_URL =
   'https://stargate.finance/?dstChain=ethereal&dstToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
-
-export * from './vaults';

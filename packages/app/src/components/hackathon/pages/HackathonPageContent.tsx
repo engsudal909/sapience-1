@@ -53,7 +53,7 @@ function HackathonHero() {
           'radial-gradient(ellipse 70% 70% at 50% 30%, hsl(var(--accent-gold)/0.12) 0%, hsl(var(--accent-gold)/0.04) 50%, transparent 80%)'
         }
       />
-      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-32 md:pt-36 lg:pt-48 pb-12 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-32 md:pt-36 lg:pt-48 pb-12 lg:pb-32 flex-1 flex flex-col justify-center">
         <div className="w-full flex flex-col items-center text-center">
           {/* Title */}
           <p className="eyebrow text-foreground mb-6 md:mb-8">
@@ -138,7 +138,7 @@ function WhatIsSapience() {
           <h2 className="eyebrow text-foreground mb-4">What is Sapience?</h2>
           <p className="headline max-w-4xl mb-6">
             Sapience is an open source platform for prediction markets, where
-            people place wagers on future events.
+            people and agents place wagers on future events.
           </p>
           <p className="headline max-w-4xl mb-6">
             We believe recent developments in artificial intelligence have
