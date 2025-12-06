@@ -5,15 +5,6 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import dynamic from 'next/dynamic';
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import {
   Tabs,
@@ -21,65 +12,32 @@ import {
   TabsList,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@sapience/sdk/ui/components/ui/table';
-import {
-  Tooltip as UITooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
-import { formatDistanceToNow } from 'date-fns';
-import type { ColumnDef, SortingState } from '@tanstack/react-table';
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
 import {
   ArrowLeftRight,
   Bot,
-  ChevronUp,
-  ChevronDown,
   Code,
-  Copy,
   DollarSign,
-  ExternalLink,
-  Gavel,
+  Handshake,
   Telescope,
 } from 'lucide-react';
 import {
   predictionMarket,
   umaResolver,
+  lzPMResolver,
+  lzUmaResolver,
 } from '@sapience/sdk/contracts/addresses';
-import { motion, AnimatePresence } from 'framer-motion';
 import { erc20Abi, formatUnits } from 'viem';
 import { useReadContracts } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { DEFAULT_CHAIN_ID, COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
-import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EndTimeDisplay from '~/components/shared/EndTimeDisplay';
-import EnsAvatar from '~/components/shared/EnsAvatar';
 import SafeMarkdown from '~/components/shared/SafeMarkdown';
+import { ResolverBadge } from '~/components/shared/ResolverBadge';
 import PredictionForm from './PredictionForm';
 import Comments, { CommentFilters } from '~/components/shared/Comments';
 import ConditionForecastForm from '~/components/conditions/ConditionForecastForm';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
-import MarketBadge from '~/components/markets/MarketBadge';
 import ResearchAgent from '~/components/markets/ResearchAgent';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitPosition } from '~/hooks/forms/useSubmitPosition';
@@ -88,31 +46,15 @@ import { useForecasts } from '~/hooks/graphql/useForecasts';
 import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { formatEther } from 'viem';
-
-// Type for combined prediction in a parlay
-type CombinedPrediction = {
-  question: string;
-  prediction: boolean;
-  categorySlug?: string;
-};
-
-// Type for prediction data used in scatter plot and table
-type PredictionData = {
-  x: number;
-  y: number;
-  wager: number;
-  maker: string;
-  taker: string;
-  makerPrediction: boolean; // true = maker predicts YES, false = maker predicts NO
-  makerCollateral: number; // Maker's wager amount
-  takerCollateral: number; // Taker's wager amount
-  time: string;
-  combinedPredictions?: CombinedPrediction[];
-  combinedWithYes?: boolean; // true = combined predictions are tied to YES outcome
-  comment?: string; // Optional comment text from forecast
-  attester?: string; // Forecaster's address
-  predictionPercent?: number; // Prediction as percentage (0-100)
-};
+import {
+  type PredictionData,
+  type ForecastData,
+  type CombinedPrediction,
+  PredictionScatterChart,
+  PredictionsTable,
+  TechSpecTable,
+  scatterChartStyles,
+} from '~/components/markets/question';
 
 const LottieLoader = dynamic(() => import('~/components/shared/LottieLoader'), {
   ssr: false,
@@ -127,49 +69,6 @@ export default function QuestionPageContent({
   conditionId,
 }: QuestionPageContentProps) {
   const [refetchTrigger, setRefetchTrigger] = React.useState(0);
-
-  // Scatter tooltip hover state - keeps tooltip open when hovering over it
-  const [hoveredPoint, setHoveredPoint] = React.useState<PredictionData | null>(
-    null
-  );
-  const [hoveredForecast, setHoveredForecast] = React.useState<{
-    x: number;
-    y: number;
-    time: string;
-    attester: string;
-    comment: string;
-  } | null>(null);
-  const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
-  const isTooltipHoveredRef = React.useRef(false);
-  const tooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  // Comment square hover state - for comment popover
-  const [hoveredComment, setHoveredComment] = React.useState<{
-    x: number;
-    y: number;
-    data: PredictionData;
-  } | null>(null);
-  const commentTooltipTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const isCommentTooltipHoveredRef = React.useRef(false);
-
-  const cancelCommentTooltipHide = () => {
-    if (commentTooltipTimeoutRef.current) {
-      clearTimeout(commentTooltipTimeoutRef.current);
-      commentTooltipTimeoutRef.current = null;
-    }
-  };
-
-  const scheduleCommentTooltipHide = (delayMs = 150) => {
-    if (
-      commentTooltipTimeoutRef.current == null &&
-      !isCommentTooltipHoveredRef.current
-    ) {
-      commentTooltipTimeoutRef.current = setTimeout(() => {
-        commentTooltipTimeoutRef.current = null;
-        setHoveredComment(null);
-      }, delayMs);
-    }
-  };
 
   // Fetch condition data
   const { data, isLoading, isError } = useQuery<
@@ -231,6 +130,12 @@ export default function QuestionPageContent({
 
   // Determine chain ID from condition data or default
   const chainId = data?.chainId ?? DEFAULT_CHAIN_ID;
+
+  // Get resolver address for this chain
+  const resolverAddress =
+    lzPMResolver[chainId]?.address ??
+    lzUmaResolver[chainId]?.address ??
+    umaResolver[chainId]?.address;
 
   // Get PredictionMarket address for this chain
   const predictionMarketAddress = predictionMarket[chainId]?.address;
@@ -517,11 +422,6 @@ export default function QuestionPageContent({
     return { wagerMin, wagerMax };
   }, [scatterData]);
 
-  // Filter predictions that have comments for the comment scatter layer
-  const commentScatterData = useMemo(() => {
-    return scatterData.filter((d) => d.comment && d.comment.trim().length > 0);
-  }, [scatterData]);
-
   // Transform forecasts data for scatter plot
   // Forecasts are user-submitted probability predictions (not positions)
   const forecastScatterData = useMemo(() => {
@@ -602,13 +502,7 @@ export default function QuestionPageContent({
           }
         }
       )
-      .filter(Boolean) as Array<{
-      x: number;
-      y: number;
-      time: string;
-      attester: string;
-      comment: string;
-    }>;
+      .filter(Boolean) as ForecastData[];
 
     console.log('[QuestionPageContent] Final forecastScatterData:', {
       count: transformed.length,
@@ -617,6 +511,11 @@ export default function QuestionPageContent({
 
     return transformed;
   }, [forecasts]);
+
+  // Computed flags for conditional rendering
+  const hasPositions = scatterData.length > 0;
+  const hasForecasts = forecastScatterData.length > 0;
+  const shouldShowChart = hasPositions || hasForecasts;
 
   // Calculate X axis domain and ticks based on predictions data
   const { xDomain, xTicks, xTickLabels } = useMemo(() => {
@@ -653,295 +552,6 @@ export default function QuestionPageContent({
 
     return { xDomain: domain, xTicks: ticks, xTickLabels: labels };
   }, [scatterData]);
-
-  // Column definitions for predictions table
-  const predictionsColumns: ColumnDef<PredictionData>[] = useMemo(
-    () => [
-      {
-        accessorKey: 'x',
-        header: ({ column }) => {
-          const sorted = column.getIsSorted();
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(sorted === 'asc')}
-              className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
-            >
-              Time
-              {sorted === 'asc' ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : sorted === 'desc' ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <span className="flex flex-col -my-2">
-                  <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
-                  <ChevronDown className="h-3 w-3 opacity-50" />
-                </span>
-              )}
-            </Button>
-          );
-        },
-        cell: ({ row }) => {
-          const timestamp = row.original.x;
-          const date = new Date(timestamp);
-          const relativeTime = formatDistanceToNow(date, { addSuffix: true });
-          const exactTime = date.toLocaleString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit',
-            timeZoneName: 'short',
-          });
-          return (
-            <TooltipProvider>
-              <UITooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-muted-foreground text-sm whitespace-nowrap cursor-help">
-                    {relativeTime}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <span>{exactTime}</span>
-                </TooltipContent>
-              </UITooltip>
-            </TooltipProvider>
-          );
-        },
-        sortingFn: (rowA, rowB) => rowA.original.x - rowB.original.x,
-      },
-      {
-        accessorKey: 'wager',
-        header: ({ column }) => {
-          const sorted = column.getIsSorted();
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(sorted === 'asc')}
-              className="px-0 gap-1 hover:bg-transparent whitespace-nowrap"
-            >
-              Wagered
-              {sorted === 'asc' ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : sorted === 'desc' ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <span className="flex flex-col -my-2">
-                  <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
-                  <ChevronDown className="h-3 w-3 opacity-50" />
-                </span>
-              )}
-            </Button>
-          );
-        },
-        cell: ({ row }) => (
-          <span className="text-foreground whitespace-nowrap">
-            {row.original.wager.toFixed(2)} USDe
-          </span>
-        ),
-        sortingFn: (rowA, rowB) => rowA.original.wager - rowB.original.wager,
-      },
-      {
-        id: 'impliedForecast',
-        header: () => (
-          <span className="text-sm font-medium whitespace-nowrap">
-            Forecast
-          </span>
-        ),
-        cell: ({ row }) => {
-          // Calculate implied probability from wager amounts
-          // Always compute based on taker's bet:
-          // - If taker bets YES: probability of YES = takerCollateral / totalWager
-          // - If taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
-          const {
-            makerCollateral,
-            takerCollateral,
-            makerPrediction,
-            combinedPredictions,
-            combinedWithYes,
-          } = row.original;
-          const totalWager = makerCollateral + takerCollateral;
-          let impliedPercent = 50; // Default fallback
-
-          if (totalWager > 0) {
-            // takerPrediction = !makerPrediction
-            const takerPrediction = !makerPrediction;
-            if (takerPrediction) {
-              // Taker bets YES: probability of YES = takerCollateral / totalWager
-              impliedPercent = (takerCollateral / totalWager) * 100;
-            } else {
-              // Taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
-              impliedPercent = (makerCollateral / totalWager) * 100;
-            }
-            impliedPercent = Math.max(0, Math.min(100, impliedPercent));
-          }
-
-          return (
-            <span className="font-mono text-ethena whitespace-nowrap">
-              {combinedPredictions &&
-                combinedPredictions.length > 0 &&
-                `${combinedWithYes === false ? '>' : '<'}`}
-              {Math.round(impliedPercent)}% chance
-            </span>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        id: 'predictedYes',
-        header: () => (
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium">Predicted</span>
-            <Badge
-              variant="outline"
-              className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono"
-            >
-              YES
-            </Badge>
-          </div>
-        ),
-        cell: ({ row }) => {
-          const { maker, taker, makerPrediction } = row.original;
-          // makerPrediction is derived from taker's prediction (opposite)
-          // If maker predicts YES, taker predicts NO, so YES address = maker
-          // If maker predicts NO, taker predicts YES, so YES address = taker
-          const yesAddress = makerPrediction ? maker : taker;
-          return (
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <EnsAvatar address={yesAddress} width={16} height={16} />
-              <AddressDisplay address={yesAddress} compact />
-            </div>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        id: 'predictedNo',
-        header: () => (
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium">Predicted</span>
-            <Badge
-              variant="outline"
-              className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono"
-            >
-              NO
-            </Badge>
-          </div>
-        ),
-        cell: ({ row }) => {
-          const { maker, taker, makerPrediction } = row.original;
-          // makerPrediction is derived from taker's prediction (opposite)
-          // If maker predicts YES, taker predicts NO, so NO address = taker
-          // If maker predicts NO, taker predicts YES, so NO address = maker
-          const noAddress = makerPrediction ? taker : maker;
-          return (
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <EnsAvatar address={noAddress} width={16} height={16} />
-              <AddressDisplay address={noAddress} compact />
-            </div>
-          );
-        },
-        enableSorting: false,
-      },
-      {
-        id: 'combinedPrediction',
-        header: () => (
-          <span className="text-sm font-medium whitespace-nowrap">
-            Combined
-          </span>
-        ),
-        cell: ({ row }) => {
-          const { combinedPredictions, combinedWithYes } = row.original;
-
-          if (!combinedPredictions || combinedPredictions.length === 0) {
-            return <span className="text-muted-foreground">—</span>;
-          }
-
-          const count = combinedPredictions.length;
-          const getCategoryColor = (slug?: string) =>
-            getCategoryStyle(slug).color;
-
-          return (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
-                >
-                  {count} prediction{count !== 1 ? 's' : ''}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
-                align="start"
-              >
-                <div className="flex flex-col divide-y divide-brand-white/20">
-                  <div className="flex items-center gap-2 px-3 py-3">
-                    <span className="text-base font-medium text-brand-white">
-                      Predicted with
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                        combinedWithYes
-                          ? 'border-yes/40 bg-yes/10 text-yes'
-                          : 'border-no/40 bg-no/10 text-no'
-                      }`}
-                    >
-                      {combinedWithYes ? 'YES' : 'NO'}
-                    </Badge>
-                  </div>
-                  {combinedPredictions.map((pred, i) => (
-                    <div
-                      key={`combined-${i}`}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <MarketBadge
-                        label={pred.question}
-                        size={32}
-                        color={getCategoryColor(pred.categorySlug)}
-                        categorySlug={pred.categorySlug}
-                      />
-                      <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
-                        {pred.question}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                          pred.prediction
-                            ? 'border-yes/40 bg-yes/10 text-yes'
-                            : 'border-no/40 bg-no/10 text-no'
-                        }`}
-                      >
-                        {pred.prediction ? 'YES' : 'NO'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-          );
-        },
-        enableSorting: false,
-      },
-    ],
-    []
-  );
-
-  // Table state
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: 'x', desc: true },
-  ]);
-
-  const predictionsTable = useReactTable({
-    data: scatterData,
-    columns: predictionsColumns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
 
   if (isLoading) {
     return (
@@ -1023,7 +633,7 @@ export default function QuestionPageContent({
                   variant="outline"
                   className="h-9 items-center px-3.5 text-sm leading-none inline-flex bg-card border-brand-white/20 text-brand-white font-medium"
                 >
-                  <DollarSign className="h-4 w-4 mr-1 -mt-0.5" />
+                  <DollarSign className="h-4 w-4 mr-1.5 -mt-[1px] opacity-70" />
                   {isPastEndTime ? 'Peak Open Interest' : 'Open Interest'}
                   <span
                     aria-hidden="true"
@@ -1054,834 +664,89 @@ export default function QuestionPageContent({
               size="large"
               appearance="brandWhite"
             />
-          </div>
 
-          {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
-            {/* Scatterplot - height matches the PredictionForm dynamically */}
-            <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
-              {isLoadingPositions ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <LottieLoader width={32} height={32} />
-                </div>
-              ) : scatterData.length === 0 ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-muted-foreground text-sm">
-                    No predictions yet
-                  </span>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart
-                    margin={{ top: 20, right: 24, bottom: 5, left: -10 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="hsl(var(--brand-white) / 0.1)"
-                    />
-                    <XAxis
-                      type="number"
-                      dataKey="x"
-                      name="Time"
-                      domain={xDomain}
-                      ticks={xTicks}
-                      tickFormatter={(value) => {
-                        // Find the closest tick label
-                        const closest = xTicks.reduce((prev, curr) =>
-                          Math.abs(curr - value) < Math.abs(prev - value)
-                            ? curr
-                            : prev
-                        );
-                        return xTickLabels[closest] || '';
-                      }}
-                      tick={{
-                        fill: 'hsl(var(--muted-foreground))',
-                        fontSize: 11,
-                        fontFamily:
-                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-                      }}
-                      axisLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                      tickLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="y"
-                      name="Probability"
-                      domain={[0, 100]}
-                      tickFormatter={(value) => `${value}%`}
-                      tick={{
-                        fill: 'hsl(var(--muted-foreground))',
-                        fontSize: 11,
-                        fontFamily:
-                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-                      }}
-                      axisLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                      tickLine={{ stroke: 'hsl(var(--brand-white) / 0.3)' }}
-                    />
-                    <Tooltip
-                      cursor={false}
-                      animationDuration={150}
-                      wrapperStyle={{ pointerEvents: 'auto', zIndex: 50 }}
-                      active={
-                        !!(hoveredPoint || hoveredForecast || isTooltipHovered)
-                      }
-                      payload={
-                        hoveredPoint
-                          ? [{ payload: hoveredPoint }]
-                          : hoveredForecast
-                            ? [{ payload: hoveredForecast }]
-                            : undefined
-                      }
-                      content={({ active, payload }) => {
-                        // Use hovered point/forecast state for persistent tooltip
-                        const point =
-                          hoveredPoint ||
-                          hoveredForecast ||
-                          (active &&
-                            (payload?.[0]?.payload as
-                              | PredictionData
-                              | {
-                                  x: number;
-                                  y: number;
-                                  time: string;
-                                  attester: string;
-                                  comment: string;
-                                }
-                              | undefined));
-
-                        if (!point) return null;
-
-                        const date = new Date(point.x);
-                        const relativeTime = formatDistanceToNow(date, {
-                          addSuffix: true,
-                        });
-                        const exactTime = date.toLocaleString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: '2-digit',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          timeZoneName: 'short',
-                        });
-                        // Check if this is a forecast (has attester but no maker/taker)
-                        const isForecast =
-                          'attester' in point && !('maker' in point);
-
-                        const {
-                          maker,
-                          taker,
-                          makerPrediction,
-                          combinedPredictions,
-                          combinedWithYes,
-                        } = point as PredictionData;
-                        const yesAddress = makerPrediction ? maker : taker;
-                        const noAddress = makerPrediction ? taker : maker;
-                        const getCategoryColor = (slug?: string) =>
-                          getCategoryStyle(slug).color;
-
-                        return (
-                          <div
-                            className="rounded-lg border scatter-tooltip overflow-hidden"
-                            style={{
-                              backgroundColor: 'hsl(var(--brand-black))',
-                              border: '1px solid hsl(var(--brand-white) / 0.2)',
-                            }}
-                            onMouseEnter={() => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current);
-                                tooltipTimeoutRef.current = null;
-                              }
-                              isTooltipHoveredRef.current = true;
-                              setIsTooltipHovered(true);
-                            }}
-                            onMouseLeave={() => {
-                              isTooltipHoveredRef.current = false;
-                              setIsTooltipHovered(false);
-                              tooltipTimeoutRef.current = setTimeout(() => {
-                                setHoveredPoint(null);
-                                setHoveredForecast(null);
-                              }, 100);
-                            }}
-                          >
-                            {/* Top section: Time, Forecast, Wager */}
-                            <div className="px-3 py-2.5 space-y-1.5">
-                              {/* Time row */}
-                              <div className="flex items-center justify-between gap-6 h-5">
-                                <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                  Time
-                                </span>
-                                <TooltipProvider>
-                                  <UITooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="text-sm text-muted-foreground cursor-help">
-                                        {relativeTime}
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <span>{exactTime}</span>
-                                    </TooltipContent>
-                                  </UITooltip>
-                                </TooltipProvider>
-                              </div>
-                              {/* Forecast row */}
-                              <div className="flex items-center justify-between gap-6 h-5">
-                                <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                  Forecast
-                                </span>
-                                <span className="font-mono text-sm text-ethena">
-                                  {!isForecast &&
-                                    combinedPredictions &&
-                                    combinedPredictions.length > 0 &&
-                                    `${combinedWithYes === false ? '>' : '<'}`}
-                                  {Math.round(point.y)}% chance
-                                </span>
-                              </div>
-                              {/* Wager row - only for predictions */}
-                              {!isForecast && 'wager' in point && (
-                                <div className="flex items-center justify-between gap-6 h-5">
-                                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                    Wager
-                                  </span>
-                                  <span className="text-sm text-foreground">
-                                    {point.wager.toFixed(2)} USDe
-                                  </span>
-                                </div>
-                              )}
-                              {/* Forecaster row - only for forecasts */}
-                              {isForecast && (
-                                <div className="flex items-center justify-between gap-6 h-5">
-                                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                    Forecaster
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    <EnsAvatar
-                                      address={
-                                        (point as { attester: string }).attester
-                                      }
-                                      width={16}
-                                      height={16}
-                                    />
-                                    <AddressDisplay
-                                      address={
-                                        (point as { attester: string }).attester
-                                      }
-                                      compact
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Comment section - for forecasts */}
-                            {isForecast &&
-                              (point as { comment: string }).comment && (
-                                <>
-                                  <div className="border-t border-brand-white/10" />
-                                  <div className="px-3 py-2.5">
-                                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-wider mb-2">
-                                      Comment
-                                    </div>
-                                    <div className="text-sm text-foreground whitespace-pre-wrap break-words">
-                                      <SafeMarkdown
-                                        content={
-                                          (point as { comment: string }).comment
-                                        }
-                                        className="prose prose-invert prose-sm max-w-none"
-                                      />
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-
-                            {/* Divider - only for predictions */}
-                            {!isForecast && (
-                              <div className="border-t border-brand-white/10" />
-                            )}
-
-                            {/* Middle section: YES/NO predictors - only for predictions */}
-                            {!isForecast && (
-                              <div className="px-3 py-2.5 space-y-2">
-                                {/* YES predictor */}
-                                <div className="flex items-center justify-between gap-4">
-                                  <Badge
-                                    variant="outline"
-                                    className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-yes/40 bg-yes/10 text-yes shrink-0 font-mono"
-                                  >
-                                    YES
-                                  </Badge>
-                                  <div className="flex items-center gap-1.5">
-                                    <EnsAvatar
-                                      address={yesAddress}
-                                      width={16}
-                                      height={16}
-                                    />
-                                    <AddressDisplay
-                                      address={yesAddress}
-                                      compact
-                                    />
-                                  </div>
-                                </div>
-                                {/* NO predictor */}
-                                <div className="flex items-center justify-between gap-4">
-                                  <Badge
-                                    variant="outline"
-                                    className="px-1.5 py-0.5 text-xs font-medium !rounded-md border-no/40 bg-no/10 text-no shrink-0 font-mono"
-                                  >
-                                    NO
-                                  </Badge>
-                                  <div className="flex items-center gap-1.5">
-                                    <EnsAvatar
-                                      address={noAddress}
-                                      width={16}
-                                      height={16}
-                                    />
-                                    <AddressDisplay
-                                      address={noAddress}
-                                      compact
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Combined predictions section (if parlay) */}
-                            {!isForecast &&
-                              combinedPredictions &&
-                              combinedPredictions.length > 0 && (
-                                <>
-                                  <div className="border-t border-brand-white/10" />
-                                  <div className="px-3 py-2.5">
-                                    <div className="flex items-center justify-between gap-4">
-                                      <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                                        Combined
-                                      </span>
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <button
-                                            type="button"
-                                            className="text-sm text-brand-white hover:text-brand-white/80 underline decoration-dotted underline-offset-2 transition-colors whitespace-nowrap"
-                                          >
-                                            {combinedPredictions.length}{' '}
-                                            prediction
-                                            {combinedPredictions.length !== 1
-                                              ? 's'
-                                              : ''}
-                                          </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent
-                                          className="w-auto max-w-sm p-0 bg-brand-black border-brand-white/20"
-                                          align="start"
-                                        >
-                                          <div className="flex flex-col divide-y divide-brand-white/20">
-                                            <div className="flex items-center gap-3 px-3 py-2">
-                                              <span className="text-sm text-brand-white">
-                                                Predicted with
-                                              </span>
-                                              <Badge
-                                                variant="outline"
-                                                className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                  combinedWithYes
-                                                    ? 'border-yes/40 bg-yes/10 text-yes'
-                                                    : 'border-no/40 bg-no/10 text-no'
-                                                }`}
-                                              >
-                                                {combinedWithYes ? 'YES' : 'NO'}
-                                              </Badge>
-                                            </div>
-                                            {combinedPredictions.map(
-                                              (pred, i) => (
-                                                <div
-                                                  key={`scatter-combined-${i}`}
-                                                  className="flex items-center gap-3 px-3 py-2"
-                                                >
-                                                  <MarketBadge
-                                                    label={pred.question}
-                                                    size={32}
-                                                    color={getCategoryColor(
-                                                      pred.categorySlug
-                                                    )}
-                                                    categorySlug={
-                                                      pred.categorySlug
-                                                    }
-                                                  />
-                                                  <span className="text-sm flex-1 min-w-0 font-mono underline decoration-dotted underline-offset-2 hover:text-brand-white/80 transition-colors cursor-pointer truncate">
-                                                    {pred.question}
-                                                  </span>
-                                                  <Badge
-                                                    variant="outline"
-                                                    className={`shrink-0 w-9 px-0 py-0.5 text-xs font-medium !rounded-md font-mono flex items-center justify-center ${
-                                                      pred.prediction
-                                                        ? 'border-yes/40 bg-yes/10 text-yes'
-                                                        : 'border-no/40 bg-no/10 text-no'
-                                                    }`}
-                                                  >
-                                                    {pred.prediction
-                                                      ? 'YES'
-                                                      : 'NO'}
-                                                  </Badge>
-                                                </div>
-                                              )
-                                            )}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                          </div>
-                        );
-                      }}
-                    />
-                    <Scatter
-                      name="Predictions"
-                      data={scatterData}
-                      fill="hsl(var(--ethena))"
-                      shape={(props: any) => {
-                        const { cx, cy, payload } = props;
-                        // Scale wager to radius: min 4px, max 20px
-                        // Use actual wager range from data
-                        const minR = 4;
-                        const maxR = 20;
-                        const { wagerMin, wagerMax } = wagerRange;
-                        const wager = payload?.wager ?? 0;
-
-                        // Normalize wager to the calculated range
-                        const normalizedWager = Math.max(
-                          wagerMin,
-                          Math.min(wagerMax, wager)
-                        );
-
-                        // Calculate radius based on normalized wager
-                        const wagerRangeSize = wagerMax - wagerMin;
-                        const radius =
-                          wagerRangeSize > 0
-                            ? minR +
-                              ((normalizedWager - wagerMin) / wagerRangeSize) *
-                                (maxR - minR)
-                            : minR; // Fallback if range is 0
-
-                        // Check if this is a combined prediction (parlay)
-                        if (payload?.combinedPredictions?.length > 0) {
-                          // Render horizontal line with gradient ray
-                          const width = radius * 2.5;
-                          const lineWidth = width * 2;
-                          const rayLength = lineWidth * 0.6; // Ray height proportional to line width
-                          const gradientId = `bracket-ray-gradient-${payload.x}`;
-                          const lineGradientId = `bracket-line-gradient-${payload.x}`;
-                          // Determine ray direction based on taker's prediction:
-                          // - Taker bets YES (takerPrediction: true) → ray DOWN (toward 100%)
-                          // - Taker bets NO (takerPrediction: false) → ray UP (toward 0%)
-                          // takerPrediction = !makerPrediction
-                          const takerPrediction = !payload.makerPrediction;
-                          const rayUp = takerPrediction === false;
-                          return (
-                            <g
-                              className="bracket-combined"
-                              onMouseEnter={() => {
-                                if (tooltipTimeoutRef.current) {
-                                  clearTimeout(tooltipTimeoutRef.current);
-                                  tooltipTimeoutRef.current = null;
-                                }
-                                setHoveredPoint(payload as PredictionData);
-                              }}
-                              onMouseLeave={() => {
-                                // Delay clearing to allow moving to tooltip
-                                tooltipTimeoutRef.current = setTimeout(() => {
-                                  if (!isTooltipHoveredRef.current) {
-                                    setHoveredPoint(null);
-                                  }
-                                }, 150);
-                              }}
-                            >
-                              {/* Radial gradient definition for the semicircle ray */}
-                              <defs>
-                                <radialGradient
-                                  id={gradientId}
-                                  cx="50%"
-                                  cy={rayUp ? '100%' : '0%'}
-                                  r="100%"
-                                  fx="50%"
-                                  fy={rayUp ? '100%' : '0%'}
-                                >
-                                  {/* Smooth exponential fadeout with many stops */}
-                                  <stop
-                                    offset="0%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="1"
-                                  />
-                                  <stop
-                                    offset="5%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.85"
-                                  />
-                                  <stop
-                                    offset="10%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.7"
-                                  />
-                                  <stop
-                                    offset="15%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.55"
-                                  />
-                                  <stop
-                                    offset="20%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.45"
-                                  />
-                                  <stop
-                                    offset="25%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.35"
-                                  />
-                                  <stop
-                                    offset="30%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.28"
-                                  />
-                                  <stop
-                                    offset="35%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.2"
-                                  />
-                                  <stop
-                                    offset="40%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.14"
-                                  />
-                                  <stop
-                                    offset="50%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.08"
-                                  />
-                                  <stop
-                                    offset="60%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.04"
-                                  />
-                                  <stop
-                                    offset="70%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.02"
-                                  />
-                                  <stop
-                                    offset="80%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.005"
-                                  />
-                                  <stop
-                                    offset="100%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0"
-                                  />
-                                </radialGradient>
-                                {/* Linear gradient for horizontal line - fades at edges */}
-                                <linearGradient
-                                  id={lineGradientId}
-                                  x1={cx - width}
-                                  y1={cy}
-                                  x2={cx + width}
-                                  y2={cy}
-                                  gradientUnits="userSpaceOnUse"
-                                >
-                                  <stop
-                                    offset="0%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0"
-                                  />
-                                  <stop
-                                    offset="40%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.8"
-                                  />
-                                  <stop
-                                    offset="60%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.8"
-                                  />
-                                  <stop
-                                    offset="100%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0"
-                                  />
-                                </linearGradient>
-                              </defs>
-                              {/* Semicircle gradient ray - direction based on taker's prediction */}
-                              <path
-                                d={
-                                  rayUp
-                                    ? `M ${cx - width} ${cy} A ${width} ${rayLength} 0 0 1 ${cx + width} ${cy} Z`
-                                    : `M ${cx - width} ${cy} A ${width} ${rayLength} 0 0 0 ${cx + width} ${cy} Z`
-                                }
-                                fill={`url(#${gradientId})`}
-                                className="bracket-ray"
-                              />
-                              {/* Horizontal line as rect with gradient fill */}
-                              <rect
-                                x={cx - width}
-                                y={cy - 0.5}
-                                width={width * 2}
-                                height={1}
-                                fill={`url(#${lineGradientId})`}
-                                className="scatter-dot"
-                              />
-                            </g>
-                          );
-                        }
-
-                        // Regular circle for non-combined predictions
-                        return (
-                          <circle
-                            cx={cx}
-                            cy={cy}
-                            r={radius}
-                            fill="hsl(var(--ethena) / 0.2)"
-                            stroke="hsl(var(--ethena) / 0.8)"
-                            strokeWidth={1.5}
-                            className="scatter-dot"
-                            onMouseEnter={() => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current);
-                                tooltipTimeoutRef.current = null;
-                              }
-                              setHoveredPoint(payload as PredictionData);
-                            }}
-                            onMouseLeave={() => {
-                              // Delay clearing to allow moving to tooltip
-                              tooltipTimeoutRef.current = setTimeout(() => {
-                                if (!isTooltipHoveredRef.current) {
-                                  setHoveredPoint(null);
-                                }
-                              }, 150);
-                            }}
-                          />
-                        );
-                      }}
-                    />
-                    {/* Comment squares - rendered on top of prediction dots */}
-                    <Scatter
-                      name="Comments"
-                      data={commentScatterData}
-                      fill="hsl(var(--brand-white))"
-                      shape={(props: any) => {
-                        const { cx, cy, payload } = props;
-                        const size = 6;
-                        const isHovered =
-                          hoveredComment?.data?.x === payload?.x &&
-                          hoveredComment?.data?.attester === payload?.attester;
-                        return (
-                          <rect
-                            x={cx - size / 2}
-                            y={cy - size / 2}
-                            width={size}
-                            height={size}
-                            fill={
-                              isHovered
-                                ? 'hsl(var(--brand-white))'
-                                : 'hsl(var(--brand-white) / 0.9)'
-                            }
-                            stroke="hsl(var(--brand-white))"
-                            strokeWidth={1}
-                            className="cursor-pointer"
-                            style={{
-                              filter: isHovered
-                                ? 'drop-shadow(0 0 4px hsl(var(--brand-white) / 0.5))'
-                                : undefined,
-                            }}
-                            onMouseEnter={() => {
-                              cancelCommentTooltipHide();
-                              if (
-                                typeof cx === 'number' &&
-                                typeof cy === 'number'
-                              ) {
-                                setHoveredComment({
-                                  x: cx,
-                                  y: cy,
-                                  data: payload as PredictionData,
-                                });
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              scheduleCommentTooltipHide(150);
-                            }}
-                          />
-                        );
-                      }}
-                    />
-                    {/* Forecast dots - white dots for user-submitted forecasts */}
-                    <Scatter
-                      name="Forecasts"
-                      data={forecastScatterData}
-                      fill="hsl(var(--brand-white))"
-                      shape={(props: any) => {
-                        const { cx, cy, payload } = props;
-                        const radius = 2.5;
-                        const isHovered =
-                          hoveredForecast?.x === payload?.x &&
-                          hoveredForecast?.attester === payload?.attester;
-                        return (
-                          <circle
-                            cx={cx}
-                            cy={cy}
-                            r={radius}
-                            fill="hsl(var(--brand-white))"
-                            opacity={isHovered ? 0.8 : 1}
-                            className="cursor-pointer"
-                            onMouseEnter={() => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current);
-                                tooltipTimeoutRef.current = null;
-                              }
-                              setHoveredForecast(
-                                payload as {
-                                  x: number;
-                                  y: number;
-                                  time: string;
-                                  attester: string;
-                                  comment: string;
-                                }
-                              );
-                            }}
-                            onMouseLeave={() => {
-                              // Delay clearing to allow moving to tooltip
-                              tooltipTimeoutRef.current = setTimeout(() => {
-                                if (!isTooltipHoveredRef.current) {
-                                  setHoveredForecast(null);
-                                }
-                              }, 150);
-                            }}
-                          />
-                        );
-                      }}
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              )}
-
-              {/* Comment popover - positioned absolutely relative to scatter plot container */}
-              <AnimatePresence>
-                {hoveredComment && (
-                  <motion.div
-                    key={`comment-${hoveredComment.data.x}-${hoveredComment.data.attester}`}
-                    className="absolute pointer-events-auto z-50"
-                    style={{
-                      left: hoveredComment.x,
-                      top: hoveredComment.y,
-                      transform: 'translate(8px, 8px)',
-                    }}
-                    onMouseEnter={() => {
-                      isCommentTooltipHoveredRef.current = true;
-                      cancelCommentTooltipHide();
-                    }}
-                    onMouseLeave={() => {
-                      isCommentTooltipHoveredRef.current = false;
-                      scheduleCommentTooltipHide(100);
-                    }}
-                    initial={{ opacity: 0, scale: 0.96, y: 4 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.96, y: 4 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                  >
-                    <div
-                      className="rounded-lg border overflow-hidden max-w-[320px] min-w-[280px]"
-                      style={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      }}
-                    >
-                      {/* Comment content */}
-                      {hoveredComment.data.comment && (
-                        <div className="p-3 border-b border-border">
-                          <div className="text-sm leading-relaxed text-foreground/90 break-words">
-                            {hoveredComment.data.comment}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Meta row: prediction badge, time, address */}
-                      <div className="px-3 py-2.5 flex items-center gap-3 flex-wrap">
-                        {/* Prediction badge */}
-                        {hoveredComment.data.predictionPercent !==
-                          undefined && (
-                          <Badge
-                            variant="outline"
-                            className={`px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono ${
-                              hoveredComment.data.predictionPercent > 50
-                                ? 'border-yes/40 bg-yes/10 text-yes'
-                                : hoveredComment.data.predictionPercent < 50
-                                  ? 'border-no/40 bg-no/10 text-no'
-                                  : 'border-muted-foreground/40 bg-muted/10 text-muted-foreground'
-                            }`}
-                          >
-                            {hoveredComment.data.predictionPercent}% chance
-                          </Badge>
-                        )}
-
-                        {/* Time */}
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {formatDistanceToNow(
-                            new Date(hoveredComment.data.x),
-                            { addSuffix: true }
-                          )}
-                        </span>
-
-                        {/* Author */}
-                        {hoveredComment.data.attester && (
-                          <div className="flex items-center gap-1.5 ml-auto">
-                            <EnsAvatar
-                              address={hoveredComment.data.attester}
-                              className="w-4 h-4 rounded-sm"
-                              width={16}
-                              height={16}
-                            />
-                            <AddressDisplay
-                              address={hoveredComment.data.attester}
-                              compact
-                              disablePopover
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Current Forecast + Prediction Form - same height as scatter plot */}
-            <PredictionForm
-              conditionId={conditionId}
-              chainId={chainId}
-              collateralToken={collateralToken}
-              collateralSymbol={collateralSymbol}
-              collateralDecimals={collateralDecimals}
-              minWager={minWager}
-              predictionMarketAddress={predictionMarketAddress}
-              bids={bids}
-              requestQuotes={requestQuotes}
-              buildMintRequestDataFromBid={buildMintRequestDataFromBid}
-              submitPosition={submitPosition}
-              isSubmitting={isPositionSubmitting}
+            {/* Resolver Badge */}
+            <ResolverBadge
+              resolverAddress={resolverAddress}
+              size="large"
+              appearance="brandWhite"
             />
           </div>
 
+          {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
+          {/* Only render this row when there's chart data to show */}
+          {shouldShowChart && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
+              {/* Scatterplot - height matches the PredictionForm dynamically */}
+              <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
+                <PredictionScatterChart
+                  scatterData={scatterData}
+                  forecastScatterData={forecastScatterData}
+                  isLoading={isLoadingPositions}
+                  wagerRange={wagerRange}
+                  xDomain={xDomain}
+                  xTicks={xTicks}
+                  xTickLabels={xTickLabels}
+                />
+              </div>
+
+              {/* Current Forecast + Prediction Form - same height as scatter plot */}
+              <PredictionForm
+                conditionId={conditionId}
+                chainId={chainId}
+                collateralToken={collateralToken}
+                collateralSymbol={collateralSymbol}
+                collateralDecimals={collateralDecimals}
+                minWager={minWager}
+                predictionMarketAddress={predictionMarketAddress}
+                bids={bids}
+                requestQuotes={requestQuotes}
+                buildMintRequestDataFromBid={buildMintRequestDataFromBid}
+                submitPosition={submitPosition}
+                isSubmitting={isPositionSubmitting}
+              />
+            </div>
+          )}
+
+          {/* Mobile: Show PredictionForm when no chart data */}
+          {!shouldShowChart && (
+            <div className="lg:hidden mb-6">
+              <PredictionForm
+                conditionId={conditionId}
+                chainId={chainId}
+                collateralToken={collateralToken}
+                collateralSymbol={collateralSymbol}
+                collateralDecimals={collateralDecimals}
+                minWager={minWager}
+                predictionMarketAddress={predictionMarketAddress}
+                bids={bids}
+                requestQuotes={requestQuotes}
+                buildMintRequestDataFromBid={buildMintRequestDataFromBid}
+                submitPosition={submitPosition}
+                isSubmitting={isPositionSubmitting}
+              />
+            </div>
+          )}
+
           {/* Row 2: Mobile - All tabs in one container */}
           <div className="lg:hidden mb-12">
-            <Tabs defaultValue="predictions" className="w-full min-w-0">
+            <Tabs
+              defaultValue={hasPositions ? 'predictions' : 'forecasts'}
+              className="w-full min-w-0"
+            >
               <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
                 {/* Header with all 5 tabs */}
                 <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10 overflow-x-auto">
                   <TabsList className="h-auto p-0 bg-transparent gap-2 flex-nowrap">
-                    <TabsTrigger
-                      value="predictions"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <ArrowLeftRight className="h-3.5 w-3.5" />
-                      Positions
-                    </TabsTrigger>
+                    {hasPositions && (
+                      <TabsTrigger
+                        value="predictions"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <ArrowLeftRight className="h-3.5 w-3.5" />
+                        Positions
+                      </TabsTrigger>
+                    )}
                     <TabsTrigger
                       value="forecasts"
                       className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
@@ -1893,7 +758,7 @@ export default function QuestionPageContent({
                       value="resolution"
                       className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                     >
-                      <Gavel className="h-3.5 w-3.5 -scale-x-100" />
+                      <Handshake className="h-3.5 w-3.5" />
                       Resolution
                     </TabsTrigger>
                     <TabsTrigger
@@ -1914,77 +779,10 @@ export default function QuestionPageContent({
                 </div>
                 {/* Content area - Positions */}
                 <TabsContent value="predictions" className="m-0">
-                  {isLoadingPositions ? (
-                    <div className="flex items-center justify-center p-12">
-                      <LottieLoader width={32} height={32} />
-                    </div>
-                  ) : scatterData.length > 0 ? (
-                    <div className="overflow-x-auto w-full min-w-0">
-                      <Table className="w-full">
-                        <TableHeader>
-                          {predictionsTable
-                            .getHeaderGroups()
-                            .map((headerGroup) => (
-                              <TableRow
-                                key={headerGroup.id}
-                                className="hover:!bg-background bg-background border-b border-border/60"
-                              >
-                                {headerGroup.headers.map((header) => (
-                                  <TableHead
-                                    key={header.id}
-                                    className="px-4 py-1 text-left text-sm font-medium text-muted-foreground"
-                                  >
-                                    {header.isPlaceholder
-                                      ? null
-                                      : flexRender(
-                                          header.column.columnDef.header,
-                                          header.getContext()
-                                        )}
-                                  </TableHead>
-                                ))}
-                              </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody className="bg-brand-black">
-                          {predictionsTable.getRowModel().rows.length ? (
-                            predictionsTable.getRowModel().rows.map((row) => (
-                              <TableRow
-                                key={row.id}
-                                className="border-b border-border/60 hover:bg-brand-white/5 transition-colors"
-                              >
-                                {row.getVisibleCells().map((cell) => (
-                                  <TableCell
-                                    key={cell.id}
-                                    className="px-4 py-3"
-                                  >
-                                    {flexRender(
-                                      cell.column.columnDef.cell,
-                                      cell.getContext()
-                                    )}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                colSpan={predictionsColumns.length}
-                                className="h-24 text-center text-muted-foreground"
-                              >
-                                No predictions yet
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-12">
-                      <span className="text-muted-foreground text-sm">
-                        No predictions yet
-                      </span>
-                    </div>
-                  )}
+                  <PredictionsTable
+                    data={scatterData}
+                    isLoading={isLoadingPositions}
+                  />
                 </TabsContent>
                 {/* Content area - Forecasts */}
                 <TabsContent value="forecasts" className="m-0">
@@ -2006,9 +804,14 @@ export default function QuestionPageContent({
                 </TabsContent>
                 {/* Content area - Resolution */}
                 <TabsContent value="resolution" className="m-0 p-4">
-                  <div className="mb-4">
+                  <div className="mb-4 flex items-center gap-3 flex-wrap">
                     <EndTimeDisplay
                       endTime={data.endTime ?? null}
+                      size="normal"
+                      appearance="brandWhite"
+                    />
+                    <ResolverBadge
+                      resolverAddress={resolverAddress}
                       size="normal"
                       appearance="brandWhite"
                     />
@@ -2036,391 +839,284 @@ export default function QuestionPageContent({
                 </TabsContent>
                 {/* Content area - Tech Spec */}
                 <TabsContent value="techspec" className="m-0">
-                  <table className="w-full text-xs">
-                    <tbody className="divide-y divide-border/60">
-                      <tr>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Market
-                        </td>
-                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-                          {(() => {
-                            const chainId = data.chainId ?? 42161;
-                            const address = predictionMarket[chainId]?.address;
-                            if (!address) return '—';
-                            return (
-                              <span className="inline-flex items-center gap-1.5">
-                                {`${address.slice(0, 6)}...${address.slice(-4)}`}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    navigator.clipboard.writeText(address)
-                                  }
-                                  className="text-muted-foreground hover:text-brand-white transition-colors"
-                                  title="Copy full market address"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </button>
-                              </span>
-                            );
-                          })()}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Resolver
-                        </td>
-                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-                          {(() => {
-                            const chainId = data.chainId ?? 42161;
-                            const address = umaResolver[chainId]?.address;
-                            if (!address) return '—';
-                            return (
-                              <a
-                                href={`https://arbiscan.io/address/${address}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 hover:text-accent-gold transition-colors"
-                              >
-                                {`${address.slice(0, 6)}...${address.slice(-4)}`}
-                                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
-                              </a>
-                            );
-                          })()}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Condition
-                        </td>
-                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-                          <span className="inline-flex items-center gap-1.5">
-                            {`${conditionId.slice(0, 6)}...${conditionId.slice(-4)}`}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigator.clipboard.writeText(conditionId)
-                              }
-                              className="text-muted-foreground hover:text-brand-white transition-colors"
-                              title="Copy full condition"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </button>
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <TechSpecTable
+                    conditionId={conditionId}
+                    chainId={data.chainId ?? 42161}
+                  />
                 </TabsContent>
               </div>
             </Tabs>
           </div>
 
           {/* Row 2: Desktop - Predictions/Forecasts (left) | Agent/Tech Spec (right) */}
-          <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
-            {/* Predictions/Forecasts/Resolution - Unified container with integrated tabs */}
-            <Tabs defaultValue="predictions" className="w-full min-w-0">
-              <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
-                {/* Header with integrated tabs */}
-                <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
-                  <TabsList className="h-auto p-0 bg-transparent gap-2">
-                    <TabsTrigger
-                      value="predictions"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <ArrowLeftRight className="h-3.5 w-3.5" />
-                      Positions
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="forecasts"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Telescope className="h-3.5 w-3.5" />
-                      Forecasts
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="resolution"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Gavel className="h-3.5 w-3.5 -scale-x-100" />
-                      Resolution
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-                {/* Content area */}
-                <TabsContent value="predictions" className="m-0">
-                  {isLoadingPositions ? (
-                    <div className="flex items-center justify-center p-12">
-                      <LottieLoader width={32} height={32} />
-                    </div>
-                  ) : scatterData.length > 0 ? (
-                    <div className="overflow-x-auto w-full min-w-0">
-                      <Table className="w-full">
-                        <TableHeader>
-                          {predictionsTable
-                            .getHeaderGroups()
-                            .map((headerGroup) => (
-                              <TableRow
-                                key={headerGroup.id}
-                                className="hover:!bg-background bg-background border-b border-border/60"
-                              >
-                                {headerGroup.headers.map((header) => (
-                                  <TableHead
-                                    key={header.id}
-                                    className="px-4 py-1 text-left text-sm font-medium text-muted-foreground"
-                                  >
-                                    {header.isPlaceholder
-                                      ? null
-                                      : flexRender(
-                                          header.column.columnDef.header,
-                                          header.getContext()
-                                        )}
-                                  </TableHead>
-                                ))}
-                              </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody className="bg-brand-black">
-                          {predictionsTable.getRowModel().rows.length ? (
-                            predictionsTable.getRowModel().rows.map((row) => (
-                              <TableRow
-                                key={row.id}
-                                className="border-b border-border/60 hover:bg-brand-white/5 transition-colors"
-                              >
-                                {row.getVisibleCells().map((cell) => (
-                                  <TableCell
-                                    key={cell.id}
-                                    className="px-4 py-3"
-                                  >
-                                    {flexRender(
-                                      cell.column.columnDef.cell,
-                                      cell.getContext()
-                                    )}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                colSpan={predictionsColumns.length}
-                                className="h-24 text-center text-muted-foreground"
-                              >
-                                No predictions yet
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-12">
-                      <span className="text-muted-foreground text-sm">
-                        No predictions yet
-                      </span>
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent value="forecasts" className="m-0">
-                  <div className="p-4 border-b border-border/60">
-                    <ConditionForecastForm
-                      conditionId={conditionId}
-                      question={data.shortName || data.question || ''}
-                      endTime={data.endTime ?? undefined}
-                      categorySlug={data.category?.slug}
-                      onSuccess={handleForecastSuccess}
-                    />
+          {/* Only show this layout when chart is visible (has positions or forecasts) */}
+          {shouldShowChart && (
+            <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
+              {/* Predictions/Forecasts/Resolution - Unified container with integrated tabs */}
+              <Tabs
+                defaultValue={hasPositions ? 'predictions' : 'forecasts'}
+                className="w-full min-w-0"
+              >
+                <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
+                  {/* Header with integrated tabs */}
+                  <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+                    <TabsList className="h-auto p-0 bg-transparent gap-2">
+                      {hasPositions && (
+                        <TabsTrigger
+                          value="predictions"
+                          className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <ArrowLeftRight className="h-3.5 w-3.5" />
+                          Positions
+                        </TabsTrigger>
+                      )}
+                      <TabsTrigger
+                        value="forecasts"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Telescope className="h-3.5 w-3.5" />
+                        Forecasts
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="resolution"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Handshake className="h-3.5 w-3.5" />
+                        Resolution
+                      </TabsTrigger>
+                    </TabsList>
                   </div>
-                  <Comments
-                    selectedCategory={CommentFilters.SelectedQuestion}
-                    question={data.shortName || data.question}
-                    conditionId={conditionId}
-                    refetchTrigger={refetchTrigger}
-                  />
-                </TabsContent>
-                <TabsContent value="resolution" className="m-0 p-4">
-                  <div className="mb-4">
-                    <EndTimeDisplay
-                      endTime={data.endTime ?? null}
-                      size="normal"
-                      appearance="brandWhite"
+                  {/* Content area */}
+                  <TabsContent value="predictions" className="m-0">
+                    <PredictionsTable
+                      data={scatterData}
+                      isLoading={isLoadingPositions}
                     />
-                  </div>
-                  {data.description ? (
-                    <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
-                      <SafeMarkdown
-                        content={data.description}
-                        className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+                  </TabsContent>
+                  <TabsContent value="forecasts" className="m-0">
+                    <div className="p-4 border-b border-border/60">
+                      <ConditionForecastForm
+                        conditionId={conditionId}
+                        question={data.shortName || data.question || ''}
+                        endTime={data.endTime ?? undefined}
+                        categorySlug={data.category?.slug}
+                        onSuccess={handleForecastSuccess}
                       />
                     </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">
-                      No resolution criteria available.
-                    </span>
-                  )}
-                </TabsContent>
-              </div>
-            </Tabs>
-
-            {/* Agent / Tech Spec - Unified container with integrated tabs */}
-            <Tabs defaultValue="agent" className="w-full">
-              <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
-                {/* Header with integrated tabs */}
-                <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
-                  <TabsList className="h-auto p-0 bg-transparent gap-2">
-                    <TabsTrigger
-                      value="agent"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      Agent
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="techspec"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Code className="h-3.5 w-3.5" />
-                      Tech Spec
-                    </TabsTrigger>
-                  </TabsList>
+                    <Comments
+                      selectedCategory={CommentFilters.SelectedQuestion}
+                      question={data.shortName || data.question}
+                      conditionId={conditionId}
+                      refetchTrigger={refetchTrigger}
+                    />
+                  </TabsContent>
+                  <TabsContent value="resolution" className="m-0 p-4">
+                    <div className="mb-4 flex items-center gap-3 flex-wrap">
+                      <EndTimeDisplay
+                        endTime={data.endTime ?? null}
+                        size="normal"
+                        appearance="brandWhite"
+                      />
+                      <ResolverBadge
+                        resolverAddress={resolverAddress}
+                        size="normal"
+                        appearance="brandWhite"
+                      />
+                    </div>
+                    {data.description ? (
+                      <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
+                        <SafeMarkdown
+                          content={data.description}
+                          className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">
+                        No resolution criteria available.
+                      </span>
+                    )}
+                  </TabsContent>
                 </div>
-                {/* Content area */}
-                <TabsContent value="agent" className="m-0">
-                  <ResearchAgent
-                    question={data.shortName || data.question}
-                    endTime={data.endTime}
-                    description={data.description}
-                  />
-                </TabsContent>
-                <TabsContent value="techspec" className="m-0">
-                  <table className="w-full text-xs">
-                    <tbody className="divide-y divide-border/60">
-                      <tr>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Market
-                        </td>
-                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-                          {(() => {
-                            const chainId = data.chainId ?? 42161;
-                            const address = predictionMarket[chainId]?.address;
-                            if (!address) return '—';
-                            return (
-                              <span className="inline-flex items-center gap-1.5">
-                                {`${address.slice(0, 6)}...${address.slice(-4)}`}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    navigator.clipboard.writeText(address)
-                                  }
-                                  className="text-muted-foreground hover:text-brand-white transition-colors"
-                                  title="Copy full market address"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </button>
-                              </span>
-                            );
-                          })()}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Resolver
-                        </td>
-                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-                          {(() => {
-                            const chainId = data.chainId ?? 42161;
-                            const address = umaResolver[chainId]?.address;
-                            if (!address) return '—';
-                            return (
-                              <a
-                                href={`https://arbiscan.io/address/${address}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 hover:text-accent-gold transition-colors"
-                              >
-                                {`${address.slice(0, 6)}...${address.slice(-4)}`}
-                                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
-                              </a>
-                            );
-                          })()}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Condition
-                        </td>
-                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-                          <span className="inline-flex items-center gap-1.5">
-                            {`${conditionId.slice(0, 6)}...${conditionId.slice(-4)}`}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigator.clipboard.writeText(conditionId)
-                              }
-                              className="text-muted-foreground hover:text-brand-white transition-colors"
-                              title="Copy full condition"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </button>
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </TabsContent>
+              </Tabs>
+
+              {/* Agent / Tech Spec - Unified container with integrated tabs */}
+              <Tabs defaultValue="agent" className="w-full">
+                <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+                  {/* Header with integrated tabs */}
+                  <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+                    <TabsList className="h-auto p-0 bg-transparent gap-2">
+                      <TabsTrigger
+                        value="agent"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Bot className="h-3.5 w-3.5" />
+                        Agent
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="techspec"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Code className="h-3.5 w-3.5" />
+                        Tech Spec
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                  {/* Content area */}
+                  <TabsContent value="agent" className="m-0">
+                    <ResearchAgent
+                      question={data.shortName || data.question}
+                      endTime={data.endTime}
+                      description={data.description}
+                    />
+                  </TabsContent>
+                  <TabsContent value="techspec" className="m-0">
+                    <TechSpecTable
+                      conditionId={conditionId}
+                      chainId={data.chainId ?? 42161}
+                    />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </div>
+          )}
+
+          {/* Alternative Desktop layout when no chart data - Forecasts/Resolution (left) | PredictionForm + Agent/TechSpec (right) */}
+          {!shouldShowChart && (
+            <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
+              {/* Forecasts/Resolution - Left column */}
+              <Tabs defaultValue="forecasts" className="w-full min-w-0">
+                <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
+                  {/* Header with integrated tabs */}
+                  <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+                    <TabsList className="h-auto p-0 bg-transparent gap-2">
+                      <TabsTrigger
+                        value="forecasts"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Telescope className="h-3.5 w-3.5" />
+                        Forecasts
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="resolution"
+                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Handshake className="h-3.5 w-3.5" />
+                        Resolution
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+                  {/* Content area */}
+                  <TabsContent value="forecasts" className="m-0">
+                    <div className="p-4 border-b border-border/60">
+                      <ConditionForecastForm
+                        conditionId={conditionId}
+                        question={data.shortName || data.question || ''}
+                        endTime={data.endTime ?? undefined}
+                        categorySlug={data.category?.slug}
+                        onSuccess={handleForecastSuccess}
+                      />
+                    </div>
+                    <Comments
+                      selectedCategory={CommentFilters.SelectedQuestion}
+                      question={data.shortName || data.question}
+                      conditionId={conditionId}
+                      refetchTrigger={refetchTrigger}
+                    />
+                  </TabsContent>
+                  <TabsContent value="resolution" className="m-0 p-4">
+                    <div className="mb-4 flex items-center gap-3 flex-wrap">
+                      <EndTimeDisplay
+                        endTime={data.endTime ?? null}
+                        size="normal"
+                        appearance="brandWhite"
+                      />
+                      <ResolverBadge
+                        resolverAddress={resolverAddress}
+                        size="normal"
+                        appearance="brandWhite"
+                      />
+                    </div>
+                    {data.description ? (
+                      <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
+                        <SafeMarkdown
+                          content={data.description}
+                          className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">
+                        No resolution criteria available.
+                      </span>
+                    )}
+                  </TabsContent>
+                </div>
+              </Tabs>
+
+              {/* Right column: PredictionForm + Agent/TechSpec stacked */}
+              <div className="flex flex-col gap-6">
+                {/* PredictionForm at top */}
+                <PredictionForm
+                  conditionId={conditionId}
+                  chainId={chainId}
+                  collateralToken={collateralToken}
+                  collateralSymbol={collateralSymbol}
+                  collateralDecimals={collateralDecimals}
+                  minWager={minWager}
+                  predictionMarketAddress={predictionMarketAddress}
+                  bids={bids}
+                  requestQuotes={requestQuotes}
+                  buildMintRequestDataFromBid={buildMintRequestDataFromBid}
+                  submitPosition={submitPosition}
+                  isSubmitting={isPositionSubmitting}
+                />
+
+                {/* Agent / Tech Spec tabs below */}
+                <Tabs defaultValue="agent" className="w-full">
+                  <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
+                    {/* Header with integrated tabs */}
+                    <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+                      <TabsList className="h-auto p-0 bg-transparent gap-2">
+                        <TabsTrigger
+                          value="agent"
+                          className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <Bot className="h-3.5 w-3.5" />
+                          Agent
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="techspec"
+                          className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <Code className="h-3.5 w-3.5" />
+                          Tech Spec
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+                    {/* Content area */}
+                    <TabsContent value="agent" className="m-0">
+                      <ResearchAgent
+                        question={data.shortName || data.question}
+                        endTime={data.endTime}
+                        description={data.description}
+                      />
+                    </TabsContent>
+                    <TabsContent value="techspec" className="m-0">
+                      <TechSpecTable
+                        conditionId={conditionId}
+                        chainId={data.chainId ?? 42161}
+                      />
+                    </TabsContent>
+                  </div>
+                </Tabs>
               </div>
-            </Tabs>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <style jsx global>{`
-        .scatter-dot {
-          transition: fill 150ms ease-out;
-          cursor: pointer;
-        }
-        .scatter-dot:hover {
-          animation: scatter-pulse 2.5s ease-in-out infinite;
-        }
-        @keyframes scatter-pulse {
-          0%,
-          100% {
-            fill: hsl(var(--ethena) / 0.2);
-          }
-          50% {
-            fill: hsl(var(--ethena) / 0.45);
-          }
-        }
-        .bracket-combined {
-          cursor: pointer;
-        }
-        .bracket-ray {
-          opacity: 0.5;
-          transition: opacity 150ms ease-out;
-        }
-        .bracket-combined:hover .bracket-ray {
-          animation: ray-pulse 2.5s ease-in-out infinite;
-        }
-        @keyframes ray-pulse {
-          0%,
-          100% {
-            opacity: 0.5;
-          }
-          50% {
-            opacity: 0.85;
-          }
-        }
-        .scatter-tooltip {
-          animation: tooltip-fade-in 150ms ease-out;
-        }
-        @keyframes tooltip-fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-      `}</style>
+      <style jsx global>
+        {scatterChartStyles}
+      </style>
     </div>
   );
 }

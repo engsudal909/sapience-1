@@ -119,7 +119,9 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
                   variant={isPast ? 'secondary' : 'outline'}
                   className={`${smallBadgeClassName} ${brandWhiteBadgeExtras}`}
                 >
-                  <Timer className={`h-4 w-4 mr-1 ${timerColorClass}`} />
+                  <Timer
+                    className={`h-4 w-4 mr-1.5 -mt-[1px] opacity-70 ${timerColorClass}`}
+                  />
                   {badgeText}
                 </Badge>
               </span>
@@ -140,7 +142,7 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
                   className={`${largeBadgeClassName} ${brandWhiteBadgeExtras}`}
                 >
                   <Timer
-                    className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1 -mt-0.5 ${appearance === 'brandWhite' ? '' : 'opacity-70'} ${timerColorClass}`}
+                    className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1.5 -mt-[1px] opacity-70 ${timerColorClass}`}
                   />
                   {badgeText}
                   {showExpandedDate && (
