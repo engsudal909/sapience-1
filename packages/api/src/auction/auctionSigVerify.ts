@@ -96,4 +96,3 @@ export function generateSigningMessage(
     issuedAt || new Date().toISOString()
   );
 }
-
