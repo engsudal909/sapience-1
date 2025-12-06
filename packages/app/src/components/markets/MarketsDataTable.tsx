@@ -236,9 +236,7 @@ function PredictCell({ condition }: { condition: ConditionType }) {
 
   const selectionState = React.useMemo(() => {
     if (!condition.id) return { selectedYes: false, selectedNo: false };
-    const existing = selections.find(
-      (s) => s.conditionId === condition.id
-    );
+    const existing = selections.find((s) => s.conditionId === condition.id);
     return {
       selectedYes: !!existing && existing.prediction === true,
       selectedNo: !!existing && existing.prediction === false,
@@ -247,9 +245,7 @@ function PredictCell({ condition }: { condition: ConditionType }) {
 
   const handleYes = React.useCallback(() => {
     if (!condition.id) return;
-    const existing = selections.find(
-      (s) => s.conditionId === condition.id
-    );
+    const existing = selections.find((s) => s.conditionId === condition.id);
     if (existing && existing.prediction === true) {
       removeSelection(existing.id);
       return;
@@ -271,9 +267,7 @@ function PredictCell({ condition }: { condition: ConditionType }) {
 
   const handleNo = React.useCallback(() => {
     if (!condition.id) return;
-    const existing = selections.find(
-      (s) => s.conditionId === condition.id
-    );
+    const existing = selections.find((s) => s.conditionId === condition.id);
     if (existing && existing.prediction === false) {
       removeSelection(existing.id);
       return;

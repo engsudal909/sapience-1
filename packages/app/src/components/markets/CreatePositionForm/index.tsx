@@ -750,9 +750,7 @@ const CreatePositionForm = ({
                   variant="ghost"
                   size="xs"
                   className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
-                  onClick={
-                    isPositionMode ? clearSelections : clearPositionForm
-                  }
+                  onClick={isPositionMode ? clearSelections : clearPositionForm}
                   title="Reset"
                 >
                   CLEAR

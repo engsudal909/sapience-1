@@ -57,8 +57,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
     take: 200,
     chainId,
   });
-  const { addSelection, clearSelections } =
-    useCreatePositionContext();
+  const { addSelection, clearSelections } = useCreatePositionContext();
   const { apiBaseUrl } = useSettings();
   const { address: walletAddress } = useAccount();
 

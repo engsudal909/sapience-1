@@ -69,8 +69,7 @@ export default function PositionForm({
   minWager,
   predictionMarketAddress,
 }: PositionFormProps) {
-  const { selections, removeSelection } =
-    useCreatePositionContext();
+  const { selections, removeSelection } = useCreatePositionContext();
   const { address: takerAddress } = useAccount();
   const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;

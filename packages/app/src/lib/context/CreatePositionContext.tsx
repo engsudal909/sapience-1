@@ -100,8 +100,8 @@ export const CreatePositionProvider = ({
   const [singlePositions, setSinglePositions] = useState<CreatePositionEntry[]>(
     []
   );
-  const [selections, setSelections] = useState<PositionSelection[]>(
-    () => loadFromStorage(STORAGE_KEY_SELECTIONS, [])
+  const [selections, setSelections] = useState<PositionSelection[]>(() =>
+    loadFromStorage(STORAGE_KEY_SELECTIONS, [])
   );
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 

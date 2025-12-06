@@ -1273,4 +1273,3 @@ export default function PositionsTable({
     </div>
   );
 }
-

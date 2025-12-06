@@ -80,7 +80,10 @@ export function getRowLeftBarColor(
 ): string | undefined {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
-  if (normalizedType.includes('position') || normalizedType.includes('parlay')) {
+  if (
+    normalizedType.includes('position') ||
+    normalizedType.includes('parlay')
+  ) {
     return 'hsl(var(--foreground))';
   }
   // For forecasts, fall through to category color logic below (no special override)
@@ -160,7 +163,9 @@ export function getRowLeftBarColor(
 function isPositionTransaction(tx: UiTransaction): boolean {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
-  return normalizedType.includes('position') || normalizedType.includes('parlay');
+  return (
+    normalizedType.includes('position') || normalizedType.includes('parlay')
+  );
 }
 
 function getTransactionTypeDisplay(type: string) {
@@ -814,7 +819,10 @@ export function TransactionPositionCell({
 export function TransactionQuestionCell({ tx }: { tx: UiTransaction }) {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
-  if (normalizedType.includes('position') || normalizedType.includes('parlay')) {
+  if (
+    normalizedType.includes('position') ||
+    normalizedType.includes('parlay')
+  ) {
     const logData: any = (tx.event as any)?.logData || {};
     const outcomes: Array<any> = Array.isArray(logData?.predictedOutcomes)
       ? logData.predictedOutcomes

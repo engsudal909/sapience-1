@@ -59,8 +59,7 @@ export const CreatePositionFormContent = ({
   minWager,
   predictionMarketAddress,
 }: CreatePositionFormContentProps) => {
-  const { selections, clearSelections } =
-    useCreatePositionContext();
+  const { selections, clearSelections } = useCreatePositionContext();
   const hasItems = selections.length > 0;
 
   return (

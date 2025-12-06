@@ -336,12 +336,13 @@ export default function QuestionPageContent({
   }, [minCollateralRaw, collateralDecimals]);
 
   // Initialize submit position hook for mint transaction
-  const { submitPosition, isSubmitting: isPositionSubmitting } = useSubmitPosition({
-    chainId,
-    predictionMarketAddress: predictionMarketAddress,
-    collateralTokenAddress: collateralToken as `0x${string}`,
-    enabled: !!predictionMarketAddress && !!collateralToken,
-  });
+  const { submitPosition, isSubmitting: isPositionSubmitting } =
+    useSubmitPosition({
+      chainId,
+      predictionMarketAddress: predictionMarketAddress,
+      collateralTokenAddress: collateralToken as `0x${string}`,
+      enabled: !!predictionMarketAddress && !!collateralToken,
+    });
 
   // Fetch positions for this condition
   const { data: positions, isLoading: isLoadingPositions } =
@@ -1506,21 +1507,81 @@ export default function QuestionPageContent({
                                   fy={rayUp ? '100%' : '0%'}
                                 >
                                   {/* Smooth exponential fadeout with many stops */}
-                                  <stop offset="0%" stopColor="hsl(var(--ethena))" stopOpacity="0.7" />
-                                  <stop offset="5%" stopColor="hsl(var(--ethena))" stopOpacity="0.6" />
-                                  <stop offset="10%" stopColor="hsl(var(--ethena))" stopOpacity="0.5" />
-                                  <stop offset="15%" stopColor="hsl(var(--ethena))" stopOpacity="0.42" />
-                                  <stop offset="20%" stopColor="hsl(var(--ethena))" stopOpacity="0.35" />
-                                  <stop offset="25%" stopColor="hsl(var(--ethena))" stopOpacity="0.28" />
-                                  <stop offset="30%" stopColor="hsl(var(--ethena))" stopOpacity="0.22" />
-                                  <stop offset="35%" stopColor="hsl(var(--ethena))" stopOpacity="0.17" />
-                                  <stop offset="40%" stopColor="hsl(var(--ethena))" stopOpacity="0.13" />
-                                  <stop offset="50%" stopColor="hsl(var(--ethena))" stopOpacity="0.08" />
-                                  <stop offset="60%" stopColor="hsl(var(--ethena))" stopOpacity="0.05" />
-                                  <stop offset="70%" stopColor="hsl(var(--ethena))" stopOpacity="0.025" />
-                                  <stop offset="80%" stopColor="hsl(var(--ethena))" stopOpacity="0.01" />
-                                  <stop offset="90%" stopColor="hsl(var(--ethena))" stopOpacity="0.003" />
-                                  <stop offset="100%" stopColor="hsl(var(--ethena))" stopOpacity="0" />
+                                  <stop
+                                    offset="0%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="1"
+                                  />
+                                  <stop
+                                    offset="5%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.9"
+                                  />
+                                  <stop
+                                    offset="10%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.8"
+                                  />
+                                  <stop
+                                    offset="15%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.7"
+                                  />
+                                  <stop
+                                    offset="20%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.6"
+                                  />
+                                  <stop
+                                    offset="25%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.5"
+                                  />
+                                  <stop
+                                    offset="30%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.4"
+                                  />
+                                  <stop
+                                    offset="35%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.32"
+                                  />
+                                  <stop
+                                    offset="40%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.25"
+                                  />
+                                  <stop
+                                    offset="50%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.15"
+                                  />
+                                  <stop
+                                    offset="60%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.08"
+                                  />
+                                  <stop
+                                    offset="70%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.04"
+                                  />
+                                  <stop
+                                    offset="80%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.015"
+                                  />
+                                  <stop
+                                    offset="90%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.005"
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0"
+                                  />
                                 </radialGradient>
                               </defs>
                               {/* Semicircle gradient ray - direction based on taker's prediction */}
@@ -1540,7 +1601,7 @@ export default function QuestionPageContent({
                                 x2={cx + width}
                                 y2={cy}
                                 stroke="hsl(var(--ethena) / 0.8)"
-                                strokeWidth={2}
+                                strokeWidth={1}
                                 strokeLinecap="round"
                                 className="scatter-dot"
                               />
