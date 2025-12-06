@@ -111,7 +111,10 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
       const publicConditions = conditions.filter((c) => {
         if (!c.public) return false;
         const end = typeof c.endTime === 'number' ? c.endTime : 0;
-        return end > nowSec;
+        if (end <= nowSec) return false;
+        // Only include conditions that have similarMarkets
+        if (!c.similarMarkets || c.similarMarkets.length === 0) return false;
+        return true;
       });
       if (publicConditions.length === 0) return [];
 
@@ -456,7 +459,6 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                             {/* Row 2: Question + Badge + "and N others" */}
                             <StackedPredictionsTitle
                               legs={legs}
-                              useDialog
                               className="md:gap-x-2"
                               maxWidthClass="max-w-[calc(100%-160px)] md:max-w-[300px]"
                             />

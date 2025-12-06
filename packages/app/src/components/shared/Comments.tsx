@@ -64,6 +64,7 @@ interface Comment {
 interface CommentsProps {
   className?: string;
   question?: string;
+  conditionId?: string;
   showAllForecasts?: boolean;
   selectedCategory?: CommentFilters | null;
   address?: string | null;
@@ -149,6 +150,7 @@ function attestationToComment(
 const Comments = ({
   className,
   question = undefined,
+  conditionId,
   selectedCategory: selectedFilter = null,
   address = null,
   refetchTrigger,
@@ -170,6 +172,7 @@ const Comments = ({
   } = useInfiniteForecasts({
     schemaId: SCHEMA_UID,
     attesterAddress: shouldFilterByAttester ? address : undefined,
+    conditionId: conditionId,
   });
 
   // Refetch EAS attestations when refetchTrigger changes

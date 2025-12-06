@@ -332,11 +332,8 @@ const columns: ColumnDef<ConditionType>[] = [
           <ConditionTitleLink
             conditionId={condition.id}
             title={displayQ}
-            endTime={condition.endTime}
-            description={condition.description}
             clampLines={1}
             className="text-sm min-w-0"
-            useDialog
           />
         </div>
       );

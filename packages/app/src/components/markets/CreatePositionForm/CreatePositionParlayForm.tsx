@@ -336,10 +336,7 @@ export default function CreatePositionParlayForm({
                           <ConditionTitleLink
                             conditionId={s.conditionId}
                             title={s.question}
-                            endTime={undefined}
-                            description={undefined}
                             clampLines={1}
-                            useDialog
                           />
                         </div>
                         <span className="shrink-0">
