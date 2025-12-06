@@ -83,7 +83,7 @@ import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
 import { useParlaysByConditionId } from '~/hooks/graphql/useParlaysByConditionId';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
-import { formatFiveSigFigs, sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
+import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
 import { formatEther } from 'viem';
 
@@ -1038,7 +1038,7 @@ export default function QuestionPageContent({
                         const etherValue = parseFloat(
                           formatEther(BigInt(openInterestWei))
                         );
-                        const formattedValue = formatFiveSigFigs(etherValue);
+                        const formattedValue = etherValue.toFixed(2);
                         return `${formattedValue} USDe`;
                       } catch {
                         return '0 USDe';
@@ -1066,8 +1066,7 @@ export default function QuestionPageContent({
                   <LottieLoader width={32} height={32} />
                 </div>
               ) : scatterData.length === 0 ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <Telescope className="h-12 w-12 text-muted-foreground/40" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-muted-foreground text-sm">
                     No predictions yet
                   </span>
@@ -1916,8 +1915,7 @@ export default function QuestionPageContent({
                       </Table>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center p-12 gap-3">
-                      <Telescope className="h-12 w-12 text-muted-foreground/40" />
+                    <div className="flex flex-col items-center justify-center p-12">
                       <span className="text-muted-foreground text-sm">
                         No predictions yet
                       </span>

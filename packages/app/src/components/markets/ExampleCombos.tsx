@@ -111,7 +111,10 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
       const publicConditions = conditions.filter((c) => {
         if (!c.public) return false;
         const end = typeof c.endTime === 'number' ? c.endTime : 0;
-        return end > nowSec;
+        if (end <= nowSec) return false;
+        // Only include conditions that have similarMarkets
+        if (!c.similarMarkets || c.similarMarkets.length === 0) return false;
+        return true;
       });
       if (publicConditions.length === 0) return [];
 
