@@ -55,7 +55,7 @@ export function getDefaultFormPredictionValue(
       return predictionToSqrtPrice(prediction);
     }
     case MarketGroupClassification.MULTIPLE_CHOICE: {
-      // If we already know which option (marketId) was selected when adding to betslip, use it
+      // If we already know which option (marketId) was selected when adding to the form, use it
       if (
         typeof selectedMarketId === 'number' &&
         Number.isFinite(selectedMarketId)
@@ -74,9 +74,9 @@ export function getDefaultFormPredictionValue(
 }
 
 /**
- * Creates enhanced position defaults for the betslip
+ * Creates enhanced position defaults for the position form
  */
-export interface BetSlipPositionDefaults {
+export interface CreatePositionEntryDefaults {
   wagerAmount: string;
   prediction?: boolean;
   formPredictionValue?: string;
@@ -84,8 +84,8 @@ export interface BetSlipPositionDefaults {
 
 export function createPositionDefaults(
   marketClassification?: MarketGroupClassification
-): BetSlipPositionDefaults {
-  const defaults: BetSlipPositionDefaults = {
+): CreatePositionEntryDefaults {
+  const defaults: CreatePositionEntryDefaults = {
     wagerAmount: DEFAULT_WAGER_AMOUNT,
   };
 

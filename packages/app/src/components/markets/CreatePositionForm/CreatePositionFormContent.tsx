@@ -2,12 +2,12 @@
 import { type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/sapience/ui/index';
 
-import BetslipParlayForm from './BetslipParlayForm';
-import { useBetSlipContext } from '~/lib/context/BetSlipContext';
+import CreatePositionParlayForm from './CreatePositionParlayForm';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 
-interface BetslipContentProps {
+interface CreatePositionFormContentProps {
   isParlayMode: boolean;
   individualMethods: UseFormReturn<{
     positions: Record<
@@ -45,7 +45,7 @@ interface BetslipContentProps {
   predictionMarketAddress?: `0x${string}`;
 }
 
-export const BetslipContent = ({
+export const CreatePositionFormContent = ({
   parlayMethods,
   handleParlaySubmit,
   isParlaySubmitting,
@@ -58,8 +58,9 @@ export const BetslipContent = ({
   collateralDecimals,
   minWager,
   predictionMarketAddress,
-}: BetslipContentProps) => {
-  const { parlaySelections, clearParlaySelections } = useBetSlipContext();
+}: CreatePositionFormContentProps) => {
+  const { parlaySelections, clearParlaySelections } =
+    useCreatePositionContext();
   const hasItems = parlaySelections.length > 0;
 
   return (
@@ -96,7 +97,7 @@ export const BetslipContent = ({
               </div>
             </div>
           ) : (
-            <BetslipParlayForm
+            <CreatePositionParlayForm
               methods={parlayMethods}
               onSubmit={handleParlaySubmit}
               isSubmitting={isParlaySubmitting}

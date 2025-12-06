@@ -11,8 +11,8 @@ import {
   useConditions,
   type ConditionFilters,
 } from '~/hooks/graphql/useConditions';
-import Betslip from '~/components/markets/Betslip';
-import SuggestedBetslips from '~/components/markets/SuggestedBetslips';
+import CreatePositionForm from '~/components/markets/CreatePositionForm';
+import ExampleCombos from '~/components/markets/ExampleCombos';
 import MarketsDataTable from '~/components/markets/MarketsDataTable';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import type { FilterState } from '~/components/markets/TableFilters';
@@ -131,17 +131,17 @@ const MarketsPage = () => {
   // Render content once loaded
   return (
     <div className="relative w-full max-w-full overflow-visible flex flex-col lg:flex-row items-start">
-      {/* Render only one betslip instance based on viewport */}
+      {/* Render only one position form instance based on viewport */}
       {isCompact ? (
         <div className="block lg:hidden">
-          <Betslip />
+          <CreatePositionForm />
         </div>
       ) : null}
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-4 pr-0 lg:pr-4 pb-4 lg:pb-0">
         {/* Featured Parlays section */}
-        <SuggestedBetslips className="mt-4 md:mt-0" />
+        <ExampleCombos className="mt-4 md:mt-0" />
 
         {/* Results area - always table view */}
         <div className="relative w-full max-w-full overflow-x-hidden min-h-[300px]">
@@ -165,12 +165,12 @@ const MarketsPage = () => {
         </div>
       </div>
 
-      {/* Desktop/Tablet sticky betslip sidebar */}
+      {/* Desktop/Tablet sticky position form sidebar */}
       {!isMobile ? (
         <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-1 xl:ml-2 lg:mr-6">
           <div className="rounded-none shadow-lg overflow-hidden h-[calc(100dvh-96px)]">
             <div className="h-full overflow-y-auto">
-              <Betslip variant="panel" />
+              <CreatePositionForm variant="panel" />
             </div>
           </div>
         </div>
