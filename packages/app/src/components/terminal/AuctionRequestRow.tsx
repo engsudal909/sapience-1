@@ -16,11 +16,11 @@ import AuctionRequestInfo from '~/components/terminal/AuctionRequestInfo';
 import AuctionRequestChart from '~/components/terminal/AuctionRequestChart';
 import { useAccount, useReadContract, useReadContracts } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
-import { predictionMarket } from '@sapience/sdk/contracts';
+import { predictionMarket, collateralToken } from '@sapience/sdk/contracts';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { predictionMarketAbi } from '@sapience/sdk';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
-import { DEFAULT_COLLATERAL_ASSET } from '~/components/admin/constants';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
@@ -112,7 +112,7 @@ const AuctionRequestRow: React.FC<Props> = ({
         /* noop */
       }
     }
-    return DEFAULT_COLLATERAL_ASSET as `0x${string}` | undefined;
+    return collateralToken[DEFAULT_CHAIN_ID]?.address;
   }, [predictionMarketConfigRead.data]);
   // Read token decimals
   const { data: tokenDecimalsData } = useReadContract({

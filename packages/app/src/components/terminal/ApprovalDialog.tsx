@@ -37,7 +37,8 @@ import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from './ApprovalDialogContext';
-import { GAS_RESERVE } from '~/components/admin/constants';
+
+const GAS_RESERVE = 0.5;
 
 // wUSDe configuration for Ethereal chain
 const WUSDE_ADDRESS = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D';

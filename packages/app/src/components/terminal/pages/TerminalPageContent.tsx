@@ -14,7 +14,7 @@ import { ApprovalDialogProvider } from '~/components/terminal/ApprovalDialogCont
 import ApprovalDialog from '~/components/terminal/ApprovalDialog';
 import { TerminalLogsProvider } from '~/components/terminal/TerminalLogsContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
-import { useCategories } from '~/hooks/graphql/useMarketGroups';
+import { useCategories } from '~/hooks/graphql/useCategories';
 
 import MarketBadge from '~/components/markets/MarketBadge';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';

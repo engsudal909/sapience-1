@@ -195,7 +195,6 @@ const ProfilePageContent = () => {
           <ProfileQuickMetrics
             address={address}
             forecastsCount={attestations?.length ?? 0}
-            positions={[]}
             parlays={parlays ?? []}
           />
         ) : null}

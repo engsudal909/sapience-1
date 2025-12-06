@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { type Market as GraphQLMarketType } from '@sapience/sdk/types/graphql';
 import { useState, useMemo, useCallback } from 'react';
-import { useCategories } from '~/hooks/graphql/useMarketGroups';
+import { useCategories } from '~/hooks/graphql/useCategories';
 import {
   useConditions,
   type ConditionFilters,

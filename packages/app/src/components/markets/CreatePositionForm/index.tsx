@@ -49,7 +49,7 @@ import {
 import { tickToPrice } from '~/lib/utils/tickUtils';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { CHAIN_ID_ETHEREAL } from '~/components/admin/constants';
+import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 
 interface CreatePositionFormProps {
   variant?: 'triggered' | 'panel';
