@@ -506,38 +506,3 @@ export const useSettings = () => {
     throw new Error('useSettings must be used within a SettingsProvider');
   return ctx;
 };
-
-// Expose small helpers for non-React modules to read overrides on client
-export const settingsStorage = {
-  keys: STORAGE_KEYS,
-  read(key: keyof typeof STORAGE_KEYS): string | null {
-    try {
-      if (typeof window === 'undefined') return null;
-      const k = STORAGE_KEYS[key];
-      const v = window.localStorage.getItem(k);
-      return v || null;
-    } catch {
-      return null;
-    }
-  },
-  getApiBaseUrl(): string | null {
-    const v = this.read('api');
-    return v ? normalizeBaseUrlPreservePath(v) : null;
-  },
-  getChatBaseUrl(): string | null {
-    const v = this.read('chat');
-    return v ? normalizeBaseUrlPreservePath(v) : null;
-  },
-  getAdminBaseUrl(): string | null {
-    const v = this.read('admin');
-    return v ? normalizeBaseUrlPreservePath(v) : null;
-  },
-  getGraphqlEndpoint(): string | null {
-    const v = this.read('graphql');
-    return v || null;
-  },
-  getRpcUrl(): string | null {
-    const v = this.read('selectedRpcURL');
-    return v || null;
-  },
-};

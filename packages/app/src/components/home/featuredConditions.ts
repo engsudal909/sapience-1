@@ -1,6 +1,6 @@
 import type { ConditionType } from '~/hooks/graphql/useConditions';
 
-export function isActivePublicCondition(
+function isActivePublicCondition(
   condition: ConditionType,
   nowSeconds: number
 ): boolean {

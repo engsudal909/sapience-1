@@ -2,17 +2,24 @@ import { MarketGroupClassification } from '~/lib/types';
 
 // Constants for prediction values - centralized here for consistency
 export const YES_SQRT_PRICE_X96 = '79228162514264337593543950336'; // 2^96
-export const NO_SQRT_PRICE_X96 = '0';
+const NO_SQRT_PRICE_X96 = '0';
 
 // Default wager amount for new positions
 export const DEFAULT_WAGER_AMOUNT = '1';
+
+/**
+ * Converts boolean prediction to sqrtPriceX96 string for yes/no markets
+ */
+function predictionToSqrtPrice(prediction: boolean): string {
+  return prediction ? YES_SQRT_PRICE_X96 : NO_SQRT_PRICE_X96;
+}
 
 /**
  * Gets the default prediction value for a given market classification
  * For YES_NO markets, defaults to YES (true)
  * For other market types, returns undefined (will be handled by specific form components)
  */
-export function getDefaultPrediction(
+function getDefaultPrediction(
   marketClassification: MarketGroupClassification
 ): boolean | undefined {
   switch (marketClassification) {
@@ -23,20 +30,6 @@ export function getDefaultPrediction(
     default:
       return undefined; // Let specific form components handle their defaults
   }
-}
-
-/**
- * Converts boolean prediction to sqrtPriceX96 string for yes/no markets
- */
-export function predictionToSqrtPrice(prediction: boolean): string {
-  return prediction ? YES_SQRT_PRICE_X96 : NO_SQRT_PRICE_X96;
-}
-
-/**
- * Converts sqrtPriceX96 string to boolean prediction for yes/no markets
- */
-export function sqrtPriceToPrediction(sqrtPrice: string): boolean {
-  return sqrtPrice === YES_SQRT_PRICE_X96;
 }
 
 /**

@@ -5,5 +5,3 @@ export function formatPercentChance(probability: number): string {
   if (pct > 99) return '>99%';
   return `${Math.round(pct)}%`;
 }
-
-export default formatPercentChance;

@@ -50,34 +50,6 @@ export const EAS_ATTEST_ABI = [
   },
 ];
 
-export function encodeAttest({
-  _marketAddress,
-  _marketId,
-  _comment,
-  predictionAmount,
-  questionIdHex,
-}: {
-  _marketAddress: Address;
-  _marketId: bigint;
-  _comment: string;
-  predictionAmount: bigint;
-  questionIdHex?: `0x${string}`;
-}) {
-  return encodeAbiParameters(
-    parseAbiParameters(
-      'address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment'
-    ),
-    [
-      _marketAddress,
-      _marketId,
-      questionIdHex ||
-        (`0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`),
-      predictionAmount,
-      _comment,
-    ]
-  );
-}
-
 export const encodeEASAttest = ({
   marketAddress,
   marketId,
