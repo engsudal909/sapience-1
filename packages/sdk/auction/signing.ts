@@ -180,7 +180,7 @@ export function extractSiweDomainAndUri(wsUrl: string): {
   try {
     const url = new URL(wsUrl);
     const domain = url.hostname;
-    // Use origin instead of full URL to keep URI short
+    // Use origin instead of full URL to keep URI short but we need to change the protocol to https for the SIWE message (EIP-4361 requirement)
     const protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
     const uri = `${protocol}//${url.host}`;
     return { domain, uri };

@@ -33,7 +33,10 @@ export interface UseSingleConditionAuctionReturn {
   /** The best valid bid (highest payout, not expired) */
   bestBid: QuoteBid | null;
   /** Trigger a quote request (optionally force refresh) */
-  triggerQuoteRequest: (options?: { forceRefresh?: boolean }) => void;
+  triggerQuoteRequest: (options?: {
+    forceRefresh?: boolean;
+    requireSignature?: boolean;
+  }) => void;
   /** Whether we're waiting for bids (recently requested, no bids yet) */
   isWaitingForBids: boolean;
   /** Whether to show "Request Bids" button (no valid bids, not recently requested) */
@@ -46,7 +49,7 @@ export interface UseSingleConditionAuctionReturn {
 
 /**
  * Hook for managing auction quotes for a single condition.
- * Extracts shared logic from BetslipParlayForm for reuse in PredictionForm.
+ * Extracts shared logic from CreatePositionParlayForm for reuse in PredictionForm.
  */
 export function useSingleConditionAuction({
   conditionId,
@@ -131,7 +134,7 @@ export function useSingleConditionAuction({
 
   // Trigger auction quote request
   const triggerQuoteRequest = useCallback(
-    (options?: { forceRefresh?: boolean }) => {
+    (options?: { forceRefresh?: boolean; requireSignature?: boolean }) => {
       if (!requestQuotes) return;
       if (!selectedTakerAddress) return;
       if (!conditionId || prediction === null) return;

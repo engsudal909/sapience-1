@@ -164,14 +164,17 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       setLastTakerWagerWei(wagerWei);
       const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
       const send = () => {
-        requestQuotes({
-          wager: wagerWei,
-          resolver: payload.resolver,
-          predictedOutcomes: payload.predictedOutcomes,
-          taker: selectedTakerAddress,
-          takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
-          chainId: chainId,
-        });
+        requestQuotes(
+          {
+            wager: wagerWei,
+            resolver: payload.resolver,
+            predictedOutcomes: payload.predictedOutcomes,
+            taker: selectedTakerAddress,
+            takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
+            chainId: chainId,
+          },
+          { requireSignature: false }
+        );
         setQueuedRequest(false);
       };
       // Add a small jitter to reduce simultaneous opens across instances
@@ -204,14 +207,17 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
         setLastTakerWagerWei(wagerWei);
         const payload = buildAuctionStartPayload(effectiveOutcomes, chainId);
         const send = () => {
-          requestQuotes({
-            wager: wagerWei,
-            resolver: payload.resolver,
-            predictedOutcomes: payload.predictedOutcomes,
-            taker: selectedTakerAddress,
-            takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
-            chainId: chainId,
-          });
+          requestQuotes(
+            {
+              wager: wagerWei,
+              resolver: payload.resolver,
+              predictedOutcomes: payload.predictedOutcomes,
+              taker: selectedTakerAddress,
+              takerNonce: takerNonce !== undefined ? Number(takerNonce) : 0,
+              chainId: chainId,
+            },
+            { requireSignature: false }
+          );
         };
         // Jitter send to avoid concurrency clobbering
         const jitter = eager ? eagerJitterMsRef.current : 0;
