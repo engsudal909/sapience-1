@@ -50,24 +50,24 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
 
     if (!isPast) {
       // Future: show relative time
-      badgeText = `Closes ${formatDistanceToNow(date, { addSuffix: true })}`;
+      badgeText = `Resolves ${formatDistanceToNow(date, { addSuffix: true })}`;
       showExpandedDate = true;
     } else if (hoursDiff < 24) {
-      // Closed recently (within 24 hours): show relative time only
-      badgeText = `Closed ${formatDistanceToNow(date, { addSuffix: true })}`;
+      // Resolved recently (within 24 hours): show relative time only
+      badgeText = `Resolved ${formatDistanceToNow(date, { addSuffix: true })}`;
       showExpandedDate = false;
     } else if (daysDiff < 7) {
-      // Closed within a week: show relative time only
-      badgeText = `Closed ${formatDistanceToNow(date, { addSuffix: true })}`;
+      // Resolved within a week: show relative time only
+      badgeText = `Resolved ${formatDistanceToNow(date, { addSuffix: true })}`;
       showExpandedDate = false;
     } else {
-      // Closed more than a week ago: show short date format
+      // Resolved more than a week ago: show short date format
       const shortDate = new Intl.DateTimeFormat(undefined, {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       }).format(date);
-      badgeText = `Closed ${shortDate}`;
+      badgeText = `Resolved ${shortDate}`;
       showExpandedDate = false;
     }
 

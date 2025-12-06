@@ -1031,7 +1031,7 @@ export default function QuestionPageContent({
                     aria-hidden="true"
                     className="hidden md:inline-block mx-2.5 h-4 w-px bg-muted-foreground/30"
                   />
-                  <span className="whitespace-nowrap text-muted-foreground font-normal">
+                  <span className="whitespace-nowrap text-foreground font-normal">
                     {(() => {
                       // Get open interest from data and format it
                       const openInterestWei = data?.openInterest || '0';
@@ -1207,9 +1207,9 @@ export default function QuestionPageContent({
                             }}
                           >
                             {/* Top section: Time, Forecast, Wager */}
-                            <div className="px-3 py-2.5 space-y-2">
+                            <div className="px-3 py-2.5 space-y-1.5">
                               {/* Time row */}
-                              <div className="flex items-center justify-between gap-6">
+                              <div className="flex items-center justify-between gap-6 h-5">
                                 <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
                                   Time
                                 </span>
@@ -1227,7 +1227,7 @@ export default function QuestionPageContent({
                                 </TooltipProvider>
                               </div>
                               {/* Forecast row */}
-                              <div className="flex items-center justify-between gap-6">
+                              <div className="flex items-center justify-between gap-6 h-5">
                                 <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
                                   Forecast
                                 </span>
@@ -1241,7 +1241,7 @@ export default function QuestionPageContent({
                               </div>
                               {/* Wager row - only for predictions */}
                               {!isForecast && 'wager' in point && (
-                                <div className="flex items-center justify-between gap-6">
+                                <div className="flex items-center justify-between gap-6 h-5">
                                   <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
                                     Wager
                                   </span>
@@ -1252,7 +1252,7 @@ export default function QuestionPageContent({
                               )}
                               {/* Forecaster row - only for forecasts */}
                               {isForecast && (
-                                <div className="flex items-center justify-between gap-6">
+                                <div className="flex items-center justify-between gap-6 h-5">
                                   <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
                                     Forecaster
                                   </span>
@@ -1471,6 +1471,7 @@ export default function QuestionPageContent({
                           const lineWidth = width * 2;
                           const rayLength = lineWidth * 0.6; // Ray height proportional to line width
                           const gradientId = `bracket-ray-gradient-${payload.x}`;
+                          const lineGradientId = `bracket-line-gradient-${payload.x}`;
                           // Determine ray direction based on taker's prediction:
                           // - Taker bets YES (takerPrediction: true) → ray DOWN (toward 100%)
                           // - Taker bets NO (takerPrediction: false) → ray UP (toward 0%)
@@ -1515,65 +1516,60 @@ export default function QuestionPageContent({
                                   <stop
                                     offset="5%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.9"
+                                    stopOpacity="0.85"
                                   />
                                   <stop
                                     offset="10%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.8"
+                                    stopOpacity="0.7"
                                   />
                                   <stop
                                     offset="15%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.7"
+                                    stopOpacity="0.55"
                                   />
                                   <stop
                                     offset="20%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.6"
+                                    stopOpacity="0.45"
                                   />
                                   <stop
                                     offset="25%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.5"
+                                    stopOpacity="0.35"
                                   />
                                   <stop
                                     offset="30%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.4"
+                                    stopOpacity="0.28"
                                   />
                                   <stop
                                     offset="35%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.32"
+                                    stopOpacity="0.2"
                                   />
                                   <stop
                                     offset="40%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.25"
+                                    stopOpacity="0.14"
                                   />
                                   <stop
                                     offset="50%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.15"
+                                    stopOpacity="0.08"
                                   />
                                   <stop
                                     offset="60%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.08"
+                                    stopOpacity="0.04"
                                   />
                                   <stop
                                     offset="70%"
                                     stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.04"
+                                    stopOpacity="0.02"
                                   />
                                   <stop
                                     offset="80%"
-                                    stopColor="hsl(var(--ethena))"
-                                    stopOpacity="0.015"
-                                  />
-                                  <stop
-                                    offset="90%"
                                     stopColor="hsl(var(--ethena))"
                                     stopOpacity="0.005"
                                   />
@@ -1583,6 +1579,36 @@ export default function QuestionPageContent({
                                     stopOpacity="0"
                                   />
                                 </radialGradient>
+                                {/* Linear gradient for horizontal line - fades at edges */}
+                                <linearGradient
+                                  id={lineGradientId}
+                                  x1={cx - width}
+                                  y1={cy}
+                                  x2={cx + width}
+                                  y2={cy}
+                                  gradientUnits="userSpaceOnUse"
+                                >
+                                  <stop
+                                    offset="0%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0"
+                                  />
+                                  <stop
+                                    offset="40%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.8"
+                                  />
+                                  <stop
+                                    offset="60%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0.8"
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor="hsl(var(--ethena))"
+                                    stopOpacity="0"
+                                  />
+                                </linearGradient>
                               </defs>
                               {/* Semicircle gradient ray - direction based on taker's prediction */}
                               <path
@@ -1594,15 +1620,13 @@ export default function QuestionPageContent({
                                 fill={`url(#${gradientId})`}
                                 className="bracket-ray"
                               />
-                              {/* Horizontal line */}
-                              <line
-                                x1={cx - width}
-                                y1={cy}
-                                x2={cx + width}
-                                y2={cy}
-                                stroke="hsl(var(--ethena) / 0.8)"
-                                strokeWidth={1}
-                                strokeLinecap="round"
+                              {/* Horizontal line as rect with gradient fill */}
+                              <rect
+                                x={cx - width}
+                                y={cy - 0.5}
+                                width={width * 2}
+                                height={1}
+                                fill={`url(#${lineGradientId})`}
                                 className="scatter-dot"
                               />
                             </g>
@@ -1695,16 +1719,18 @@ export default function QuestionPageContent({
                       fill="hsl(var(--brand-white))"
                       shape={(props: any) => {
                         const { cx, cy, payload } = props;
-                        const radius = 4;
+                        const radius = 2.5;
+                        const isHovered =
+                          hoveredForecast?.x === payload?.x &&
+                          hoveredForecast?.attester === payload?.attester;
                         return (
                           <circle
                             cx={cx}
                             cy={cy}
                             r={radius}
                             fill="hsl(var(--brand-white))"
-                            stroke="hsl(var(--brand-white))"
-                            strokeWidth={1.5}
-                            className="cursor-pointer scatter-dot"
+                            opacity={isHovered ? 0.8 : 1}
+                            className="cursor-pointer"
                             onMouseEnter={() => {
                               if (tooltipTimeoutRef.current) {
                                 clearTimeout(tooltipTimeoutRef.current);
