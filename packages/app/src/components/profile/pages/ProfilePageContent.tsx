@@ -164,7 +164,7 @@ const ProfilePageContent = () => {
     }
 
     const firstWithContent: TabValue | null = shouldShowPositionsTab
-      ? 'parlays'
+      ? 'positions'
       : shouldShowForecastsTab
         ? 'forecasts'
         : null;

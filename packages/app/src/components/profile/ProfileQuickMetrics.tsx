@@ -250,7 +250,7 @@ export default function ProfileQuickMetrics({
 
   const pnlValue = profitLoading
     ? '—'
-    : formatFiveSigFigs(Number(profit?.totalPnL || 0));
+    : Number(profit?.totalPnL || 0).toFixed(2);
 
   const pnlRank = profitLoading
     ? undefined

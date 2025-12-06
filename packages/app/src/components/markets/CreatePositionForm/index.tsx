@@ -722,7 +722,7 @@ const CreatePositionForm = ({
   }
 
   const hasTriggeredItems = isPositionMode
-    ? parlaySelections.length > 0
+    ? selections.length > 0
     : createPositionEntries.length > 0;
 
   return (
