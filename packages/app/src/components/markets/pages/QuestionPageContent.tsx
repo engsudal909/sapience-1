@@ -80,8 +80,8 @@ import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import MarketBadge from '~/components/markets/MarketBadge';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
-import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
-import { useParlaysByConditionId } from '~/hooks/graphql/useParlaysByConditionId';
+import { useSubmitPosition } from '~/hooks/forms/useSubmitPosition';
+import { usePositionsByConditionId } from '~/hooks/graphql/usePositionsByConditionId';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
 import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
@@ -335,17 +335,17 @@ export default function QuestionPageContent({
     }
   }, [minCollateralRaw, collateralDecimals]);
 
-  // Initialize submit parlay hook for mint transaction
-  const { submitParlay, isSubmitting: isParlaySubmitting } = useSubmitParlay({
+  // Initialize submit position hook for mint transaction
+  const { submitPosition, isSubmitting: isPositionSubmitting } = useSubmitPosition({
     chainId,
     predictionMarketAddress: predictionMarketAddress,
     collateralTokenAddress: collateralToken as `0x${string}`,
     enabled: !!predictionMarketAddress && !!collateralToken,
   });
 
-  // Fetch parlays for this condition
-  const { data: parlays, isLoading: isLoadingParlays } =
-    useParlaysByConditionId({
+  // Fetch positions for this condition
+  const { data: positions, isLoading: isLoadingPositions } =
+    usePositionsByConditionId({
       conditionId,
       chainId,
       options: {
@@ -382,12 +382,12 @@ export default function QuestionPageContent({
   // Transform parlay data for scatter plot
   // x = time (unix timestamp), y = prediction probability (0-100), wager = amount wagered
   const scatterData = useMemo((): PredictionData[] => {
-    // If no real parlays, return empty array
-    if (!parlays || parlays.length === 0) {
+    // If no real positions, return empty array
+    if (!positions || positions.length === 0) {
       return [];
     }
 
-    const realData = parlays
+    const realData = positions
       .map((parlay) => {
         try {
           // Find the prediction for the current conditionId in this parlay
@@ -497,7 +497,7 @@ export default function QuestionPageContent({
       .filter(Boolean) as PredictionData[];
 
     return realData;
-  }, [parlays, conditionId]);
+  }, [positions, conditionId]);
 
   // Calculate wager range from actual data for dynamic sizing
   const wagerRange = useMemo(() => {
@@ -523,7 +523,7 @@ export default function QuestionPageContent({
   }, [scatterData]);
 
   // Transform forecasts data for scatter plot
-  // Forecasts are user-submitted probability predictions (not parlays)
+  // Forecasts are user-submitted probability predictions (not positions)
   const forecastScatterData = useMemo(() => {
     if (!forecasts || forecasts.length === 0) {
       console.log('[QuestionPageContent] No forecasts data to transform');
@@ -1061,7 +1061,7 @@ export default function QuestionPageContent({
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
             {/* Scatterplot - height matches the PredictionForm dynamically */}
             <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
-              {isLoadingParlays ? (
+              {isLoadingPositions ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <LottieLoader width={32} height={32} />
                 </div>
@@ -1495,82 +1495,41 @@ export default function QuestionPageContent({
                                 }, 150);
                               }}
                             >
-                              {/* Gradient definition for the ray - direction based on taker's prediction */}
+                              {/* Radial gradient definition for the semicircle ray */}
                               <defs>
-                                <linearGradient
+                                <radialGradient
                                   id={gradientId}
-                                  x1="0%"
-                                  y1="0%"
-                                  x2="0%"
-                                  y2="100%"
+                                  cx="50%"
+                                  cy={rayUp ? '100%' : '0%'}
+                                  r="100%"
+                                  fx="50%"
+                                  fy={rayUp ? '100%' : '0%'}
                                 >
-                                  {rayUp ? (
-                                    <>
-                                      {/* UP: solid at bottom (100%), transparent at top (0%) - taker bets NO */}
-                                      <stop
-                                        offset="0%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0"
-                                      />
-                                      <stop
-                                        offset="30%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.1"
-                                      />
-                                      <stop
-                                        offset="60%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.3"
-                                      />
-                                      <stop
-                                        offset="85%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.6"
-                                      />
-                                      <stop
-                                        offset="100%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.9"
-                                      />
-                                    </>
-                                  ) : (
-                                    <>
-                                      {/* DOWN: solid at top (0%), transparent at bottom (100%) - taker bets YES */}
-                                      <stop
-                                        offset="0%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.9"
-                                      />
-                                      <stop
-                                        offset="15%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.6"
-                                      />
-                                      <stop
-                                        offset="40%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.3"
-                                      />
-                                      <stop
-                                        offset="70%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0.1"
-                                      />
-                                      <stop
-                                        offset="100%"
-                                        stopColor="hsl(var(--ethena))"
-                                        stopOpacity="0"
-                                      />
-                                    </>
-                                  )}
-                                </linearGradient>
+                                  {/* Smooth exponential fadeout with many stops */}
+                                  <stop offset="0%" stopColor="hsl(var(--ethena))" stopOpacity="0.7" />
+                                  <stop offset="5%" stopColor="hsl(var(--ethena))" stopOpacity="0.6" />
+                                  <stop offset="10%" stopColor="hsl(var(--ethena))" stopOpacity="0.5" />
+                                  <stop offset="15%" stopColor="hsl(var(--ethena))" stopOpacity="0.42" />
+                                  <stop offset="20%" stopColor="hsl(var(--ethena))" stopOpacity="0.35" />
+                                  <stop offset="25%" stopColor="hsl(var(--ethena))" stopOpacity="0.28" />
+                                  <stop offset="30%" stopColor="hsl(var(--ethena))" stopOpacity="0.22" />
+                                  <stop offset="35%" stopColor="hsl(var(--ethena))" stopOpacity="0.17" />
+                                  <stop offset="40%" stopColor="hsl(var(--ethena))" stopOpacity="0.13" />
+                                  <stop offset="50%" stopColor="hsl(var(--ethena))" stopOpacity="0.08" />
+                                  <stop offset="60%" stopColor="hsl(var(--ethena))" stopOpacity="0.05" />
+                                  <stop offset="70%" stopColor="hsl(var(--ethena))" stopOpacity="0.025" />
+                                  <stop offset="80%" stopColor="hsl(var(--ethena))" stopOpacity="0.01" />
+                                  <stop offset="90%" stopColor="hsl(var(--ethena))" stopOpacity="0.003" />
+                                  <stop offset="100%" stopColor="hsl(var(--ethena))" stopOpacity="0" />
+                                </radialGradient>
                               </defs>
-                              {/* Gradient ray coming out of line - direction based on taker's prediction */}
-                              <rect
-                                x={cx - width}
-                                y={rayUp ? cy - rayLength : cy}
-                                width={width * 2}
-                                height={rayLength}
+                              {/* Semicircle gradient ray - direction based on taker's prediction */}
+                              <path
+                                d={
+                                  rayUp
+                                    ? `M ${cx - width} ${cy} A ${width} ${rayLength} 0 0 1 ${cx + width} ${cy} Z`
+                                    : `M ${cx - width} ${cy} A ${width} ${rayLength} 0 0 0 ${cx + width} ${cy} Z`
+                                }
                                 fill={`url(#${gradientId})`}
                                 className="bracket-ray"
                               />
@@ -1819,8 +1778,8 @@ export default function QuestionPageContent({
               bids={bids}
               requestQuotes={requestQuotes}
               buildMintRequestDataFromBid={buildMintRequestDataFromBid}
-              submitParlay={submitParlay}
-              isSubmitting={isParlaySubmitting}
+              submitPosition={submitPosition}
+              isSubmitting={isPositionSubmitting}
             />
           </div>
 
@@ -1850,7 +1809,7 @@ export default function QuestionPageContent({
                 </div>
                 {/* Content area */}
                 <TabsContent value="predictions" className="m-0">
-                  {isLoadingParlays ? (
+                  {isLoadingPositions ? (
                     <div className="flex items-center justify-center p-12">
                       <LottieLoader width={32} height={32} />
                     </div>

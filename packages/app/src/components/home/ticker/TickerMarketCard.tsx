@@ -23,7 +23,7 @@ export interface TickerMarketCardProps {
 const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
   const { id, question, shortName, endTime, description, categorySlug } =
     condition;
-  const { addParlaySelection, removeParlaySelection, parlaySelections } =
+  const { addSelection, removeSelection, selections } =
     useCreatePositionContext();
   const router = useRouter();
 
@@ -31,21 +31,21 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
 
   const selectionState = React.useMemo(() => {
     if (!id) return { selectedYes: false, selectedNo: false };
-    const existing = parlaySelections.find((s) => s.conditionId === id);
+    const existing = selections.find((s) => s.conditionId === id);
     return {
       selectedYes: !!existing && existing.prediction === true,
       selectedNo: !!existing && existing.prediction === false,
     };
-  }, [parlaySelections, id]);
+  }, [selections, id]);
 
   const handleYes = React.useCallback(() => {
     if (!id) return;
-    const existing = parlaySelections.find((s) => s.conditionId === id);
+    const existing = selections.find((s) => s.conditionId === id);
     if (existing && existing.prediction === true) {
-      removeParlaySelection(existing.id);
+      removeSelection(existing.id);
       return;
     }
-    addParlaySelection({
+    addSelection({
       conditionId: id,
       question: displayQ,
       prediction: true,
@@ -56,20 +56,20 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
     id,
     displayQ,
     categorySlug,
-    parlaySelections,
-    removeParlaySelection,
-    addParlaySelection,
+    selections,
+    removeSelection,
+    addSelection,
     router,
   ]);
 
   const handleNo = React.useCallback(() => {
     if (!id) return;
-    const existing = parlaySelections.find((s) => s.conditionId === id);
+    const existing = selections.find((s) => s.conditionId === id);
     if (existing && existing.prediction === false) {
-      removeParlaySelection(existing.id);
+      removeSelection(existing.id);
       return;
     }
-    addParlaySelection({
+    addSelection({
       conditionId: id,
       question: displayQ,
       prediction: false,
@@ -80,9 +80,9 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
     id,
     displayQ,
     categorySlug,
-    parlaySelections,
-    removeParlaySelection,
-    addParlaySelection,
+    selections,
+    removeSelection,
+    addSelection,
     router,
   ]);
 

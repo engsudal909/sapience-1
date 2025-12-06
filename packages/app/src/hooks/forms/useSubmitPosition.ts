@@ -16,7 +16,7 @@ const WUSDE_ABI = parseAbi([
   'function withdraw(uint256 amount)',
 ]);
 
-interface UseSubmitParlayProps {
+interface UseSubmitPositionProps {
   chainId: number;
   predictionMarketAddress: `0x${string}`;
   collateralTokenAddress: `0x${string}`;
@@ -29,13 +29,13 @@ interface UseSubmitParlayProps {
   ) => void;
 }
 
-export function useSubmitParlay({
+export function useSubmitPosition({
   chainId,
   predictionMarketAddress,
   collateralTokenAddress,
   onSuccess,
   enabled = true,
-}: UseSubmitParlayProps) {
+}: UseSubmitPositionProps) {
   const { address } = useAccount();
 
   // Read maker nonce from PredictionMarket
@@ -78,7 +78,7 @@ export function useSubmitParlay({
   // Use unified write/sendCalls wrapper (handles chain validation and tx monitoring)
   const { sendCalls, isPending: isSubmitting } = useSapienceWriteContract({
     onSuccess: () => {
-      setSuccess('Parlay prediction minted successfully');
+      setSuccess('Position prediction minted successfully');
       setError(null);
       onSuccess?.();
     },
@@ -86,10 +86,10 @@ export function useSubmitParlay({
       const message = err?.message || 'Transaction failed';
       setError(message);
     },
-    successMessage: 'Parlay prediction was successful',
-    fallbackErrorMessage: 'Failed to submit parlay prediction',
-    redirectProfileAnchor: 'parlays',
-    // Minimal share intent for parlay; callers can include OG if they compute it
+    successMessage: 'Position prediction was successful',
+    fallbackErrorMessage: 'Failed to submit position prediction',
+    redirectProfileAnchor: 'positions',
+    // Minimal share intent for position; callers can include OG if they compute it
     shareIntent: {},
   });
 
@@ -180,7 +180,7 @@ export function useSubmitParlay({
     [predictionMarketAddress, collateralTokenAddress, currentAllowance, chainId]
   );
 
-  const submitParlay = useCallback(
+  const submitPosition = useCallback(
     async (mintData: MintPredictionRequestData) => {
       if (!enabled || !address) {
         return;
@@ -241,7 +241,7 @@ export function useSubmitParlay({
           } catch (retryErr: any) {
             const retryMsg = (retryErr?.message || '').toString();
             setError(
-              retryMsg || 'Failed to submit parlay prediction after retry'
+              retryMsg || 'Failed to submit position prediction after retry'
             );
             setIsProcessing(false);
             return;
@@ -250,7 +250,7 @@ export function useSubmitParlay({
         const errorMessage =
           err instanceof Error
             ? err.message
-            : 'Failed to submit parlay prediction';
+            : 'Failed to submit position prediction';
         setError(errorMessage);
         setIsProcessing(false);
       }
@@ -273,10 +273,11 @@ export function useSubmitParlay({
   }, []);
 
   return {
-    submitParlay,
+    submitPosition,
     isSubmitting,
     error,
     success,
     reset,
   };
 }
+

@@ -38,7 +38,7 @@ import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 
 import { CreatePositionFormContent } from '~/components/markets/CreatePositionForm/CreatePositionFormContent';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
-import { useSubmitParlay } from '~/hooks/forms/useSubmitParlay';
+import { useSubmitPosition } from '~/hooks/forms/useSubmitPosition';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { MarketGroupClassification } from '~/lib/types';
 import {
@@ -63,13 +63,13 @@ const CreatePositionForm = ({
     isPopoverOpen,
     setIsPopoverOpen,
     clearPositionForm,
-    parlaySelections,
-    clearParlaySelections,
+    selections,
+    clearSelections,
     positionsWithMarketData,
   } = useCreatePositionContext();
 
   // Always use parlay mode (singles/spot mode removed)
-  const isParlayMode = true;
+  const isPositionMode = true;
   const isCompact = useIsBelow(1024);
   const { hasConnectedWallet } = useConnectedWallet();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
@@ -221,7 +221,7 @@ const CreatePositionForm = ({
 
   // Create separate form schemas for individual and parlay modes
   const formSchema: z.ZodType<any> = useMemo(() => {
-    if (isParlayMode) {
+    if (isPositionMode) {
       // Parlay mode only needs wagerAmount and limitAmount
       // Use createWagerAmountSchema to include min/max validation
       // Max amount is 10 for Ethereal chain, undefined otherwise
@@ -259,7 +259,7 @@ const CreatePositionForm = ({
         limitAmount: z.number().min(0).optional(),
       });
     }
-  }, [createPositionEntries, isParlayMode, minWager, chainId]);
+  }, [createPositionEntries, isPositionMode, minWager, chainId]);
 
   // Helper function to generate form values
   const generateFormValues = useMemo(() => {
@@ -441,7 +441,7 @@ const CreatePositionForm = ({
     );
   }, [formMethods, generateFormValues, positionsWithMarketData]);
 
-  // Note: Minimum wager validation is now handled in CreatePositionParlayForm
+  // Note: Minimum wager validation is now handled in PositionForm
 
   // Calculate and set minimum payout when list length changes (for individual mode)
   // Minimum payout = wagerAmount × 2^(number of positions), formatted to 2 decimals
@@ -507,10 +507,10 @@ const CreatePositionForm = ({
 
   // Use the parlay submission hook
   const {
-    submitParlay,
-    isSubmitting: isParlaySubmitting,
-    error: parlayError,
-  } = useSubmitParlay({
+    submitPosition,
+    isSubmitting: isPositionSubmitting,
+    error: positionError,
+  } = useSubmitPosition({
     chainId: parlayChainId,
     predictionMarketAddress: PREDICTION_MARKET_ADDRESS,
     collateralTokenAddress:
@@ -535,7 +535,7 @@ const CreatePositionForm = ({
     // Noop - spot trading removed
   };
 
-  const handleParlaySubmit = () => {
+  const handlePositionSubmit = () => {
     if (!hasConnectedWallet) {
       try {
         connectOrCreateWallet();
@@ -578,7 +578,7 @@ const CreatePositionForm = ({
 
         if (mintReq) {
           // Submit the mint request to PredictionMarket
-          submitParlay(mintReq);
+          submitPosition(mintReq);
           return;
         }
       }
@@ -591,7 +591,7 @@ const CreatePositionForm = ({
         duration: 5000,
       });
     } catch (error) {
-      console.error('Error in handleParlaySubmit:', error);
+      console.error('Error in handlePositionSubmit:', error);
       toast({
         title: 'Submission error',
         description: 'An error occurred while submitting your prediction.',
@@ -602,7 +602,7 @@ const CreatePositionForm = ({
   };
 
   const contentProps = {
-    isParlayMode,
+    isPositionMode,
     individualMethods: formMethods as unknown as UseFormReturn<{
       positions: Record<
         string,
@@ -618,9 +618,9 @@ const CreatePositionForm = ({
       >;
     }>,
     handleIndividualSubmit,
-    handleParlaySubmit,
-    isParlaySubmitting,
-    parlayError,
+    handlePositionSubmit,
+    isPositionSubmitting,
+    positionError,
     isSubmitting: false, // Individual trades removed
     parlayChainId,
     auctionId,
@@ -680,8 +680,8 @@ const CreatePositionForm = ({
   }
 
   if (variant === 'panel') {
-    const hasItems = isParlayMode
-      ? parlaySelections.length > 0
+    const hasItems = isPositionMode
+      ? selections.length > 0
       : createPositionEntries.length > 0;
 
     return (
@@ -692,7 +692,7 @@ const CreatePositionForm = ({
             variant="ghost"
             size="xs"
             className={`uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 transition-opacity ${hasItems ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-            onClick={isParlayMode ? clearParlaySelections : clearPositionForm}
+            onClick={isPositionMode ? clearSelections : clearPositionForm}
             title="Reset"
           >
             CLEAR
@@ -721,7 +721,7 @@ const CreatePositionForm = ({
     );
   }
 
-  const hasTriggeredItems = isParlayMode
+  const hasTriggeredItems = isPositionMode
     ? parlaySelections.length > 0
     : createPositionEntries.length > 0;
 
@@ -751,7 +751,7 @@ const CreatePositionForm = ({
                   size="xs"
                   className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
                   onClick={
-                    isParlayMode ? clearParlaySelections : clearPositionForm
+                    isPositionMode ? clearSelections : clearPositionForm
                   }
                   title="Reset"
                 >

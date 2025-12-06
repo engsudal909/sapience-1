@@ -52,7 +52,7 @@ import EmptyTabState from '~/components/shared/EmptyTabState';
 import StackedPredictions, {
   type Pick,
 } from '~/components/shared/StackedPredictions';
-import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
+import CounterpartyBadge from '~/components/shared/CounterpartyBadge';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
 import {
   useUserParlays,
@@ -94,7 +94,7 @@ function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
   );
 }
 
-export default function UserParlaysTable({
+export default function PositionsTable({
   account,
   showHeaderText = true,
   chainId,
@@ -123,7 +123,7 @@ export default function UserParlaysTable({
     },
   });
   type UILeg = Pick;
-  type UIParlay = {
+  type UIPosition = {
     uniqueRowKey: string;
     positionId: number;
     legs: UILeg[];
@@ -135,7 +135,7 @@ export default function UserParlaysTable({
     totalPayoutWei: bigint; // total payout if won
     makerCollateralWei?: bigint; // user's wager if they are maker
     takerCollateralWei?: bigint; // user's wager if they are taker
-    userPnL: string; // pnl for settled parlays
+    userPnL: string; // pnl for settled positions
     addressRole: 'maker' | 'taker' | 'unknown';
     counterpartyAddress?: Address | null;
     chainId: number;
@@ -217,8 +217,8 @@ export default function UserParlaysTable({
     () => String(account || '').toLowerCase(),
     [account]
   );
-  const rows: UIParlay[] = React.useMemo(() => {
-    const parlayRows = (data || []).map((p: any) => {
+  const rows: UIPosition[] = React.useMemo(() => {
+    const positionRows = (data || []).map((p: any) => {
       const legs: UILeg[] = (p.predictedOutcomes || []).map((o: any) => ({
         question:
           o?.condition?.shortName || o?.condition?.question || o.conditionId,
@@ -245,7 +245,7 @@ export default function UserParlaysTable({
         !isActive &&
         ((userIsMaker && p.makerWon === true) ||
           (userIsTaker && p.makerWon === false));
-      const status: UIParlay['status'] = isActive
+      const status: UIPosition['status'] = isActive
         ? 'active'
         : userWon
           ? 'won'
@@ -256,7 +256,7 @@ export default function UserParlaysTable({
           : BigInt(p.takerNftTokenId)
         : undefined;
 
-      // Calculate PnL for settled parlays
+      // Calculate PnL for settled positions
       let userPnL = '0';
       if (
         !isActive &&
@@ -287,7 +287,7 @@ export default function UserParlaysTable({
             }
           }
         } catch (e) {
-          console.error('Error calculating parlay PnL:', e);
+          console.error('Error calculating position PnL:', e);
         }
       }
 
@@ -299,7 +299,7 @@ export default function UserParlaysTable({
           : p.makerNftTokenId
             ? Number(p.makerNftTokenId)
             : p.id;
-      // Create unique row key combining parlay ID and role
+      // Create unique row key combining position ID and role
       const uniqueRowKey = `${p.id}-${userIsMaker ? 'maker' : userIsTaker ? 'taker' : 'unknown'}`;
       // Choose wager based on the profile address' role
       const viewerMakerCollateralWei = (() => {
@@ -351,7 +351,7 @@ export default function UserParlaysTable({
       };
     });
 
-    return parlayRows;
+    return positionRows;
   }, [data, viewer]);
   // Detect claimability by checking on-chain ownerOf for the potential claim tokenIds
   const tokenIdsToCheck = React.useMemo(
@@ -579,16 +579,16 @@ export default function UserParlaysTable({
   ]);
 
   // Keep Share dialog open state outside of row to survive re-renders
-  const [openShareParlayId, setOpenShareParlayId] = React.useState<
+  const [openSharePositionId, setOpenSharePositionId] = React.useState<
     number | null
   >(null);
-  const selectedParlay = React.useMemo(() => {
-    if (openShareParlayId === null) return null;
-    return rows.find((r) => r.positionId === openShareParlayId) || null;
-  }, [rows, openShareParlayId]);
+  const selectedPosition = React.useMemo(() => {
+    if (openSharePositionId === null) return null;
+    return rows.find((r) => r.positionId === openSharePositionId) || null;
+  }, [rows, openSharePositionId]);
   // ---
 
-  const columns = React.useMemo<ColumnDef<UIParlay>[]>(
+  const columns = React.useMemo<ColumnDef<UIPosition>[]>(
     () => [
       {
         id: 'created',
@@ -672,7 +672,7 @@ export default function UserParlaysTable({
             <div className="flex flex-col gap-2">
               {row.original.addressRole === 'taker' && (
                 <div className="mb-1">
-                  <AntiParlayBadge />
+                  <CounterpartyBadge />
                 </div>
               )}
               <StackedPredictions
@@ -690,11 +690,11 @@ export default function UserParlaysTable({
         enableSorting: false,
         size: 220,
         minSize: 160,
-        header: () => <span>Counterparty</span>,
+        header: () => <span>Opponent</span>,
         cell: ({ row }) => (
           <div>
             <div className="xl:hidden text-xs text-muted-foreground mb-1">
-              Counterparty
+              Opponent
             </div>
             {row.original.counterpartyAddress ? (
               <div className="whitespace-nowrap text-[15px]">
@@ -894,11 +894,11 @@ export default function UserParlaysTable({
         cell: ({ row }) => {
           const symbol = collateralSymbol;
           const isClosed = row.original.status !== 'active';
-          const lostParlayUnclaimed =
+          const lostPositionUnclaimed =
             row.original.status === 'active' &&
             rowKeyToResolution.get(row.original.positionId)?.state === 'lost';
 
-          if (!isClosed && !lostParlayUnclaimed) {
+          if (!isClosed && !lostPositionUnclaimed) {
             return (
               <div>
                 <div className="xl:hidden text-xs text-muted-foreground mb-1">
@@ -919,7 +919,7 @@ export default function UserParlaysTable({
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
 
-          const pnlValue = lostParlayUnclaimed
+          const pnlValue = lostPositionUnclaimed
             ? -viewerWager
             : Number(formatEther(BigInt(row.original.userPnL || '0')));
 
@@ -1007,8 +1007,8 @@ export default function UserParlaysTable({
                           <TooltipContent>
                             <p className="max-w-[220px]">
                               {hasWallet
-                                ? 'You can only claim winnings from the account that owns this parlay.'
-                                : 'Connect your account to claim this parlay.'}
+                                ? 'You can only claim winnings from the account that owns this position.'
+                                : 'Connect your account to claim this position.'}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1063,8 +1063,8 @@ export default function UserParlaysTable({
                         <TooltipContent>
                           <p className="max-w-[220px]">
                             {hasWallet
-                              ? 'You can only claim winnings from the account that owns this parlay.'
-                              : 'Connect your account to claim this parlay.'}
+                              ? 'You can only claim winnings from the account that owns this position.'
+                              : 'Connect your account to claim this position.'}
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -1096,7 +1096,7 @@ export default function UserParlaysTable({
                     type="button"
                     className="inline-flex items-center justify-center h-9 px-3 rounded-md border text-sm bg-background hover:bg-muted/50 border-border"
                     onClick={() =>
-                      setOpenShareParlayId(row.original.positionId)
+                      setOpenSharePositionId(row.original.positionId)
                     }
                   >
                     Share
@@ -1159,10 +1159,10 @@ export default function UserParlaysTable({
   return (
     <div>
       {showHeaderText && (
-        <h2 className="text-lg font-medium mb-2">Your Parlays</h2>
+        <h2 className="text-lg font-medium mb-2">Your Positions</h2>
       )}
       {rows.length === 0 && !isLoading ? (
-        <EmptyTabState centered message="No parlays found" />
+        <EmptyTabState centered message="No positions found" />
       ) : isLoading && rows.length === 0 ? (
         <div className="w-full min-h-[300px] flex items-center justify-center">
           <LottieLoader width={12} height={12} />
@@ -1229,7 +1229,7 @@ export default function UserParlaysTable({
                 <div className="flex items-center gap-2">
                   <LottieLoader width={24} height={24} />
                   <span className="text-sm text-muted-foreground">
-                    Loading more parlays...
+                    Loading more positions...
                   </span>
                 </div>
               ) : (
@@ -1241,35 +1241,36 @@ export default function UserParlaysTable({
           )}
         </>
       )}
-      {selectedParlay && (
+      {selectedPosition && (
         <ShareDialog
-          question={`Parlay #${selectedParlay.positionId}`}
-          legs={selectedParlay.legs?.map((l) => ({
+          question={`Position #${selectedPosition.positionId}`}
+          legs={selectedPosition.legs?.map((l) => ({
             question: l.question,
             choice: l.choice,
           }))}
           wager={Number(
             formatEther(
-              selectedParlay.makerCollateralWei ??
-                selectedParlay.takerCollateralWei ??
+              selectedPosition.makerCollateralWei ??
+                selectedPosition.takerCollateralWei ??
                 0n
             )
           )}
-          payout={Number(formatEther(selectedParlay.totalPayoutWei || 0n))}
+          payout={Number(formatEther(selectedPosition.totalPayoutWei || 0n))}
           symbol="USDe"
           owner={String(account)}
-          imagePath="/og/parlay"
+          imagePath="/og/position"
           extraParams={
-            selectedParlay.addressRole === 'taker' ? { anti: '1' } : undefined
+            selectedPosition.addressRole === 'taker' ? { anti: '1' } : undefined
           }
-          open={openShareParlayId !== null}
+          open={openSharePositionId !== null}
           onOpenChange={(next) => {
-            if (!next) setOpenShareParlayId(null);
+            if (!next) setOpenSharePositionId(null);
           }}
           trigger={<span />}
-          title="Share Your Parlay"
+          title="Share Your Position"
         />
       )}
     </div>
   );
 }
+

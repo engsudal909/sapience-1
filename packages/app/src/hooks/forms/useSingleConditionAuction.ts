@@ -49,7 +49,7 @@ export interface UseSingleConditionAuctionReturn {
 
 /**
  * Hook for managing auction quotes for a single condition.
- * Extracts shared logic from CreatePositionParlayForm for reuse in PredictionForm.
+ * Extracts shared logic from PositionForm for reuse in PredictionForm.
  */
 export function useSingleConditionAuction({
   conditionId,

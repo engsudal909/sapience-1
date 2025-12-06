@@ -57,7 +57,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
     take: 200,
     chainId,
   });
-  const { addParlaySelection, clearParlaySelections } =
+  const { addSelection, clearSelections } =
     useCreatePositionContext();
   const { apiBaseUrl } = useSettings();
   const { address: walletAddress } = useAccount();
@@ -104,7 +104,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
     []
   );
 
-  // Generate 9 random parlays
+  // Generate 9 random combos
   const generateCombos = React.useCallback(
     (conditions: ConditionType[]): ComboPick[][] => {
       const nowSec = Math.floor(Date.now() / 1000);
@@ -312,11 +312,11 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
     return [...sorted, ...pending].slice(0, NUM_TO_DISPLAY);
   }, [comboQuotes]);
 
-  const handlePickParlay = React.useCallback(
+  const handlePickCombo = React.useCallback(
     (combo: ComboPick[]) => {
-      clearParlaySelections();
+      clearSelections();
       combo.forEach((leg) => {
-        addParlaySelection({
+        addSelection({
           conditionId: leg.condition.id,
           question: leg.condition.shortName || leg.condition.question,
           prediction: leg.prediction,
@@ -324,7 +324,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
         });
       });
     },
-    [clearParlaySelections, addParlaySelection]
+    [clearSelections, addSelection]
   );
 
   return (
@@ -494,7 +494,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                                 variant="default"
                                 size="sm"
                                 type="button"
-                                onClick={() => handlePickParlay(combo)}
+                                onClick={() => handlePickCombo(combo)}
                               >
                                 PICK
                               </Button>
@@ -533,7 +533,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                             variant="default"
                             size="sm"
                             type="button"
-                            onClick={() => handlePickParlay(combo)}
+                            onClick={() => handlePickCombo(combo)}
                           >
                             PICK
                           </Button>

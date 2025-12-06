@@ -2,13 +2,13 @@
 import { type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/sapience/ui/index';
 
-import CreatePositionParlayForm from './CreatePositionParlayForm';
+import PositionForm from './PositionForm';
 import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 
 interface CreatePositionFormContentProps {
-  isParlayMode: boolean;
+  isPositionMode: boolean;
   individualMethods: UseFormReturn<{
     positions: Record<
       string,
@@ -24,9 +24,9 @@ interface CreatePositionFormContentProps {
     >;
   }>;
   handleIndividualSubmit: () => void;
-  handleParlaySubmit: () => void;
-  isParlaySubmitting: boolean;
-  parlayError?: string | null;
+  handlePositionSubmit: () => void;
+  isPositionSubmitting: boolean;
+  positionError?: string | null;
   isSubmitting: boolean;
   parlayChainId?: number;
   // Auction integration (provided by parent to share a single WS connection)
@@ -36,7 +36,7 @@ interface CreatePositionFormContentProps {
     params: AuctionParams | null,
     options?: { forceRefresh?: boolean }
   ) => void;
-  // Collateral configuration from useSubmitParlay hook
+  // Collateral configuration from useSubmitPosition hook
   collateralToken?: `0x${string}`;
   collateralSymbol?: string;
   collateralDecimals?: number;
@@ -47,9 +47,9 @@ interface CreatePositionFormContentProps {
 
 export const CreatePositionFormContent = ({
   parlayMethods,
-  handleParlaySubmit,
-  isParlaySubmitting,
-  parlayError,
+  handlePositionSubmit,
+  isPositionSubmitting,
+  positionError,
   parlayChainId,
   bids = [],
   requestQuotes,
@@ -59,9 +59,9 @@ export const CreatePositionFormContent = ({
   minWager,
   predictionMarketAddress,
 }: CreatePositionFormContentProps) => {
-  const { parlaySelections, clearParlaySelections } =
+  const { selections, clearSelections } =
     useCreatePositionContext();
-  const hasItems = parlaySelections.length > 0;
+  const hasItems = selections.length > 0;
 
   return (
     <>
@@ -76,7 +76,7 @@ export const CreatePositionFormContent = ({
                 variant="ghost"
                 size="xs"
                 className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 relative -top-0.5"
-                onClick={clearParlaySelections}
+                onClick={clearSelections}
                 title="Reset"
               >
                 CLEAR
@@ -88,7 +88,7 @@ export const CreatePositionFormContent = ({
         <div
           className={`flex-1 min-h-0 ${hasItems ? 'overflow-y-auto pb-4' : ''}`}
         >
-          {parlaySelections.length === 0 ? (
+          {selections.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center text-center">
               <div className="flex flex-col items-center gap-2 py-20">
                 <p className="text-sm font-mono uppercase text-accent-gold max-w-[260px] mx-auto bg-transparent tracking-wide">
@@ -97,11 +97,11 @@ export const CreatePositionFormContent = ({
               </div>
             </div>
           ) : (
-            <CreatePositionParlayForm
+            <PositionForm
               methods={parlayMethods}
-              onSubmit={handleParlaySubmit}
-              isSubmitting={isParlaySubmitting}
-              error={parlayError}
+              onSubmit={handlePositionSubmit}
+              isSubmitting={isPositionSubmitting}
+              error={positionError}
               chainId={parlayChainId}
               bids={bids}
               requestQuotes={requestQuotes}

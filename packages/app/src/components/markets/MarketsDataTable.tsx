@@ -229,32 +229,32 @@ function ForecastCell({ condition }: { condition: ConditionType }) {
 
 // Predict buttons cell component
 function PredictCell({ condition }: { condition: ConditionType }) {
-  const { addParlaySelection, removeParlaySelection, parlaySelections } =
+  const { addSelection, removeSelection, selections } =
     useCreatePositionContext();
 
   const displayQ = condition.shortName || condition.question;
 
   const selectionState = React.useMemo(() => {
     if (!condition.id) return { selectedYes: false, selectedNo: false };
-    const existing = parlaySelections.find(
+    const existing = selections.find(
       (s) => s.conditionId === condition.id
     );
     return {
       selectedYes: !!existing && existing.prediction === true,
       selectedNo: !!existing && existing.prediction === false,
     };
-  }, [parlaySelections, condition.id]);
+  }, [selections, condition.id]);
 
   const handleYes = React.useCallback(() => {
     if (!condition.id) return;
-    const existing = parlaySelections.find(
+    const existing = selections.find(
       (s) => s.conditionId === condition.id
     );
     if (existing && existing.prediction === true) {
-      removeParlaySelection(existing.id);
+      removeSelection(existing.id);
       return;
     }
-    addParlaySelection({
+    addSelection({
       conditionId: condition.id,
       question: displayQ,
       prediction: true,
@@ -264,21 +264,21 @@ function PredictCell({ condition }: { condition: ConditionType }) {
     condition.id,
     condition.category?.slug,
     displayQ,
-    parlaySelections,
-    removeParlaySelection,
-    addParlaySelection,
+    selections,
+    removeSelection,
+    addSelection,
   ]);
 
   const handleNo = React.useCallback(() => {
     if (!condition.id) return;
-    const existing = parlaySelections.find(
+    const existing = selections.find(
       (s) => s.conditionId === condition.id
     );
     if (existing && existing.prediction === false) {
-      removeParlaySelection(existing.id);
+      removeSelection(existing.id);
       return;
     }
-    addParlaySelection({
+    addSelection({
       conditionId: condition.id,
       question: displayQ,
       prediction: false,
@@ -288,9 +288,9 @@ function PredictCell({ condition }: { condition: ConditionType }) {
     condition.id,
     condition.category?.slug,
     displayQ,
-    parlaySelections,
-    removeParlaySelection,
-    addParlaySelection,
+    selections,
+    removeSelection,
+    addSelection,
   ]);
 
   return (

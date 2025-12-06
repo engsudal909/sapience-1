@@ -36,9 +36,9 @@ export async function GET(req: Request) {
     const wager = addThousandsSeparators(wagerRaw);
     const payout = addThousandsSeparators(payoutRaw);
     const symbol = normalizeText(searchParams.get('symbol'), 16);
-    // Anti-parlay flag to change label to "Prediction Against"
+    // Counterparty flag (anti param) to change label to "Prediction Against"
     const antiParam = normalizeText(searchParams.get('anti'), 16).toLowerCase();
-    const isAntiParlay = ['1', 'true', 'yes', 'anti', 'against'].includes(
+    const isCounterparty = ['1', 'true', 'yes', 'anti', 'against'].includes(
       antiParam
     );
 
@@ -96,7 +96,7 @@ export async function GET(req: Request) {
                   <PredictionsLabel
                     scale={scale}
                     count={legs.length}
-                    against={isAntiParlay}
+                    against={isCounterparty}
                   />
                   {legs.length > 0 && (
                     <div
@@ -226,3 +226,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

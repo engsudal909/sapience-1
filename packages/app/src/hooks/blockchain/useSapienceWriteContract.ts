@@ -47,7 +47,7 @@ interface useSapienceWriteContractProps {
   onTxHash?: (txHash: Hash) => void;
   successMessage?: string;
   fallbackErrorMessage?: string;
-  redirectProfileAnchor?: 'parlays' | 'forecasts';
+  redirectProfileAnchor?: 'positions' | 'forecasts';
   /**
    * Optional share intent hints. When provided, a durable record will be written
    * to sessionStorage as soon as a tx hash is known (or immediately if not available),

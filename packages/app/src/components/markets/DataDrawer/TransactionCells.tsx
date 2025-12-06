@@ -11,10 +11,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import AntiParlayBadge from '~/components/shared/AntiParlayBadge';
+import CounterpartyBadge from '~/components/shared/CounterpartyBadge';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
-import ParlayLegsList from '~/components/shared/ParlayLegsList';
+import PositionPredictionsList from '~/components/shared/PositionPredictionsList';
 import NumberDisplay from '~/components/shared/NumberDisplay';
 import { formatPercentChance } from '~/lib/format/percentChance';
 import {
@@ -80,7 +80,7 @@ export function getRowLeftBarColor(
 ): string | undefined {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
-  if (normalizedType.includes('parlay')) {
+  if (normalizedType.includes('position') || normalizedType.includes('parlay')) {
     return 'hsl(var(--foreground))';
   }
   // For forecasts, fall through to category color logic below (no special override)
@@ -157,10 +157,10 @@ export function getRowLeftBarColor(
   return seriesColor;
 }
 
-function isParlayTransaction(tx: UiTransaction): boolean {
+function isPositionTransaction(tx: UiTransaction): boolean {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
-  return normalizedType.includes('parlay');
+  return normalizedType.includes('position') || normalizedType.includes('parlay');
 }
 
 function getTransactionTypeDisplay(type: string) {
@@ -204,16 +204,16 @@ function getTransactionTypeDisplay(type: string) {
       return { label: 'Settled', variant: 'secondary' as const };
     case 'mintParlayNFTs':
     case 'MINT_PARLAY_NFTS':
-      return { label: 'Create Parlay', variant: 'default' as const };
+      return { label: 'Create Position', variant: 'default' as const };
     case 'Parlay':
     case 'parlay':
-      return { label: 'Parlay', variant: 'default' as const };
+      return { label: 'Position', variant: 'default' as const };
     case 'Anti-Parlay':
     case 'anti-parlay':
-      return { label: 'Anti-Parlay', variant: 'outline' as const };
+      return { label: 'Counterparty', variant: 'outline' as const };
     case 'burnParlayNFTs':
     case 'BURN_PARLAY_NFTS':
-      return { label: 'Burn Parlay', variant: 'outline' as const };
+      return { label: 'Burn Position', variant: 'outline' as const };
     default:
       return { label: type, variant: 'outline' as const };
   }
@@ -249,12 +249,12 @@ export function TransactionTimeCell({ tx }: { tx: UiTransaction }) {
 
 export function TransactionTypeCell({ tx }: { tx: UiTransaction }) {
   const typeDisplay = getTransactionTypeDisplay(tx.type);
-  const isAntiParlay =
-    String(typeDisplay.label || '').toLowerCase() === 'anti-parlay';
+  const isCounterparty =
+    String(typeDisplay.label || '').toLowerCase() === 'counterparty';
   return (
     <div className="flex items-center gap-1">
-      {isAntiParlay ? (
-        <AntiParlayBadge />
+      {isCounterparty ? (
+        <CounterpartyBadge />
       ) : (
         <Badge
           variant={typeDisplay.variant}
@@ -560,7 +560,7 @@ export function TransactionPositionCell({
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
   if (normalizedType.includes('mintparlay')) {
-    return <MintParlayPositionCell tx={tx} />;
+    return <MintPositionCell tx={tx} />;
   }
   const position = tx.position || {};
   const optionName = position?.market?.optionName;
@@ -814,7 +814,7 @@ export function TransactionPositionCell({
 export function TransactionQuestionCell({ tx }: { tx: UiTransaction }) {
   const lowerType = String(tx.type || '').toLowerCase();
   const normalizedType = lowerType.replace(/[^a-z]/g, '');
-  if (normalizedType.includes('parlay')) {
+  if (normalizedType.includes('position') || normalizedType.includes('parlay')) {
     const logData: any = (tx.event as any)?.logData || {};
     const outcomes: Array<any> = Array.isArray(logData?.predictedOutcomes)
       ? logData.predictedOutcomes
@@ -828,7 +828,7 @@ export function TransactionQuestionCell({ tx }: { tx: UiTransaction }) {
       }));
       return (
         <div className="space-y-1">
-          <ParlayLegsList
+          <PositionPredictionsList
             legs={legs}
             layout="row"
             maxWidthClass="max-w-[320px]"
@@ -838,7 +838,7 @@ export function TransactionQuestionCell({ tx }: { tx: UiTransaction }) {
     }
     // Fallback when legs are unavailable on the event
     return (
-      <span className="font-medium truncate max-w-[320px] block">Parlay</span>
+      <span className="font-medium truncate max-w-[320px] block">Position</span>
     );
   }
   const questionText =
@@ -894,8 +894,8 @@ export function TransactionRow({
   collateralAssetTicker?: string | null;
   sortedMarketsForColors: any[];
 }) {
-  const isParlay = isParlayTransaction(tx);
-  const leftColor = isParlay
+  const isPosition = isPositionTransaction(tx);
+  const leftColor = isPosition
     ? undefined
     : getRowLeftBarColor(tx, sortedMarketsForColors);
   return (
@@ -908,7 +908,7 @@ export function TransactionRow({
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
       <td
-        className={`px-4 py-3 ${isParlay ? 'border-l border-l-black dark:border-l-white' : ''}`}
+        className={`px-4 py-3 ${isPosition ? 'border-l border-l-black dark:border-l-white' : ''}`}
         style={
           leftColor
             ? {
@@ -946,7 +946,7 @@ export function TransactionRow({
   );
 }
 
-function MintParlayPositionCell({ tx }: { tx: UiTransaction }) {
+function MintPositionCell({ tx }: { tx: UiTransaction }) {
   const eventLog = (tx.event as any)?.logData || {};
   const taker: string =
     typeof eventLog?.taker === 'string' ? eventLog.taker : '';
@@ -971,13 +971,13 @@ function MintParlayPositionCell({ tx }: { tx: UiTransaction }) {
     <div>
       <div className="flex items-center gap-2">
         {tokenId ? <span className="whitespace-nowrap">#{tokenId}</span> : null}
-        {/* Anti-Parlay help icon moved to Action cell; nothing extra here now */}
+        {/* Counterparty help icon moved to Action cell; nothing extra here now */}
       </div>
     </div>
   );
 }
 
-export function MintParlayNFTTransactionRow({
+export function MintPositionNFTTransactionRow({
   tx,
   sortedMarketsForColors,
   collateralAssetTicker,
@@ -986,8 +986,8 @@ export function MintParlayNFTTransactionRow({
   sortedMarketsForColors: any[];
   collateralAssetTicker?: string | null;
 }) {
-  const isParlay = isParlayTransaction(tx);
-  const leftColor = isParlay
+  const isPosition = isPositionTransaction(tx);
+  const leftColor = isPosition
     ? undefined
     : getRowLeftBarColor(tx, sortedMarketsForColors);
   return (
@@ -1000,7 +1000,7 @@ export function MintParlayNFTTransactionRow({
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
       <td
-        className={`px-4 py-3 ${isParlay ? 'border-l border-l-black dark:border-l-white' : ''}`}
+        className={`px-4 py-3 ${isPosition ? 'border-l border-l-black dark:border-l-white' : ''}`}
         style={
           leftColor
             ? {
@@ -1029,13 +1029,13 @@ export function MintParlayNFTTransactionRow({
         <TransactionOwnerCell tx={tx} />
       </td>
       <td className="px-4 py-3">
-        <MintParlayPositionCell tx={tx} />
+        <MintPositionCell tx={tx} />
       </td>
     </motion.tr>
   );
 }
 
-export function BurnParlayNFTTransactionRow(
+export function BurnPositionNFTTransactionRow(
   props: Parameters<typeof TransactionRow>[0]
 ) {
   return <TransactionRow {...props} />;

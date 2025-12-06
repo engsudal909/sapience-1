@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import type { Parlay } from './useUserParlays';
 
-const PARLAYS_BY_CONDITION_ID_QUERY = /* GraphQL */ `
+// Note: GraphQL query name matches API schema (parlaysByConditionId)
+const POSITIONS_BY_CONDITION_ID_QUERY = /* GraphQL */ `
   query ParlaysByConditionId(
     $conditionId: String!
     $take: Int
@@ -45,7 +46,7 @@ const PARLAYS_BY_CONDITION_ID_QUERY = /* GraphQL */ `
   }
 `;
 
-export function useParlaysByConditionId(params: {
+export function usePositionsByConditionId(params: {
   conditionId?: string;
   take?: number;
   skip?: number;
@@ -61,7 +62,7 @@ export function useParlaysByConditionId(params: {
   const enabled = options?.enabled ?? Boolean(conditionId);
 
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['parlaysByConditionId', conditionId, take, skip, chainId],
+    queryKey: ['positionsByConditionId', conditionId, take, skip, chainId],
     enabled,
     staleTime: options?.staleTime ?? 30_000,
     gcTime: 5 * 60 * 1000,
@@ -71,7 +72,7 @@ export function useParlaysByConditionId(params: {
       if (!conditionId) return [];
 
       const resp = await graphqlRequest<{ parlaysByConditionId: Parlay[] }>(
-        PARLAYS_BY_CONDITION_ID_QUERY,
+        POSITIONS_BY_CONDITION_ID_QUERY,
         {
           conditionId,
           take,
@@ -148,3 +149,4 @@ export function useParlaysByConditionId(params: {
     error,
   };
 }
+

@@ -488,7 +488,7 @@ const SettingsPageContent = () => {
                         invalidMessage="Must be an absolute http(s) base URL"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Used to relay bids for parlays
+                        Used to relay bids for positions
                       </p>
                     </div>
 

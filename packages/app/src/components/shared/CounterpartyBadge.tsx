@@ -9,19 +9,19 @@ import {
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
 
-interface AntiParlayBadgeProps {
+interface CounterpartyBadgeProps {
   className?: string;
   labelClassName?: string;
   iconClassName?: string;
   tooltip?: string;
 }
 
-export default function AntiParlayBadge({
+export default function CounterpartyBadge({
   className,
   labelClassName,
   iconClassName,
   tooltip = 'This position is that one or more of these conditions will not be met.',
-}: AntiParlayBadgeProps) {
+}: CounterpartyBadgeProps) {
   return (
     <TooltipProvider>
       <div className="inline-flex items-center">
@@ -30,13 +30,13 @@ export default function AntiParlayBadge({
           className={`inline-flex items-center gap-1 pr-1 ${className ?? ''}`}
         >
           <span className={`text-brand-white ${labelClassName ?? ''}`}>
-            Anti-Parlay
+            Counterparty
           </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label="Anti-Parlay details"
+                aria-label="Counterparty details"
                 className={`inline-flex items-center justify-center h-4 w-4 text-muted-foreground hover:text-foreground ${iconClassName ?? ''}`}
               >
                 <HelpCircle className="h-3.5 w-3.5" />
@@ -51,3 +51,4 @@ export default function AntiParlayBadge({
     </TooltipProvider>
   );
 }
+

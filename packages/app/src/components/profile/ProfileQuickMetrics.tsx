@@ -174,12 +174,12 @@ function useProfileBalance(
 
 import { useProfileVolume } from '~/hooks/useProfileVolume';
 
-function useFirstActivity(parlays: Parlay[] | undefined) {
+function useFirstActivity(positions: Parlay[] | undefined) {
   return React.useMemo(() => {
     let earliest: Date | undefined;
     try {
-      for (const parlay of parlays || []) {
-        const sec = Number(parlay.mintedAt);
+      for (const position of positions || []) {
+        const sec = Number(position.mintedAt);
         if (!Number.isFinite(sec)) continue;
         const d = new Date(sec * 1000);
         if (!earliest || d < earliest) earliest = d;
@@ -215,27 +215,27 @@ function useFirstActivity(parlays: Parlay[] | undefined) {
       tooltip: full,
       isNever: false,
     };
-  }, [parlays]);
+  }, [positions]);
 }
 
 export type ProfileQuickMetricsProps = {
   address: string;
   forecastsCount: number;
-  parlays: Parlay[];
+  positions: Parlay[];
   className?: string;
 };
 
 export default function ProfileQuickMetrics({
   address,
   forecastsCount,
-  parlays,
+  positions,
   className,
 }: ProfileQuickMetricsProps) {
   const chainId = useChainIdFromLocalStorage();
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const balance = useProfileBalance(address, chainId, collateralSymbol);
-  const volume = useProfileVolume(parlays, address);
-  const first = useFirstActivity(parlays);
+  const volume = useProfileVolume(positions, address);
+  const first = useFirstActivity(positions);
   const forecastsIsFinite = Number.isFinite(forecastsCount);
   const forecastsUnit = forecastsIsFinite
     ? forecastsCount === 1

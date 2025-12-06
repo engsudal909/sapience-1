@@ -9,8 +9,8 @@ import {
   useEffect,
 } from 'react';
 
-// localStorage key for parlay selections persistence
-const STORAGE_KEY_PARLAYS = 'sapience:position-parlays';
+// localStorage key for position selections persistence
+const STORAGE_KEY_SELECTIONS = 'sapience:position-selections';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -38,8 +38,8 @@ export interface CreatePositionEntry {
   marketClassification?: MarketGroupClassification; // Store classification for better form handling
 }
 
-// Lightweight parlay selection for OTC conditions (no on-chain market data)
-export interface ParlaySelection {
+// Lightweight position selection for OTC conditions (no on-chain market data)
+export interface PositionSelection {
   id: string; // unique within position form
   conditionId: string;
   question: string;
@@ -57,18 +57,18 @@ export interface PositionWithMarketData {
 }
 
 interface CreatePositionContextType {
-  // Separate lists: single positions (on-chain) and parlay selections (RFQ conditions)
+  // Separate lists: single positions (on-chain) and position selections (RFQ conditions)
   createPositionEntries: CreatePositionEntry[]; // legacy alias to singlePositions for backward compat
   singlePositions: CreatePositionEntry[];
-  parlaySelections: ParlaySelection[];
+  selections: PositionSelection[];
   addPosition: (position: Omit<CreatePositionEntry, 'id'>) => void;
   removePosition: (id: string) => void;
   updatePosition: (id: string, updates: Partial<CreatePositionEntry>) => void;
   clearPositionForm: () => void;
-  // Parlay selections API
-  addParlaySelection: (selection: Omit<ParlaySelection, 'id'>) => void;
-  removeParlaySelection: (id: string) => void;
-  clearParlaySelections: () => void;
+  // Position selections API
+  addSelection: (selection: Omit<PositionSelection, 'id'>) => void;
+  removeSelection: (id: string) => void;
+  clearSelections: () => void;
   openPopover: () => void;
   isPopoverOpen: boolean;
   setIsPopoverOpen: (open: boolean) => void;
@@ -100,15 +100,15 @@ export const CreatePositionProvider = ({
   const [singlePositions, setSinglePositions] = useState<CreatePositionEntry[]>(
     []
   );
-  const [parlaySelections, setParlaySelections] = useState<ParlaySelection[]>(
-    () => loadFromStorage(STORAGE_KEY_PARLAYS, [])
+  const [selections, setSelections] = useState<PositionSelection[]>(
+    () => loadFromStorage(STORAGE_KEY_SELECTIONS, [])
   );
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  // Persist parlay selections to localStorage whenever they change
+  // Persist position selections to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PARLAYS, JSON.stringify(parlaySelections));
-  }, [parlaySelections]);
+    localStorage.setItem(STORAGE_KEY_SELECTIONS, JSON.stringify(selections));
+  }, [selections]);
 
   // Spot market functionality removed - positionsWithMarketData is empty
   const positionsWithMarketData: PositionWithMarketData[] = singlePositions.map(
@@ -218,9 +218,9 @@ export const CreatePositionProvider = ({
     setIsPopoverOpen(true);
   }, []);
 
-  const addParlaySelection = useCallback(
-    (selection: Omit<ParlaySelection, 'id'>) => {
-      setParlaySelections((prev) => {
+  const addSelection = useCallback(
+    (selection: Omit<PositionSelection, 'id'>) => {
+      setSelections((prev) => {
         const existingIndex = prev.findIndex(
           (s) => s.conditionId === selection.conditionId
         );
@@ -239,25 +239,25 @@ export const CreatePositionProvider = ({
     []
   );
 
-  const removeParlaySelection = useCallback((id: string) => {
-    setParlaySelections((prev) => prev.filter((s) => s.id !== id));
+  const removeSelection = useCallback((id: string) => {
+    setSelections((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
-  const clearParlaySelections = useCallback(() => {
-    setParlaySelections([]);
+  const clearSelections = useCallback(() => {
+    setSelections([]);
   }, []);
 
   const value: CreatePositionContextType = {
     createPositionEntries: singlePositions,
     singlePositions,
-    parlaySelections,
+    selections,
     addPosition,
     removePosition,
     updatePosition,
     clearPositionForm,
-    addParlaySelection,
-    removeParlaySelection,
-    clearParlaySelections,
+    addSelection,
+    removeSelection,
+    clearSelections,
     openPopover,
     isPopoverOpen,
     setIsPopoverOpen,

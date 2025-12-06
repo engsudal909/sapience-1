@@ -12,7 +12,7 @@ import {
 import { useUserParlays, type Parlay } from '~/hooks/graphql/useUserParlays';
 import { SCHEMA_UID } from '~/lib/constants/eas';
 
-type Anchor = 'forecasts' | 'parlays';
+type Anchor = 'forecasts' | 'positions';
 
 type ShareIntentStored = {
   address: string;
@@ -33,7 +33,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
     attesterAddress: lowerAddress,
     schemaId: SCHEMA_UID,
   });
-  const { data: parlays } = useUserParlays({ address: lowerAddress });
+  const { data: positions } = useUserParlays({ address: lowerAddress });
 
   const clearIntent = useCallback(() => {
     try {
@@ -63,7 +63,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
     const updateAnchor = () => {
       if (typeof window === 'undefined') return;
       const raw = window.location.hash?.replace('#', '').toLowerCase();
-      if (raw === 'forecasts' || raw === 'parlays') {
+      if (raw === 'forecasts' || raw === 'positions') {
         setCurrentAnchor(raw);
       } else {
         setCurrentAnchor(null);
@@ -90,10 +90,10 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
           if (f?.rawTime) qp.set('created', String(f.rawTime));
           return `/og/forecast?${qp.toString()}`;
         }
-        if (anchor === 'parlays' && entity) {
+        if (anchor === 'positions' && entity) {
           // Encode all legs with question and prediction choice
-          const parlay = entity as Parlay;
-          const legs = (parlay?.predictedOutcomes || [])
+          const position = entity as Parlay;
+          const legs = (position?.predictedOutcomes || [])
             .map((o) => {
               const question =
                 (o?.condition?.shortName as string) ||
@@ -108,15 +108,15 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
 
           const collateralDecimals = 18;
           const collateralSymbol = 'testUSDe';
-          if (parlay?.makerCollateral) {
+          if (position?.makerCollateral) {
             const wager = parseFloat(
-              formatUnits(BigInt(parlay.makerCollateral), collateralDecimals)
+              formatUnits(BigInt(position.makerCollateral), collateralDecimals)
             ).toFixed(2);
             qp.set('wager', wager);
           }
 
-          if (parlay?.totalCollateral) {
-            const totalCollateralBigInt = BigInt(parlay.totalCollateral);
+          if (position?.totalCollateral) {
+            const totalCollateralBigInt = BigInt(position.totalCollateral);
             const payout = parseFloat(
               formatUnits(totalCollateralBigInt, collateralDecimals)
             ).toFixed(2);
@@ -125,7 +125,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
 
           qp.set('symbol', collateralSymbol);
 
-          return `/og/parlay?${qp.toString()}`;
+          return `/og/position?${qp.toString()}`;
         }
       } catch {
         // ignore
@@ -191,8 +191,8 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
           list.find(
             (f: FormattedAttestation) => Number(f.rawTime) * 1000 >= minTs
           ) || null;
-      } else if (intent.anchor === 'parlays') {
-        const list: Parlay[] = parlays || [];
+      } else if (intent.anchor === 'positions') {
+        const list: Parlay[] = positions || [];
         const filtered = list.filter(
           (p: Parlay) => Number(p.mintedAt) * 1000 >= minTs
         );
@@ -218,7 +218,7 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
     lowerAddress,
     currentAnchor,
     forecasts,
-    parlays,
+    positions,
     readIntent,
     toOgUrl,
     clearIntent,

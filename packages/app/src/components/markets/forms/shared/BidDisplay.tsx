@@ -38,7 +38,7 @@ export interface BidDisplayProps {
   enableRainbowHover?: boolean;
   /** Optional "Limit Order" button handler */
   onLimitOrderClick?: () => void;
-  /** Show parlay-specific "Some combinations may not receive bids" hint */
+  /** Show position-specific "Some combinations may not receive bids" hint */
   showNoBidsHint?: boolean;
   /** Hint visibility for crossfade animation */
   hintVisible?: boolean;
@@ -62,7 +62,7 @@ export interface BidDisplayProps {
 
 /**
  * Shared component for displaying bid information, payout, and submit button.
- * Used by both CreatePositionParlayForm and PredictionForm.
+ * Used by both PositionForm and PredictionForm.
  */
 export default function BidDisplay({
   bestBid,
@@ -251,7 +251,7 @@ export default function BidDisplay({
         {buttonState.text}
       </Button>
 
-      {/* Parlay-specific hint for combinations that may not receive bids */}
+      {/* Position-specific hint for combinations that may not receive bids */}
       {hintMounted && showNoBidsHint && (
         <div
           className={`text-xs text-foreground font-medium mt-2 transition-opacity duration-300 ${
