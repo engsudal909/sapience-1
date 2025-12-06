@@ -51,6 +51,7 @@ import {
 } from '@tanstack/react-table';
 import {
   ArrowLeftRight,
+  Bot,
   ChevronUp,
   ChevronDown,
   Code,
@@ -79,6 +80,7 @@ import ConditionForecastForm from '~/components/conditions/ConditionForecastForm
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import MarketBadge from '~/components/markets/MarketBadge';
+import ResearchAgent from '~/components/markets/ResearchAgent';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { useSubmitPosition } from '~/hooks/forms/useSubmitPosition';
 import { usePositionsByConditionId } from '~/hooks/graphql/usePositionsByConditionId';
@@ -222,9 +224,6 @@ export default function QuestionPageContent({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-
-  const [isDescriptionExpanded, setIsDescriptionExpanded] =
-    React.useState(false);
 
   const handleForecastSuccess = React.useCallback(() => {
     setRefetchTrigger((prev) => prev + 1);
@@ -527,7 +526,6 @@ export default function QuestionPageContent({
   // Forecasts are user-submitted probability predictions (not positions)
   const forecastScatterData = useMemo(() => {
     if (!forecasts || forecasts.length === 0) {
-      console.log('[QuestionPageContent] No forecasts data to transform');
       return [];
     }
 
@@ -1870,27 +1868,281 @@ export default function QuestionPageContent({
             />
           </div>
 
-          {/* Row 2: Predictions/Forecasts (left) | Resolution/Contracts (right) */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-12">
-            {/* Predictions/Forecasts - Unified container with integrated tabs */}
+          {/* Row 2: Mobile - All tabs in one container */}
+          <div className="lg:hidden mb-12">
             <Tabs defaultValue="predictions" className="w-full min-w-0">
               <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
-                {/* Header with integrated tabs */}
-                <div className="flex items-center gap-4 px-4 py-2.5 border-b border-border/60 bg-muted/10">
-                  <TabsList className="h-auto p-0 bg-transparent gap-1">
+                {/* Header with all 5 tabs */}
+                <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10 overflow-x-auto">
+                  <TabsList className="h-auto p-0 bg-transparent gap-2 flex-nowrap">
                     <TabsTrigger
                       value="predictions"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                     >
                       <ArrowLeftRight className="h-3.5 w-3.5" />
                       Positions
                     </TabsTrigger>
                     <TabsTrigger
                       value="forecasts"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                     >
                       <Telescope className="h-3.5 w-3.5" />
                       Forecasts
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="resolution"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Gavel className="h-3.5 w-3.5 -scale-x-100" />
+                      Resolution
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="agent"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Bot className="h-3.5 w-3.5" />
+                      Agent
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="techspec"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Code className="h-3.5 w-3.5" />
+                      Tech Spec
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+                {/* Content area - Positions */}
+                <TabsContent value="predictions" className="m-0">
+                  {isLoadingPositions ? (
+                    <div className="flex items-center justify-center p-12">
+                      <LottieLoader width={32} height={32} />
+                    </div>
+                  ) : scatterData.length > 0 ? (
+                    <div className="overflow-x-auto w-full min-w-0">
+                      <Table className="w-full">
+                        <TableHeader>
+                          {predictionsTable
+                            .getHeaderGroups()
+                            .map((headerGroup) => (
+                              <TableRow
+                                key={headerGroup.id}
+                                className="hover:!bg-background bg-background border-b border-border/60"
+                              >
+                                {headerGroup.headers.map((header) => (
+                                  <TableHead
+                                    key={header.id}
+                                    className="px-4 py-1 text-left text-sm font-medium text-muted-foreground"
+                                  >
+                                    {header.isPlaceholder
+                                      ? null
+                                      : flexRender(
+                                          header.column.columnDef.header,
+                                          header.getContext()
+                                        )}
+                                  </TableHead>
+                                ))}
+                              </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody className="bg-brand-black">
+                          {predictionsTable.getRowModel().rows.length ? (
+                            predictionsTable.getRowModel().rows.map((row) => (
+                              <TableRow
+                                key={row.id}
+                                className="border-b border-border/60 hover:bg-brand-white/5 transition-colors"
+                              >
+                                {row.getVisibleCells().map((cell) => (
+                                  <TableCell
+                                    key={cell.id}
+                                    className="px-4 py-3"
+                                  >
+                                    {flexRender(
+                                      cell.column.columnDef.cell,
+                                      cell.getContext()
+                                    )}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell
+                                colSpan={predictionsColumns.length}
+                                className="h-24 text-center text-muted-foreground"
+                              >
+                                No predictions yet
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-12">
+                      <span className="text-muted-foreground text-sm">
+                        No predictions yet
+                      </span>
+                    </div>
+                  )}
+                </TabsContent>
+                {/* Content area - Forecasts */}
+                <TabsContent value="forecasts" className="m-0">
+                  <div className="p-4 border-b border-border/60">
+                    <ConditionForecastForm
+                      conditionId={conditionId}
+                      question={data.shortName || data.question || ''}
+                      endTime={data.endTime ?? undefined}
+                      categorySlug={data.category?.slug}
+                      onSuccess={handleForecastSuccess}
+                    />
+                  </div>
+                  <Comments
+                    selectedCategory={CommentFilters.SelectedQuestion}
+                    question={data.shortName || data.question}
+                    conditionId={conditionId}
+                    refetchTrigger={refetchTrigger}
+                  />
+                </TabsContent>
+                {/* Content area - Resolution */}
+                <TabsContent value="resolution" className="m-0 p-4">
+                  <div className="mb-4">
+                    <EndTimeDisplay
+                      endTime={data.endTime ?? null}
+                      size="normal"
+                      appearance="brandWhite"
+                    />
+                  </div>
+                  {data.description ? (
+                    <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
+                      <SafeMarkdown
+                        content={data.description}
+                        className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">
+                      No resolution criteria available.
+                    </span>
+                  )}
+                </TabsContent>
+                {/* Content area - Agent */}
+                <TabsContent value="agent" className="m-0">
+                  <ResearchAgent
+                    question={data.shortName || data.question}
+                    endTime={data.endTime}
+                    description={data.description}
+                  />
+                </TabsContent>
+                {/* Content area - Tech Spec */}
+                <TabsContent value="techspec" className="m-0">
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-border/60">
+                      <tr>
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
+                          Market
+                        </td>
+                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
+                          {(() => {
+                            const chainId = data.chainId ?? 42161;
+                            const address = predictionMarket[chainId]?.address;
+                            if (!address) return '—';
+                            return (
+                              <span className="inline-flex items-center gap-1.5">
+                                {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(address)
+                                  }
+                                  className="text-muted-foreground hover:text-brand-white transition-colors"
+                                  title="Copy full market address"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              </span>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
+                          Resolver
+                        </td>
+                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
+                          {(() => {
+                            const chainId = data.chainId ?? 42161;
+                            const address = umaResolver[chainId]?.address;
+                            if (!address) return '—';
+                            return (
+                              <a
+                                href={`https://arbiscan.io/address/${address}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 hover:text-accent-gold transition-colors"
+                              >
+                                {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
+                              </a>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
+                          Condition
+                        </td>
+                        <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
+                          <span className="inline-flex items-center gap-1.5">
+                            {`${conditionId.slice(0, 6)}...${conditionId.slice(-4)}`}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigator.clipboard.writeText(conditionId)
+                              }
+                              className="text-muted-foreground hover:text-brand-white transition-colors"
+                              title="Copy full condition"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+
+          {/* Row 2: Desktop - Predictions/Forecasts (left) | Agent/Tech Spec (right) */}
+          <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
+            {/* Predictions/Forecasts/Resolution - Unified container with integrated tabs */}
+            <Tabs defaultValue="predictions" className="w-full min-w-0">
+              <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
+                {/* Header with integrated tabs */}
+                <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+                  <TabsList className="h-auto p-0 bg-transparent gap-2">
+                    <TabsTrigger
+                      value="predictions"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                      Positions
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="forecasts"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Telescope className="h-3.5 w-3.5" />
+                      Forecasts
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="resolution"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Gavel className="h-3.5 w-3.5 -scale-x-100" />
+                      Resolution
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -1985,25 +2237,46 @@ export default function QuestionPageContent({
                     refetchTrigger={refetchTrigger}
                   />
                 </TabsContent>
+                <TabsContent value="resolution" className="m-0 p-4">
+                  <div className="mb-4">
+                    <EndTimeDisplay
+                      endTime={data.endTime ?? null}
+                      size="normal"
+                      appearance="brandWhite"
+                    />
+                  </div>
+                  {data.description ? (
+                    <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
+                      <SafeMarkdown
+                        content={data.description}
+                        className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">
+                      No resolution criteria available.
+                    </span>
+                  )}
+                </TabsContent>
               </div>
             </Tabs>
 
-            {/* Resolution Criteria / Smart Contracts - Unified container with integrated tabs */}
-            <Tabs defaultValue="resolution" className="w-full">
-              <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black">
+            {/* Agent / Tech Spec - Unified container with integrated tabs */}
+            <Tabs defaultValue="agent" className="w-full">
+              <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
                 {/* Header with integrated tabs */}
-                <div className="flex items-center gap-4 px-4 py-2.5 border-b border-border/60 bg-muted/10">
-                  <TabsList className="h-auto p-0 bg-transparent gap-1">
+                <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+                  <TabsList className="h-auto p-0 bg-transparent gap-2">
                     <TabsTrigger
-                      value="resolution"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
+                      value="agent"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
                     >
-                      <Gavel className="h-3.5 w-3.5 -scale-x-100" />
-                      Resolution
+                      <Bot className="h-3.5 w-3.5" />
+                      Agent
                     </TabsTrigger>
                     <TabsTrigger
-                      value="contracts"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.03] data-[state=active]:bg-brand-white/10 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.06] transition-colors inline-flex items-center gap-1.5"
+                      value="techspec"
+                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
                     >
                       <Code className="h-3.5 w-3.5" />
                       Tech Spec
@@ -2011,52 +2284,14 @@ export default function QuestionPageContent({
                   </TabsList>
                 </div>
                 {/* Content area */}
-                <TabsContent value="resolution" className="m-0 p-4">
-                  {data.description ? (
-                    <>
-                      <div className="relative overflow-hidden">
-                        <motion.div
-                          initial={false}
-                          animate={{
-                            height: isDescriptionExpanded ? 'auto' : '12em',
-                          }}
-                          transition={{ duration: 0.3, ease: 'easeInOut' }}
-                          className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90"
-                        >
-                          <SafeMarkdown
-                            content={data.description}
-                            className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
-                          />
-                        </motion.div>
-                        <AnimatePresence>
-                          {!isDescriptionExpanded && (
-                            <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-brand-black to-transparent pointer-events-none"
-                            />
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setIsDescriptionExpanded(!isDescriptionExpanded)
-                        }
-                        className="mt-2 text-sm font-medium gold-link"
-                      >
-                        {isDescriptionExpanded ? 'Show less' : 'Read more'}
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">
-                      No resolution criteria available.
-                    </span>
-                  )}
+                <TabsContent value="agent" className="m-0">
+                  <ResearchAgent
+                    question={data.shortName || data.question}
+                    endTime={data.endTime}
+                    description={data.description}
+                  />
                 </TabsContent>
-                <TabsContent value="contracts" className="m-0">
+                <TabsContent value="techspec" className="m-0">
                   <table className="w-full text-xs">
                     <tbody className="divide-y divide-border/60">
                       <tr>
@@ -2111,7 +2346,7 @@ export default function QuestionPageContent({
                       </tr>
                       <tr>
                         <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap">
-                          Question ID
+                          Condition
                         </td>
                         <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
                           <span className="inline-flex items-center gap-1.5">
@@ -2122,7 +2357,7 @@ export default function QuestionPageContent({
                                 navigator.clipboard.writeText(conditionId)
                               }
                               className="text-muted-foreground hover:text-brand-white transition-colors"
-                              title="Copy full condition ID"
+                              title="Copy full condition"
                             >
                               <Copy className="h-3 w-3" />
                             </button>

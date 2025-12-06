@@ -90,13 +90,11 @@ export function ChatMessages({
       ))}
       {showTyping && (
         <div className="text-sm text-left">
-          <div
-            className={`inline-block px-2 py-1 rounded bg-muted whitespace-pre-line max-w-[80%] text-left`}
-          >
-            <span className="inline-flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/60 animate-pulse [animation-delay:0ms]" />
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/60 animate-pulse [animation-delay:200ms]" />
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/60 animate-pulse [animation-delay:400ms]" />
+          <div className="inline-block px-3.5 py-2 rounded-full bg-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-foreground/60 animate-pulse [animation-delay:0ms]" />
+              <span className="inline-block w-2 h-2 rounded-full bg-foreground/60 animate-pulse [animation-delay:200ms]" />
+              <span className="inline-block w-2 h-2 rounded-full bg-foreground/60 animate-pulse [animation-delay:400ms]" />
             </span>
           </div>
         </div>
