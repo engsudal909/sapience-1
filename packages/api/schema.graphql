@@ -3481,6 +3481,7 @@ type Query {
   marketPrice(where: MarketPriceWhereUniqueInput!): MarketPrice
   marketPrices(cursor: MarketPriceWhereUniqueInput, distinct: [MarketPriceScalarFieldEnum!], orderBy: [MarketPriceOrderByWithRelationInput!], skip: Int, take: Int, where: MarketPriceWhereInput): [MarketPrice!]!
   markets(cursor: MarketWhereUniqueInput, distinct: [MarketScalarFieldEnum!], orderBy: [MarketOrderByWithRelationInput!], skip: Int, take: Int, where: MarketWhereInput): [Market!]!
+  parlaysByConditionId(chainId: Int, conditionId: String!, skip: Int! = 0, take: Int! = 100): [ParlayType!]!
   position(where: PositionWhereUniqueInput!): Position
   positions(cursor: PositionWhereUniqueInput, distinct: [PositionScalarFieldEnum!], orderBy: [PositionOrderByWithRelationInput!], skip: Int, take: Int, where: PositionWhereInput): [Position!]!
   profitRankByAddress(owner: String!): ProfitRankType!
