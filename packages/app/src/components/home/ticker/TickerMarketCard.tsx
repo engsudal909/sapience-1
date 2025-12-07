@@ -19,11 +19,13 @@ export interface TickerMarketCardProps {
     categorySlug?: string | null;
   };
   color: string;
+  predictionProbability?: number | null;
 }
 
 const TickerMarketCard: React.FC<TickerMarketCardProps> = ({
   condition,
   color,
+  predictionProbability = null,
 }) => {
   const { id, question, shortName, endTime, description, categorySlug } =
     condition;
@@ -98,7 +100,7 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({
         transition={{ duration: 0.3, ease: 'easeOut' }}
         className="flex flex-row items-stretch relative overflow-hidden"
       >
-        <div className="w-full max-w-[92vw] md:max-w-[720px]">
+        <div className="w-auto max-w-none md:max-w-[720px]">
           <div className="pl-4 pr-0.5 py-2">
             <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <MarketBadge
@@ -122,13 +124,15 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({
                 <MarketPredictionRequest
                   conditionId={id}
                   className="text-sm"
+                  eager={predictionProbability == null}
                   suppressLoadingPlaceholder
+                  prefetchedProbability={predictionProbability}
                 />
               </div>
               <YesNoSplitButton
                 onYes={handleYes}
                 onNo={handleNo}
-                className="ml-auto w-auto md:w-auto [&>button]:w-full md:[&>button]:w-auto [&>button]:h-6 [&>button]:px-2 [&>button]:text-[11px] [&>button]:tracking-wider [&>button]:font-mono [&>button]:rounded-md [&>button]:whitespace-nowrap [&>button]:shadow-none"
+                className="ml-auto w-auto shrink-0 md:w-auto [&>button]:w-full md:[&>button]:w-auto [&>button]:h-6 [&>button]:px-2 [&>button]:text-[11px] [&>button]:tracking-wider [&>button]:font-mono [&>button]:rounded-md [&>button]:whitespace-nowrap [&>button]:shadow-none"
                 size="sm"
                 fullWidth={false}
                 selectedYes={selectionState.selectedYes}

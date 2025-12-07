@@ -201,8 +201,6 @@ const Header = () => {
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
   const { disconnect } = useDisconnect();
-  const pathname = usePathname();
-  const isHomePage = pathname === '/';
   const [isScrolled, setIsScrolled] = useState(false);
   const thresholdRef = useRef(12);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -403,7 +401,7 @@ const Header = () => {
       <header
         ref={headerRef}
         style={{ top: 'var(--banner-offset, 0px)' } as React.CSSProperties}
-        className={`w-full 'pt-3 pb-2 md:py-6 z-[50] sticky left-0 right-0 pointer-events-none bg-background/30 backdrop-blur-sm border-b border-border/20 overflow-x-clip md:bg-transparent md:backdrop-blur-0 md:border-b-0 md:overflow-visible`}
+        className={`w-full pt-2 pb-2 md:py-6 z-[50] sticky left-0 right-0 pointer-events-none bg-background/30 backdrop-blur-sm border-b border-border/20 overflow-x-clip md:bg-transparent md:backdrop-blur-0 md:border-b-0 md:overflow-visible`}
       >
         <div className={`mx-auto px-4 md:px-6 transition-all`}>
           <div
@@ -646,25 +644,7 @@ const Header = () => {
           <NavLinks />
         </SidebarContent>
         <SidebarFooter>
-          <div className="flex flex-col gap-2 text-xs w-full ml-4 rounded-lg">
-            <div className="flex flex-col items-start gap-2 mb-3">
-              <span className="text-[hsl(var(--brand-white))]">Powered by</span>
-              <a
-                href="https://ethena.fi"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Image
-                  src="/ethena.svg"
-                  alt="Ethena"
-                  width={87}
-                  height={24}
-                  className="dark:invert opacity-90 hover:opacity-100 transition-opacity duration-200"
-                />
-              </a>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 pl-4 pb-4">
+          <div className="flex items-center gap-2 p-2 pl-4 pb-2">
             <Button size="icon" className="h-6 w-6 rounded-full" asChild>
               <a
                 href="https://github.com/sapiencexyz/sapience"
@@ -723,23 +703,42 @@ const Header = () => {
               </a>
             </Button>
           </div>
-          <div className="flex items-center gap-3 pl-4 pb-3 -mt-3.5">
-            <a
-              href="https://docs.sapience.xyz/terms-of-service"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Terms
-            </a>
-            <a
-              href="https://docs.sapience.xyz/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Privacy Policy
-            </a>
+          <div className="flex flex-col gap-2 text-xs w-full ml-4 rounded-lg -mt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[hsl(var(--brand-white))]">Powered by</span>
+              <a
+                href="https://ethena.fi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center"
+              >
+                <Image
+                  src="/ethena.svg"
+                  alt="Ethena"
+                  width={64}
+                  height={18}
+                  className="dark:invert opacity-90 hover:opacity-100 transition-opacity duration-200"
+                />
+              </a>
+            </div>
+            <div className="flex items-center gap-3 pb-3">
+              <a
+                href="https://docs.sapience.xyz/terms-of-service"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Terms
+              </a>
+              <a
+                href="https://docs.sapience.xyz/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Privacy Policy
+              </a>
+            </div>
           </div>
         </SidebarFooter>
       </Sidebar>

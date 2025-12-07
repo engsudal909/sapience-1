@@ -1,22 +1,17 @@
 'use client';
 
 import * as React from 'react';
+import { motion } from 'framer-motion';
 import FeaturedMarketGroupCards from './FeaturedMarketGroupCards';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { hasActivePublicConditions } from './featuredConditions';
 
 export default function Ticker() {
-  const [isMounted, setIsMounted] = React.useState(false);
   const { data: conditions } = useConditions({ take: 100 });
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   const nowSeconds = React.useMemo(() => Date.now() / 1000, []);
   const hasItems = hasActivePublicConditions(conditions, nowSeconds);
-
-  React.useEffect(() => {
-    const id = requestAnimationFrame(() => setIsMounted(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
 
   // Expose current ticker height so pages can reserve space only when needed.
   React.useEffect(() => {
@@ -24,7 +19,8 @@ export default function Ticker() {
     if (!el) return;
 
     const setHeightVar = () => {
-      const nextHeight = hasItems ? `${el.offsetHeight}px` : '0px';
+      const measured = el.offsetHeight || 40;
+      const nextHeight = `${measured}px`;
       document.documentElement.style.setProperty('--ticker-height', nextHeight);
     };
 
@@ -42,13 +38,16 @@ export default function Ticker() {
   return (
     <div
       ref={containerRef}
-      className={`absolute bottom-0 left-0 right-0 z-[45] w-full overflow-hidden ${
-        hasItems ? 'bg-brand-black' : 'h-[2px]'
-      } border-y border-brand-white/10 text-foreground transition-opacity duration-500 ease-out ${
-        isMounted ? 'opacity-100' : 'opacity-0'
-      }`}
+      className="absolute bottom-0 left-0 right-0 z-[45] w-full overflow-hidden bg-brand-black border-y border-brand-white/10 text-foreground h-[40px] min-h-[40px]"
     >
-      <FeaturedMarketGroupCards />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: hasItems ? 1 : 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="h-full flex items-center"
+      >
+        <FeaturedMarketGroupCards />
+      </motion.div>
     </div>
   );
 }

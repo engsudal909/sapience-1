@@ -43,7 +43,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
           <ContentArea>{children}</ContentArea>
         </div>
         {/* Desktop footer */}
-        <Footer />
+        <div className="hidden md:block">
+          <Footer />
+        </div>
       </div>
     </SidebarProvider>
   );

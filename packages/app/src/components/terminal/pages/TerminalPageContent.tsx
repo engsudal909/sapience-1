@@ -138,6 +138,8 @@ const TerminalPageContent: React.FC = () => {
   const collateralAssetTicker = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const isMobile = useIsMobile();
   const isCompact = useIsBelow(1024);
+  const desktopBottomGap = 'clamp(16px, 2.5vw, 32px)';
+  const desktopViewportHeight = `calc(100dvh - var(--page-top-offset, 0px) - ${desktopBottomGap})`;
 
   const [pinnedAuctions, setPinnedAuctions] = useState<string[]>([]);
   const [expandedAuctions, setExpandedAuctions] = useState<Set<string>>(
@@ -795,12 +797,22 @@ const TerminalPageContent: React.FC = () => {
                 <AutoBid />
               </div>
             ) : null}
-            <div className="w-full lg:w-auto flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-6 lg:pb-0 h-full min-h-0">
+            <div
+              className="w-full lg:w-auto flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-6 lg:pb-0 h-full min-h-0"
+              style={
+                !isMobile
+                  ? {
+                      height: desktopViewportHeight,
+                      maxHeight: desktopViewportHeight,
+                    }
+                  : undefined
+              }
+            >
               <div
                 className="border border-border/60 rounded-lg overflow-hidden bg-brand-black flex flex-col h-full min-h-0"
                 style={{
                   // Reserve viewport height while accounting for header/banner
-                  minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+                  minHeight: desktopViewportHeight,
                 }}
               >
                 <div className="flex-none">
@@ -1008,7 +1020,8 @@ const TerminalPageContent: React.FC = () => {
                 <div
                   className="rounded-none shadow-lg overflow-hidden"
                   style={{
-                    height: 'calc(100dvh - var(--page-top-offset, 0px))',
+                    height: desktopViewportHeight,
+                    maxHeight: desktopViewportHeight,
                   }}
                 >
                   <div className="h-full overflow-y-auto">

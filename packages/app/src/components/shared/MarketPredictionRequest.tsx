@@ -24,6 +24,8 @@ export interface MarketPredictionRequestProps {
   inline?: boolean;
   eager?: boolean;
   suppressLoadingPlaceholder?: boolean;
+  prefetchedProbability?: number | null;
+  skipViewportCheck?: boolean;
 }
 
 const ONE_DOLLAR_18D = BigInt(10 ** 18);
@@ -36,6 +38,8 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   inline = true,
   eager = true,
   suppressLoadingPlaceholder = false,
+  prefetchedProbability = null,
+  skipViewportCheck = false,
 }) => {
   const [requestedPrediction, setRequestedPrediction] = React.useState<
     number | null
@@ -66,6 +70,10 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
 
   React.useEffect(() => {
     if (!eager) return;
+    if (skipViewportCheck) {
+      setIsInViewport(true);
+      return;
+    }
     const target = rootRef.current;
     if (!target) return;
 
@@ -88,10 +96,19 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     }
 
     return () => observer?.disconnect();
-  }, [eager]);
+  }, [eager, skipViewportCheck]);
 
   // Prefer connected wallet address; fall back to zero address
   const selectedTakerAddress = takerAddress || ZERO_ADDRESS;
+
+  // If we have a prefetched probability (e.g., fetched offscreen), set it and
+  // skip further requests.
+  React.useEffect(() => {
+    if (prefetchedProbability == null) return;
+    setRequestedPrediction(prefetchedProbability);
+    setIsRequesting(false);
+    setQueuedRequest(false);
+  }, [prefetchedProbability]);
 
   const { data: takerNonce } = useReadContract({
     address: PREDICTION_MARKET_ADDRESS,
@@ -200,6 +217,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   ]);
 
   const handleRequestPrediction = React.useCallback(() => {
+    if (prefetchedProbability != null) return;
     if (isRequesting) return;
     setRequestedPrediction(null);
     setIsRequesting(true);
@@ -248,6 +266,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   // Only fire eager once both taker address and outcomes are ready
   React.useEffect(() => {
     if (!eager) return;
+    if (prefetchedProbability != null) return;
     if (eagerlyRequestedRef.current) return;
     if (!isInViewport) return;
     if (!selectedTakerAddress) return;
@@ -270,7 +289,6 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           ? `inline-flex items-center relative ${className || ''}`
           : className
       }
-      style={{ minWidth: '78px' }}
     >
       <AnimatePresence initial={false} mode="wait">
         {requestedPrediction == null ? (

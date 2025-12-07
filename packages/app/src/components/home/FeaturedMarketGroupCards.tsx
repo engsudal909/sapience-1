@@ -14,6 +14,7 @@ import { useConditions } from '~/hooks/graphql/useConditions';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getActivePublicConditions } from './featuredConditions';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 
 // Removed LottieLoader in favor of simple fade-in cards and fixed-height placeholder
 
@@ -39,6 +40,20 @@ export default function FeaturedMarketGroupCards() {
 
   // Per-mount random seed to vary picks between mounts but keep them stable within a session
   const [randomSeed] = React.useState<number>(() => Math.random());
+  const [predictionMap, setPredictionMap] = React.useState<
+    Record<string, number>
+  >({});
+
+  const handlePredictionReady = React.useCallback(
+    (conditionId: string, probability: number) => {
+      setPredictionMap((prev) => {
+        if (!conditionId) return prev;
+        if (prev[conditionId] != null) return prev;
+        return { ...prev, [conditionId]: probability };
+      });
+    },
+    []
+  );
 
   // Simple seeded RNG (Mulberry32)
   const createRng = React.useCallback((seed: number) => {
@@ -142,20 +157,40 @@ export default function FeaturedMarketGroupCards() {
         {featuredConditions.length === 0 ? (
           <div className="relative" />
         ) : (
-          <MobileAndDesktopLists items={featuredConditions} />
+          <MobileAndDesktopLists
+            items={featuredConditions}
+            predictionMap={predictionMap}
+            onPredictionReady={handlePredictionReady}
+          />
         )}
       </div>
     </section>
   );
 }
 
-function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
+function MobileAndDesktopLists({
+  items,
+  predictionMap,
+  onPredictionReady,
+}: {
+  items: FeaturedCondition[];
+  predictionMap: Record<string, number>;
+  onPredictionReady: (conditionId: string, probability: number) => void;
+}) {
   const { state, openMobile } = useSidebar();
   const [mobileApi, setMobileApi] = React.useState<CarouselApi | null>(null);
   const [desktopApi, setDesktopApi] = React.useState<CarouselApi | null>(null);
   const hasRandomizedMobileStart = React.useRef(false);
   const hasRandomizedDesktopStart = React.useRef(false);
   const memoItems = React.useMemo(() => items, [items]);
+  const readyItems = React.useMemo(
+    () => memoItems.filter((item) => item.id && predictionMap[item.id] != null),
+    [memoItems, predictionMap]
+  );
+  const pendingItems = React.useMemo(
+    () => memoItems.filter((item) => item.id && predictionMap[item.id] == null),
+    [memoItems, predictionMap]
+  );
 
   const autoScrollPluginMobile = React.useMemo(
     () =>
@@ -189,28 +224,28 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
   // Randomize starting slide (mobile) once on init
   React.useEffect(() => {
     if (!mobileApi || hasRandomizedMobileStart.current) return;
-    if (memoItems.length === 0) return;
-    const startIndex = Math.floor(Math.random() * memoItems.length);
+    if (readyItems.length === 0) return;
+    const startIndex = Math.floor(Math.random() * readyItems.length);
     try {
       mobileApi.scrollTo(startIndex, true);
     } catch {
       console.error('Error scrolling to random index', startIndex);
     }
     hasRandomizedMobileStart.current = true;
-  }, [mobileApi, memoItems.length]);
+  }, [mobileApi, readyItems.length]);
 
   // Randomize starting slide (desktop) once on init
   React.useEffect(() => {
     if (!desktopApi || hasRandomizedDesktopStart.current) return;
-    if (memoItems.length === 0) return;
-    const startIndex = Math.floor(Math.random() * memoItems.length);
+    if (readyItems.length === 0) return;
+    const startIndex = Math.floor(Math.random() * readyItems.length);
     try {
       desktopApi.scrollTo(startIndex, true);
     } catch {
       console.error('Error scrolling to random index', startIndex);
     }
     hasRandomizedDesktopStart.current = true;
-  }, [desktopApi, memoItems.length]);
+  }, [desktopApi, readyItems.length]);
 
   const desktopItemClass = React.useMemo(() => {
     return 'pl-0 w-auto flex-none';
@@ -218,71 +253,99 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
 
   return (
     <div className="relative">
-      {/* Mobile: Embla carousel with auto-scroll */}
-      <div className="md:hidden w-full px-0">
-        <Carousel
-          opts={{ loop: true, align: 'start', containScroll: 'trimSnaps' }}
-          plugins={[autoScrollPluginMobile]}
-          setApi={setMobileApi}
-          className="w-full"
-        >
-          <CarouselContent className="items-stretch py-0">
-            {memoItems.map((c, idx) => (
-              <React.Fragment key={`${c.id}-${idx}`}>
-                <CarouselItem className="pl-0 w-auto flex-none">
-                  <TickerMarketCard
-                    condition={{
-                      id: c.id,
-                      question: c.question,
-                      shortName: c.shortName,
-                      endTime: c.endTime,
-                      description: c.description,
-                      categorySlug: c.categorySlug,
-                    }}
-                    color={c.color}
-                  />
-                </CarouselItem>
-                <CarouselItem className="w-px flex-none">
-                  <div className="w-px h-full gold-hr-vertical" />
-                </CarouselItem>
-              </React.Fragment>
-            ))}
-          </CarouselContent>
-        </Carousel>
+      {/* Prefetch prediction requests offscreen so cards only render once ready */}
+      <div
+        aria-hidden
+        className="fixed top-0 left-0 w-px h-px overflow-hidden opacity-0 pointer-events-none"
+      >
+        {pendingItems.map((c) => (
+          <MarketPredictionRequest
+            key={`prefetch-${c.id}-${c.categorySlug}`}
+            conditionId={c.id}
+            suppressLoadingPlaceholder
+            skipViewportCheck
+            onPrediction={(prob) => onPredictionReady(c.id, prob)}
+          />
+        ))}
       </div>
 
-      {/* Desktop: Embla carousel with auto-scroll */}
-      <div className="hidden md:block w-full px-0">
-        <Carousel
-          opts={{ loop: true, align: 'start', containScroll: 'trimSnaps' }}
-          plugins={[autoScrollPluginDesktop]}
-          setApi={setDesktopApi}
-          className="w-full"
-        >
-          <CarouselContent className="items-stretch py-0">
-            {memoItems.map((c, idx) => (
-              <React.Fragment key={`${c.id}-${idx}`}>
-                <CarouselItem className={`${desktopItemClass}`}>
-                  <TickerMarketCard
-                    condition={{
-                      id: c.id,
-                      question: c.question,
-                      shortName: c.shortName,
-                      endTime: c.endTime,
-                      description: c.description,
-                      categorySlug: c.categorySlug,
-                    }}
-                    color={c.color}
-                  />
-                </CarouselItem>
-                <CarouselItem className="w-px flex-none">
-                  <div className="w-px h-full gold-hr-vertical" />
-                </CarouselItem>
-              </React.Fragment>
-            ))}
-          </CarouselContent>
-        </Carousel>
-      </div>
+      {readyItems.length === 0 ? (
+        <div className="relative" />
+      ) : (
+        <>
+          {/* Mobile: Embla carousel with auto-scroll */}
+          <div className="md:hidden w-full px-0">
+            <Carousel
+              opts={{ loop: true, align: 'start', containScroll: 'trimSnaps' }}
+              plugins={[autoScrollPluginMobile]}
+              setApi={setMobileApi}
+              className="w-full"
+            >
+              <CarouselContent className="items-stretch py-0">
+                {readyItems.map((c, idx) => (
+                  <React.Fragment key={`${c.id}-${idx}`}>
+                    <CarouselItem className="pl-0 w-auto flex-none">
+                      <TickerMarketCard
+                        condition={{
+                          id: c.id,
+                          question: c.question,
+                          shortName: c.shortName,
+                          endTime: c.endTime,
+                          description: c.description,
+                          categorySlug: c.categorySlug,
+                        }}
+                        color={c.color}
+                        predictionProbability={
+                          c.id ? (predictionMap[c.id] ?? null) : null
+                        }
+                      />
+                    </CarouselItem>
+                    <CarouselItem className="w-px flex-none">
+                      <div className="w-px h-full gold-hr-vertical" />
+                    </CarouselItem>
+                  </React.Fragment>
+                ))}
+              </CarouselContent>
+            </Carousel>
+          </div>
+
+          {/* Desktop: Embla carousel with auto-scroll */}
+          <div className="hidden md:block w-full px-0">
+            <Carousel
+              opts={{ loop: true, align: 'start', containScroll: 'trimSnaps' }}
+              plugins={[autoScrollPluginDesktop]}
+              setApi={setDesktopApi}
+              className="w-full"
+            >
+              <CarouselContent className="items-stretch py-0">
+                {readyItems.map((c, idx) => (
+                  <React.Fragment key={`${c.id}-${idx}`}>
+                    <CarouselItem className={`${desktopItemClass}`}>
+                      <TickerMarketCard
+                        condition={{
+                          id: c.id,
+                          question: c.question,
+                          shortName: c.shortName,
+                          endTime: c.endTime,
+                          description: c.description,
+                          categorySlug: c.categorySlug,
+                        }}
+                        color={c.color}
+                        predictionProbability={
+                          c.id ? (predictionMap[c.id] ?? null) : null
+                        }
+                      />
+                    </CarouselItem>
+                    <CarouselItem className="w-px flex-none">
+                      <div className="w-px h-full gold-hr-vertical" />
+                    </CarouselItem>
+                  </React.Fragment>
+                ))}
+              </CarouselContent>
+            </Carousel>
+          </div>
+        </>
+      )}
     </div>
   );
 }
