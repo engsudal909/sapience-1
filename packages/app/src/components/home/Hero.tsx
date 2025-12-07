@@ -54,10 +54,10 @@ export default function Hero() {
       <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 flex-1 flex flex-col justify-center gap-8 pt-6 pb-20 md:pt-8 md:pb-24">
         <div className="relative z-10 w-full flex flex-col items-center">
           <div
-            className={`relative w-full max-w-[270px] md:max-w-[300px] lg:max-w-[320px] xl:max-w-[340px] 2xl:max-w-[360px] aspect-[29/25] rounded-2xl border border-brand-white/10 shadow-none mb-6 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+            className={`relative w-full max-w-[270px] md:max-w-[300px] lg:max-w-[320px] xl:max-w-[340px] 2xl:max-w-[360px] aspect-[29/25] rounded-[20px] border border-brand-white/10 shadow-none mb-6 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
           >
             <PulsingGradient
-              className="inset-[-10px] rounded-[18px] -z-10"
+              className="inset-[-10px] rounded-[20px] -z-10"
               durationMs={9600}
               gradient={
                 'radial-gradient(ellipse 80% 90% at 50% 50%, transparent 0%, transparent 100%)'
@@ -74,7 +74,7 @@ export default function Hero() {
             >
               <source src="/hero.mp4" type="video/mp4" />
             </video>
-            <div className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_18px_rgba(255,204,102,0.12)]" />
+            <div className="pointer-events-none absolute inset-0 rounded-[20px] shadow-[inset_0_0_18px_rgba(255,204,102,0.12)]" />
           </div>
           <div className="w-full md:w-auto flex flex-col items-center text-center">
             <h1 className="headline text-center max-w-[400px] mx-auto text-balance">
