@@ -1,12 +1,13 @@
 'use client';
 
 import TerminalPageContent from '~/components/terminal/pages/TerminalPageContent';
+import PageContainer from '~/components/layout/PageContainer';
 
 const TerminalPage = () => {
   return (
-    <div className="w-full mx-auto px-4 md:px-8 lg:pr-0 md:pt-8 pb-4 md:pb-8 mt-16">
+    <PageContainer className="pb-4 md:pb-8">
       <TerminalPageContent />
-    </div>
+    </PageContainer>
   );
 };
 

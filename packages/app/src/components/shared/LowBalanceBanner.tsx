@@ -5,15 +5,21 @@ import { useAccount } from 'wagmi';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { STARGATE_DEPOSIT_URL } from '~/lib/constants';
+import { useBannerHeight } from '~/hooks/useBannerHeight';
 
 type LowBalanceBannerProps = {
   className?: string;
+  onVisibilityChange?: (isVisible: boolean) => void;
 };
 
 /**
  * Banner displayed when the user's collateral balance is zero or negative.
+ * Takes priority over HackathonBanner.
  */
-const LowBalanceBanner: React.FC<LowBalanceBannerProps> = ({ className }) => {
+const LowBalanceBanner: React.FC<LowBalanceBannerProps> = ({
+  className,
+  onVisibilityChange,
+}) => {
   const { address, isConnected } = useAccount();
   const chainId = useChainIdFromLocalStorage();
   const { balance, isLoading } = useCollateralBalance({
@@ -22,12 +28,21 @@ const LowBalanceBanner: React.FC<LowBalanceBannerProps> = ({ className }) => {
     enabled: isConnected && !!address,
   });
   const [mounted, setMounted] = useState(false);
+  const bannerRef = useBannerHeight<HTMLAnchorElement>();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const isLowBalance = isConnected && balance <= 0;
+  const isVisible = mounted && isConnected && !isLoading && isLowBalance;
+
+  // Notify parent of visibility changes
+  useEffect(() => {
+    if (mounted) {
+      onVisibilityChange?.(isVisible);
+    }
+  }, [isVisible, mounted, onVisibilityChange]);
 
   // Don't show if not connected, still loading, or balance is fine
   if (!isConnected || isLoading || !isLowBalance) return null;
@@ -37,10 +52,11 @@ const LowBalanceBanner: React.FC<LowBalanceBannerProps> = ({ className }) => {
 
   return (
     <a
+      ref={bannerRef}
       href={STARGATE_DEPOSIT_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className={`fixed top-0 z-[9999] bg-ethena text-brand-black px-0 md:px-4 py-[2px] leading-none text-center font-mono text-[10px] font-semibold uppercase tracking-widest hover:opacity-80 transition-opacity duration-300 ease-out cursor-pointer overflow-hidden block whitespace-nowrap left-1/2 -translate-x-1/2 w-[264px] rounded-b-md md:left-0 md:translate-x-0 md:inset-x-0 md:w-full md:rounded-none ${className ?? ''}`}
+      className={`relative z-[9999] bg-ethena text-brand-black px-0 md:px-4 py-1 leading-none text-center font-mono text-xs font-semibold uppercase tracking-widest hover:opacity-80 transition-opacity duration-300 ease-out cursor-pointer overflow-hidden block whitespace-nowrap left-1/2 -translate-x-1/2 w-[264px] rounded-b-md md:left-0 md:translate-x-0 md:inset-x-0 md:w-full md:rounded-none ${className ?? ''}`}
     >
       <span className="relative z-10">
         Deposit Ethereal USDe to get started

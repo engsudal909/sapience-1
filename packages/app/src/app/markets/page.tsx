@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import dynamic from 'next/dynamic';
+import PageContainer from '~/components/layout/PageContainer';
 
 const MarketsPageSkeleton = () => <div className="space-y-4" />;
 
@@ -16,9 +17,9 @@ export const metadata: Metadata = {
 
 const ForecastingPage = () => {
   return (
-    <div className="w-full mx-auto px-4 md:px-8 lg:pr-0 md:pt-8 mt-16">
+    <PageContainer>
       <MarketsPage />
-    </div>
+    </PageContainer>
   );
 };
 

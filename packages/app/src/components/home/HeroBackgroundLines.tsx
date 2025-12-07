@@ -10,9 +10,15 @@ type Line = {
   opacity: number;
 };
 
+type HeroBackgroundLinesProps = {
+  className?: string;
+};
+
 // Renders animated horizontal lines that move left->right across the screen.
 // Lines use a left-to-right gradient from #382F2D to #F0E1CD and are 2px tall.
-export default function HeroBackgroundLines() {
+export default function HeroBackgroundLines({
+  className = 'opacity-25',
+}: HeroBackgroundLinesProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const linesRef = useRef<Line[]>([]);
   const rafRef = useRef<number | null>(null);
@@ -120,7 +126,7 @@ export default function HeroBackgroundLines() {
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0 -z-10">
+    <div className={`pointer-events-none absolute inset-0 -z-10 ${className}`}>
       <canvas ref={canvasRef} className="h-full w-full" />
     </div>
   );

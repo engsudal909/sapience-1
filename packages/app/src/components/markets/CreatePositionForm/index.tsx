@@ -702,7 +702,7 @@ const CreatePositionForm = ({
           className={`${createPositionEntries.length === 0 ? 'pt-0 pb-10' : 'p-0'} h-full`}
         >
           <div
-            className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden position-form"
+            className="relative bg-brand-black border border-brand-white/20 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden position-form"
             style={
               {
                 '--position-form-gradient': categoryGradient,
@@ -758,7 +758,7 @@ const CreatePositionForm = ({
               )}
             </div>
             <div
-              className="relative bg-brand-black border border-brand-white/10 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden position-form"
+              className="relative bg-brand-black border border-brand-white/20 rounded-b-md shadow-sm h-full flex flex-col min-h-0 overflow-hidden position-form"
               style={
                 {
                   '--position-form-gradient': categoryGradient,

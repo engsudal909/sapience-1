@@ -687,7 +687,7 @@ const VaultsPageContent = () => {
   return (
     <div className="relative">
       {/* Main Content */}
-      <div className="container max-w-[600px] mx-auto px-4 pt-32 pb-12 relative z-10">
+      <div className="container max-w-[600px] mx-auto px-4 pt-10 md:pt-14 lg:pt-16 pb-12 relative z-10">
         <div className="mb-5 md:mb-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl md:text-5xl font-sans font-normal text-foreground">
             Vaults

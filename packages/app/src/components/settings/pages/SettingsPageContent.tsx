@@ -348,7 +348,7 @@ const SettingsPageContent = () => {
   return (
     <div className="relative min-h-screen">
       {/* Main Content */}
-      <div className="container max-w-[750px] mx-auto px-4 pt-32 pb-12 relative z-10">
+      <div className="container max-w-[750px] mx-auto px-4 pt-10 md:pt-14 lg:pt-16 pb-12 relative z-10">
         <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
           Settings
         </h1>

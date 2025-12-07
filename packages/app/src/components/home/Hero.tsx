@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Ticker from '~/components/home/Ticker';
 import HeroBackgroundLines from '~/components/home/HeroBackgroundLines';
 import PulsingGradient from '~/components/shared/PulsingGradient';
+import Ticker from '~/components/home/Ticker';
 
 export default function Hero() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -22,6 +22,14 @@ export default function Hero() {
       }
     };
 
+    // Manual loop to guarantee a full playthrough before restarting
+    const onEnded = () => {
+      v.currentTime = 0;
+      attemptPlay();
+    };
+    v.addEventListener('ended', onEnded);
+
+    let cleanupCanPlay: (() => void) | null = null;
     if (v.readyState >= 2) {
       attemptPlay();
       setIsVideoReady(true);
@@ -32,67 +40,59 @@ export default function Hero() {
         v.removeEventListener('canplay', onCanPlay);
       };
       v.addEventListener('canplay', onCanPlay);
-      return () => v.removeEventListener('canplay', onCanPlay);
+      cleanupCanPlay = () => v.removeEventListener('canplay', onCanPlay);
     }
+
+    return () => {
+      v.removeEventListener('ended', onEnded);
+      if (cleanupCanPlay) cleanupCanPlay();
+    };
   }, []);
   return (
-    <section className="relative isolate flex flex-col min-h-[100svh] w-full overflow-hidden">
+    <section className="relative isolate flex flex-col w-full overflow-hidden min-h-[calc(100dvh-var(--page-top-offset,0px))] pb-[var(--ticker-height,0px)]">
       <HeroBackgroundLines />
-      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-16 md:pt-24 pb-0 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 flex-1 flex flex-col justify-center gap-8 pt-6 pb-20 md:pt-8 md:pb-24">
         <div className="relative z-10 w-full flex flex-col items-center">
           <div
-            className={`relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] aspect-[3/2] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+            className={`relative w-full max-w-[270px] md:max-w-[300px] lg:max-w-[320px] xl:max-w-[340px] 2xl:max-w-[360px] aspect-[29/25] rounded-2xl border border-brand-white/10 shadow-none mb-6 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
           >
             <PulsingGradient
               className="inset-[-10px] rounded-[18px] -z-10"
               durationMs={9600}
               gradient={
-                'radial-gradient(ellipse 80% 90% at 50% 50%, hsl(var(--accent-gold)/0.14) 0%, hsl(var(--accent-gold)/0.06) 45%, transparent 70%)'
+                'radial-gradient(ellipse 80% 90% at 50% 50%, transparent 0%, transparent 100%)'
               }
             />
             <video
               ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute left-1/2 top-0 h-full w-[138%] md:w-[155%] -translate-x-1/2 object-cover"
               autoPlay
               muted
-              loop
               playsInline
               preload="auto"
               onLoadedData={() => setIsVideoReady(true)}
             >
               <source src="/hero.mp4" type="video/mp4" />
             </video>
+            <div className="pointer-events-none absolute inset-0 rounded-[18px] shadow-[inset_0_0_18px_rgba(255,204,102,0.12)]" />
           </div>
-          <div className="w-full md:w-auto max-w-[300px] md:max-w-none rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
-            <h1 className="font-heading text-xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
+          <div className="w-full md:w-auto flex flex-col items-center text-center">
+            <h1 className="headline text-center max-w-[400px] mx-auto text-balance">
               Forecast the future with next-gen prediction markets
             </h1>
-            {/* Mobile: single-line variant */}
-            <div className="mt-3 md:hidden flex items-center justify-center text-foreground">
-              <span className="eyebrow font-mono text-accent-gold text-xs">
-                PERMISSIONLESS + OPEN SOURCE
-              </span>
-            </div>
-            {/* Desktop and up: original layout */}
-            <div className="mt-3 hidden md:flex flex-row items-center gap-4 justify-center text-foreground">
-              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
-                TRANSPARENT
-              </span>
-              <span className="text-foreground/50 text-xs md:text-sm">|</span>
-              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
-                PERMISSIONLESS
-              </span>
-              <span className="text-foreground/50 text-xs md:text-sm">|</span>
-              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
-                OPEN SOURCE
-              </span>
-            </div>
+            <p className="mt-4 text-xs font-mono uppercase tracking-wider text-accent-gold flex items-center justify-center gap-1 md:gap-1.5 flex-wrap">
+              <span>Transparent</span>
+              <span className="opacity-50 mx-1.5">·</span>
+              <span>Permissionless</span>
+              <span className="hidden md:inline opacity-50 mx-1.5">·</span>
+              {/* Force a wrap on small screens where the separator is hidden */}
+              <span className="md:hidden basis-full h-0" aria-hidden="true" />
+              <span>Open Source</span>
+            </p>
           </div>
         </div>
       </div>
-      <div className="relative z-10 w-full">
-        <Ticker />
-      </div>
+      <Ticker />
     </section>
   );
 }

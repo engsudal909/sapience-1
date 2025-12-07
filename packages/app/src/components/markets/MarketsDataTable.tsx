@@ -319,7 +319,7 @@ const columns: ColumnDef<ConditionType>[] = [
         <div className="flex items-center gap-3 max-w-[200px] md:max-w-[400px] min-w-0">
           <MarketBadge
             label={displayQ}
-            size={32}
+            size={24}
             color={color}
             categorySlug={categorySlug}
           />
@@ -384,10 +384,8 @@ const columns: ColumnDef<ConditionType>[] = [
 
       return (
         <div className="text-sm whitespace-nowrap text-right">
-          <span className="tabular-nums font-mono text-brand-white">
-            {formattedValue}
-          </span>
-          <span className="ml-1 font-mono text-brand-white">USDe</span>
+          <span className="tabular-nums text-foreground">{formattedValue}</span>
+          <span className="ml-1 text-foreground">USDe</span>
         </div>
       );
     },
