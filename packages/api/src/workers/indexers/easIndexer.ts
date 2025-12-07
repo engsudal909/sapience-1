@@ -171,9 +171,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
     }
   }
 
-  private decodeForecastData(
-    rawData: string
-  ): DecodedForecastData | null {
+  private decodeForecastData(rawData: string): DecodedForecastData | null {
     try {
       if (!rawData || rawData === '0x') {
         return null;
