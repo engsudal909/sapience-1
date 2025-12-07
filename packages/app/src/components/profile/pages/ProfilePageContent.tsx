@@ -184,7 +184,7 @@ const ProfilePageContent = () => {
   ]);
 
   return (
-    <div className="mx-auto pt-24 lg:pt-24 pb-0 px-3 md:px-6 lg:px-8 w-full min-h-screen flex flex-col">
+    <div className="mx-auto pb-0 px-3 md:px-6 lg:px-8 w-full min-h-screen flex flex-col">
       <ShareAfterRedirect address={address} />
       <div className="mb-6">
         <ProfileHeader address={address} className="mb-0" />

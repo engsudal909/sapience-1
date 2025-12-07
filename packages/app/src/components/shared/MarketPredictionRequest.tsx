@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
@@ -22,6 +23,7 @@ export interface MarketPredictionRequestProps {
   className?: string;
   inline?: boolean;
   eager?: boolean;
+  suppressLoadingPlaceholder?: boolean;
 }
 
 const ONE_DOLLAR_18D = BigInt(10 ** 18);
@@ -33,6 +35,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   className,
   inline = true,
   eager = true,
+  suppressLoadingPlaceholder = false,
 }) => {
   const [requestedPrediction, setRequestedPrediction] = React.useState<
     number | null
@@ -266,34 +269,63 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
         inline ? `inline-flex items-center ${className || ''}` : className
       }
     >
-      {requestedPrediction == null ? (
-        isRequesting ? (
-          <span
-            className="text-muted-foreground"
-            style={{
-              animation: 'subtle-pulse 3s ease-in-out infinite',
-            }}
-          >
-            <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
-            Requesting...
-          </span>
+      <AnimatePresence initial={false}>
+        {requestedPrediction == null ? (
+          suppressLoadingPlaceholder ? null : isRequesting ? (
+            <motion.span
+              key="requesting"
+              className="text-muted-foreground"
+              style={{
+                animation: 'subtle-pulse 3s ease-in-out infinite',
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
+              Requesting...
+            </motion.span>
+          ) : (
+            <motion.button
+              key="request"
+              type="button"
+              onClick={handleRequestPrediction}
+              className="text-foreground underline decoration-1 decoration-foreground/60 underline-offset-4 transition-colors hover:decoration-foreground/80 cursor-pointer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              Request
+            </motion.button>
+          )
         ) : (
-          <button
-            type="button"
-            onClick={handleRequestPrediction}
-            className="text-foreground underline decoration-1 decoration-foreground/60 underline-offset-4 transition-colors hover:decoration-foreground/80 cursor-pointer"
+          <motion.span
+            key={`prediction-${requestedPrediction}`}
+            className="inline-flex"
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: 'auto' }}
+            exit={{ opacity: 0, width: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            style={{ originX: 0 }}
           >
-            Request
-          </button>
-        )
-      ) : (
-        <PercentChance
-          probability={requestedPrediction}
-          showLabel={true}
-          label="chance"
-          className="font-mono text-ethena"
-        />
-      )}
+            <motion.span
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              style={{ originX: 0 }}
+            >
+              <PercentChance
+                probability={requestedPrediction}
+                showLabel={true}
+                label="chance"
+                className="font-mono text-ethena"
+              />
+            </motion.span>
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

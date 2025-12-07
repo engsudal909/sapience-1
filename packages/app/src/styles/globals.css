@@ -207,6 +207,23 @@
         140% calc(100% - var(--gold-underline-offset));
     }
   }
+  @keyframes gold-hr-vertical-sweep {
+    0% {
+      background-position:
+        0 0,
+        0 140%;
+    }
+    21% {
+      background-position:
+        0 0,
+        0 -40%;
+    }
+    100% {
+      background-position:
+        0 0,
+        0 -40%;
+    }
+  }
   @keyframes gold-hr-sweep {
     0% {
       background-position:
@@ -372,13 +389,13 @@
     border: none;
     background-image: linear-gradient(
         to right,
-        hsl(var(--accent-gold) / 0.06) 0%,
-        hsl(var(--accent-gold) / 0.06) 100%
+        hsl(var(--accent-gold) / 0.12) 0%,
+        hsl(var(--accent-gold) / 0.12) 100%
       ),
       linear-gradient(
         to right,
         hsl(var(--accent-gold) / 0) 0%,
-        hsl(var(--accent-gold) / 0.14) 50%,
+        hsl(var(--accent-gold) / 0.24) 50%,
         hsl(var(--accent-gold) / 0) 100%
       );
     background-repeat: no-repeat, no-repeat;
@@ -389,6 +406,29 @@
       0 0,
       -40% 0;
     animation: gold-hr-sweep 6s linear infinite;
+  }
+  .gold-hr-vertical {
+    width: 1px;
+    border: none;
+    background-image: linear-gradient(
+        to bottom,
+        hsl(var(--accent-gold) / 0.12) 0%,
+        hsl(var(--accent-gold) / 0.12) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        hsl(var(--accent-gold) / 0) 0%,
+        hsl(var(--accent-gold) / 0.24) 50%,
+        hsl(var(--accent-gold) / 0) 100%
+      );
+    background-repeat: no-repeat, no-repeat;
+    background-size:
+      1px 100%,
+      1px 30%;
+    background-position:
+      0 0,
+      0 140%;
+    animation: gold-hr-vertical-sweep 6s linear infinite;
   }
   /* Ensure popovers/dropdowns match How It Works box border tone */
   .border.bg-popover {

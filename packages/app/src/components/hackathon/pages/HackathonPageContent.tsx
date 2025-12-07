@@ -42,10 +42,8 @@ const HackathonPageContent = () => {
 
 function HackathonHero() {
   return (
-    <section className="relative isolate flex flex-col min-h-[80svh] w-full overflow-hidden">
-      <div className="opacity-25">
-        <HeroBackgroundLines />
-      </div>
+    <section className="relative isolate flex flex-col min-h-[80svh] w-full overflow-hidden border-b border-brand-white/10">
+      <HeroBackgroundLines />
       <PulsingGradient
         className="inset-0 -z-10"
         durationMs={12000}

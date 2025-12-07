@@ -122,7 +122,7 @@ const MarketsPage = () => {
   // Show loader only on initial load (not when filtering)
   if (isLoadingCategories) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-theme(spacing.20))] w-full">
+      <div className="flex justify-center items-center min-h-[calc(100dvh-96px)] w-full">
         <LottieLoader width={32} height={32} />
       </div>
     );

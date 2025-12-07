@@ -7,7 +7,7 @@ import Features from '~/components/home/pages/Features';
 
 const HomePageContent = () => {
   return (
-    <div className="flex flex-col min-h-screen w-full overflow-x-hidden">
+    <div className="relative flex flex-col min-h-screen w-full overflow-x-hidden">
       <Hero />
       <HowItWorks />
       <Ecosystem />

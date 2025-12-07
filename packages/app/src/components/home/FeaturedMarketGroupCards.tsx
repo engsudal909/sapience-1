@@ -137,7 +137,7 @@ export default function FeaturedMarketGroupCards() {
   }
 
   return (
-    <section className="pt-0 px-0 w-full relative z-10 font-mono">
+    <section className="pt-0 px-0 w-full relative z-10">
       <div className="w-full px-0">
         {featuredConditions.length === 0 ? (
           <div className="relative" />
@@ -163,7 +163,7 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
         playOnInit: true,
         stopOnMouseEnter: true,
         stopOnInteraction: true,
-        speed: 0.5,
+        speed: 0.9,
       }),
     []
   );
@@ -175,7 +175,7 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
         // Keep autoscrolling even when hovered on desktop
         stopOnMouseEnter: false,
         stopOnInteraction: true,
-        speed: 0.5,
+        speed: 0.9,
       }),
     []
   );
@@ -213,7 +213,7 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
   }, [desktopApi, memoItems.length]);
 
   const desktopItemClass = React.useMemo(() => {
-    return 'pl-2 w-auto flex-none';
+    return 'pl-0 w-auto flex-none';
   }, []);
 
   return (
@@ -226,10 +226,10 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
           setApi={setMobileApi}
           className="w-full"
         >
-          <CarouselContent className="-ml-2 items-stretch py-3 md:py-4">
+          <CarouselContent className="items-stretch py-0">
             {memoItems.map((c, idx) => (
               <React.Fragment key={`${c.id}-${idx}`}>
-                <CarouselItem className="pl-2 w-auto flex-none">
+                <CarouselItem className="pl-0 w-auto flex-none">
                   <TickerMarketCard
                     condition={{
                       id: c.id,
@@ -237,14 +237,13 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
                       shortName: c.shortName,
                       endTime: c.endTime,
                       description: c.description,
+                      categorySlug: c.categorySlug,
                     }}
                     color={c.color}
                   />
                 </CarouselItem>
-                <CarouselItem className="pl-2 w-auto flex-none">
-                  <div className="px-1 md:px-2 text-foreground/50 select-none flex items-stretch h-full">
-                    <div className="w-px h-full bg-foreground/50" />
-                  </div>
+                <CarouselItem className="w-px flex-none">
+                  <div className="w-px h-full gold-hr-vertical" />
                 </CarouselItem>
               </React.Fragment>
             ))}
@@ -260,7 +259,7 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
           setApi={setDesktopApi}
           className="w-full"
         >
-          <CarouselContent className="-ml-2 items-stretch py-3 md:py-4">
+          <CarouselContent className="items-stretch py-0">
             {memoItems.map((c, idx) => (
               <React.Fragment key={`${c.id}-${idx}`}>
                 <CarouselItem className={`${desktopItemClass}`}>
@@ -271,14 +270,13 @@ function MobileAndDesktopLists({ items }: { items: FeaturedCondition[] }) {
                       shortName: c.shortName,
                       endTime: c.endTime,
                       description: c.description,
+                      categorySlug: c.categorySlug,
                     }}
                     color={c.color}
                   />
                 </CarouselItem>
-                <CarouselItem className="pl-2 w-auto flex-none">
-                  <div className="px-1 text-foreground/50 select-none flex items-stretch h-full">
-                    <div className="w-px h-full bg-foreground/50" />
-                  </div>
+                <CarouselItem className="w-px flex-none">
+                  <div className="w-px h-full gold-hr-vertical" />
                 </CarouselItem>
               </React.Fragment>
             ))}

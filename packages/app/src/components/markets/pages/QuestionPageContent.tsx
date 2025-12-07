@@ -555,7 +555,7 @@ export default function QuestionPageContent({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[100dvh] w-full">
+      <div className="flex justify-center items-center min-h-[calc(100dvh-96px)] w-full">
         <LottieLoader width={32} height={32} />
       </div>
     );
@@ -563,7 +563,7 @@ export default function QuestionPageContent({
 
   if (isError || !data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[100dvh] w-full gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-96px)] w-full gap-4">
         <p className="text-destructive">Failed to load question.</p>
       </div>
     );
@@ -594,7 +594,7 @@ export default function QuestionPageContent({
   };
 
   return (
-    <div className="flex flex-col w-full min-h-[100dvh] pt-16">
+    <div className="flex flex-col w-full min-h-[calc(100dvh-96px)]">
       <div className="flex flex-col w-full px-4 md:px-6 lg:px-8 items-center">
         {/* Main content */}
         <div className="w-full max-w-[1200px] mt-8 md:mt-16">

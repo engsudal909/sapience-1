@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Ticker from '~/components/home/Ticker';
 import HeroBackgroundLines from '~/components/home/HeroBackgroundLines';
 import PulsingGradient from '~/components/shared/PulsingGradient';
+import Ticker from '~/components/home/Ticker';
 
 export default function Hero() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -38,10 +38,10 @@ export default function Hero() {
   return (
     <section className="relative isolate flex flex-col min-h-[100svh] w-full overflow-hidden">
       <HeroBackgroundLines />
-      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-16 md:pt-24 pb-0 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pb-0 flex-1 flex flex-col justify-center pt-0">
         <div className="relative z-10 w-full flex flex-col items-center">
           <div
-            className={`relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] aspect-[3/2] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+            className={`relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] aspect-[3/2] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-8 md:mb-10 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
           >
             <PulsingGradient
               className="inset-[-10px] rounded-[18px] -z-10"
@@ -63,36 +63,23 @@ export default function Hero() {
               <source src="/hero.mp4" type="video/mp4" />
             </video>
           </div>
-          <div className="w-full md:w-auto max-w-[300px] md:max-w-none rounded-2xl md:rounded-[20px] bg-brand-black text-foreground px-5 md:px-8 py-5 md:py-6 flex flex-col items-center text-center shadow-sm border border-border/20">
-            <h1 className="font-heading text-xl leading-snug md:text-2xl md:leading-snug lg:text-2xl max-w-5xl">
+          <div className="w-full md:w-auto flex flex-col items-center text-center">
+            <h1 className="headline text-center">
               Forecast the future with next-gen prediction markets
             </h1>
-            {/* Mobile: single-line variant */}
-            <div className="mt-3 md:hidden flex items-center justify-center text-foreground">
-              <span className="eyebrow font-mono text-accent-gold text-xs">
-                PERMISSIONLESS + OPEN SOURCE
-              </span>
-            </div>
-            {/* Desktop and up: original layout */}
-            <div className="mt-3 hidden md:flex flex-row items-center gap-4 justify-center text-foreground">
-              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
-                TRANSPARENT
-              </span>
-              <span className="text-foreground/50 text-xs md:text-sm">|</span>
-              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
-                PERMISSIONLESS
-              </span>
-              <span className="text-foreground/50 text-xs md:text-sm">|</span>
-              <span className="eyebrow font-mono text-accent-gold text-xs md:text-sm md:font-sans md:text-foreground">
-                OPEN SOURCE
-              </span>
-            </div>
+            <p className="mt-3 text-xs font-mono uppercase tracking-wider text-accent-gold flex items-center justify-center gap-1 md:gap-1.5 flex-wrap">
+              <span>Transparent</span>
+              <span className="opacity-50 mx-1.5">·</span>
+              <span>Permissionless</span>
+              <span className="hidden md:inline opacity-50 mx-1.5">·</span>
+              {/* Force a wrap on small screens where the separator is hidden */}
+              <span className="md:hidden basis-full h-0" aria-hidden="true" />
+              <span>Open Source</span>
+            </p>
           </div>
         </div>
       </div>
-      <div className="relative z-10 w-full">
-        <Ticker />
-      </div>
+      <Ticker />
     </section>
   );
 }
