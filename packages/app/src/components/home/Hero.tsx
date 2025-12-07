@@ -22,6 +22,14 @@ export default function Hero() {
       }
     };
 
+    // Manual loop to guarantee a full playthrough before restarting
+    const onEnded = () => {
+      v.currentTime = 0;
+      attemptPlay();
+    };
+    v.addEventListener('ended', onEnded);
+
+    let cleanupCanPlay: (() => void) | null = null;
     if (v.readyState >= 2) {
       attemptPlay();
       setIsVideoReady(true);
@@ -32,8 +40,13 @@ export default function Hero() {
         v.removeEventListener('canplay', onCanPlay);
       };
       v.addEventListener('canplay', onCanPlay);
-      return () => v.removeEventListener('canplay', onCanPlay);
+      cleanupCanPlay = () => v.removeEventListener('canplay', onCanPlay);
     }
+
+    return () => {
+      v.removeEventListener('ended', onEnded);
+      if (cleanupCanPlay) cleanupCanPlay();
+    };
   }, []);
   return (
     <section className="relative isolate flex flex-col w-full overflow-hidden min-h-[calc(100dvh-var(--page-top-offset,0px))] pb-[var(--ticker-height,0px)]">
@@ -55,7 +68,6 @@ export default function Hero() {
               className="absolute left-1/2 top-0 h-full w-[138%] md:w-[155%] -translate-x-1/2 object-cover"
               autoPlay
               muted
-              loop
               playsInline
               preload="auto"
               onLoadedData={() => setIsVideoReady(true)}
