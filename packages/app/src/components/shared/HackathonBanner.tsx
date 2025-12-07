@@ -16,7 +16,7 @@ const HackathonBanner: React.FC<HackathonBannerProps> = ({
   className,
   showWhenLowBalanceHidden = true,
 }) => {
-  const bannerRef = useBannerHeight();
+  const bannerRef = useBannerHeight<HTMLAnchorElement>();
 
   // Only render when LowBalanceBanner is hidden
   if (!showWhenLowBalanceHidden) return null;
