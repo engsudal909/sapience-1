@@ -16,6 +16,7 @@ import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 export interface ConditionForecastFormProps {
   conditionId: string;
+  resolver: string;
   question: string;
   endTime?: number;
   onSuccess?: () => void;
@@ -27,6 +28,7 @@ type FormValues = { predictionValue: string; comment?: string };
 
 const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   conditionId,
+  resolver,
   question,
   endTime,
   onSuccess,
@@ -70,17 +72,12 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   const predictionValue = methods.watch('predictionValue');
   const comment = methods.watch('comment');
 
-  // Conditions-only: placeholders for market data
-  const marketAddress = '0x0000000000000000000000000000000000000000';
-  const marketId = 0;
-
   const { submitPrediction, isAttesting } = useSubmitPrediction({
-    marketAddress,
     marketClassification: MarketGroupClassification.YES_NO,
     submissionValue: predictionValue,
-    marketId,
     comment,
     onSuccess,
+    resolver: resolver as `0x${string}`,
     condition: conditionId as `0x${string}`,
   });
 

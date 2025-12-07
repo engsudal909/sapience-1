@@ -44,10 +44,10 @@ const EAS_ABI = [
   },
 ] as const;
 
-// EAS schema id for prediction market attestations
-// Schema: address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment
+// EAS schema id for forecast attestations
+// Schema: address resolver, bytes condition, uint256 forecast, string comment
 const SCHEMA_ID: Hex =
-  '0x6ad0b3db05192b2fc9cc02e4ca7e1faa76959037b96823eb83e2f711a395a21f';
+  '0x7df55bcec6eb3b17b25c503cc318a36d33b0a9bbc2d6bc0d9788f9bd61980d49';
 
 /**
  * Decode probability from D18 format
@@ -69,8 +69,6 @@ export async function buildAttestationCalldata(
   chainId: number = DEFAULT_CHAIN_ID,
   resolver?: Address,
   condition?: Hex,
-  marketAddress?: Address,
-  marketId?: bigint,
 ): Promise<AttestationCalldata | null> {
   const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
   const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
@@ -78,11 +76,9 @@ export async function buildAttestationCalldata(
 
   const encodedData = encodeAbiParameters(
     parseAbiParameters(
-      'address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment',
+      'address resolver, bytes condition, uint256 forecast, string comment',
     ),
     [
-      marketAddress || ZERO_ADDRESS,
-      marketId || 0n,
       resolver || ZERO_ADDRESS,
       condition || EMPTY_BYTES,
       BigInt(Math.round(prediction.probability * 1e18)), // D18 format

@@ -19,10 +19,10 @@ export function probability(value: number): Probability {
 const EAS_ADDRESS_ARBITRUM: Address = '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458';
 const ARBITRUM_CHAIN_ID = 42161;
 
-// EAS schema id for prediction market attestations
-// Schema: address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment
+// EAS schema id for forecast attestations
+// Schema: address resolver, bytes condition, uint256 forecast, string comment
 const SCHEMA_ID: Hex =
-  '0x6ad0b3db05192b2fc9cc02e4ca7e1faa76959037b96823eb83e2f711a395a21f';
+  '0x7df55bcec6eb3b17b25c503cc318a36d33b0a9bbc2d6bc0d9788f9bd61980d49';
 
 // EAS ABI (attest)
 const EAS_ABI = [
@@ -81,16 +81,12 @@ export type ForecastCalldata = {
  * @param condition - The condition data (bytes)
  * @param probability - Probability 0-100 that the condition resolves YES
  * @param comment - Optional comment/reasoning (max 180 chars, will be truncated)
- * @param marketAddress - Optional market address (defaults to zero address)
- * @param marketId - Optional market ID (defaults to 0)
  */
 export function buildForecastCalldata(
   resolver: Address,
   condition: Hex,
   prob: number,
   comment?: string,
-  marketAddress?: Address,
-  marketId?: bigint,
 ): ForecastCalldata {
   if (prob < 0 || prob > 100) {
     throw new Error(`Probability must be between 0 and 100, got ${prob}`);
@@ -104,11 +100,9 @@ export function buildForecastCalldata(
 
   const encodedData = encodeAbiParameters(
     parseAbiParameters(
-      'address marketAddress, uint256 marketId, address resolver, bytes condition, uint256 prediction, string comment',
+      'address resolver, bytes condition, uint256 forecast, string comment',
     ),
     [
-      marketAddress || ZERO_ADDRESS,
-      marketId || 0n,
       resolver,
       condition,
       probabilityToD18(prob),
@@ -154,8 +148,6 @@ export function buildForecastCalldata(
  * @param comment - Optional comment/reasoning (max 180 chars)
  * @param privateKey - Wallet private key for signing
  * @param rpc - Arbitrum RPC URL (defaults to public endpoint)
- * @param marketAddress - Optional market address
- * @param marketId - Optional market ID
  *
  * @example
  * ```ts
@@ -175,16 +167,12 @@ export async function submitForecast(args: {
   comment?: string;
   privateKey: Hex;
   rpc?: string;
-  marketAddress?: Address;
-  marketId?: bigint;
 }): Promise<{ hash: Hex; calldata: ForecastCalldata }> {
   const calldata = buildForecastCalldata(
     args.resolver,
     args.condition,
     args.probability,
     args.comment,
-    args.marketAddress,
-    args.marketId,
   );
 
   const rpc = args.rpc || 'https://arb1.arbitrum.io/rpc';

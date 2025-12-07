@@ -13,12 +13,15 @@ export async function upsertAttestationScoreFromAttestation(
   if (!att) return;
 
   // Try to load market for bounds and, if already settled, outcome
-  const market = await prisma.market.findFirst({
-    where: {
-      market_group: { address: att.marketAddress.toLowerCase() },
-      marketId: parseInt(att.marketId, 16) || Number(att.marketId) || 0,
-    },
-  });
+  const market = att.marketAddress
+    ? await prisma.market.findFirst({
+        where: {
+          market_group: { address: att.marketAddress.toLowerCase() },
+          marketId:
+            parseInt(att.marketId ?? '', 16) || Number(att.marketId) || 0,
+        },
+      })
+    : null;
 
   const normalized = normalizePredictionToProbability(
     att.prediction,
@@ -30,8 +33,8 @@ export async function upsertAttestationScoreFromAttestation(
     create: {
       attestationId: att.id,
       attester: att.attester.toLowerCase(),
-      marketAddress: att.marketAddress.toLowerCase(),
-      marketId: att.marketId,
+      marketAddress: att.marketAddress?.toLowerCase() ?? null,
+      marketId: att.marketId ?? null,
       resolver: att.resolver,
       madeAt: att.time,
       used: false,
@@ -248,10 +251,15 @@ export async function computeTimeWeightedForAttesterSummary(
   if (distinctMarkets.length === 0)
     return { sumTimeWeightedError: 0, numTimeWeighted: 0 };
 
-  const combos = distinctMarkets.map((m) => ({
-    address: (m.marketAddress || '').toLowerCase(),
-    marketId: m.marketId,
-  }));
+  const combos = distinctMarkets
+    .filter((m) => m.marketAddress && m.marketId)
+    .map((m) => ({
+      address: (m.marketAddress as string).toLowerCase(),
+      marketId: m.marketId as string,
+    }));
+
+  if (combos.length === 0)
+    return { sumTimeWeightedError: 0, numTimeWeighted: 0 };
 
   // 2) Fetch market metadata needed for outcome and end time in ONE query
   const markets = await prisma.market.findMany({
@@ -323,7 +331,8 @@ export async function computeTimeWeightedForAttesterSummary(
   // 4) Group rows by market and compute time-weighted error per market
   const byMarket = new Map<MarketKey, { madeAt: number; p: number }[]>();
   for (const r of rows) {
-    const addr = (r.marketAddress || '').toLowerCase();
+    if (!r.marketAddress || !r.marketId) continue;
+    const addr = r.marketAddress.toLowerCase();
     const k = key(addr, parseInt(r.marketId, 16) || Number(r.marketId) || 0);
     const m = meta.get(k);
     if (!m || m.end == null || m.outcome == null) continue;
@@ -402,10 +411,18 @@ export async function computeTimeWeightedForAttestersSummary(
       { sumTimeWeightedError: number; numTimeWeighted: number }
     >();
 
-  const combos = distinctMarkets.map((m) => ({
-    address: (m.marketAddress || '').toLowerCase(),
-    marketId: m.marketId,
-  }));
+  const combos = distinctMarkets
+    .filter((m) => m.marketAddress && m.marketId)
+    .map((m) => ({
+      address: (m.marketAddress as string).toLowerCase(),
+      marketId: m.marketId as string,
+    }));
+
+  if (combos.length === 0)
+    return new Map<
+      string,
+      { sumTimeWeightedError: number; numTimeWeighted: number }
+    >();
 
   // 2) Market metadata for those combos
   const markets = await prisma.market.findMany({
@@ -498,8 +515,9 @@ export async function computeTimeWeightedForAttestersSummary(
   >();
 
   for (const r of rows) {
+    if (!r.marketAddress || !r.marketId) continue;
     const att = (r.attester || '').toLowerCase();
-    const addr = (r.marketAddress || '').toLowerCase();
+    const addr = r.marketAddress.toLowerCase();
     const k = key(addr, parseInt(r.marketId, 16) || Number(r.marketId) || 0);
     const m = meta.get(k);
     if (!m || m.end == null || m.outcome == null) continue;

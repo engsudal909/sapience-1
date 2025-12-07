@@ -28,13 +28,17 @@ export function getPredictionValue(
       console.log('predictionInput yes no', predictionInput);
       // predictionInput is already the probability value (0-100)
       // Convert to D18: prob * 10^18
-      finalPredictionBigInt = BigInt(Math.round(parseFloat(predictionInput) * 1e18));
+      finalPredictionBigInt = BigInt(
+        Math.round(parseFloat(predictionInput) * 1e18)
+      );
       break;
     case MarketGroupClassification.MULTIPLE_CHOICE:
       console.log('predictionInput multiple choice', predictionInput);
       // predictionInput is already the probability value (0-100)
       // Convert to D18: prob * 10^18
-      finalPredictionBigInt = BigInt(Math.round(parseFloat(predictionInput) * 1e18));
+      finalPredictionBigInt = BigInt(
+        Math.round(parseFloat(predictionInput) * 1e18)
+      );
       break;
     default: {
       // This will catch any unhandled enum members at compile time

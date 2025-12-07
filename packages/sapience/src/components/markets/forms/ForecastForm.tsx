@@ -4,9 +4,11 @@ import type { MarketGroupType } from '@sapience/sdk/types';
 import { useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
 import { useAccount } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
+import { umaResolver } from '@sapience/sdk/contracts';
 import MultipleChoicePredict from './inputs/MultipleChoicePredict';
 import NumericPredict from './inputs/NumericPredict';
 import YesNoPredict from './inputs/YesNoPredict';
@@ -146,25 +148,41 @@ export default function ForecastForm({
     }
   }, [marketClassification, predictionValue]);
 
+  // Encode market address and marketId as condition bytes for the attestation
+  const conditionBytes = useMemo(() => {
+    if (!marketGroupData.address) return '0x' as `0x${string}`;
+    return encodeAbiParameters(
+      parseAbiParameters('address marketAddress, uint256 marketId'),
+      [marketGroupData.address as `0x${string}`, BigInt(marketId)]
+    );
+  }, [marketGroupData.address, marketId]);
+
+  // Get the resolver address for the chain
+  const resolverAddress = useMemo(() => {
+    const resolver = umaResolver[marketGroupData.chainId]?.address;
+    return (
+      resolver ??
+      ('0x0000000000000000000000000000000000000000' as `0x${string}`)
+    );
+  }, [marketGroupData.chainId]);
+
   // Memoize the hook props to prevent infinite loops
   const submitPredictionProps = useMemo(
     () => ({
-      marketChainId: marketGroupData.chainId,
-      marketAddress: marketGroupData.address!,
       marketClassification,
-      marketId,
       submissionValue,
       comment,
       onSuccess,
+      resolver: resolverAddress,
+      condition: conditionBytes,
     }),
     [
-      marketGroupData.chainId,
-      marketGroupData.address,
       marketClassification,
-      marketId,
       submissionValue,
       comment,
       onSuccess,
+      resolverAddress,
+      conditionBytes,
     ]
   );
 

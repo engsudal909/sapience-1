@@ -1630,6 +1630,9 @@ export default function QuestionPageContent({
                   <div className="p-4 border-b border-border/60">
                     <ConditionForecastForm
                       conditionId={conditionId}
+                      resolver={
+                        umaResolver[data.chainId ?? 42161]?.address ?? ''
+                      }
                       question={data.shortName || data.question || ''}
                       endTime={data.endTime ?? undefined}
                       categorySlug={data.category?.slug}
