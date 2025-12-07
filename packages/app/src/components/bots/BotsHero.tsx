@@ -43,9 +43,16 @@ export default function BotsHero() {
   };
 
   return (
-    <section className="relative isolate flex flex-col min-h-[100svh] w-full overflow-hidden">
+    <section
+      className="relative isolate flex flex-col w-full overflow-hidden"
+      style={{
+        // Reserve space for banner/header and keep hero within the viewport
+        minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+        paddingBlock: 'clamp(16px, 3vw, 32px)',
+      }}
+    >
       <HeroBackgroundLines />
-      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 pt-16 md:pt-24 pb-0 flex-1 flex flex-col justify-center">
+      <div className="relative z-10 container mx-auto lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1440px] px-4 md:px-8 py-4 md:py-6 lg:py-8 flex-1 flex flex-col justify-center items-center">
         <div className="relative z-10 w-full flex flex-col items-center">
           <div
             className={`relative w-full max-w-[300px] md:max-w-[300px] lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px] aspect-[3/2] rounded-2xl border border-[hsl(var(--accent-gold)/0.2)] ring-1 ring-[hsl(var(--accent-gold)/0.12)] shadow-[0_0_16px_hsl(var(--accent-gold)/0.1)] drop-shadow-[0_0_8px_hsl(var(--accent-gold)/0.16)] mb-6 md:mb-8 overflow-hidden transition-opacity duration-500 ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}

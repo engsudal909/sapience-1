@@ -28,7 +28,15 @@ const Layout = ({ children }: { children: ReactNode }) => {
       style={{ '--sidebar-width': '12rem' } as React.CSSProperties}
     >
       <RouteBackgroundOverlay />
-      <div className="min-h-[100dvh] flex flex-col w-full relative z-10">
+      <div
+        className="min-h-[100dvh] flex flex-col w-full relative z-10"
+        style={
+          {
+            '--page-top-offset':
+              'calc(var(--banner-offset, 0px) + var(--header-height, 0px))',
+          } as React.CSSProperties
+        }
+      >
         <BannerCoordinator />
         <Header />
         <div className="flex-1 flex w-full">

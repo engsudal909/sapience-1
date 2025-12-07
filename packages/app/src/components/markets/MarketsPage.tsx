@@ -122,7 +122,12 @@ const MarketsPage = () => {
   // Show loader only on initial load (not when filtering)
   if (isLoadingCategories) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100dvh-96px)] w-full">
+      <div
+        className="flex justify-center items-center w-full"
+        style={{
+          minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+        }}
+      >
         <LottieLoader width={32} height={32} />
       </div>
     );
@@ -168,7 +173,12 @@ const MarketsPage = () => {
       {/* Desktop/Tablet sticky position form sidebar */}
       {!isMobile ? (
         <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-1 xl:ml-2 lg:mr-6">
-          <div className="rounded-none shadow-lg overflow-hidden h-[calc(100dvh-96px)]">
+          <div
+            className="rounded-none shadow-lg overflow-hidden"
+            style={{
+              height: 'calc(100dvh - var(--page-top-offset, 0px))',
+            }}
+          >
             <div className="h-full overflow-y-auto">
               <CreatePositionForm variant="panel" />
             </div>

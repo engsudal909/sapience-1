@@ -254,6 +254,32 @@ const Header = () => {
     };
   }, []);
 
+  // Publish header height so pages can reserve space alongside banner offset
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const setHeaderHeight = () => {
+      document.documentElement.style.setProperty(
+        '--header-height',
+        `${el.offsetHeight}px`
+      );
+    };
+
+    setHeaderHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      setHeaderHeight();
+    });
+
+    resizeObserver.observe(el);
+
+    return () => {
+      resizeObserver.disconnect();
+      document.documentElement.style.setProperty('--header-height', '0px');
+    };
+  }, []);
+
   // When a wallet connects (or the active wallet changes), check with the
   // backend whether this address has an associated referral relationship
   // (either as a referee or a referrer). If not, open a blocking dialog
@@ -376,8 +402,8 @@ const Header = () => {
       {/* Top Header Bar */}
       <header
         ref={headerRef}
-        style={{ top: 'var(--banner-height, 0px)' } as React.CSSProperties}
-        className={`w-full ${isHomePage ? 'pt-0 pb-2 md:pb-6' : 'pt-3 pb-2 md:py-6'} z-[50] sticky left-0 right-0 pointer-events-none bg-background/30 backdrop-blur-sm border-b border-border/20 overflow-x-clip md:bg-transparent md:backdrop-blur-0 md:border-b-0 md:overflow-visible`}
+        style={{ top: 'var(--banner-offset, 0px)' } as React.CSSProperties}
+        className={`w-full 'pt-3 pb-2 md:py-6 z-[50] sticky left-0 right-0 pointer-events-none bg-background/30 backdrop-blur-sm border-b border-border/20 overflow-x-clip md:bg-transparent md:backdrop-blur-0 md:border-b-0 md:overflow-visible`}
       >
         <div className={`mx-auto px-4 md:px-6 transition-all`}>
           <div

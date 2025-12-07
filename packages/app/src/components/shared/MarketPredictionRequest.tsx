@@ -266,10 +266,13 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     <div
       ref={rootRef}
       className={
-        inline ? `inline-flex items-center ${className || ''}` : className
+        inline
+          ? `inline-flex items-center relative ${className || ''}`
+          : className
       }
+      style={{ minWidth: '78px' }}
     >
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="wait">
         {requestedPrediction == null ? (
           suppressLoadingPlaceholder ? null : isRequesting ? (
             <motion.span
@@ -304,17 +307,15 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           <motion.span
             key={`prediction-${requestedPrediction}`}
             className="inline-flex"
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 'auto' }}
-            exit={{ opacity: 0, width: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            style={{ originX: 0 }}
           >
             <motion.span
-              initial={{ opacity: 0, scaleX: 0 }}
-              animate={{ opacity: 1, scaleX: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
-              style={{ originX: 0 }}
             >
               <PercentChance
                 probability={requestedPrediction}

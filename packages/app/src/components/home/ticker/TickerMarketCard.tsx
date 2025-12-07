@@ -99,7 +99,7 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({
         className="flex flex-row items-stretch relative overflow-hidden"
       >
         <div className="w-full max-w-[92vw] md:max-w-[720px]">
-          <div className="pl-4 pr-1.5 py-2">
+          <div className="pl-4 pr-0.5 py-2">
             <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <MarketBadge
                 label={displayQ}

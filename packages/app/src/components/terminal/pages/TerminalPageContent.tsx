@@ -796,7 +796,13 @@ const TerminalPageContent: React.FC = () => {
               </div>
             ) : null}
             <div className="w-full lg:w-auto flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-6 pr-0 lg:pr-4 pb-6 lg:pb-0 h-full min-h-0">
-              <div className="border border-border/60 rounded-lg overflow-hidden bg-brand-black flex flex-col h-full min-h-0 lg:h-[calc(100dvh-120px)]">
+              <div
+                className="border border-border/60 rounded-lg overflow-hidden bg-brand-black flex flex-col h-full min-h-0"
+                style={{
+                  // Reserve viewport height while accounting for header/banner
+                  minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+                }}
+              >
                 <div className="flex-none">
                   <div className="pl-4 pr-3 py-3 border-b border-border/60 bg-muted/10">
                     <div className="flex items-center gap-4">
@@ -999,7 +1005,12 @@ const TerminalPageContent: React.FC = () => {
             </div>
             {!isMobile ? (
               <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-3 xl:ml-4 lg:mr-6">
-                <div className="rounded-none shadow-lg overflow-hidden lg:h-[calc(100dvh-120px)]">
+                <div
+                  className="rounded-none shadow-lg overflow-hidden"
+                  style={{
+                    height: 'calc(100dvh - var(--page-top-offset, 0px))',
+                  }}
+                >
                   <div className="h-full overflow-y-auto">
                     <AutoBid />
                   </div>

@@ -294,7 +294,7 @@ const AuctionPageContent: React.FC = () => {
   }
 
   return (
-    <div className="my-20 pt-1 px-3 md:px-6 lg:px-8 pr-4 md:pr-6 lg:pr-6">
+    <div className="mt-0 md:mt-0.5 px-3 md:px-6 lg:px-8 pr-4 md:pr-6 lg:pr-6">
       <div className="mx-auto w-full">
         <Tabs
           value={tabValue}
@@ -304,11 +304,11 @@ const AuctionPageContent: React.FC = () => {
           <div className="mt-3 mb-6 lg:mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h1 className="text-xl font-medium inline-flex items-center gap-2">
               <SquareStackIcon className="h-5 w-5" aria-hidden="true" />
-              <span>Parlay Auction Feed</span>
+              <span>Auction Feed</span>
             </h1>
             <div className="flex items-center gap-3 md:gap-4 md:justify-end">
               <SegmentedTabsList>
-                <TabsTrigger value="auctions">Parlay Auctions</TabsTrigger>
+                <TabsTrigger value="auctions">Auctions</TabsTrigger>
                 <TabsTrigger value="vault-quotes">Vault Quotes</TabsTrigger>
               </SegmentedTabsList>
               <Link href="/feed">

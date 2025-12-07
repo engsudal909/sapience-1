@@ -90,7 +90,7 @@ const Leaderboard = () => {
   };
 
   return (
-    <div className="container max-w-[560px] mx-auto py-32">
+    <div className="container max-w-[560px] mx-auto pt-10 md:pt-14 pb-16">
       <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
         Leaderboard
       </h1>

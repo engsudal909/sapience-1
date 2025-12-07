@@ -555,7 +555,12 @@ export default function QuestionPageContent({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100dvh-96px)] w-full">
+      <div
+        className="flex justify-center items-center w-full"
+        style={{
+          minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+        }}
+      >
         <LottieLoader width={32} height={32} />
       </div>
     );
@@ -563,7 +568,12 @@ export default function QuestionPageContent({
 
   if (isError || !data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-96px)] w-full gap-4">
+      <div
+        className="flex flex-col items-center justify-center w-full gap-4"
+        style={{
+          minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+        }}
+      >
         <p className="text-destructive">Failed to load question.</p>
       </div>
     );
@@ -594,10 +604,13 @@ export default function QuestionPageContent({
   };
 
   return (
-    <div className="flex flex-col w-full min-h-[calc(100dvh-96px)]">
+    <div
+      className="flex flex-col w-full"
+      style={{ minHeight: 'calc(100dvh - var(--page-top-offset, 0px))' }}
+    >
       <div className="flex flex-col w-full px-4 md:px-6 lg:px-8 items-center">
         {/* Main content */}
-        <div className="w-full max-w-[1200px] mt-8 md:mt-16">
+        <div className="w-full max-w-[1200px] mt-4 md:mt-8">
           {/* Title */}
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-normal text-foreground mb-4 break-words">
             {displayTitle}

@@ -94,7 +94,7 @@ const ForecastPageImp = () => {
     'hover:bg-muted/50 text-muted-foreground hover:text-foreground';
 
   return (
-    <div className={`min-h-screen bg-transparent pt-[72px] md:pt-24`}>
+    <div className="min-h-screen bg-transparent">
       {/* Main content container with Twitter-like layout */}
       <div
         className={`max-w-2xl mx-auto border-l border-r border-border min-h-screen bg-brand-black backdrop-blur-sm md:rounded-t overflow-hidden`}
