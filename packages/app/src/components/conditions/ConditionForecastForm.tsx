@@ -25,8 +25,8 @@ type FormValues = { predictionValue: string; comment?: string };
 const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   conditionId,
   resolver,
-  question,
-  endTime,
+  question: _question,
+  endTime: _endTime,
   onSuccess,
   disabled = false,
 }) => {

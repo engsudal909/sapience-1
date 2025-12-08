@@ -36,6 +36,7 @@ import { ResolverBadge } from '~/components/shared/ResolverBadge';
 import PredictionForm from './PredictionForm';
 import Comments, { CommentFilters } from '~/components/shared/Comments';
 import ConditionForecastForm from '~/components/conditions/ConditionForecastForm';
+import { UMA_RESOLVER_ARBITRUM } from '~/lib/constants/eas';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import ResearchAgent from '~/components/markets/ResearchAgent';
@@ -836,6 +837,7 @@ export default function QuestionPageContent({
                   <div className="p-4 border-b border-border/60">
                     <ConditionForecastForm
                       conditionId={conditionId}
+                      resolver={resolverAddress ?? UMA_RESOLVER_ARBITRUM}
                       question={data.shortName || data.question || ''}
                       endTime={data.endTime ?? undefined}
                       categorySlug={data.category?.slug}
@@ -945,6 +947,7 @@ export default function QuestionPageContent({
                     <div className="p-4 border-b border-border/60">
                       <ConditionForecastForm
                         conditionId={conditionId}
+                        resolver={resolverAddress ?? UMA_RESOLVER_ARBITRUM}
                         question={data.shortName || data.question || ''}
                         endTime={data.endTime ?? undefined}
                         categorySlug={data.category?.slug}
@@ -1062,6 +1065,7 @@ export default function QuestionPageContent({
                     <div className="p-4 border-b border-border/60">
                       <ConditionForecastForm
                         conditionId={conditionId}
+                        resolver={resolverAddress ?? UMA_RESOLVER_ARBITRUM}
                         question={data.shortName || data.question || ''}
                         endTime={data.endTime ?? undefined}
                         categorySlug={data.category?.slug}
