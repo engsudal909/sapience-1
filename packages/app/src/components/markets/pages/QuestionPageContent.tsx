@@ -517,6 +517,39 @@ export default function QuestionPageContent({
   const hasForecasts = forecastScatterData.length > 0;
   const shouldShowChart = hasPositions || hasForecasts;
 
+  type PrimaryTab =
+    | 'predictions'
+    | 'forecasts'
+    | 'resolution'
+    | 'agent'
+    | 'techspec';
+
+  // Keep primary tab controlled so we can default to Positions when available
+  const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>('forecasts');
+
+  const handlePrimaryTabChange = (value: string) =>
+    setPrimaryTab(value as PrimaryTab);
+
+  const primaryTabValue = useMemo(() => {
+    if (!hasPositions && primaryTab === 'predictions') {
+      return 'forecasts';
+    }
+    return primaryTab;
+  }, [hasPositions, primaryTab]);
+
+  // Default to Positions once when they first become available; thereafter respect user choice
+  const hasEverHadPositionsRef = React.useRef(hasPositions);
+  React.useEffect(() => {
+    if (hasPositions) {
+      if (!hasEverHadPositionsRef.current) {
+        setPrimaryTab('predictions');
+      }
+      hasEverHadPositionsRef.current = true;
+    } else if (primaryTab === 'predictions') {
+      setPrimaryTab('forecasts');
+    }
+  }, [hasPositions, primaryTab]);
+
   // Calculate X axis domain and ticks based on predictions data
   const { xDomain, xTicks, xTickLabels } = useMemo(() => {
     if (scatterData.length === 0) {
@@ -744,7 +777,8 @@ export default function QuestionPageContent({
           {/* Row 2: Mobile - All tabs in one container */}
           <div className="lg:hidden mb-12">
             <Tabs
-              defaultValue={hasPositions ? 'predictions' : 'forecasts'}
+              value={primaryTabValue}
+              onValueChange={handlePrimaryTabChange}
               className="w-full min-w-0"
             >
               <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
@@ -867,7 +901,8 @@ export default function QuestionPageContent({
             <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
               {/* Predictions/Forecasts/Resolution - Unified container with integrated tabs */}
               <Tabs
-                defaultValue={hasPositions ? 'predictions' : 'forecasts'}
+                value={primaryTabValue}
+                onValueChange={handlePrimaryTabChange}
                 className="w-full min-w-0"
               >
                 <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
@@ -997,7 +1032,11 @@ export default function QuestionPageContent({
           {!shouldShowChart && (
             <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
               {/* Forecasts/Resolution - Left column */}
-              <Tabs defaultValue="forecasts" className="w-full min-w-0">
+              <Tabs
+                value={primaryTabValue}
+                onValueChange={handlePrimaryTabChange}
+                className="w-full min-w-0"
+              >
                 <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
                   {/* Header with integrated tabs */}
                   <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">

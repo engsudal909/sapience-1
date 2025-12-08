@@ -212,6 +212,7 @@ export function PredictionScatterChart({
                   style={{
                     backgroundColor: 'hsl(var(--brand-black))',
                     border: '1px solid hsl(var(--brand-white) / 0.2)',
+                    maxWidth: 300,
                   }}
                   onMouseEnter={() => {
                     if (tooltipTimeoutRef.current) {
