@@ -130,8 +130,8 @@ export async function loadSdk(): Promise<SdkModule> {
   // On chains where native token != collateral (e.g., Ethereal uses USDe natively
   // but contracts expect WUSDe), we need to wrap before trading
   //
-  // This follows the same pattern as the frontend betslip/parlay forms:
-  // 1. Always wrap the full collateral amount (no balance optimization)
+  // This function optimizes wrapping by only converting the additional USDe needed:
+  // 1. Check existing WUSDe balance and only wrap the difference needed
   // 2. Check allowance and approve only if insufficient
   // 3. Execute transactions sequentially, waiting for each to confirm
   if (!sdk.prepareForTrade) {
@@ -225,26 +225,32 @@ export async function loadSdk(): Promise<SdkModule> {
       let wrapTxHash: `0x${string}` | undefined;
       let approvalTxHash: `0x${string}` | undefined;
 
-      console.log("[SDK] Preparing for trade - wrapping USDe and checking approval...");
+      console.log("[SDK] Preparing for trade - checking WUSDe balance and approval...");
       console.log(`[SDK] Collateral amount: ${args.collateralAmount}`);
 
-      // Step 1: Always wrap the full collateral amount (matches frontend pattern)
-      // The frontend doesn't check existing balance - it always wraps the exact amount needed
-      if (args.collateralAmount > 0n) {
-        // Check if we have enough native USDe to wrap
+      // Step 1: Check existing WUSDe balance and only wrap the additional amount needed
+      const currentWUSDEBalance = await sdk.getWUSDEBalance(account.address, args.rpcUrl);
+      console.log(`[SDK] Current WUSDe balance: ${currentWUSDEBalance}`);
+      
+      const amountToWrap = args.collateralAmount > currentWUSDEBalance 
+        ? args.collateralAmount - currentWUSDEBalance 
+        : 0n;
+
+      if (amountToWrap > 0n) {
+        // Check if we have enough native USDe to wrap the additional amount
         const nativeBalance = await publicClient.getBalance({ address: account.address });
         console.log(`[SDK] Native USDe balance: ${nativeBalance}`);
         
-        if (nativeBalance < args.collateralAmount) {
+        if (nativeBalance < amountToWrap) {
           throw new Error(
-            `Insufficient native USDe balance. Need ${args.collateralAmount} to wrap, but only have ${nativeBalance}`
+            `Insufficient native USDe balance. Need ${amountToWrap} more to wrap, but only have ${nativeBalance}`
           );
         }
 
-        console.log(`[SDK] Wrapping ${args.collateralAmount} USDe to WUSDe...`);
+        console.log(`[SDK] Wrapping ${amountToWrap} USDe to WUSDe...`);
         const wrapResult = await sdk.wrapUSDe({
           privateKey: args.privateKey,
-          amount: args.collateralAmount,
+          amount: amountToWrap,
           rpcUrl: args.rpcUrl,
         });
         wrapTxHash = wrapResult.hash;
@@ -253,9 +259,11 @@ export async function loadSdk(): Promise<SdkModule> {
         // Wait for wrap transaction to confirm before proceeding (nonce handling)
         await publicClient.waitForTransactionReceipt({ hash: wrapTxHash as `0x${string}` });
         console.log("[SDK] Wrap tx confirmed");
+      } else {
+        console.log("[SDK] Sufficient WUSDe balance exists, skipping wrap");
       }
 
-      // Step 2: Check allowance and approve only if insufficient (matches frontend pattern)
+      // Step 2: Check allowance and approve only if insufficient
       const currentAllowance = await sdk.getWUSDEAllowance({
         owner: account.address,
         spender,
