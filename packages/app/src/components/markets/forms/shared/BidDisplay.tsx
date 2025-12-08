@@ -93,7 +93,9 @@ export default function BidDisplay({
   validationError,
 }: BidDisplayProps) {
   const [isAuctionExpanded, setIsAuctionExpanded] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'idle' | 'sliding-up' | 'sliding-down'>('idle');
+  const [animationPhase, setAnimationPhase] = useState<
+    'idle' | 'sliding-up' | 'sliding-down'
+  >('idle');
   const [showToWin, setShowToWin] = useState(false);
   const [isRefreshingBid, setIsRefreshingBid] = useState(false);
   const prevBestBidRef = useRef<QuoteBid | null>(null);
@@ -101,17 +103,18 @@ export default function BidDisplay({
   // Detect when bestBid appears or changes and trigger animation
   useEffect(() => {
     const prevBid = prevBestBidRef.current;
-    
+
     // Only process if bestBid actually changed
     if (bestBid === prevBid) {
       return;
     }
-    
+
     const isNewBid = bestBid && !prevBid;
-    const isBetterBid = bestBid && prevBid && (
-      bestBid.makerWager !== prevBid.makerWager ||
-      bestBid.makerDeadline !== prevBid.makerDeadline
-    );
+    const isBetterBid =
+      bestBid &&
+      prevBid &&
+      (bestBid.makerWager !== prevBid.makerWager ||
+        bestBid.makerDeadline !== prevBid.makerDeadline);
 
     // Update ref immediately to prevent double-triggering
     prevBestBidRef.current = bestBid;
@@ -221,35 +224,50 @@ export default function BidDisplay({
     >
       {/* To Win Display - takes up space when toWinTakesSpace is true, otherwise positioned absolutely */}
       <AnimatePresence mode="wait">
-        {bestBid && (showToWin || animationPhase === 'sliding-down' || prevBestBidRef.current) ? (
+        {bestBid &&
+        (showToWin ||
+          animationPhase === 'sliding-down' ||
+          prevBestBidRef.current) ? (
           <motion.div
             key={`to-win-${bestBid.makerWager}-${bestBid.makerDeadline}-${isRefreshingBid ? 'fade-out' : 'fade-in'}`}
-            initial={isRefreshingBid ? { opacity: 1 } : { opacity: 0, y: -10, scale: 0.98 }}
-            animate={{ 
-              opacity: isRefreshingBid ? 0 : 1, 
-              y: 0, 
-              scale: 1 
+            initial={
+              isRefreshingBid
+                ? { opacity: 1 }
+                : { opacity: 0, y: -10, scale: 0.98 }
+            }
+            animate={{
+              opacity: isRefreshingBid ? 0 : 1,
+              y: 0,
+              scale: 1,
             }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            transition={isRefreshingBid ? {
-              opacity: { duration: 0.2, ease: [0.4, 0.1, 0.25, 1] }
-            } : {
-              opacity: { duration: 0.4, delay: 0.2, ease: [0.25, 0.1, 0.25, 1] },
-              y: { 
-                type: 'spring',
-                stiffness: 400,
-                damping: 25,
-                mass: 0.6,
-                delay: 0.2
-              },
-              scale: { 
-                type: 'spring',
-                stiffness: 500,
-                damping: 30,
-                mass: 0.5,
-                delay: 0.2
-              }
-            }}
+            transition={
+              isRefreshingBid
+                ? {
+                    opacity: { duration: 0.2, ease: [0.4, 0.1, 0.25, 1] },
+                  }
+                : {
+                    opacity: {
+                      duration: 0.4,
+                      delay: 0.2,
+                      ease: [0.25, 0.1, 0.25, 1],
+                    },
+                    y: {
+                      type: 'spring',
+                      stiffness: 400,
+                      damping: 25,
+                      mass: 0.6,
+                      delay: 0.2,
+                    },
+                    scale: {
+                      type: 'spring',
+                      stiffness: 500,
+                      damping: 30,
+                      mass: 0.5,
+                      delay: 0.2,
+                    },
+                  }
+            }
             className={`mt-4 mb-6 ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
           >
             <div className="rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-4 py-2.5 w-full shadow-[0_0_10px_rgba(136,180,245,0.25)]">
@@ -322,7 +340,7 @@ export default function BidDisplay({
               )}
             </div>
           </motion.div>
-        ) : (!bestBid || animationPhase === 'sliding-up') ? (
+        ) : !bestBid || animationPhase === 'sliding-up' ? (
           <motion.div
             key="filler"
             initial={{ opacity: 1 }}
@@ -331,12 +349,15 @@ export default function BidDisplay({
             transition={{ duration: 0.3, ease: [0.4, 0.1, 0.25, 1] }}
             className="mt-4 mb-6 min-h-[40px] px-4 py-2.5"
           >
-            <div className={`text-xs text-center ${
-              validationError 
-                ? 'text-destructive' 
-                : 'text-muted-foreground/50'
-            }`}>
-              {validationError || 'An auction bid will appear here once a counterparty responds to an initialized auction request'}
+            <div
+              className={`text-xs text-center ${
+                validationError
+                  ? 'text-destructive'
+                  : 'text-muted-foreground/50'
+              }`}
+            >
+              {validationError ||
+                'An auction bid will appear here once a counterparty responds to an initialized auction request'}
             </div>
           </motion.div>
         ) : null}
@@ -352,16 +373,16 @@ export default function BidDisplay({
           animationPhase === 'idle' || isRefreshingBid
             ? { duration: 0 }
             : animationPhase === 'sliding-up'
-            ? {
-                duration: 0.3,
-                ease: [0.4, 0.1, 0.25, 1], // Strong ease-in
-              }
-            : {
-                type: 'spring',
-                stiffness: 500,
-                damping: 35,
-                mass: 0.6,
-              }
+              ? {
+                  duration: 0.3,
+                  ease: [0.4, 0.1, 0.25, 1], // Strong ease-in
+                }
+              : {
+                  type: 'spring',
+                  stiffness: 500,
+                  damping: 35,
+                  mass: 0.6,
+                }
         }
       >
         <Button

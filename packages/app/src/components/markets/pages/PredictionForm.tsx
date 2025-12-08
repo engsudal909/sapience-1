@@ -351,7 +351,11 @@ export default function PredictionForm({
           allBids={bids}
           takerWagerWei={takerWagerWei}
           takerAddress={_address}
-          validationError={!isWagerValid ? `Minimum wager: ${minWager || '0'} ${collateralSymbol}` : undefined}
+          validationError={
+            !isWagerValid
+              ? `Minimum wager: ${minWager || '0'} ${collateralSymbol}`
+              : undefined
+          }
         />
       ) : (
         <div className="mt-auto pt-4 text-center text-sm text-muted-foreground">
