@@ -9,8 +9,7 @@ import {
 } from 'viem';
 import Sentry from '../../instrument';
 import { SchemaEncoder } from '@ethereum-attestation-service/eas-sdk';
-import { IResourcePriceIndexer } from '../../interfaces';
-import type { Resource } from '../../../generated/prisma';
+import { IIndexer } from '../../interfaces';
 import {
   upsertAttestationScoreFromAttestation,
   selectLatestPreEndForMarket,
@@ -116,7 +115,7 @@ interface DecodedPredictionData {
   comment: string;
 }
 
-class EASPredictionIndexer implements IResourcePriceIndexer {
+class EASPredictionIndexer implements IIndexer {
   public client: PublicClient;
   private isWatching: boolean = false;
   private chainId: number;
@@ -340,7 +339,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
   }
 
   async indexBlockPriceFromTimestamp(
-    _: Resource,
+    _resourceSlug: string,
     startTimestamp: number,
     endTimestamp?: number,
     overwriteExisting: boolean = false
@@ -494,7 +493,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
     }
   }
 
-  async indexBlocks(_: Resource, blocks: number[]): Promise<boolean> {
+  async indexBlocks(_resourceSlug: string, blocks: number[]): Promise<boolean> {
     try {
       console.log(
         `[EASPredictionIndexer] Indexing ${blocks.length} specific blocks`
@@ -545,7 +544,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async watchBlocksForResource(resource: Resource): Promise<void> {
+  async watchBlocksForResource(_resourceSlug: string): Promise<void> {
     if (this.isWatching) {
       console.log(
         `[EASPredictionIndexer] Already watching for new predictions`

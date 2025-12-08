@@ -4,9 +4,49 @@ import prisma from '../db';
 import { createRenderJob, fetchRenderServices } from '../utils/utils';
 import { config } from '../config';
 
-import type { Request, Response } from 'express';
-
 const router = Router();
+
+const executeLocalReindex = async (
+  startCommand: string
+): Promise<{ id: string; status: string; output: string }> => {
+  return new Promise((resolve, reject) => {
+    // Use dynamic import for child_process
+    import('child_process')
+      .then(({ spawn }) => {
+        const [command, ...args] = startCommand.split(' ');
+
+        const process = spawn(command, args, {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        let output = '';
+
+        process.stdout.on('data', (data: Buffer) => {
+          const str = data.toString();
+          output += str;
+          console.log(str); // Stream to console in real-time
+        });
+
+        process.stderr.on('data', (data: Buffer) => {
+          const str = data.toString();
+          console.error(str); // Stream to console in real-time
+          output += `Error: ${str}\n`; // Also capture errors in the output
+        });
+
+        process.on('close', (code: number) => {
+          if (code === 0) {
+            resolve({ id: 'local', status: 'completed', output });
+          } else {
+            reject(new Error(`Process exited with code ${code}`));
+          }
+        });
+      })
+      .catch(() => {
+        reject(new Error('Failed to load child_process module'));
+      });
+  });
+};
+
 router.post(
   '/accuracy',
   handleAsyncErrors(async (req, res) => {
@@ -57,168 +97,6 @@ router.post(
   })
 );
 
-const executeLocalReindex = async (
-  startCommand: string
-): Promise<{ id: string; status: string; output: string }> => {
-  return new Promise((resolve, reject) => {
-    // Use dynamic import for child_process
-    import('child_process')
-      .then(({ spawn }) => {
-        const [command, ...args] = startCommand.split(' ');
-
-        const process = spawn(command, args, {
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
-
-        let output = '';
-
-        process.stdout.on('data', (data: Buffer) => {
-          const str = data.toString();
-          output += str;
-          console.log(str); // Stream to console in real-time
-        });
-
-        process.stderr.on('data', (data: Buffer) => {
-          const str = data.toString();
-          console.error(str); // Stream to console in real-time
-          output += `Error: ${str}\n`; // Also capture errors in the output
-        });
-
-        process.on('close', (code: number) => {
-          if (code === 0) {
-            resolve({ id: 'local', status: 'completed', output });
-          } else {
-            reject(new Error(`Process exited with code ${code}`));
-          }
-        });
-      })
-      .catch(() => {
-        reject(new Error('Failed to load child_process module'));
-      });
-  });
-};
-
-router.post(
-  '/resource',
-  handleAsyncErrors(async (req, res) => {
-    const { startTimestamp, endTimestamp, slug } = req.body;
-
-    // For production environments
-    if (config.isProd) {
-      // Get background worker service ID
-      const renderServices = await fetchRenderServices();
-      const worker = renderServices.find(
-        (item: {
-          service?: {
-            type: string;
-            id?: string;
-            branch?: string;
-            name?: string;
-          };
-        }) =>
-          item?.service?.type === 'background_worker' &&
-          item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.branch === 'main'
-      );
-
-      if (!worker?.service?.id) {
-        throw new Error('Background worker not found');
-      }
-
-      // Create and save render job
-      const startCommand = `pnpm run start:reindex-resource ${slug} ${startTimestamp} ${endTimestamp}`;
-      const job = await createRenderJob(worker.service.id, startCommand);
-
-      await prisma.renderJob.create({
-        data: {
-          jobId: job.id,
-          serviceId: job.serviceId,
-        },
-      });
-
-      res.json({ success: true, job });
-      return;
-    }
-
-    // For local development
-    try {
-      const startCommand = `pnpm run start:reindex-resource ${slug} ${startTimestamp} ${endTimestamp}`;
-      const result = await executeLocalReindex(startCommand);
-      res.json({ success: true, job: result });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        res.status(500).json({ error: error.message });
-      } else {
-        res.status(500).json({ error: 'An unknown error occurred' });
-      }
-    }
-  })
-);
-
-// Helper function to handle reindexing logic for both endpoints
-const handleReindexRequest = async (
-  req: Request,
-  res: Response,
-  isResourcePrice: boolean
-) => {
-  const { chainId, address, marketId } = req.body;
-
-  const startCommand = isResourcePrice
-    ? `pnpm run start:reindex-missing ${chainId} ${address} ${marketId}`
-    : `pnpm run start:reindex-market ${chainId} ${address} ${marketId}`;
-
-  if (config.isProd) {
-    let id: string = '';
-    const renderServices = await fetchRenderServices();
-    for (const item of renderServices) {
-      if (
-        item?.service?.type === 'background_worker' &&
-        item?.service?.name?.startsWith('background-worker') &&
-        item?.service?.id &&
-        item?.service?.branch === 'main'
-      ) {
-        id = item?.service.id;
-        break;
-      }
-    }
-    if (!id) {
-      throw new Error('Background worker not found');
-    }
-
-    const job = await createRenderJob(id, startCommand);
-
-    await prisma.renderJob.create({
-      data: {
-        jobId: job.id,
-        serviceId: job.serviceId,
-      },
-    });
-
-    res.json({
-      success: true,
-      message: `Reindexing ${isResourcePrice ? 'missing prices' : 'market events'} started`,
-      job,
-    });
-    return;
-  }
-
-  // local development
-  try {
-    const result = await executeLocalReindex(startCommand);
-    res.json({
-      success: true,
-      message: `Reindexing ${isResourcePrice ? 'missing prices' : 'market events'} completed`,
-      job: result,
-    });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      res.status(500).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: 'An unknown error occurred' });
-    }
-  }
-};
-
 router.post(
   '/prediction-market',
   handleAsyncErrors(async (req, res) => {
@@ -263,83 +141,6 @@ router.post(
     try {
       const result = await executeLocalReindex(startCommand);
       res.json({ success: true, job: result });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        res.status(500).json({ error: error.message });
-      } else {
-        res.status(500).json({ error: 'An unknown error occurred' });
-      }
-    }
-  })
-);
-
-// New endpoint for missing prices reindexing
-router.post(
-  '/missing-prices',
-  handleAsyncErrors(async (req, res) => {
-    await handleReindexRequest(req, res, true);
-  })
-);
-
-// New endpoint for market events reindexing
-router.post(
-  '/market-events',
-  handleAsyncErrors(async (req, res) => {
-    await handleReindexRequest(req, res, false);
-  })
-);
-
-// New endpoint for market group factory reindexing
-router.post(
-  '/market-group-factory',
-  handleAsyncErrors(async (req, res) => {
-    const { chainId, factoryAddress } = req.body;
-
-    const startCommand = `pnpm run start:reindex-market-group-factory ${chainId} ${factoryAddress}`;
-
-    if (config.isProd) {
-      let id: string = '';
-      const renderServices = await fetchRenderServices();
-      for (const item of renderServices) {
-        if (
-          item?.service?.type === 'background_worker' &&
-          item?.service?.name?.startsWith('background-worker') &&
-          item?.service?.id &&
-          item?.service?.branch === 'main'
-        ) {
-          id = item?.service.id;
-          break;
-        }
-      }
-      if (!id) {
-        throw new Error('Background worker not found');
-      }
-
-      const job = await createRenderJob(id, startCommand);
-
-      await prisma.renderJob.create({
-        data: {
-          jobId: job.id,
-          serviceId: job.serviceId,
-        },
-      });
-
-      res.json({
-        success: true,
-        message: 'Reindexing market group factory started',
-        job,
-      });
-      return;
-    }
-
-    // local development
-    try {
-      const result = await executeLocalReindex(startCommand);
-      res.json({
-        success: true,
-        message: 'Reindexing market group factory completed',
-        job: result,
-      });
     } catch (error: unknown) {
       if (error instanceof Error) {
         res.status(500).json({ error: error.message });

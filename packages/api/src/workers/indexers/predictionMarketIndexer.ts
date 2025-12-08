@@ -10,11 +10,7 @@ import {
   toHex,
 } from 'viem';
 import Sentry from '../../instrument';
-import { IResourcePriceIndexer } from '../../interfaces';
-import type {
-  Resource,
-  transaction_type_enum,
-} from '../../../generated/prisma';
+import { IIndexer } from '../../interfaces';
 
 // TODO: Move all of this code to the existsing event processing pipeline
 const BLOCK_BATCH_SIZE = 100;
@@ -197,7 +193,7 @@ interface MarketSubmittedToUMAEvent {
   resolvedToYes: boolean;
 }
 
-class PredictionMarketIndexer implements IResourcePriceIndexer {
+class PredictionMarketIndexer implements IIndexer {
   public client: PublicClient;
   private isWatching: boolean = false;
   private chainId: number;
@@ -238,7 +234,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
   }
 
   async indexBlockPriceFromTimestamp(
-    resource: Resource,
+    resourceSlug: string,
     startTimestamp: number,
     endTimestamp?: number
   ): Promise<boolean> {
@@ -292,7 +288,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       console.log(
         `[PredictionMarketIndexer] Indexing ${blockNumbers.length} blocks from ${startBlockNumber} to ${endBlockNumber}`
       );
-      return await this.indexBlocks(resource, blockNumbers);
+      return await this.indexBlocks(resourceSlug, blockNumbers);
     } catch (error) {
       console.error(
         '[PredictionMarketIndexer] Error indexing from timestamp:',
@@ -303,7 +299,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     }
   }
 
-  async indexBlocks(resource: Resource, blocks: number[]): Promise<boolean> {
+  async indexBlocks(_resourceSlug: string, blocks: number[]): Promise<boolean> {
     try {
       console.log(
         `[PredictionMarketIndexer] Indexing ${blocks.length} blocks: ${blocks[0]} to ${blocks[blocks.length - 1]}`
@@ -570,7 +566,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: uniqueEventKey.transactionHash,
           blockNumber: uniqueEventKey.blockNumber,
           logIndex: uniqueEventKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -602,30 +597,13 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         }
       } else {
         // Store new event in database
-        const eventUpsertResult = await prisma.event.create({
+        await prisma.event.create({
           data: {
             blockNumber: Number(log.blockNumber || 0),
             transactionHash: log.transactionHash || '',
             timestamp: BigInt(block.timestamp),
             logIndex: log.logIndex || 0,
             logData: eventData,
-            marketGroupId: null,
-          },
-        });
-
-        await prisma.transaction.upsert({
-          where: {
-            eventId: eventUpsertResult.id,
-          },
-          create: {
-            eventId: eventUpsertResult.id,
-            type: 'mintParlayNFTs' as transaction_type_enum,
-            collateral: eventData.totalCollateral,
-          },
-          update: {
-            eventId: eventUpsertResult.id,
-            type: 'mintParlayNFTs' as transaction_type_enum,
-            collateral: eventData.totalCollateral,
           },
         });
       }
@@ -745,7 +723,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: burnedKey.transactionHash,
           blockNumber: burnedKey.blockNumber,
           logIndex: burnedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -763,7 +740,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -843,7 +819,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: consolidatedKey.transactionHash,
           blockNumber: consolidatedKey.blockNumber,
           logIndex: consolidatedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -861,7 +836,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -939,7 +913,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: orderPlacedKey.transactionHash,
           blockNumber: orderPlacedKey.blockNumber,
           logIndex: orderPlacedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -957,7 +930,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1062,7 +1034,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: orderFilledKey.transactionHash,
           blockNumber: orderFilledKey.blockNumber,
           logIndex: orderFilledKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1080,7 +1051,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1160,7 +1130,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: orderCancelledKey.transactionHash,
           blockNumber: orderCancelledKey.blockNumber,
           logIndex: orderCancelledKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1178,7 +1147,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1257,7 +1225,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: marketResolvedKey.transactionHash,
           blockNumber: marketResolvedKey.blockNumber,
           logIndex: marketResolvedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1275,7 +1242,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1349,7 +1315,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         transactionHash: log.transactionHash || '',
         blockNumber: Number(log.blockNumber || 0),
         logIndex: log.logIndex || 0,
-        marketGroupId: null,
       } as const;
 
       const existingEvent = await prisma.event.findFirst({
@@ -1357,7 +1322,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: submittedKey.transactionHash,
           blockNumber: submittedKey.blockNumber,
           logIndex: submittedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1408,7 +1372,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1424,7 +1387,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     }
   }
 
-  async watchBlocksForResource(resource: Resource): Promise<void> {
+  async watchBlocksForResource(resourceSlug: string): Promise<void> {
     if (this.isWatching) {
       console.log(
         `[PredictionMarketIndexer:${this.chainId}] Already watching events`
@@ -1457,7 +1420,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
     this.isWatching = true;
     console.log(
-      `[PredictionMarketIndexer:${this.chainId}] Starting to watch events for resource: ${resource.slug} on contract ${this.contractAddress}`
+      `[PredictionMarketIndexer:${this.chainId}] Starting to watch events for resource: ${resourceSlug} on contract ${this.contractAddress}`
     );
 
     try {
@@ -1521,7 +1484,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
               console.log(
                 '[PredictionMarketIndexer] Restarting event watcher...'
               );
-              this.watchBlocksForResource(resource).catch(
+              this.watchBlocksForResource(resourceSlug).catch(
                 (restartError: Error) => {
                   console.error(
                     '[PredictionMarketIndexer] Failed to restart:',
