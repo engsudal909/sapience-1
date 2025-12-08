@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -213,8 +214,12 @@ const RequiredReferralCodeDialog = ({
               className="underline underline-offset-2"
             >
               Discord
-            </a>
-            .
+            </a>{' '}
+            and join the{' '}
+            <Link href="/hackathon" className="gold-link">
+              hackathon
+            </Link>{' '}
+            for priority access.
           </p>
 
           <hr className="gold-hr" />
