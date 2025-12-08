@@ -335,7 +335,7 @@ export default function PredictionForm({
       </div>
 
       {/* Bid Display / Submit Section */}
-      {showBidDisplay && isWagerValid ? (
+      {showBidDisplay ? (
         <BidDisplay
           bestBid={bestBid}
           wagerAmount={wagerAmount}
@@ -351,14 +351,11 @@ export default function PredictionForm({
           allBids={bids}
           takerWagerWei={takerWagerWei}
           takerAddress={_address}
+          validationError={!isWagerValid ? `Minimum wager: ${minWager || '0'} ${collateralSymbol}` : undefined}
         />
       ) : (
         <div className="mt-auto pt-4 text-center text-sm text-muted-foreground">
-          {!selectedPrediction
-            ? 'Select Yes or No to make a prediction'
-            : !isWagerValid
-              ? `Minimum wager: ${minWager || '0'} ${collateralSymbol}`
-              : ''}
+          Select Yes or No to make a prediction
         </div>
       )}
     </div>
