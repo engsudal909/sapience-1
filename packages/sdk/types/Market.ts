@@ -1,5 +1,3 @@
-import type { Pool } from '@uniswap/v3-sdk';
-
 export type Market = {
   marketId: string;
   startTime: bigint;
@@ -13,6 +11,5 @@ export type Market = {
   baseAssetMaxPriceTick: number;
   settled: boolean;
   settlementPriceD18: bigint;
-  pool: Pool;
   liquidity: string;
 };

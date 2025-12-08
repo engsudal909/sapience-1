@@ -762,6 +762,7 @@ type Condition {
   description: String!
   endTime: Int!
   id: String!
+  openInterest: String!
   public: Boolean!
   question: String!
   resolvedToYes: Boolean!
@@ -798,6 +799,7 @@ type ConditionCountAggregate {
   description: Int!
   endTime: Int!
   id: Int!
+  openInterest: Int!
   public: Int!
   question: Int!
   resolvedToYes: Int!
@@ -817,6 +819,7 @@ input ConditionCountOrderByAggregateInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
   resolvedToYes: SortOrder
@@ -841,6 +844,7 @@ type ConditionGroupBy {
   description: String!
   endTime: Int!
   id: String!
+  openInterest: String!
   public: Boolean!
   question: String!
   resolvedToYes: Boolean!
@@ -866,6 +870,7 @@ type ConditionMaxAggregate {
   description: String
   endTime: Int
   id: String
+  openInterest: String
   public: Boolean
   question: String
   resolvedToYes: Boolean
@@ -884,6 +889,7 @@ input ConditionMaxOrderByAggregateInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
   resolvedToYes: SortOrder
@@ -902,6 +908,7 @@ type ConditionMinAggregate {
   description: String
   endTime: Int
   id: String
+  openInterest: String
   public: Boolean
   question: String
   resolvedToYes: Boolean
@@ -920,6 +927,7 @@ input ConditionMinOrderByAggregateInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
   resolvedToYes: SortOrder
@@ -947,6 +955,7 @@ input ConditionOrderByWithAggregationInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
   resolvedToYes: SortOrder
@@ -967,6 +976,7 @@ input ConditionOrderByWithRelationInput {
   description: SortOrder
   endTime: SortOrder
   id: SortOrder
+  openInterest: SortOrder
   public: SortOrder
   question: SortOrder
   resolvedToYes: SortOrder
@@ -986,6 +996,7 @@ enum ConditionScalarFieldEnum {
   description
   endTime
   id
+  openInterest
   public
   question
   resolvedToYes
@@ -1008,6 +1019,7 @@ input ConditionScalarWhereWithAggregatesInput {
   description: StringWithAggregatesFilter
   endTime: IntWithAggregatesFilter
   id: StringWithAggregatesFilter
+  openInterest: StringWithAggregatesFilter
   public: BoolWithAggregatesFilter
   question: StringWithAggregatesFilter
   resolvedToYes: BoolWithAggregatesFilter
@@ -1054,6 +1066,7 @@ input ConditionWhereInput {
   description: StringFilter
   endTime: IntFilter
   id: StringFilter
+  openInterest: StringFilter
   public: BoolFilter
   question: StringFilter
   resolvedToYes: BoolFilter
@@ -1077,6 +1090,7 @@ input ConditionWhereUniqueInput {
   description: StringFilter
   endTime: IntFilter
   id: String
+  openInterest: StringFilter
   public: BoolFilter
   question: StringFilter
   resolvedToYes: BoolFilter
@@ -3467,6 +3481,7 @@ type Query {
   marketPrice(where: MarketPriceWhereUniqueInput!): MarketPrice
   marketPrices(cursor: MarketPriceWhereUniqueInput, distinct: [MarketPriceScalarFieldEnum!], orderBy: [MarketPriceOrderByWithRelationInput!], skip: Int, take: Int, where: MarketPriceWhereInput): [MarketPrice!]!
   markets(cursor: MarketWhereUniqueInput, distinct: [MarketScalarFieldEnum!], orderBy: [MarketOrderByWithRelationInput!], skip: Int, take: Int, where: MarketWhereInput): [Market!]!
+  parlaysByConditionId(chainId: Int, conditionId: String!, skip: Int! = 0, take: Int! = 100): [ParlayType!]!
   position(where: PositionWhereUniqueInput!): Position
   positions(cursor: PositionWhereUniqueInput, distinct: [PositionScalarFieldEnum!], orderBy: [PositionOrderByWithRelationInput!], skip: Int, take: Int, where: PositionWhereInput): [Position!]!
   profitRankByAddress(owner: String!): ProfitRankType!

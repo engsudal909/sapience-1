@@ -221,8 +221,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
     // Get the resolver address if available
     const pmResolverEntry = lzPMResolver[chainId as keyof typeof lzPMResolver];
-    const umaResolverEntry = lzUmaResolver[chainId as keyof typeof lzUmaResolver];
-    
+    const umaResolverEntry =
+      lzUmaResolver[chainId as keyof typeof lzUmaResolver];
+
     if (pmResolverEntry?.address) {
       this.resolverAddress = pmResolverEntry.address as `0x${string}`;
       console.log(
@@ -242,7 +243,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     endTimestamp?: number
   ): Promise<boolean> {
     try {
-      const addressesInfo = this.resolverAddress 
+      const addressesInfo = this.resolverAddress
         ? `contracts ${this.contractAddress} and resolver ${this.resolverAddress}`
         : `contract ${this.contractAddress}`;
       console.log(
@@ -345,7 +346,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         try {
           // Single efficient query for the entire chunk
           // Include both PM contract and resolver address if available
-          const addresses: `0x${string}`[] = [this.contractAddress as `0x${string}`];
+          const addresses: `0x${string}`[] = [
+            this.contractAddress as `0x${string}`,
+          ];
           if (this.resolverAddress) {
             addresses.push(this.resolverAddress as `0x${string}`);
           }
@@ -419,7 +422,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       });
 
       // Get logs for the PredictionMarket contract and resolver (if available)
-      const addresses: `0x${string}`[] = [this.contractAddress as `0x${string}`];
+      const addresses: `0x${string}`[] = [
+        this.contractAddress as `0x${string}`,
+      ];
       if (this.resolverAddress) {
         addresses.push(this.resolverAddress as `0x${string}`);
       }
@@ -460,8 +465,12 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       if (this.resolverAddress) {
         addressesToCheck.push(this.resolverAddress);
       }
-      
-      if (!addressesToCheck.map(a => a.toLowerCase()).includes(log.address.toLowerCase())) {
+
+      if (
+        !addressesToCheck
+          .map((a) => a.toLowerCase())
+          .includes(log.address.toLowerCase())
+      ) {
         console.log(
           `[PredictionMarketIndexer] Skipping log: ${log.address} is not the PredictionMarket or Resolver contract`
         );
@@ -677,6 +686,17 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           predictedOutcomes: predictedOutcomes as unknown as object,
         },
       });
+
+      // Update open interest for all conditions in this parlay
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+      const collateralStr = eventData.totalCollateral;
+      for (const conditionId of conditionIds) {
+        await prisma.$executeRaw`
+          UPDATE condition 
+          SET "openInterest" = (COALESCE("openInterest"::NUMERIC, 0) + ${collateralStr}::NUMERIC)::TEXT
+          WHERE id = ${conditionId}
+        `;
+      }
 
       console.log(
         `[PredictionMarketIndexer] Processed PredictionMinted: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}`
