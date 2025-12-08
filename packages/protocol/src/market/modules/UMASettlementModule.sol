@@ -71,7 +71,7 @@ contract UMASettlementModule is
                 market.marketParams.assertionLiveness,
                 IERC20(market.marketParams.bondCurrency),
                 market.marketParams.bondAmount,
-                bytes32('ASSERT_TRUTH2'),
+                optimisticOracleV3.defaultIdentifier(),
                 bytes32(0)
             );
         }

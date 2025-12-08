@@ -227,7 +227,7 @@ contract UMALayerZeroBridge is OApp, IUMALayerZeroBridge, ETHManagement, BondMan
             liveness,
             bondToken,
             bondAmount,
-            bytes32('ASSERT_TRUTH2'),
+            optimisticOracleV3.defaultIdentifier(),
             bytes32(0)
         );
 
