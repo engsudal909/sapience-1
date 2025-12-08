@@ -7,6 +7,7 @@ import { router as createMarketRoutes } from './createMarket';
 import { Router } from 'express';
 import { adminAuth } from '../middleware';
 import { router as conditionsRoutes } from './conditions';
+import { router as conditionGroupsRoutes } from './conditionGroups';
 import { router as referralsRoutes } from './referrals';
 
 const router = Router();
@@ -24,6 +25,7 @@ adminRouter.use('/cache', refreshCacheRoutes);
 adminRouter.use('/precompute', precomputeRoutes);
 adminRouter.use('/marketGroups', createMarketRoutes);
 adminRouter.use('/conditions', conditionsRoutes);
+adminRouter.use('/conditionGroups', conditionGroupsRoutes);
 
 router.use('/admin', adminRouter);
 

@@ -103,6 +103,15 @@ import {
   FindUniqueConditionOrThrowResolver,
   GroupByConditionResolver,
 
+  // ConditionGroup queries
+  AggregateConditionGroupResolver,
+  FindFirstConditionGroupResolver,
+  FindFirstConditionGroupOrThrowResolver,
+  FindManyConditionGroupResolver,
+  FindUniqueConditionGroupResolver,
+  FindUniqueConditionGroupOrThrowResolver,
+  GroupByConditionGroupResolver,
+
   // User queries
   AggregateUserResolver,
   FindFirstUserResolver,
@@ -221,6 +230,15 @@ export const initializeApolloServer = async () => {
     FindUniqueConditionResolver,
     FindUniqueConditionOrThrowResolver,
     GroupByConditionResolver,
+
+    // ConditionGroup queries
+    AggregateConditionGroupResolver,
+    FindFirstConditionGroupResolver,
+    FindFirstConditionGroupOrThrowResolver,
+    FindManyConditionGroupResolver,
+    FindUniqueConditionGroupResolver,
+    FindUniqueConditionGroupOrThrowResolver,
+    GroupByConditionGroupResolver,
 
     // User queries
     AggregateUserResolver,
