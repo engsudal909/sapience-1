@@ -187,8 +187,8 @@ export async function getWUSDEAllowance(args: {
 /**
  * Complete preparation for trading: wraps USDe to WUSDe and approves for spending.
  * 
- * This follows the same pattern as the frontend betslip/parlay forms:
- * 1. Always wrap the full collateral amount (no balance optimization)
+ * This function optimizes wrapping by only converting the additional USDe needed:
+ * 1. Check existing WUSDe balance and only wrap the difference needed
  * 2. Check allowance and approve only if insufficient
  * 3. Execute transactions sequentially, waiting for each to confirm
  * 
@@ -231,20 +231,24 @@ export async function prepareForTrade(args: {
   let wrapTxHash: Hex | undefined;
   let approvalTxHash: Hex | undefined;
 
-  // Step 1: Always wrap the full collateral amount (matches frontend pattern)
-  // The frontend doesn't check existing balance - it always wraps the exact amount needed
-  if (collateralAmount > 0n) {
-    // Check if we have enough native USDe to wrap
+  // Step 1: Check existing WUSDe balance and only wrap the additional amount needed
+  const currentWUSDEBalance = await getWUSDEBalance(account.address, rpcUrl);
+  const amountToWrap = collateralAmount > currentWUSDEBalance 
+    ? collateralAmount - currentWUSDEBalance 
+    : 0n;
+
+  if (amountToWrap > 0n) {
+    // Check if we have enough native USDe to wrap the additional amount
     const nativeBalance = await publicClient.getBalance({ address: account.address });
-    if (nativeBalance < collateralAmount) {
+    if (nativeBalance < amountToWrap) {
       throw new Error(
-        `Insufficient native USDe balance. Need ${collateralAmount} to wrap, but only have ${nativeBalance}`
+        `Insufficient native USDe balance. Need ${amountToWrap} more to wrap, but only have ${nativeBalance}`
       );
     }
 
     const { hash } = await wrapUSDe({
       privateKey,
-      amount: collateralAmount,
+      amount: amountToWrap,
       rpcUrl,
     });
     wrapTxHash = hash;
@@ -253,7 +257,7 @@ export async function prepareForTrade(args: {
     await publicClient.waitForTransactionReceipt({ hash: wrapTxHash });
   }
 
-  // Step 2: Check allowance and approve only if insufficient (matches frontend pattern)
+  // Step 2: Check allowance and approve only if insufficient
   const currentAllowance = await getWUSDEAllowance({
     owner: account.address,
     spender,

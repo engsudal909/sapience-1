@@ -66,7 +66,7 @@ The bot follows this flow:
 2. **Listen** for `auction.started` messages
 3. **Filter** auctions below `MIN_MAKER_WAGER` or on different chains
 4. **Prepare** collateral using `prepareForTrade`:
-   - Wrap native USDe to WUSDe (Ethereal's contracts require wrapped collateral)
+   - Check existing WUSDe balance and wrap only the additional USDe needed
    - Check allowance and approve WUSDe if needed
 5. **Sign** the bid using EIP-712 typed data via SDK helpers
 6. **Submit** the bid with `bid.submit` message
@@ -94,7 +94,8 @@ if (ready) {
 ```
 
 This function:
-- Wraps the exact collateral amount from native USDe to WUSDe
+- Checks your existing WUSDe balance
+- Wraps only the additional USDe needed (if your balance is insufficient)
 - Waits for the wrap transaction to confirm
 - Checks if approval is needed and approves if insufficient
 - Waits for the approval transaction to confirm
