@@ -80,7 +80,7 @@ function replaceIdTemplate(uri: string, tokenId: bigint): string {
   return uri.replaceAll('{id}', idHex);
 }
 
-export function parseEnsAvatarCaip(
+function parseEnsAvatarCaip(
   record: string | null | undefined
 ): ParsedCaip | null {
   if (!record) return null;

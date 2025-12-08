@@ -14,7 +14,7 @@ import { Telescope, ArrowLeftRightIcon } from 'lucide-react';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 import ProfileHeader from '~/components/profile/ProfileHeader';
 import ForecastsTable from '~/components/profile/ForecastsTable';
-import UserParlaysTable from '~/components/parlays/UserParlaysTable';
+import PositionsTable from '~/components/positions/PositionsTable';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
 import { useUserParlays } from '~/hooks/graphql/useUserParlays';
 import { SCHEMA_UID } from '~/lib/constants/eas';
@@ -25,7 +25,7 @@ import ProfileQuickMetrics from '~/components/profile/ProfileQuickMetrics';
 import ShareAfterRedirect from '~/components/shared/ShareAfterRedirect';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
-const TAB_VALUES = ['parlays', 'forecasts'] as const;
+const TAB_VALUES = ['positions', 'forecasts'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
 const ProfilePageContent = () => {
@@ -38,34 +38,34 @@ const ProfilePageContent = () => {
     schemaId: SCHEMA_UID,
   });
 
-  // Parlays for this profile address, filtered by chainId
-  const { data: parlays, isLoading: parlaysLoading } = useUserParlays({
+  // Positions for this profile address, filtered by chainId
+  const { data: positions, isLoading: positionsLoading } = useUserParlays({
     address: String(address),
     chainId,
   });
 
-  const allLoaded = !forecastsLoading && !parlaysLoading;
+  const allLoaded = !forecastsLoading && !positionsLoading;
 
   const hasForecasts = (attestations?.length || 0) > 0;
-  const hasParlays = (parlays?.length || 0) > 0;
+  const hasPositions = (positions?.length || 0) > 0;
 
   const shouldShowForecastsTab = hasForecasts;
-  const shouldShowParlaysTab = hasParlays;
+  const shouldShowPositionsTab = hasPositions;
 
   // Count visible tabs to determine if we should show the tab switcher
   const visibleTabsCount = [
-    shouldShowParlaysTab,
+    shouldShowPositionsTab,
     shouldShowForecastsTab,
   ].filter(Boolean).length;
   const shouldShowTabSwitcher = visibleTabsCount > 1;
 
   const tabHasContent = useCallback(
     (tab: TabValue): boolean => {
-      if (tab === 'parlays') return shouldShowParlaysTab;
+      if (tab === 'positions') return shouldShowPositionsTab;
       if (tab === 'forecasts') return shouldShowForecastsTab;
       return false;
     },
-    [shouldShowParlaysTab, shouldShowForecastsTab]
+    [shouldShowPositionsTab, shouldShowForecastsTab]
   );
 
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -77,15 +77,15 @@ const ProfilePageContent = () => {
   }, [allLoaded, hasLoadedOnce]);
 
   const getHashValue = () => {
-    if (typeof window === 'undefined') return 'parlays' as TabValue;
+    if (typeof window === 'undefined') return 'positions' as TabValue;
     const rawHash = window.location.hash?.replace('#', '').toLowerCase();
     const desired = (TAB_VALUES as readonly string[]).includes(rawHash)
       ? (rawHash as TabValue)
-      : ('parlays' as TabValue);
+      : ('positions' as TabValue);
     return desired;
   };
 
-  const [tabValue, setTabValue] = useState<TabValue>('parlays');
+  const [tabValue, setTabValue] = useState<TabValue>('positions');
 
   useEffect(() => {
     setTabValue(getHashValue());
@@ -109,18 +109,18 @@ const ProfilePageContent = () => {
     (value: string) => {
       const nextValue = (TAB_VALUES as readonly string[]).includes(value)
         ? (value as TabValue)
-        : ('parlays' as TabValue);
+        : ('positions' as TabValue);
       // Prevent navigating to hidden tabs
       if (
-        (nextValue === 'parlays' && !shouldShowParlaysTab) ||
+        (nextValue === 'positions' && !shouldShowPositionsTab) ||
         (nextValue === 'forecasts' && !shouldShowForecastsTab)
       ) {
-        const firstWithContent: TabValue | null = shouldShowParlaysTab
-          ? 'parlays'
+        const firstWithContent: TabValue | null = shouldShowPositionsTab
+          ? 'positions'
           : shouldShowForecastsTab
             ? 'forecasts'
             : null;
-        const fallback = firstWithContent ?? ('parlays' as TabValue);
+        const fallback = firstWithContent ?? ('positions' as TabValue);
         setTabValue(fallback);
         if (typeof window !== 'undefined') {
           const url = `${window.location.pathname}${window.location.search}#${fallback}`;
@@ -135,7 +135,7 @@ const ProfilePageContent = () => {
         window.history.replaceState(null, '', url);
       }
     },
-    [shouldShowParlaysTab, shouldShowForecastsTab]
+    [shouldShowPositionsTab, shouldShowForecastsTab]
   );
 
   const didAutoRedirectRef = useRef(false);
@@ -163,8 +163,8 @@ const ProfilePageContent = () => {
       return;
     }
 
-    const firstWithContent: TabValue | null = shouldShowParlaysTab
-      ? 'parlays'
+    const firstWithContent: TabValue | null = shouldShowPositionsTab
+      ? 'positions'
       : shouldShowForecastsTab
         ? 'forecasts'
         : null;
@@ -176,7 +176,7 @@ const ProfilePageContent = () => {
     didAutoRedirectRef.current = true;
   }, [
     hasLoadedOnce,
-    shouldShowParlaysTab,
+    shouldShowPositionsTab,
     shouldShowForecastsTab,
     tabValue,
     handleTabChange,
@@ -184,7 +184,7 @@ const ProfilePageContent = () => {
   ]);
 
   return (
-    <div className="mx-auto pt-24 lg:pt-24 pb-0 px-3 md:px-6 lg:px-8 w-full min-h-screen flex flex-col">
+    <div className="mx-auto pb-0 px-3 md:px-6 lg:px-8 w-full min-h-screen flex flex-col">
       <ShareAfterRedirect address={address} />
       <div className="mb-6">
         <ProfileHeader address={address} className="mb-0" />
@@ -195,14 +195,13 @@ const ProfilePageContent = () => {
           <ProfileQuickMetrics
             address={address}
             forecastsCount={attestations?.length ?? 0}
-            positions={[]}
-            parlays={parlays ?? []}
+            positions={positions ?? []}
           />
         ) : null}
       </div>
 
       {hasLoadedOnce ? (
-        !(shouldShowParlaysTab || shouldShowForecastsTab) ? (
+        !(shouldShowPositionsTab || shouldShowForecastsTab) ? (
           <EmptyProfileState />
         ) : (
           <div className="pb-0 flex-1 flex flex-col">
@@ -214,8 +213,8 @@ const ProfilePageContent = () => {
               {shouldShowTabSwitcher ? (
                 <div className="mb-3">
                   <SegmentedTabsList>
-                    {shouldShowParlaysTab ? (
-                      <TabsTrigger className="justify-center" value="parlays">
+                    {shouldShowPositionsTab ? (
+                      <TabsTrigger className="justify-center" value="positions">
                         <ArrowLeftRightIcon className="h-4 w-4 mr-2" />
                         Trades
                       </TabsTrigger>
@@ -231,20 +230,20 @@ const ProfilePageContent = () => {
               ) : null}
 
               <div className="-mx-3 md:-mx-6 lg:-mx-8 bg-brand-black flex-1">
-                {shouldShowParlaysTab ? (
+                {shouldShowPositionsTab ? (
                   <TabsContent
-                    value="parlays"
+                    value="positions"
                     className="mt-0 flex-1 flex flex-col"
                   >
-                    {hasParlays ? (
-                      <UserParlaysTable
+                    {hasPositions ? (
+                      <PositionsTable
                         account={address}
                         showHeaderText={false}
                         chainId={chainId}
                       />
                     ) : (
                       <div className="flex-1 flex items-center justify-center border-t border-border">
-                        <EmptyTabState centered message="No parlays found" />
+                        <EmptyTabState centered message="No positions found" />
                       </div>
                     )}
                   </TabsContent>

@@ -9,10 +9,6 @@ import YesNoPredict from '~/components/markets/forms/inputs/YesNoPredict';
 import { useSubmitPrediction } from '~/hooks/forms/useSubmitPrediction';
 import { MarketGroupClassification } from '~/lib/types';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
-import MarketBadge from '~/components/markets/MarketBadge';
-import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
-import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
-import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 
 export interface ConditionForecastFormProps {
   conditionId: string;
@@ -27,11 +23,8 @@ type FormValues = { predictionValue: string; comment?: string };
 
 const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   conditionId,
-  question,
-  endTime,
   onSuccess,
   disabled = false,
-  categorySlug,
 }) => {
   const { address } = useAccount();
   const formSchema: z.ZodType<FormValues> = useMemo(() => {
@@ -91,29 +84,6 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   return (
     <FormProvider {...(methods as any)}>
       <form onSubmit={methods.handleSubmit(handleSubmit)} className="space-y-3">
-        <div className="flex items-center gap-2">
-          {(() => {
-            const slug = categorySlug || '';
-            const fa = FOCUS_AREAS.find((fa) => fa.id === slug);
-            const color = fa?.color || getDeterministicCategoryColor(slug);
-            return (
-              <MarketBadge
-                categorySlug={slug}
-                label={question}
-                size={24}
-                color={color}
-              />
-            );
-          })()}
-          <ConditionTitleLink
-            conditionId={conditionId}
-            title={question}
-            endTime={endTime}
-            className="text-lg md:text-xl"
-            clampLines={2}
-          />
-        </div>
-
         <YesNoPredict disabled={disabled || isAttesting} />
 
         <div className="pt-3">

@@ -1,12 +1,13 @@
 'use client';
 
 import Leaderboard from '~/components/leaderboard/Leaderboard';
+import PageContainer from '~/components/layout/PageContainer';
 
 const LeaderboardPage = () => {
   return (
-    <div className="container mx-auto px-4">
+    <PageContainer>
       <Leaderboard />
-    </div>
+    </PageContainer>
   );
 };
 

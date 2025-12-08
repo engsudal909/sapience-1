@@ -15,7 +15,6 @@ import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
-import { usePositions } from '~/hooks/graphql/usePositions';
 import { useUserParlays } from '~/hooks/graphql/useUserParlays';
 import { useProfileVolume } from '~/hooks/useProfileVolume';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
@@ -39,16 +38,13 @@ const ReferralVolumeCell = ({ address }: { address: string }) => {
   const collateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'USDe';
   const lowerAddress = address.toLowerCase();
 
-  const { data: positions, isLoading: positionsLoading } = usePositions({
-    address: lowerAddress,
-  });
-  const { data: parlays, isLoading: parlaysLoading } = useUserParlays({
+  const { data: positions, isLoading: positionsLoading } = useUserParlays({
     address: lowerAddress,
     chainId,
   });
 
-  const volume = useProfileVolume(positions, parlays, address);
-  const loading = positionsLoading || parlaysLoading;
+  const volume = useProfileVolume(positions, address);
+  const loading = positionsLoading;
 
   return (
     <span className="tabular-nums">

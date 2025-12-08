@@ -6,5 +6,3 @@ export const ibmPlexMono = IBM_Plex_Mono({
   variable: '--font-ibm-plex-mono',
   display: 'swap',
 });
-
-export default ibmPlexMono;

@@ -21,7 +21,7 @@ export default function HowItWorks() {
           'radial-gradient(ellipse 45% 100% at 50% 0%, #E5D7C1 0%, #CBB892 35%, #7A6A47 70%, #151513 100%)'
         }
       />
-      <div className="relative z-10 container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8 space-y-8 md:space-y-10">
+      <div className="relative z-10 container mx-auto lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1200px] px-4 md:px-8 space-y-8 md:space-y-12">
         <div className="flex flex-col items-center text-center">
           <div className="eyebrow text-foreground">How It Works</div>
           <h2 className="mt-4 headline mx-auto">

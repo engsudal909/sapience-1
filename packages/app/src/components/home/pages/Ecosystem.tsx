@@ -67,13 +67,13 @@ export default function Ecosystem() {
             aria-hidden
             className="hidden md:flex pointer-events-none absolute left-[33.333%] top-1/2 -translate-y-1/2 items-center"
           >
-            <span className="block w-px h-20 md:h-24 bg-foreground/30" />
+            <span className="block h-20 md:h-24 gold-hr-vertical" />
           </span>
           <span
             aria-hidden
             className="hidden md:flex pointer-events-none absolute left-[66.666%] top-1/2 -translate-y-1/2 items-center"
           >
-            <span className="block w-px h-20 md:h-24 bg-foreground/30" />
+            <span className="block h-20 md:h-24 gold-hr-vertical" />
           </span>
         </div>
       </div>

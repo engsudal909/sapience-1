@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { FrownIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
@@ -64,6 +63,7 @@ interface Comment {
 interface CommentsProps {
   className?: string;
   question?: string;
+  conditionId?: string;
   showAllForecasts?: boolean;
   selectedCategory?: CommentFilters | null;
   address?: string | null;
@@ -149,6 +149,7 @@ function attestationToComment(
 const Comments = ({
   className,
   question = undefined,
+  conditionId,
   selectedCategory: selectedFilter = null,
   address = null,
   refetchTrigger,
@@ -170,6 +171,7 @@ const Comments = ({
   } = useInfiniteForecasts({
     schemaId: SCHEMA_UID,
     attesterAddress: shouldFilterByAttester ? address : undefined,
+    conditionId: conditionId,
   });
 
   // Refetch EAS attestations when refetchTrigger changes
@@ -306,7 +308,6 @@ const Comments = ({
     <div className={`${className || ''}`}>
       {selectedFilter === CommentFilters.SelectedQuestion && !question && (
         <div className="text-center text-muted-foreground py-16">
-          <FrownIcon className="h-9 w-9 mx-auto mb-2 opacity-20" />
           No forecasts found
         </div>
       )}
@@ -318,7 +319,6 @@ const Comments = ({
             </div>
           ) : displayComments.length === 0 ? (
             <div className="text-center text-muted-foreground py-16">
-              <FrownIcon className="h-9 w-9 mx-auto mb-2 opacity-20" />
               No forecasts found
             </div>
           ) : (

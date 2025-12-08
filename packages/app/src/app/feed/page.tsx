@@ -12,8 +12,8 @@ import CombinedFeedTable from './CombinedFeedTable';
 import type { FeedRow } from './FeedTable';
 import {
   TransactionRow,
-  MintParlayNFTTransactionRow,
-  BurnParlayNFTTransactionRow,
+  MintPositionNFTTransactionRow,
+  BurnPositionNFTTransactionRow,
   type UiTransaction,
 } from '~/components/markets/DataDrawer/TransactionCells';
 
@@ -88,14 +88,14 @@ function pickRowComponent(tx: UiTransaction) {
     t === 'mintparlaynft' ||
     t === 'mint_parlay_nfts'
   ) {
-    return MintParlayNFTTransactionRow;
+    return MintPositionNFTTransactionRow;
   }
   if (
     t === 'burnparlaynfts' ||
     t === 'burnparlaynft' ||
     t === 'burn_parlay_nfts'
   ) {
-    return BurnParlayNFTTransactionRow;
+    return BurnPositionNFTTransactionRow;
   }
   return TransactionRow;
 }
@@ -196,7 +196,7 @@ export default function FeedPage() {
             ? fromUserParlays
             : undefined;
         })();
-        const Comp = MintParlayNFTTransactionRow;
+        const Comp = MintPositionNFTTransactionRow;
         const makerTx: UiTransaction = {
           ...(tx as any),
           type: 'Parlay',
@@ -351,7 +351,7 @@ export default function FeedPage() {
   if (!initialLoaded) {
     return (
       <div className="relative min-h-screen">
-        <div className="my-20 pt-1 px-3 md:px-6 lg:px-8 pr-4 md:pr-6 lg:pr-6 relative">
+        <div className="mt-0 md:mt-0.5 px-3 md:px-6 lg:px-8 pr-4 md:pr-6 lg:pr-6 relative">
           <div className="mx-auto w-full">
             {errorMessage ? (
               <div className="px-4 py-3 text-sm text-destructive">
@@ -371,7 +371,7 @@ export default function FeedPage() {
                     className="h-7 px-2 text-xs whitespace-nowrap shrink-0 inline-flex items-center gap-2 lg:h-8 lg:px-3 lg:text-sm"
                   >
                     <SquareStackIcon className="h-4 w-4" />
-                    Parlay Auction
+                    Auction
                   </Button>
                 </Link>
               </div>
@@ -439,7 +439,7 @@ export default function FeedPage() {
                     className="h-8 whitespace-nowrap"
                   >
                     <SquareStackIcon className="h-4 w-4" />
-                    Parlay Auction
+                    Auction
                   </Button>
                 </Link>
               </div>
@@ -458,7 +458,7 @@ export default function FeedPage() {
 
   return (
     <div className="relative min-h-screen">
-      <div className="my-20 pt-1 px-3 md:px-6 lg:px-8 pr-4 md:pr-6 lg:pr-6 relative">
+      <div className="mt-0 md:mt-0.5 px-3 md:px-6 lg:px-8 pr-4 md:pr-6 lg:pr-6 relative">
         <div className="mx-auto w-full">
           <div className="mt-3 mb-6 xl:mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-end justify-between">
@@ -473,7 +473,7 @@ export default function FeedPage() {
                   className="h-7 px-2 text-xs whitespace-nowrap shrink-0 inline-flex items-center gap-2 lg:h-8 lg:px-3 lg:text-sm"
                 >
                   <SquareStackIcon className="h-4 w-4" />
-                  Parlay Auction
+                  Auction
                 </Button>
               </Link>
             </div>
@@ -541,7 +541,7 @@ export default function FeedPage() {
                   className="h-8 whitespace-nowrap"
                 >
                   <SquareStackIcon className="h-4 w-4" />
-                  Parlay Auction
+                  Auction
                 </Button>
               </Link>
             </div>

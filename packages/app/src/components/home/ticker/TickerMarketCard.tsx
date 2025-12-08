@@ -7,6 +7,7 @@ import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
+import MarketBadge from '~/components/markets/MarketBadge';
 
 export interface TickerMarketCardProps {
   condition: {
@@ -18,12 +19,17 @@ export interface TickerMarketCardProps {
     categorySlug?: string | null;
   };
   color: string;
+  predictionProbability?: number | null;
 }
 
-const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
+const TickerMarketCard: React.FC<TickerMarketCardProps> = ({
+  condition,
+  color,
+  predictionProbability = null,
+}) => {
   const { id, question, shortName, endTime, description, categorySlug } =
     condition;
-  const { addParlaySelection, removeParlaySelection, parlaySelections } =
+  const { addSelection, removeSelection, selections } =
     useCreatePositionContext();
   const router = useRouter();
 
@@ -31,21 +37,21 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
 
   const selectionState = React.useMemo(() => {
     if (!id) return { selectedYes: false, selectedNo: false };
-    const existing = parlaySelections.find((s) => s.conditionId === id);
+    const existing = selections.find((s) => s.conditionId === id);
     return {
       selectedYes: !!existing && existing.prediction === true,
       selectedNo: !!existing && existing.prediction === false,
     };
-  }, [parlaySelections, id]);
+  }, [selections, id]);
 
   const handleYes = React.useCallback(() => {
     if (!id) return;
-    const existing = parlaySelections.find((s) => s.conditionId === id);
+    const existing = selections.find((s) => s.conditionId === id);
     if (existing && existing.prediction === true) {
-      removeParlaySelection(existing.id);
+      removeSelection(existing.id);
       return;
     }
-    addParlaySelection({
+    addSelection({
       conditionId: id,
       question: displayQ,
       prediction: true,
@@ -56,20 +62,20 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
     id,
     displayQ,
     categorySlug,
-    parlaySelections,
-    removeParlaySelection,
-    addParlaySelection,
+    selections,
+    removeSelection,
+    addSelection,
     router,
   ]);
 
   const handleNo = React.useCallback(() => {
     if (!id) return;
-    const existing = parlaySelections.find((s) => s.conditionId === id);
+    const existing = selections.find((s) => s.conditionId === id);
     if (existing && existing.prediction === false) {
-      removeParlaySelection(existing.id);
+      removeSelection(existing.id);
       return;
     }
-    addParlaySelection({
+    addSelection({
       conditionId: id,
       question: displayQ,
       prediction: false,
@@ -80,24 +86,30 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
     id,
     displayQ,
     categorySlug,
-    parlaySelections,
-    removeParlaySelection,
-    addParlaySelection,
+    selections,
+    removeSelection,
+    addSelection,
     router,
   ]);
 
   return (
-    <div className="w-auto font-mono">
+    <div className="w-auto">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
         className="flex flex-row items-stretch relative overflow-hidden"
       >
-        <div className="flex flex-col max-w-[92vw] md:max-w-[720px]">
-          <div className="group">
-            <div className="px-4 pt-1 pb-2">
-              <h3 className="text-base leading-snug min-w-0">
+        <div className="w-auto max-w-none md:max-w-[720px]">
+          <div className="pl-4 pr-0.5 py-2">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
+              <MarketBadge
+                label={displayQ}
+                size={24}
+                color={color}
+                categorySlug={categorySlug}
+              />
+              <div className="min-w-0 flex-1">
                 <ConditionTitleLink
                   conditionId={id}
                   title={displayQ}
@@ -105,28 +117,31 @@ const TickerMarketCard: React.FC<TickerMarketCardProps> = ({ condition }) => {
                   description={description}
                   clampLines={null}
                   noWrap
+                  className="text-sm min-w-0"
                 />
-              </h3>
-            </div>
-          </div>
-          <div className="mt-auto px-4 pb-1">
-            <div className="text-sm text-foreground/70 w-full mb-3">
-              <div className="truncate whitespace-nowrap min-w-0 h-5 flex items-center gap-1">
-                <span className="">Current Forecast:</span>
-                <MarketPredictionRequest conditionId={id} className="" />
               </div>
+              <div className="flex items-center gap-1 text-sm text-foreground/70 shrink-0">
+                <MarketPredictionRequest
+                  conditionId={id}
+                  className="text-sm"
+                  eager={predictionProbability == null}
+                  suppressLoadingPlaceholder
+                  prefetchedProbability={predictionProbability}
+                />
+              </div>
+              <YesNoSplitButton
+                onYes={handleYes}
+                onNo={handleNo}
+                className="ml-auto w-auto shrink-0 md:w-auto [&>button]:w-full md:[&>button]:w-auto [&>button]:h-6 [&>button]:px-2 [&>button]:text-[11px] [&>button]:tracking-wider [&>button]:font-mono [&>button]:rounded-md [&>button]:whitespace-nowrap [&>button]:shadow-none"
+                size="sm"
+                fullWidth={false}
+                selectedYes={selectionState.selectedYes}
+                selectedNo={selectionState.selectedNo}
+                yesLabel="PREDICT YES"
+                noLabel="PREDICT NO"
+                labelClassName="font-mono"
+              />
             </div>
-            <YesNoSplitButton
-              onYes={handleYes}
-              onNo={handleNo}
-              className=""
-              size="sm"
-              fullWidth
-              selectedYes={selectionState.selectedYes}
-              selectedNo={selectionState.selectedNo}
-              yesLabel="PREDICT YES"
-              noLabel="PREDICT NO"
-            />
           </div>
         </div>
       </motion.div>

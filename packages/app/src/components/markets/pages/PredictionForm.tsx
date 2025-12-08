@@ -45,8 +45,8 @@ interface PredictionFormProps {
     selectedBid: QuoteBid;
     refCode?: `0x${string}`;
   }) => MintPredictionRequestData | null;
-  /** Submit parlay function for minting */
-  submitParlay?: (mintData: MintPredictionRequestData) => Promise<void>;
+  /** Submit position function for minting */
+  submitPosition?: (mintData: MintPredictionRequestData) => Promise<void>;
   /** Whether submission is in progress */
   isSubmitting?: boolean;
   /** Optional className for the container */
@@ -63,7 +63,7 @@ export default function PredictionForm({
   bids,
   requestQuotes,
   buildMintRequestDataFromBid,
-  submitParlay,
+  submitPosition,
   isSubmitting = false,
   className,
 }: PredictionFormProps) {
@@ -164,7 +164,7 @@ export default function PredictionForm({
       return;
     }
 
-    if (!bestBid || !buildMintRequestDataFromBid || !submitParlay) {
+    if (!bestBid || !buildMintRequestDataFromBid || !submitPosition) {
       toast({
         title: 'Unable to submit',
         description: 'No valid bid available. Please try again.',
@@ -192,7 +192,7 @@ export default function PredictionForm({
       });
 
       if (mintReq) {
-        submitParlay(mintReq);
+        submitPosition(mintReq);
       } else {
         toast({
           title: 'Unable to submit',
@@ -215,7 +215,7 @@ export default function PredictionForm({
     connectOrCreateWallet,
     bestBid,
     buildMintRequestDataFromBid,
-    submitParlay,
+    submitPosition,
     toast,
   ]);
 

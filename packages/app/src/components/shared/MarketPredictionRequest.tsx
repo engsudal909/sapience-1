@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
@@ -22,6 +23,9 @@ export interface MarketPredictionRequestProps {
   className?: string;
   inline?: boolean;
   eager?: boolean;
+  suppressLoadingPlaceholder?: boolean;
+  prefetchedProbability?: number | null;
+  skipViewportCheck?: boolean;
 }
 
 const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
@@ -31,6 +35,9 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   className,
   inline = true,
   eager = true,
+  suppressLoadingPlaceholder = false,
+  prefetchedProbability = null,
+  skipViewportCheck = false,
 }) => {
   const [requestedPrediction, setRequestedPrediction] = React.useState<
     number | null
@@ -61,6 +68,10 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
 
   React.useEffect(() => {
     if (!eager) return;
+    if (skipViewportCheck) {
+      setIsInViewport(true);
+      return;
+    }
     const target = rootRef.current;
     if (!target) return;
 
@@ -83,10 +94,19 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     }
 
     return () => observer?.disconnect();
-  }, [eager]);
+  }, [eager, skipViewportCheck]);
 
   // Prefer connected wallet address; fall back to zero address
   const selectedTakerAddress = takerAddress || ZERO_ADDRESS;
+
+  // If we have a prefetched probability (e.g., fetched offscreen), set it and
+  // skip further requests.
+  React.useEffect(() => {
+    if (prefetchedProbability == null) return;
+    setRequestedPrediction(prefetchedProbability);
+    setIsRequesting(false);
+    setQueuedRequest(false);
+  }, [prefetchedProbability]);
 
   const { data: takerNonce } = useReadContract({
     address: PREDICTION_MARKET_ADDRESS,
@@ -195,6 +215,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   ]);
 
   const handleRequestPrediction = React.useCallback(() => {
+    if (prefetchedProbability != null) return;
     if (isRequesting) return;
     setRequestedPrediction(null);
     setIsRequesting(true);
@@ -243,6 +264,7 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   // Only fire eager once both taker address and outcomes are ready
   React.useEffect(() => {
     if (!eager) return;
+    if (prefetchedProbability != null) return;
     if (eagerlyRequestedRef.current) return;
     if (!isInViewport) return;
     if (!selectedTakerAddress) return;
@@ -261,37 +283,66 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
     <div
       ref={rootRef}
       className={
-        inline ? `inline-flex items-center ${className || ''}` : className
+        inline
+          ? `inline-flex items-center relative ${className || ''}`
+          : className
       }
     >
-      {requestedPrediction == null ? (
-        isRequesting ? (
-          <span
-            className="text-muted-foreground"
-            style={{
-              animation: 'subtle-pulse 3s ease-in-out infinite',
-            }}
-          >
-            <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
-            Requesting...
-          </span>
+      <AnimatePresence initial={false} mode="wait">
+        {requestedPrediction == null ? (
+          suppressLoadingPlaceholder ? null : isRequesting ? (
+            <motion.span
+              key="requesting"
+              className="text-muted-foreground"
+              style={{
+                animation: 'subtle-pulse 3s ease-in-out infinite',
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
+              Requesting...
+            </motion.span>
+          ) : (
+            <motion.button
+              key="request"
+              type="button"
+              onClick={handleRequestPrediction}
+              className="text-foreground underline decoration-1 decoration-foreground/60 underline-offset-4 transition-colors hover:decoration-foreground/80 cursor-pointer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              Request
+            </motion.button>
+          )
         ) : (
-          <button
-            type="button"
-            onClick={handleRequestPrediction}
-            className="text-foreground underline decoration-1 decoration-foreground/60 underline-offset-4 transition-colors hover:decoration-foreground/80 cursor-pointer"
+          <motion.span
+            key={`prediction-${requestedPrediction}`}
+            className="inline-flex"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
           >
-            Request
-          </button>
-        )
-      ) : (
-        <PercentChance
-          probability={requestedPrediction}
-          showLabel={true}
-          label="chance"
-          className="font-mono text-ethena"
-        />
-      )}
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
+              <PercentChance
+                probability={requestedPrediction}
+                showLabel={true}
+                label="chance"
+                className="font-mono text-ethena"
+              />
+            </motion.span>
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -64,7 +64,7 @@ const isSafeHref = (href: string | undefined): boolean => {
   }
 };
 
-export function SafeMarkdown({
+function SafeMarkdown({
   content,
   className = '',
   variant = 'default',

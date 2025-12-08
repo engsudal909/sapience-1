@@ -1,5 +1,4 @@
 import { QueryClient, dehydrate } from '@tanstack/react-query';
-import { prefetchEnrichedMarketGroups } from '~/hooks/graphql/useMarketGroups';
 import ForecastPageImp from '~/app/forecasts/ForecastPageImp';
 import Hydrate from '~/components/Hydrate';
 import { SCHEMA_UID } from '~/lib/constants/eas';
@@ -21,8 +20,6 @@ const ForecastPage = async () => {
   // new query client for the server
   const serverQC = new QueryClient();
 
-  // Prefetch enriched market groups data
-  await prefetchEnrichedMarketGroups(serverQC);
   await prefetchForecasts(serverQC, SCHEMA_UID);
 
   const state = dehydrate(serverQC);

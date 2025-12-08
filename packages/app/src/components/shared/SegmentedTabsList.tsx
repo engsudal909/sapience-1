@@ -36,7 +36,7 @@ function withAlpha(color: string, alpha: number): string {
  * It automatically enhances child TabsTrigger elements with the proper classes and
  * CSS variables to render the subtle primary-tinted background and active states.
  */
-export const SegmentedTabsList: React.FC<SegmentedTabsListProps> = ({
+const SegmentedTabsList: React.FC<SegmentedTabsListProps> = ({
   className,
   children,
   primaryColor = 'hsl(var(--primary))',

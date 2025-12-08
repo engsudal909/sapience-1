@@ -50,24 +50,24 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
 
     if (!isPast) {
       // Future: show relative time
-      badgeText = `Closes ${formatDistanceToNow(date, { addSuffix: true })}`;
+      badgeText = `Resolves ${formatDistanceToNow(date, { addSuffix: true })}`;
       showExpandedDate = true;
     } else if (hoursDiff < 24) {
-      // Closed recently (within 24 hours): show relative time only
-      badgeText = `Closed ${formatDistanceToNow(date, { addSuffix: true })}`;
+      // Resolved recently (within 24 hours): show relative time only
+      badgeText = `Resolved ${formatDistanceToNow(date, { addSuffix: true })}`;
       showExpandedDate = false;
     } else if (daysDiff < 7) {
-      // Closed within a week: show relative time only
-      badgeText = `Closed ${formatDistanceToNow(date, { addSuffix: true })}`;
+      // Resolved within a week: show relative time only
+      badgeText = `Resolved ${formatDistanceToNow(date, { addSuffix: true })}`;
       showExpandedDate = false;
     } else {
-      // Closed more than a week ago: show short date format
+      // Resolved more than a week ago: show short date format
       const shortDate = new Intl.DateTimeFormat(undefined, {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       }).format(date);
-      badgeText = `Closed ${shortDate}`;
+      badgeText = `Resolved ${shortDate}`;
       showExpandedDate = false;
     }
 
@@ -119,7 +119,9 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
                   variant={isPast ? 'secondary' : 'outline'}
                   className={`${smallBadgeClassName} ${brandWhiteBadgeExtras}`}
                 >
-                  <Timer className={`h-4 w-4 mr-1 ${timerColorClass}`} />
+                  <Timer
+                    className={`h-4 w-4 mr-1.5 -mt-[1px] opacity-70 ${timerColorClass}`}
+                  />
                   {badgeText}
                 </Badge>
               </span>
@@ -140,7 +142,7 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
                   className={`${largeBadgeClassName} ${brandWhiteBadgeExtras}`}
                 >
                   <Timer
-                    className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1 -mt-0.5 ${appearance === 'brandWhite' ? '' : 'opacity-70'} ${timerColorClass}`}
+                    className={`${isLargeDesktop ? 'h-4 w-4' : 'h-3.5 w-3.5'} mr-1.5 -mt-[1px] opacity-70 ${timerColorClass}`}
                   />
                   {badgeText}
                   {showExpandedDate && (

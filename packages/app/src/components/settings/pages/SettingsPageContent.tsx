@@ -29,8 +29,8 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import LottieLoader from '~/components/shared/LottieLoader';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';
 
-export const CHAIN_ID_ARBITRUM = '42161';
-export const CHAIN_ID_ETHEREAL = '5064014';
+const CHAIN_ID_ARBITRUM = '42161';
+const CHAIN_ID_ETHEREAL = '5064014';
 const CHAIN_ID_STORAGE_KEY = 'sapience.settings.selectedChainId';
 const RPC_STORAGE_KEY = 'sapience.settings.selectedRpcURL';
 
@@ -348,7 +348,7 @@ const SettingsPageContent = () => {
   return (
     <div className="relative min-h-screen">
       {/* Main Content */}
-      <div className="container max-w-[750px] mx-auto px-4 pt-32 pb-12 relative z-10">
+      <div className="container max-w-[750px] mx-auto px-4 pt-10 md:pt-14 lg:pt-16 pb-12 relative z-10">
         <h1 className="text-3xl md:text-5xl font-sans font-normal mb-6 text-foreground">
           Settings
         </h1>
@@ -488,7 +488,7 @@ const SettingsPageContent = () => {
                         invalidMessage="Must be an absolute http(s) base URL"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Used to relay bids for parlays
+                        Used to relay bids for positions
                       </p>
                     </div>
 

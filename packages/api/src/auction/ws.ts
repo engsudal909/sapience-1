@@ -285,7 +285,8 @@ export function createAuctionWebSocketServer() {
     // Extract hostname without port to match client extraction
     const domain = hostHeader.split(':')[0];
     // Use https/http origin (not wss/ws) to match SIWE standard and keep URI short
-    const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const protocol =
+      req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
     const wsUri = `${protocol}://${hostHeader}`;
 
     let rateCount = 0;
@@ -653,7 +654,10 @@ export function createAuctionWebSocketServer() {
               console.error('[Auction-WS] Signature verification error:', err);
               send(ws, {
                 type: 'auction.ack',
-                payload: { auctionId: '', error: 'signature_verification_failed' },
+                payload: {
+                  auctionId: '',
+                  error: 'signature_verification_failed',
+                },
               });
               return;
             }

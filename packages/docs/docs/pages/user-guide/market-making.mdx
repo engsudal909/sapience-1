@@ -43,12 +43,6 @@ Create standing orders that automatically bid on matching auctions. This is usef
 
 When an auction appears that matches your criteria, the terminal automatically signs and submits a bid at your target odds.
 
-### Multi-condition matching
-
-If you select multiple conditions, your order matches auctions containing *any* of them. You can also specify the outcome (Yes or No) for each condition, letting you express directional views.
-
-Example: Create an order targeting "Team A wins = No" at 60% implied probability. When someone requests a prediction that Team A wins, your order auto-bids against them at odds implying you think there's a 60%+ chance Team A loses.
-
 ## Copy Trading
 
 Automatically outbid a specific wallet address whenever they bid on an auction.
@@ -62,7 +56,7 @@ When the target wallet submits a bid, your order immediately counters with their
 
 ## Enable Sessions
 
-Limit orders and copy trades require signing each bid. To avoid constant wallet popups, **enable sessions** in your wallet settings. Sessions let the app sign bids on your behalf for a limited time without prompting you each time.
+Limit orders and copy trades require signing each bid. To avoid constant wallet popups, **enable sessions** in your [settings](https://www.sapience.xyz/settings). Sessions let the app sign bids on your behalf for a limited time without prompting you each time.
 
 With sessions enabled, your orders can respond instantly to incoming auctions—critical for competitive bidding where speed matters.
 
@@ -77,20 +71,4 @@ See the [Market Making Agent guide](/builder-guide/guides/market-making-agent) f
 - Signs EIP-712 bids with your private key
 - Submits bids programmatically
 
-The relayer API is open and documented. Any strategy you can express in code can participate in Sapience auctions.
-
-## Collateral and Approvals
-
-Before bidding, you need:
-
-1. **USDe in your wallet** — This is the collateral token on Ethereal.
-2. **An ERC-20 approval** — The PredictionMarket contract needs permission to transfer your USDe when a bid is accepted.
-
-The terminal prompts you to approve spending when needed. You can also click "Edit approved spend" to adjust your allowance.
-
-## Risk Summary
-
-- **If the prediction fails**, you win both wagers (yours + requester's).
-- **If the prediction succeeds**, you lose your wager to the requester.
-- **Unsigned or expired bids** are never executed—your funds stay safe.
-- **All settlement is onchain** — the relayer only routes messages and cannot access your funds.
+The relayer API is open source and documented. Any strategy you can express in code can participate in Sapience auctions.

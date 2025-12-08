@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { type Market as GraphQLMarketType } from '@sapience/sdk/types/graphql';
 import { useState, useMemo, useCallback } from 'react';
-import { useCategories } from '~/hooks/graphql/useMarketGroups';
+import { useCategories } from '~/hooks/graphql/useCategories';
 import {
   useConditions,
   type ConditionFilters,
@@ -122,7 +122,12 @@ const MarketsPage = () => {
   // Show loader only on initial load (not when filtering)
   if (isLoadingCategories) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-theme(spacing.20))] w-full">
+      <div
+        className="flex justify-center items-center w-full"
+        style={{
+          minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
+        }}
+      >
         <LottieLoader width={32} height={32} />
       </div>
     );
@@ -139,7 +144,7 @@ const MarketsPage = () => {
       ) : null}
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-4 pr-0 lg:pr-4 pb-4 lg:pb-0">
+      <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-4 pr-0 lg:pr-4 pb-4 lg:pb-6">
         {/* Featured Parlays section */}
         <ExampleCombos className="mt-4 md:mt-0" />
 
@@ -168,7 +173,12 @@ const MarketsPage = () => {
       {/* Desktop/Tablet sticky position form sidebar */}
       {!isMobile ? (
         <div className="hidden lg:block w-[24rem] shrink-0 self-start sticky top-24 z-30 lg:ml-1 xl:ml-2 lg:mr-6">
-          <div className="rounded-none shadow-lg overflow-hidden h-[calc(100dvh-96px)]">
+          <div
+            className="rounded-none shadow-lg overflow-hidden"
+            style={{
+              height: 'calc(100dvh - var(--page-top-offset, 0px))',
+            }}
+          >
             <div className="h-full overflow-y-auto">
               <CreatePositionForm variant="panel" />
             </div>
