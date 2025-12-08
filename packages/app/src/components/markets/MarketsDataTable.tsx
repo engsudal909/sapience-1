@@ -31,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
+import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import ConditionTitleLink from './ConditionTitleLink';
 import MarketBadge from './MarketBadge';
 import TableFilters, {
@@ -159,13 +160,18 @@ function ForecastCell({ condition }: { condition: ConditionType }) {
     return <span className="text-muted-foreground">Resolution Pending</span>;
   }
 
-  // Resolved - show Yes or No based on resolvedToYes from GraphQL
+  // Resolved - show badge with Yes or No based on resolvedToYes from GraphQL
   return (
-    <span
-      className={resolvedToYes ? 'text-yes font-medium' : 'text-no font-medium'}
+    <Badge
+      variant="outline"
+      className={`px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono ${
+        resolvedToYes
+          ? 'border-yes/40 bg-yes/10 text-yes'
+          : 'border-no/40 bg-no/10 text-no'
+      }`}
     >
-      Resolved: {resolvedToYes ? 'Yes' : 'No'}
-    </span>
+      RESOLVED {resolvedToYes ? 'YES' : 'NO'}
+    </Badge>
   );
 }
 
