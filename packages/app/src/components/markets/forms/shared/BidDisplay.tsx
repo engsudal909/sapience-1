@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { formatUnits, parseUnits } from 'viem';
 import { ChevronDown, Info } from 'lucide-react';
@@ -93,6 +93,39 @@ export default function BidDisplay({
   showAddPredictionsHint = false,
 }: BidDisplayProps) {
   const [isAuctionExpanded, setIsAuctionExpanded] = useState(false);
+  const [toWinAnimationKey, setToWinAnimationKey] = useState(0);
+  const [buttonAnimationKey, setButtonAnimationKey] = useState(0);
+  const prevBestBidRef = useRef<QuoteBid | null>(null);
+  const hasAnimatedButtonRef = useRef<boolean>(false);
+
+  // Detect when bid appears/changes and trigger animations for "To Win" and button
+  useEffect(() => {
+    const prevBid = prevBestBidRef.current;
+    const isFirstBid = !prevBid && bestBid;
+    const isNewBid = bestBid && prevBid && (
+      bestBid.makerWager !== prevBid.makerWager ||
+      bestBid.makerDeadline !== prevBid.makerDeadline
+    );
+
+    // Trigger "To Win" fade-in whenever a new bid appears (first or subsequent)
+    if (isFirstBid || isNewBid) {
+      setToWinAnimationKey((prev) => prev + 1);
+    }
+
+    // Only animate button on the first bid and we haven't already animated it
+    if (isFirstBid && !hasAnimatedButtonRef.current) {
+      // Mark that we've animated to prevent double-rendering issues
+      hasAnimatedButtonRef.current = true;
+      // Delay button animation slightly to let "To Win" start appearing first
+      const timer = setTimeout(() => {
+        setButtonAnimationKey((prev) => prev + 1);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+
+    // Update ref
+    prevBestBidRef.current = bestBid;
+  }, [bestBid]);
 
   // Convert QuoteBids to AuctionBidData for the chart
   const chartBids = useMemo(() => quoteBidsToAuctionBids(allBids), [allBids]);
@@ -163,8 +196,15 @@ export default function BidDisplay({
     >
       {/* To Win Display - takes up space when toWinTakesSpace is true, otherwise positioned absolutely */}
       {bestBid ? (
-        <div
-          className={`mt-4 mb-4 transition-opacity duration-300 opacity-100 ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
+        <motion.div
+          key={`to-win-${toWinAnimationKey}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            duration: 1,
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
+          className={`mt-4 mb-4 ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
         >
           <div className="rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-4 py-2.5 w-full shadow-[0_0_10px_rgba(136,180,245,0.25)]">
             <div className="flex items-center gap-1.5 min-h-[40px]">
@@ -235,7 +275,7 @@ export default function BidDisplay({
               </AnimatePresence>
             )}
           </div>
-        </div>
+        </motion.div>
       ) : showAddPredictionsHint ? (
         <div className="mt-4 mb-4">
           <div className="rounded-md border border-border bg-muted/30 px-4 py-2.5 w-full">
@@ -247,33 +287,57 @@ export default function BidDisplay({
             </div>
           </div>
         </div>
-      ) : (
-        <div
-          className={`mt-4 mb-4 opacity-0 pointer-events-none ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
-        >
-          <div className="rounded-md border-[1.5px] border-ethena/80 bg-ethena/20 px-4 py-2.5 w-full shadow-[0_0_10px_rgba(136,180,245,0.25)]">
-            <div className="flex items-center gap-1.5 min-h-[40px]">
-              <span className="font-mono">—</span>
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* Submit / Request Bids Button */}
-      <Button
-        className={`w-full py-6 text-lg font-mono font-bold tracking-wider bg-brand-white text-brand-black hover:bg-brand-white/90 cursor-pointer disabled:cursor-not-allowed ${
-          enableRainbowHover
-            ? 'position-form-submit hover:text-brand-white'
-            : ''
-        }`}
-        disabled={buttonState.disabled}
-        type={buttonState.type}
-        size="lg"
-        variant="default"
-        onClick={buttonState.onClick}
-      >
-        {buttonState.text}
-      </Button>
+      {bestBid ? (
+        <motion.div
+          key={buttonAnimationKey > 0 ? `submit-button-${buttonAnimationKey}` : 'submit-button-static'}
+          initial={buttonAnimationKey > 0 ? { y: -80 } : false}
+          animate={{ y: 0 }}
+          transition={
+            buttonAnimationKey > 0
+              ? {
+                  type: 'spring',
+                  stiffness: 500,
+                  damping: 35,
+                  mass: 0.6,
+                  delay: 0.1,
+                }
+              : { duration: 0 }
+          }
+        >
+          <Button
+            className={`w-full py-6 text-lg font-mono font-bold tracking-wider bg-brand-white text-brand-black hover:bg-brand-white/90 cursor-pointer disabled:cursor-not-allowed ${
+              enableRainbowHover
+                ? 'position-form-submit hover:text-brand-white'
+                : ''
+            }`}
+            disabled={buttonState.disabled}
+            type={buttonState.type}
+            size="lg"
+            variant="default"
+            onClick={buttonState.onClick}
+          >
+            {buttonState.text}
+          </Button>
+        </motion.div>
+      ) : (
+        <Button
+          className={`w-full py-6 text-lg font-mono font-bold tracking-wider bg-brand-white text-brand-black hover:bg-brand-white/90 cursor-pointer disabled:cursor-not-allowed ${
+            enableRainbowHover
+              ? 'position-form-submit hover:text-brand-white'
+              : ''
+          }`}
+          disabled={buttonState.disabled}
+          type={buttonState.type}
+          size="lg"
+          variant="default"
+          onClick={buttonState.onClick}
+        >
+          {buttonState.text}
+        </Button>
+      )}
 
       {/* Position-specific hint for combinations that may not receive bids */}
       {hintMounted && showNoBidsHint && (
