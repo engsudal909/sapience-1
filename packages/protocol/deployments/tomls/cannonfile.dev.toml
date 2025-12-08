@@ -19,10 +19,6 @@ target="sapience@uma-mock"
 options.defaultCurrency = "<%= BondCurrency.Token.address %>"
 options.minimumBond = "0"
 
-[clone.Uniswap]
-source="uniswap:3.0.1"
-target="sapience@uniswap"
-
 [clone.CollateralAsset]
 source="mintable-token@permissionless-mint"
 target="sapience@test-collateral-asset"
@@ -33,67 +29,6 @@ source="mintable-token@permissionless-mint"
 target="sapience@test-bond-currency"
 var.symbol="USDC"
 var.decimals = "6"
-
-[deploy.ConfigurationModule]
-artifact="ConfigurationModule"
-
-[deploy.LiquidityModule]
-artifact="LiquidityModule"
-
-[deploy.TradeModule]
-artifact="TradeModule"
-
-[deploy.ViewsModule]
-artifact="ViewsModule"
-
-[deploy.SettlementModule]
-artifact="SettlementModule"
-
-[deploy.UMASettlementModule]
-artifact="UMASettlementModule"
-
-[deploy.NftModule]
-artifact="NftModule"
-
-[deploy.ERC165Module]
-artifact="ERC165Module"
-
-[router.Sapience]
-contracts = [
-  'ConfigurationModule',
-  'LiquidityModule',
-  'TradeModule',
-  'ViewsModule',
-  'SettlementModule',
-  'UMASettlementModule',
-  'NftModule',
-  'ERC165Module'
-]
-highlight=true
-
-[invoke.initializeMarketGroup]
-target="Sapience"
-func="initializeMarketGroup"
-from="<%= settings.owner %>"
-args=[
-  "<%= settings.owner %>",
-  "<%= CollateralAsset.Token.address %>",
-  "<%= settings.minTradeSize %>",
-  "false",
-  { feeRate = "<%= settings.feeRate %>", assertionLiveness= "<%= settings.assertionLiveness %>", bondCurrency = "<%= imports.BondCurrency.contracts.Token.address %>", bondAmount= "<%= settings.bondAmount %>",  uniswapPositionManager =  "<%= imports.Uniswap.contracts.NonfungiblePositionManager.address %>", uniswapSwapRouter = "<%= imports.Uniswap.contracts.SwapRouter.address %>", uniswapQuoter = "<%= imports.Uniswap.contracts.QuoterV2.address %>", optimisticOracleV3 = "<%= imports.UMA.contracts.OptimisticOracleV3.address %>" }
-]
-depends=["router.Sapience", "clone.BondCurrency"]
-
-[invoke.createFirstMarket]
-target="Sapience"
-from = "<%= settings.owner %>"
-func="createMarket"
-args=[ 
-  { startTime = "1735689600", endTime = "1738368000", startingSqrtPriceX96 = "<%= settings.startingSqrtPriceX96 %>", baseAssetMinPriceTick = "<%= settings.baseAssetMinPriceTick %>", baseAssetMaxPriceTick = "<%= settings.baseAssetMaxPriceTick %>", salt = "1", claimStatementYesOrNumeric = "<%= settings.claimStatement %>", claimStatementNo = "" } 
-] 
-
-
-depends=["invoke.initializeMarketGroup"]
 
 [invoke.gimmeTokens]
 target="CollateralAsset.Token"

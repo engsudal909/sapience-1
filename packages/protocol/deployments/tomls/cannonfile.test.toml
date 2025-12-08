@@ -1,27 +1,19 @@
 name="sapience-test"
-version="1.0.4"
+version="1.1.0"
 
 [var.settings]
 owner = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" #1 from anvil
 owner2 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" #2 from anvil
-claimStatement = "<%= stringToHex('wstGwei/gas') %>"
 
-# Initialization of clonable
-nonowner="0x0000000000000000000013370000000000000000"
-minTradeSize = "10000"
-feeRate = "10000" # 1%
+# Initialization of UMAResolver
 assertionLiveness = "21600"
 bondAmount = "500000000"
+maxPredictionMarkets = "3"
 
 # Prediction Markets 
 minCollateral = "1000000"
-maxPredictionMarkets = "3"
 
 depends = []
-
-[clone.Uniswap]
-source="uniswap:3.0.1"
-target="sapience@uniswap"
 
 [clone.CollateralAsset]
 source="mintable-token@permissionless-mint"
@@ -40,86 +32,6 @@ target="sapience@uma-mock"
 options.defaultCurrency = "<%= BondCurrency.Token.address %>"
 options.minimumBond = "0"
 
-[deploy.ConfigurationModule]
-artifact="ConfigurationModule"
-
-[deploy.LiquidityModule]
-artifact="LiquidityModule"
-
-[deploy.UMASettlementModule]
-artifact="UMASettlementModule"
-
-[deploy.TradeModule]
-artifact="TradeModule"
-
-[deploy.NftModule]
-artifact="NftModule"
-
-[deploy.ViewsModule]
-artifact="ViewsModule"
-
-[deploy.ERC165Module]
-artifact="ERC165Module"
-
-[deploy.SettlementModule]
-artifact="SettlementModule"
-
-[deploy.ExposedInternalFunctions]
-artifact="ExposedInternalFunctions"
-
-
-[router.Sapience]
-from="<%= settings.owner2 %>"
-contracts=[
-  "ConfigurationModule",
-  "LiquidityModule",
-  "UMASettlementModule",
-  "TradeModule",
-  "NftModule",
-  "ViewsModule",
-  "ERC165Module",
-  "ExposedInternalFunctions",
-  "SettlementModule"
-]
-highlight=true
-
-[router.SapienceClonable]
-from="<%= settings.owner2 %>"
-contracts=[
-  "ConfigurationModule",
-  "LiquidityModule",
-  "UMASettlementModule",
-  "TradeModule",
-  "NftModule",
-  "ViewsModule",
-  "ERC165Module",
-  "ExposedInternalFunctions",
-  "SettlementModule"
-]
-highlight=true
-
-
-[deploy.MarketGroupFactory]
-artifact="MarketGroupFactory"
-from="<%= settings.owner2 %>"
-args=[
-  "<%= SapienceClonable.address %>",
-]
-highlight=true
-depends=["router.SapienceClonable"]
-
-[invoke.initializeMarketAsUnusable]
-target="SapienceClonable"
-func="initializeMarketGroup"
-args=[
-  "<%= settings.nonowner %>",
-  "<%= CollateralAsset.Token.address %>",
-  "<%= settings.minTradeSize %>",
-  "false",
-  { feeRate = "<%= settings.feeRate %>", assertionLiveness= "<%= settings.assertionLiveness %>", bondCurrency = "<%= BondCurrency.Token.address %>", bondAmount = "<%= settings.bondAmount %>", uniswapPositionManager = "<%= Uniswap.NonfungiblePositionManager.address %>", uniswapSwapRouter = "<%= Uniswap.SwapRouter.address %>", uniswapQuoter = "<%= Uniswap.QuoterV2.address %>", optimisticOracleV3 = "<%= UMA.OptimisticOracleV3.address %>" }
-]
-depends=["router.SapienceClonable"]
-
 [deploy.PredictionMarket]
 artifact="PredictionMarket"
 args=[
@@ -129,14 +41,6 @@ args=[
   "<%= settings.minCollateral %>"
 ]
 depends=[]
-highlight=true
-
-[deploy.SapienceResolver]
-artifact="PredictionMarketSapienceResolver"
-args=[
-  ["<%= settings.maxPredictionMarkets %>"]
-]
-depends=["deploy.PredictionMarket"]
 highlight=true
 
 [deploy.UMAResolver]

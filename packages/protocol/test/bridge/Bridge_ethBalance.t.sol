@@ -2,15 +2,11 @@
 pragma solidity >=0.8.2 <0.9.0;
 
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {MarketLayerZeroBridge} from "../../src/bridge/MarketLayerZeroBridge.sol";
-import {UMALayerZeroBridge} from "../../src/bridge/UMALayerZeroBridge.sol";
+import {TestETHManagement} from "./mocks/TestETHManagement.sol";
 import {BridgeTypes} from "../../src/bridge/BridgeTypes.sol";
 import {IETHManagement} from "../../src/bridge/interfaces/IETHManagement.sol";
 import {IFeeManagement} from "../../src/bridge/interfaces/IFeeManagement.sol";
-import {IMintableToken} from "../../src/market/external/IMintableToken.sol";
-import {MockOptimisticOracleV3} from "./mocks/mockOptimisticOracleV3.sol";
-import {MockMarketGroup} from "./mocks/mockMarketGroup.sol";
-import {ISapienceStructs} from "../../src/market/interfaces/ISapienceStructs.sol";
+import {ILayerZeroBridge} from "../../src/bridge/interfaces/ILayerZeroBridge.sol";
 
 import "forge-std/Test.sol";
 import "cannon-std/Cannon.sol";
@@ -30,477 +26,331 @@ contract BridgeTestEthBalance is TestHelperOz5 {
     using Cannon for Vm;
 
     // Users
-    address private umaUser = address(0x1);
-    address private marketUser = address(0x2);
-    address private owner = address(0x3);
-    address private refundAddress = address(0x4);
-    address private marketGroup = address(0x5);
+    address private user = address(0x1);
+    address private owner = address(this);
 
-    // Bridges
-    MarketLayerZeroBridge private marketBridge;
-    UMALayerZeroBridge private umaBridge;
-
-    // Other contracts
-    IMintableToken private bondCurrency;
-    // address private optimisticOracleV3;
-    MockOptimisticOracleV3 private mockOptimisticOracleV3;
-    MockMarketGroup private mockMarketGroup;
+    // Test contract
+    TestETHManagement private testContract;
 
     // LZ data
-    uint32 private umaEiD = 1;
-    uint32 private marketEiD = 2;
-
-    address umaEndpoint;
-    address marketEndpoint;
-
-    uint256 private BOND_AMOUNT = 1_000 ether;
-
-    bytes32 private umaAssertionId;
-    bytes32 private marketAssertionId;
+    uint32 private eid = 1;
 
     function setUp() public override {
-        vm.deal(umaUser, 1000 ether);
-        vm.deal(marketUser, 1000 ether);
+        vm.deal(user, 1000 ether);
         vm.deal(owner, 1000 ether);
 
         super.setUp();
-        setUpEndpoints(2, LibraryType.UltraLightNode);
-        bondCurrency = IMintableToken(vm.getAddress("BondCurrency.Token"));
+        setUpEndpoints(1, LibraryType.UltraLightNode);
 
-        marketBridge = MarketLayerZeroBridge(
+        testContract = TestETHManagement(
             payable(
                 _deployOApp(
-                    type(MarketLayerZeroBridge).creationCode, abi.encode(address(endpoints[marketEiD]), address(this))
+                    type(TestETHManagement).creationCode,
+                    abi.encode(address(endpoints[eid]), owner)
                 )
             )
         );
 
-        umaBridge = UMALayerZeroBridge(
-            payable(
-                _deployOApp(
-                    type(UMALayerZeroBridge).creationCode, abi.encode(address(endpoints[umaEiD]), address(this), address(bondCurrency), 500000000)
-                )
-            )
-        );
-
-        address[] memory oapps = new address[](2);
-        oapps[0] = address(marketBridge);
-        oapps[1] = address(umaBridge);
-        this.wireOApps(oapps);
-
-        umaEndpoint = address(umaBridge.endpoint());
-        marketEndpoint = address(marketBridge.endpoint());
-
-        vm.deal(address(umaBridge), 100 ether);
-        vm.deal(address(marketBridge), 100 ether);
-
-        mockOptimisticOracleV3 = new MockOptimisticOracleV3(address(umaBridge));
-        mockMarketGroup = new MockMarketGroup(address(marketBridge));
-
-        umaBridge.setBridgeConfig(BridgeTypes.BridgeConfig({remoteEid: marketEiD, remoteBridge: address(marketBridge)}));
-
-        marketBridge.setBridgeConfig(BridgeTypes.BridgeConfig({remoteEid: umaEiD, remoteBridge: address(umaBridge)}));
-
-        // Link bridges to the external contracts
-        umaBridge.setOptimisticOracleV3(address(mockOptimisticOracleV3));
-        marketBridge.enableMarketGroup(address(mockMarketGroup));
-
-        marketBridge.setLzReceiveCost(1000000);
-        umaBridge.setLzReceiveCost(1000000);
-
-        marketBridge.setGasThresholds(0.01 ether, 0.005 ether);
-        umaBridge.setGasThresholds(0.1 ether, 0.05 ether);
-
-        // Deposit bond to the escrow
-        uint256 depositAmount = 100 * BOND_AMOUNT;
-        bondCurrency.mint(depositAmount, umaUser);
-        vm.startPrank(umaUser);
-        bondCurrency.approve(address(umaBridge), depositAmount);
-        umaBridge.depositBond(address(bondCurrency), depositAmount);
-        vm.stopPrank();
-        verifyPackets(marketEiD, addressToBytes32(address(marketBridge)));
-
-        // Create a claim
-        mockMarketGroup.setAssertThruthData("some claim message", 3600, address(bondCurrency), BOND_AMOUNT);
-        marketAssertionId = mockMarketGroup.submitSettlementPrice(
-            ISapienceStructs.SettlementPriceParams({marketId: 1, asserter: address(umaUser), settlementSqrtPriceX96: 1})
-        );
-
-        verifyPackets(umaEiD, addressToBytes32(address(umaBridge)));
-        umaAssertionId = mockOptimisticOracleV3.getLastAssertionId();
-
-        // Set owner as the owner of both bridges
-        marketBridge.transferOwnership(owner);
-        umaBridge.transferOwnership(owner);
+        vm.deal(address(testContract), 100 ether);
     }
 
-    // ============ ETH Management Tests ============
+    // ============ ETH Deposit Tests ============
 
-    // MarketLayerZeroBridge ETH Tests
-    function test_MarketBridge_depositETH() public {
-        uint256 initialBalance = address(marketBridge).balance;
+    function test_depositETH() public {
+        uint256 initialBalance = address(testContract).balance;
         uint256 depositAmount = 10 ether;
 
-        vm.deal(marketUser, depositAmount);
-        vm.startPrank(marketUser);
+        vm.prank(user);
+        testContract.depositETH{value: depositAmount}();
 
-        marketBridge.depositETH{value: depositAmount}();
-
-        vm.stopPrank();
-
-        assertEq(address(marketBridge).balance, initialBalance + depositAmount);
+        assertEq(
+            address(testContract).balance,
+            initialBalance + depositAmount,
+            "Contract balance should increase"
+        );
     }
 
-    function test_MarketBridge_depositETH_emitsEvent() public {
+    function test_depositETH_emitsEvent() public {
         uint256 depositAmount = 5 ether;
-        vm.deal(marketUser, depositAmount);
 
-        vm.startPrank(marketUser);
-        vm.expectEmit(true, true, false, true);
-        emit IETHManagement.ETHDeposited(marketUser, depositAmount);
-        marketBridge.depositETH{value: depositAmount}();
-        vm.stopPrank();
+        vm.expectEmit(true, false, false, true);
+        emit IETHManagement.ETHDeposited(user, depositAmount);
+
+        vm.prank(user);
+        testContract.depositETH{value: depositAmount}();
     }
 
-    function test_MarketBridge_withdrawETH() public {
-        uint256 withdrawAmount = 20 ether;
+    function test_depositETH_anyoneCanDeposit() public {
+        address randomUser = address(0x999);
+        vm.deal(randomUser, 10 ether);
+
+        vm.prank(randomUser);
+        testContract.depositETH{value: 5 ether}();
+
+        assertEq(address(testContract).balance, 105 ether, "Balance should increase");
+    }
+
+    // ============ ETH Withdrawal Tests ============
+
+    function test_withdrawETH_onlyOwner() public {
+        uint256 withdrawAmount = 10 ether;
         uint256 initialOwnerBalance = owner.balance;
-        uint256 initialBridgeBalance = address(marketBridge).balance;
+        uint256 initialContractBalance = address(testContract).balance;
 
-        vm.startPrank(owner);
-        marketBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
+        testContract.withdrawETH(withdrawAmount);
 
-        assertEq(address(marketBridge).balance, initialBridgeBalance - withdrawAmount);
-        assertEq(owner.balance, initialOwnerBalance + withdrawAmount);
+        assertEq(
+            owner.balance,
+            initialOwnerBalance + withdrawAmount,
+            "Owner balance should increase"
+        );
+        assertEq(
+            address(testContract).balance,
+            initialContractBalance - withdrawAmount,
+            "Contract balance should decrease"
+        );
     }
 
-    function test_MarketBridge_withdrawETH_emitsEvent() public {
-        uint256 withdrawAmount = 15 ether;
-
-        vm.startPrank(owner);
-        vm.expectEmit(true, true, false, true);
-        emit IETHManagement.ETHWithdrawn(owner, withdrawAmount);
-        marketBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
-    }
-
-    function test_MarketBridge_withdrawETH_revertsInsufficientBalance() public {
-        uint256 excessiveAmount = address(marketBridge).balance + 1 ether;
-
-        vm.startPrank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IFeeManagement.InsufficientETHBalance.selector, excessiveAmount, address(marketBridge).balance));
-        marketBridge.withdrawETH(excessiveAmount);
-        vm.stopPrank();
-    }
-
-    function test_MarketBridge_withdrawETH_revertsNonOwner() public {
+    function test_withdrawETH_revertsIfNotOwner() public {
         uint256 withdrawAmount = 10 ether;
 
-        vm.startPrank(marketUser);
+        vm.prank(user);
         vm.expectRevert();
-        marketBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
+        testContract.withdrawETH(withdrawAmount);
     }
 
-    function test_MarketBridge_getETHBalance() public view {
-        uint256 expectedBalance = address(marketBridge).balance;
-        uint256 actualBalance = marketBridge.getETHBalance();
+    function test_withdrawETH_revertsIfInsufficientBalance() public {
+        uint256 contractBalance = address(testContract).balance;
+        uint256 withdrawAmount = contractBalance + 1 ether;
 
-        assertEq(actualBalance, expectedBalance);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFeeManagement.InsufficientETHBalance.selector,
+                withdrawAmount,
+                contractBalance
+            )
+        );
+        testContract.withdrawETH(withdrawAmount);
     }
 
-    function test_MarketBridge_receive() public {
-        uint256 initialBalance = address(marketBridge).balance;
-        uint256 sendAmount = 7 ether;
+    function test_withdrawETH_emitsEvent() public {
+        uint256 withdrawAmount = 5 ether;
 
-        vm.deal(marketUser, sendAmount);
-        vm.startPrank(marketUser);
-
-        (bool success,) = address(marketBridge).call{value: sendAmount}("");
-        assertTrue(success);
-
-        vm.stopPrank();
-
-        assertEq(address(marketBridge).balance, initialBalance + sendAmount);
-    }
-
-    function test_MarketBridge_receive_emitsEvent() public {
-        uint256 sendAmount = 3 ether;
-        vm.deal(marketUser, sendAmount);
-
-        vm.startPrank(marketUser);
-        (bool success,) = address(marketBridge).call{value: sendAmount}("");
-        assertTrue(success);
-        vm.stopPrank();
-    }
-
-    // UMALayerZeroBridge ETH Tests
-    function test_UMABridge_depositETH() public {
-        uint256 initialBalance = address(umaBridge).balance;
-        uint256 depositAmount = 12 ether;
-
-        vm.deal(umaUser, depositAmount);
-        vm.startPrank(umaUser);
-
-        umaBridge.depositETH{value: depositAmount}();
-
-        vm.stopPrank();
-
-        assertEq(address(umaBridge).balance, initialBalance + depositAmount);
-    }
-
-    function test_UMABridge_depositETH_emitsEvent() public {
-        uint256 depositAmount = 8 ether;
-        vm.deal(umaUser, depositAmount);
-
-        vm.startPrank(umaUser);
-        vm.expectEmit(true, true, false, true);
-        emit IETHManagement.ETHDeposited(umaUser, depositAmount);
-        umaBridge.depositETH{value: depositAmount}();
-        vm.stopPrank();
-    }
-
-    function test_UMABridge_withdrawETH() public {
-        uint256 withdrawAmount = 25 ether;
-        uint256 initialOwnerBalance = owner.balance;
-        uint256 initialBridgeBalance = address(umaBridge).balance;
-
-        vm.startPrank(owner);
-        umaBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
-
-        assertEq(address(umaBridge).balance, initialBridgeBalance - withdrawAmount);
-        assertEq(owner.balance, initialOwnerBalance + withdrawAmount);
-    }
-
-    function test_UMABridge_withdrawETH_emitsEvent() public {
-        uint256 withdrawAmount = 18 ether;
-
-        vm.startPrank(owner);
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, false, false, true);
         emit IETHManagement.ETHWithdrawn(owner, withdrawAmount);
-        umaBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
+
+        testContract.withdrawETH(withdrawAmount);
     }
 
-    function test_UMABridge_withdrawETH_revertsInsufficientBalance() public {
-        uint256 excessiveAmount = address(umaBridge).balance + 1 ether;
-
-        vm.startPrank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IFeeManagement.InsufficientETHBalance.selector, excessiveAmount, address(umaBridge).balance));
-        umaBridge.withdrawETH(excessiveAmount);
-        vm.stopPrank();
-    }
-
-    function test_UMABridge_withdrawETH_revertsNonOwner() public {
-        uint256 withdrawAmount = 10 ether;
-
-        vm.startPrank(umaUser);
-        vm.expectRevert();
-        umaBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
-    }
-
-    function test_UMABridge_getETHBalance() public view {
-        uint256 expectedBalance = address(umaBridge).balance;
-        uint256 actualBalance = umaBridge.getETHBalance();
-
-        assertEq(actualBalance, expectedBalance);
-    }
-
-    function test_UMABridge_receive() public {
-        uint256 initialBalance = address(umaBridge).balance;
-        uint256 sendAmount = 9 ether;
-
-        vm.deal(umaUser, sendAmount);
-        vm.startPrank(marketUser);
-
-        (bool success,) = address(umaBridge).call{value: sendAmount}("");
-        assertTrue(success);
-
-        vm.stopPrank();
-
-        assertEq(address(umaBridge).balance, initialBalance + sendAmount);
-    }
-
-    function test_UMABridge_receive_emitsEvent() public {
-        uint256 sendAmount = 4 ether;
-        vm.deal(umaUser, sendAmount);
-
-        vm.startPrank(umaUser);
-        (bool success,) = address(umaBridge).call{value: sendAmount}("");
-        assertTrue(success);
-        vm.stopPrank();
-    }
-
-    // Gas Threshold Tests
-    function test_MarketBridge_gasThresholdWarnings() public {
-        // First withdraw to get below warning threshold
-        uint256 withdrawAmount = address(marketBridge).balance - 0.005 ether; // Just above critical
-        vm.startPrank(owner);
-        marketBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
-
-        // Now withdraw a bit more to trigger critical
-        vm.startPrank(owner);
-        marketBridge.withdrawETH(0.003 ether);
-        vm.stopPrank();
-
-        // Should be below critical threshold now
-        (, uint256 criticalGasThreshold) = marketBridge.getGasThresholds();
-        assertTrue(address(marketBridge).balance <= criticalGasThreshold);
-    }
-
-    function test_UMABridge_gasThresholdWarnings() public {
-        // First withdraw to get below warning threshold
-        uint256 withdrawAmount = address(umaBridge).balance - 0.04 ether; // Just above critical
-        vm.startPrank(owner);
-        umaBridge.withdrawETH(withdrawAmount);
-        vm.stopPrank();
-
-        // Now withdraw a bit more to trigger critical
-        vm.startPrank(owner);
-        umaBridge.withdrawETH(0.02 ether);
-        vm.stopPrank();
-
-        // Should be below critical threshold now
-        (, uint256 criticalGasThreshold) = umaBridge.getGasThresholds();
-        assertTrue(address(umaBridge).balance <= criticalGasThreshold);
-    }
-
-    // Multiple deposits and withdrawals
-    function test_MarketBridge_multipleDepositsAndWithdrawals() public {
-        uint256 initialBalance = address(marketBridge).balance;
-
-        // Multiple deposits
-        vm.deal(marketUser, 50 ether);
-        vm.startPrank(marketUser);
-        marketBridge.depositETH{value: 10 ether}();
-        marketBridge.depositETH{value: 15 ether}();
-        marketBridge.depositETH{value: 25 ether}();
-        vm.stopPrank();
-
-        assertEq(address(marketBridge).balance, initialBalance + 50 ether);
-
-        // Multiple withdrawals
-        vm.startPrank(owner);
-        marketBridge.withdrawETH(20 ether);
-        marketBridge.withdrawETH(15 ether);
-        vm.stopPrank();
-
-        assertEq(address(marketBridge).balance, initialBalance + 15 ether);
-    }
-
-    function test_UMABridge_multipleDepositsAndWithdrawals() public {
-        uint256 initialBalance = address(umaBridge).balance;
-
-        // Multiple deposits
-        vm.deal(umaUser, 60 ether);
-        vm.startPrank(umaUser);
-        umaBridge.depositETH{value: 20 ether}();
-        umaBridge.depositETH{value: 25 ether}();
-        umaBridge.depositETH{value: 15 ether}();
-        vm.stopPrank();
-
-        assertEq(address(umaBridge).balance, initialBalance + 60 ether);
-
-        // Multiple withdrawals
-        vm.startPrank(owner);
-        umaBridge.withdrawETH(30 ether);
-        umaBridge.withdrawETH(20 ether);
-        vm.stopPrank();
-
-        assertEq(address(umaBridge).balance, initialBalance + 10 ether);
-    }
-
-    // Zero value tests
-    function test_MarketBridge_depositETH_zeroValue() public {
-        uint256 initialBalance = address(marketBridge).balance;
-
-        marketBridge.depositETH{value: 0}();
-
-        assertEq(address(marketBridge).balance, initialBalance);
-    }
-
-    function test_UMABridge_depositETH_zeroValue() public {
-        uint256 initialBalance = address(umaBridge).balance;
-
-        umaBridge.depositETH{value: 0}();
-
-        assertEq(address(umaBridge).balance, initialBalance);
-    }
-
-    function test_MarketBridge_withdrawETH_zeroValue() public {
-        uint256 initialBalance = address(marketBridge).balance;
-
-        vm.startPrank(owner);
-        marketBridge.withdrawETH(0);
-        vm.stopPrank();
-
-        assertEq(address(marketBridge).balance, initialBalance);
-    }
-
-    function test_UMABridge_withdrawETH_zeroValue() public {
-        uint256 initialBalance = address(umaBridge).balance;
-
-        vm.startPrank(owner);
-        umaBridge.withdrawETH(0);
-        vm.stopPrank();
-
-        assertEq(address(umaBridge).balance, initialBalance);
-    }
-
-    // Test for new ETH transfer error handling
-    function test_MarketBridge_withdrawETH_transferFailure() public {
-        // Deploy a contract that will revert when receiving ETH
+    function test_withdrawETH_revertsIfTransferFails() public {
         RevertingReceiver receiver = new RevertingReceiver();
-        
-        // Create a temporary bridge with the reverting receiver as owner
-        MarketLayerZeroBridge tempBridge = MarketLayerZeroBridge(
+        vm.deal(address(receiver), 0);
+
+        TestETHManagement revertingContract = TestETHManagement(
             payable(
                 _deployOApp(
-                    type(MarketLayerZeroBridge).creationCode, 
-                    abi.encode(address(endpoints[marketEiD]), address(receiver))
+                    type(TestETHManagement).creationCode,
+                    abi.encode(address(endpoints[eid]), address(receiver))
                 )
             )
         );
-        
-        // Fund the temporary bridge
-        vm.deal(address(tempBridge), 10 ether);
-        
-        // Try to withdraw ETH - this should fail because the receiver will revert
-        vm.expectRevert(abi.encodeWithSelector(
-            IETHManagement.ETHTransferFailed.selector,
-            address(receiver),
-            5 ether
-        ));
-        receiver.callWithdrawETH(address(tempBridge), 5 ether);
+
+        vm.deal(address(revertingContract), 10 ether);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IETHManagement.ETHTransferFailed.selector, address(receiver), 5 ether)
+        );
+
+        vm.prank(address(receiver));
+        revertingContract.withdrawETH(5 ether);
     }
 
-    function test_UMABridge_withdrawETH_transferFailure() public {
-        // Deploy a contract that will revert when receiving ETH
-        RevertingReceiver receiver = new RevertingReceiver();
-        
-        // Create a temporary bridge with the reverting receiver as owner
-        UMALayerZeroBridge tempBridge = UMALayerZeroBridge(
-            payable(
-                _deployOApp(
-                    type(UMALayerZeroBridge).creationCode, 
-                    abi.encode(address(endpoints[umaEiD]), address(receiver), address(bondCurrency), 500000000)
-                )
+    // ============ Get ETH Balance Tests ============
+
+    function test_getETHBalance() public view {
+        uint256 balance = testContract.getETHBalance();
+        assertEq(balance, 100 ether, "Should return correct balance");
+    }
+
+    function test_getETHBalance_afterDeposit() public {
+        vm.prank(user);
+        testContract.depositETH{value: 20 ether}();
+
+        uint256 balance = testContract.getETHBalance();
+        assertEq(balance, 120 ether, "Should return updated balance");
+    }
+
+    // ============ Receive Function Tests ============
+
+    function test_receive() public {
+        uint256 initialBalance = address(testContract).balance;
+        uint256 sendAmount = 5 ether;
+
+        (bool success, ) = address(testContract).call{value: sendAmount}("");
+        assertTrue(success, "Receive should succeed");
+
+        assertEq(
+            address(testContract).balance,
+            initialBalance + sendAmount,
+            "Balance should increase"
+        );
+    }
+
+    // ============ Fee Management Tests ============
+
+    function test_setLzReceiveCost() public {
+        uint128 newCost = 2000000;
+        testContract.setLzReceiveCost(newCost);
+
+        uint128 retrievedCost = testContract.getLzReceiveCost();
+        assertEq(retrievedCost, newCost, "Cost should be updated");
+    }
+
+    function test_setLzReceiveCost_onlyOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testContract.setLzReceiveCost(1000000);
+    }
+
+    function test_setLzReceiveCost_emitsEvent() public {
+        uint128 newCost = 1500000;
+
+        vm.expectEmit(false, false, false, true);
+        emit IFeeManagement.LzReceiveCostUpdated(newCost);
+
+        testContract.setLzReceiveCost(newCost);
+    }
+
+    function test_setGasThresholds() public {
+        uint256 warningThreshold = 0.5 ether;
+        uint256 criticalThreshold = 0.2 ether;
+
+        testContract.setGasThresholds(warningThreshold, criticalThreshold);
+
+        (uint256 warning, uint256 critical) = testContract.getGasThresholds();
+        assertEq(warning, warningThreshold, "Warning threshold should be set");
+        assertEq(critical, criticalThreshold, "Critical threshold should be set");
+    }
+
+    function test_setGasThresholds_onlyOwner() public {
+        vm.prank(user);
+        vm.expectRevert();
+        testContract.setGasThresholds(0.5 ether, 0.2 ether);
+    }
+
+    function test_setGasThresholds_revertsIfInvalid() public {
+        uint256 warningThreshold = 0.2 ether;
+        uint256 criticalThreshold = 0.5 ether; // Critical > Warning (invalid)
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFeeManagement.InvalidThresholdValues.selector,
+                warningThreshold,
+                criticalThreshold
             )
         );
-        
-        // Fund the temporary bridge
-        vm.deal(address(tempBridge), 10 ether);
-        
-        // Try to withdraw ETH - this should fail because the receiver will revert
-        vm.expectRevert(abi.encodeWithSelector(
-            IETHManagement.ETHTransferFailed.selector,
-            address(receiver),
-            5 ether
-        ));
-        receiver.callWithdrawETH(address(tempBridge), 5 ether);
+        testContract.setGasThresholds(warningThreshold, criticalThreshold);
+    }
+
+    function test_setGasThresholds_revertsIfEqual() public {
+        uint256 threshold = 0.5 ether;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFeeManagement.InvalidThresholdValues.selector,
+                threshold,
+                threshold
+            )
+        );
+        testContract.setGasThresholds(threshold, threshold);
+    }
+
+    function test_setGasThresholds_emitsEvent() public {
+        uint256 warningThreshold = 0.5 ether;
+        uint256 criticalThreshold = 0.2 ether;
+
+        vm.expectEmit(false, false, false, true);
+        emit IFeeManagement.GasThresholdsUpdated(warningThreshold, criticalThreshold);
+
+        testContract.setGasThresholds(warningThreshold, criticalThreshold);
+    }
+
+    function test_getGasThresholds() public {
+        (uint256 warning, uint256 critical) = testContract.getGasThresholds();
+        assertGt(warning, 0, "Warning threshold should be set");
+        assertGt(critical, 0, "Critical threshold should be set");
+        assertGt(warning, critical, "Warning should be greater than critical");
+    }
+
+    // ============ Gas Threshold Monitoring Tests ============
+
+    function test_gasThresholdMonitoring_critical() public {
+        uint256 warningThreshold = 0.5 ether;
+        uint256 criticalThreshold = 0.2 ether;
+        testContract.setGasThresholds(warningThreshold, criticalThreshold);
+
+        // Set balance below critical threshold
+        vm.deal(address(testContract), 0.1 ether);
+
+        vm.expectEmit(false, false, false, true);
+        emit IFeeManagement.GasReserveCritical(0.1 ether);
+
+        // Withdrawing will trigger threshold check
+        vm.deal(address(testContract), 0.15 ether);
+        testContract.withdrawETH(0.05 ether); // Leaves 0.1 ether
+    }
+
+    function test_gasThresholdMonitoring_warning() public {
+        uint256 warningThreshold = 0.5 ether;
+        uint256 criticalThreshold = 0.2 ether;
+        testContract.setGasThresholds(warningThreshold, criticalThreshold);
+
+        // Set balance below warning but above critical
+        vm.deal(address(testContract), 0.3 ether);
+
+        vm.expectEmit(false, false, false, true);
+        emit IFeeManagement.GasReserveLow(0.3 ether);
+
+        // Withdrawing will trigger threshold check
+        vm.deal(address(testContract), 0.35 ether);
+        testContract.withdrawETH(0.05 ether); // Leaves 0.3 ether
+    }
+
+    // ============ Bridge Config Tests ============
+
+    function test_setBridgeConfig() public {
+        BridgeTypes.BridgeConfig memory newConfig = BridgeTypes.BridgeConfig({
+            remoteEid: 999,
+            remoteBridge: address(0x1234)
+        });
+
+        testContract.setBridgeConfig(newConfig);
+
+        BridgeTypes.BridgeConfig memory retrieved = testContract.getBridgeConfig();
+        assertEq(retrieved.remoteEid, 999, "Remote EID should be set");
+        assertEq(retrieved.remoteBridge, address(0x1234), "Remote bridge should be set");
+    }
+
+    function test_setBridgeConfig_onlyOwner() public {
+        BridgeTypes.BridgeConfig memory newConfig = BridgeTypes.BridgeConfig({
+            remoteEid: 999,
+            remoteBridge: address(0x1234)
+        });
+
+        vm.prank(user);
+        vm.expectRevert();
+        testContract.setBridgeConfig(newConfig);
+    }
+
+    function test_setBridgeConfig_emitsEvent() public {
+        BridgeTypes.BridgeConfig memory newConfig = BridgeTypes.BridgeConfig({
+            remoteEid: 999,
+            remoteBridge: address(0x1234)
+        });
+
+        vm.expectEmit(true, true, false, true);
+        emit ILayerZeroBridge.BridgeConfigUpdated(newConfig);
+
+        testContract.setBridgeConfig(newConfig);
     }
 }
