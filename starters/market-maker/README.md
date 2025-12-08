@@ -2,7 +2,7 @@
 
 A minimal auction maker bot that:
 - Connects to the auction relayer WebSocket
-- Approves MAX ERC-20 allowance for the PredictionMarket contract on startup
+- Prepares collateral for trading (wraps native USDe to WUSDe and approves)
 - Bids a fixed amount on auctions whose maker wager meets a minimum
 - Signs bids with EIP-712 using a private key
 
@@ -17,15 +17,16 @@ cd starters/market-maker && pnpm install
 2) Create an `.env` next to `src/index.ts` (or export envs in your shell):
 
 ```bash
-RELAYER_WS_URL=wss://api.sapience.xyz/auction
-# Optional: RPC_URL (defaults to a public RPC for CHAIN_ID)
-RPC_URL=
-# Optional: CHAIN_ID (defaults to Arbitrum One: 42161)
-CHAIN_ID=
+# Required
 PRIVATE_KEY=__YOUR_PRIVATE_KEY__
-# Optional overrides (defaults resolved from SDK)
-# VERIFYING_CONTRACT=0xb04841cad1147675505816e2ec5c915430857b40
-# COLLATERAL_TOKEN=0xfeb8c4d5efbaff6e928ea090bc660c363f883dba
+
+# Optional: RPC URL (defaults to https://rpc.ethereal.trade)
+# RPC_URL=https://rpc.ethereal.trade
+
+# Optional: Addresses (defaults resolved from SDK)
+# VERIFYING_CONTRACT=0xAcD757322df2A1A0B3283c851380f3cFd4882cB4
+# COLLATERAL_TOKEN=0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D
+
 # Strategy
 BID_AMOUNT=0.01
 MIN_MAKER_WAGER=10
@@ -46,8 +47,15 @@ Or, to test against the published SDK instead of local:
 pnpm dev:published
 ```
 
+## How It Works
+
+On Ethereal, the native token is USDe but prediction market contracts expect WUSDe (Wrapped USDe) as collateral. The bot automatically:
+1. Wraps native USDe to WUSDe using the SDK's `prepareForTrade`
+2. Approves WUSDe for the PredictionMarket contract
+3. Waits for each transaction to confirm before proceeding
+
 ## Notes
 
 - Amounts assume 18 decimals (USDe-style).
-- Approval is one-time to MAX (2^256-1).
+- Collateral is prepared per-bid using `prepareForTrade`.
 - Code is intentionally simple and centralized in `src/index.ts` for easy hacking. Shared pieces (like EIP-712 signing) live in `@sapience/sdk`.

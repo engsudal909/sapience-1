@@ -17,6 +17,7 @@ import type {
   AuctionRequestPayload,
   BidPayload,
 } from './types';
+import { verifyAuctionSignature } from './auctionSigVerify';
 
 function isClientMessage(msg: unknown): msg is ClientToServerMessage {
   if (!msg || typeof msg !== 'object' || msg === null || !('type' in msg)) {
@@ -279,11 +280,39 @@ export function createAuctionWebSocketServer() {
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       'unknown';
 
+    // Store request context for signature verification
+    const hostHeader = (req.headers['host'] as string) || 'unknown';
+    // Extract hostname without port to match client extraction
+    const domain = hostHeader.split(':')[0];
+    // Use https/http origin (not wss/ws) to match SIWE standard and keep URI short
+    const protocol =
+      req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const wsUri = `${protocol}://${hostHeader}`;
+
     let rateCount = 0;
     let rateResetAt = Date.now() + RATE_LIMIT_WINDOW_MS;
 
     ws.on('message', async (data: RawData) => {
-      // basic rate limiting and size guard
+      // Parse message early to check for ping (keepalive messages excluded from rate limiting)
+      const msg = safeParse<
+        ClientToServerMessage | BotToServerMessage | { type?: string }
+      >(data);
+
+      // Handle ping/pong keepalive (excluded from rate limiting and size checks)
+      if (
+        msg &&
+        typeof msg === 'object' &&
+        (msg as { type?: string })?.type === 'ping'
+      ) {
+        try {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        } catch (err) {
+          console.error('[Auction-WS] Failed to send pong:', err);
+        }
+        return;
+      }
+
+      // basic rate limiting and size guard (applies to all non-ping messages)
       const now = Date.now();
       if (now > rateResetAt) {
         rateCount = 0;
@@ -321,9 +350,7 @@ export function createAuctionWebSocketServer() {
         }
         return;
       }
-      const msg = safeParse<
-        ClientToServerMessage | BotToServerMessage | { type?: string }
-      >(data);
+
       if (!msg || typeof msg !== 'object') {
         console.warn(`[Auction-WS] Invalid JSON from ${ip}`);
         return;
@@ -600,6 +627,42 @@ export function createAuctionWebSocketServer() {
       if (isClientMessage(msg)) {
         if (msg.type === 'auction.start') {
           const payload = msg.payload as AuctionRequestPayload;
+
+          // Verify signature if provided
+          if (payload.takerSignature) {
+            try {
+              const isValidSignature = await verifyAuctionSignature(
+                payload,
+                domain,
+                wsUri
+              );
+
+              if (!isValidSignature) {
+                console.warn(
+                  `[Auction-WS] Invalid taker signature for taker=${payload.taker}`
+                );
+                send(ws, {
+                  type: 'auction.ack',
+                  payload: { auctionId: '', error: 'invalid_signature' },
+                });
+                return;
+              }
+              console.log(
+                `[Auction-WS] Valid signature verified for taker=${payload.taker}`
+              );
+            } catch (err) {
+              console.error('[Auction-WS] Signature verification error:', err);
+              send(ws, {
+                type: 'auction.ack',
+                payload: {
+                  auctionId: '',
+                  error: 'signature_verification_failed',
+                },
+              });
+              return;
+            }
+          }
+
           const auctionId = upsertAuction(payload);
           // Subscribe this client to the auction channel
           subscribeToAuction(auctionId, ws, auctionSubscriptions);

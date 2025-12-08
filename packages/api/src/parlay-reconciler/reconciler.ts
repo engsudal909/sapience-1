@@ -8,7 +8,7 @@ import {
 import { getStringParam, setStringParam } from '../candle-cache/dbUtils';
 import { getProviderForChain, getBlockByTimestamp } from '../utils/utils';
 import PredictionMarketIndexer from '../workers/indexers/predictionMarketIndexer';
-import { predictionMarket } from '@sapience/sdk';
+import { predictionMarket, lzPMResolver, lzUmaResolver } from '@sapience/sdk';
 import type { Block } from 'viem';
 
 export class ParlayReconciler {
@@ -107,10 +107,25 @@ export class ParlayReconciler {
           continue;
         }
 
+        // Get resolver address for this chain
+        const pmResolverEntry =
+          lzPMResolver[chainId as keyof typeof lzPMResolver];
+        const umaResolverEntry =
+          lzUmaResolver[chainId as keyof typeof lzUmaResolver];
+        const resolverAddress =
+          pmResolverEntry?.address || umaResolverEntry?.address;
+
+        const addresses: `0x${string}`[] = [
+          contractEntry.address as `0x${string}`,
+        ];
+        if (resolverAddress) {
+          addresses.push(resolverAddress as `0x${string}`);
+        }
+
         try {
           // Use efficient single getLogs call like MarketEventReconciler
           const logs = await client.getLogs({
-            address: contractEntry.address,
+            address: addresses,
             fromBlock,
             toBlock,
           });

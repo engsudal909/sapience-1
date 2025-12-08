@@ -148,7 +148,14 @@ fi
 
 # Fix locale issues in dump file
 echo "Fixing locale settings in dump file..."
-sed -i '' "s/en_US.UTF8/en_US.UTF-8/g" "complete_dump.sql" 2>/dev/null || true
+# Detect OS and use appropriate sed syntax
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS requires an extension argument (even if empty)
+    sed -i '' "s/en_US.UTF8/en_US.UTF-8/g" "complete_dump.sql" 2>/dev/null || true
+else
+    # Linux doesn't require an extension argument
+    sed -i "s/en_US.UTF8/en_US.UTF-8/g" "complete_dump.sql" 2>/dev/null || true
+fi
 
 # Remove constraints from the dump file to avoid constraint violations during data insertion
 echo "Removing constraints from dump file..."
@@ -167,7 +174,14 @@ awk '
 echo "Preparing dump file for data addition..."
 
 # remove backslash line
-sed -i '$ d' complete_dump.sql
+# Detect OS and use appropriate sed syntax
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS requires an extension argument (even if empty)
+    sed -i '' '$ d' complete_dump.sql
+else
+    # Linux doesn't require an extension argument
+    sed -i '$ d' complete_dump.sql
+fi
 
 
 # Fetch data for tables with timestamp columns and other tables

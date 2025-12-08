@@ -9,8 +9,8 @@ import "../../src/vault/PassiveLiquidityVault.sol";
 import "../../src/vault/interfaces/IPassiveLiquidityVault.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "./MockERC20.sol";
-import "./MockResolver.sol";
+import "./mocks/MockERC20.sol";
+import "./mocks/MockResolver.sol";
 
 /**
  * @title PredictionMarketTransferRestrictionsTest

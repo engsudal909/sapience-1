@@ -7,8 +7,8 @@ import "../../src/predictionMarket/interfaces/IPredictionStructs.sol";
 import "../../src/predictionMarket/interfaces/IPredictionMarketResolver.sol";
 import "../../src/vault/PassiveLiquidityVault.sol";
 import "../../src/vault/interfaces/IPassiveLiquidityVault.sol";
-import "./MockERC20.sol";
-import "./MockResolver.sol";
+import "./mocks/MockERC20.sol";
+import "./mocks/MockResolver.sol";
 
 /**
  * @title PredictionMarketERC1271Test
