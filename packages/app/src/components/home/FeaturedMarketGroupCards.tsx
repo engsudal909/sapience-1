@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { motion } from 'framer-motion';
 import autoScroll from 'embla-carousel-auto-scroll';
 import {
   Carousel,
@@ -182,11 +183,29 @@ function MobileAndDesktopLists({
   const [desktopApi, setDesktopApi] = React.useState<CarouselApi | null>(null);
   const hasRandomizedMobileStart = React.useRef(false);
   const hasRandomizedDesktopStart = React.useRef(false);
+  const [hasShown, setHasShown] = React.useState(false);
+  const minSlidesForScroll = 6;
   const memoItems = React.useMemo(() => items, [items]);
   const readyItems = React.useMemo(
     () => memoItems.filter((item) => item.id && predictionMap[item.id] != null),
     [memoItems, predictionMap]
   );
+  const loopItems = React.useMemo(() => {
+    if (readyItems.length === 0) return [];
+    // Ensure enough slides to overflow on ultra-wide screens so auto-scroll runs.
+    if (readyItems.length >= minSlidesForScroll) return readyItems;
+    const repeated: typeof readyItems = [];
+    for (let i = 0; i < minSlidesForScroll; i++) {
+      repeated.push(readyItems[i % readyItems.length]);
+    }
+    return repeated;
+  }, [readyItems, minSlidesForScroll]);
+  const canAutoScroll = loopItems.length >= minSlidesForScroll;
+  React.useEffect(() => {
+    if (canAutoScroll && !hasShown) {
+      setHasShown(true);
+    }
+  }, [canAutoScroll, hasShown]);
   const pendingItems = React.useMemo(
     () => memoItems.filter((item) => item.id && predictionMap[item.id] == null),
     [memoItems, predictionMap]
@@ -272,7 +291,12 @@ function MobileAndDesktopLists({
       {readyItems.length === 0 ? (
         <div className="relative" />
       ) : (
-        <>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: hasShown ? 1 : 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          style={{ pointerEvents: hasShown ? 'auto' : 'none' }}
+        >
           {/* Mobile: Embla carousel with auto-scroll */}
           <div className="md:hidden w-full px-0">
             <Carousel
@@ -282,7 +306,7 @@ function MobileAndDesktopLists({
               className="w-full"
             >
               <CarouselContent className="items-stretch py-0">
-                {readyItems.map((c, idx) => (
+                {loopItems.map((c, idx) => (
                   <React.Fragment key={`${c.id}-${idx}`}>
                     <CarouselItem className="pl-0 w-auto flex-none">
                       <TickerMarketCard
@@ -318,7 +342,7 @@ function MobileAndDesktopLists({
               className="w-full"
             >
               <CarouselContent className="items-stretch py-0">
-                {readyItems.map((c, idx) => (
+                {loopItems.map((c, idx) => (
                   <React.Fragment key={`${c.id}-${idx}`}>
                     <CarouselItem className={`${desktopItemClass}`}>
                       <TickerMarketCard
@@ -344,7 +368,7 @@ function MobileAndDesktopLists({
               </CarouselContent>
             </Carousel>
           </div>
-        </>
+        </motion.div>
       )}
     </div>
   );

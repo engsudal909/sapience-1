@@ -25,7 +25,7 @@ const HackathonBanner: React.FC<HackathonBannerProps> = ({
     <Link
       ref={bannerRef}
       href="/hackathon"
-      className={`relative w-full z-[9998] bg-accent-gold text-brand-black px-4 py-1 leading-none text-center font-mono text-xs font-bold uppercase tracking-widest hover:opacity-80 transition-opacity duration-300 ease-out cursor-pointer overflow-hidden block whitespace-nowrap ${className ?? ''}`}
+      className={`relative w-full z-[9998] bg-accent-gold text-brand-black py-1 leading-none text-center font-mono text-xs font-bold uppercase tracking-widest hover:opacity-80 transition-opacity duration-300 ease-out cursor-pointer overflow-hidden block whitespace-nowrap ${className ?? ''}`}
     >
       <span className="relative z-10">
         Join our inaugural agent-building hackathon
