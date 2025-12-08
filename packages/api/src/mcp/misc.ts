@@ -96,7 +96,6 @@ export const balanceOfToken = {
     ownerAddress: string;
     chainId: string;
   }): Promise<CallToolResult> => {
-    console.log('LLL (balanceOfToken):', args);
     const { tokenAddress, ownerAddress, chainId } = args;
     try {
       const chain = getChainById(chainId);

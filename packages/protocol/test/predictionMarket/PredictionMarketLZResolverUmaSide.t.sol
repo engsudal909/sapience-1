@@ -7,7 +7,7 @@ import {IPredictionMarketLZResolverUmaSide} from "../../src/predictionMarket/res
 import {Encoder} from "../../src/bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../src/bridge/BridgeTypes.sol";
 import {MockOptimisticOracleV3ForPMResolver} from "./mocks/MockOptimisticOracleV3ForPMResolver.sol";
-import {MockERC20} from "./MockERC20.sol";
+import {MockERC20} from "./mocks/MockERC20.sol";
 
 import "forge-std/Test.sol";
 import "cannon-std/Cannon.sol";
