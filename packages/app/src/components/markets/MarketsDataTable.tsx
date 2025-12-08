@@ -31,22 +31,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@sapience/sdk/ui/components/ui/tooltip';
-import { useReadContract } from 'wagmi';
-import { toHex, concatHex, keccak256 } from 'viem';
-import { umaResolver } from '@sapience/sdk/contracts';
-import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
-import type { ConditionType } from '~/hooks/graphql/useConditions';
+import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import ConditionTitleLink from './ConditionTitleLink';
-import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import MarketBadge from './MarketBadge';
-import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
-import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
-import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
-import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
 import TableFilters, {
   type FilterState,
   type CategoryOption,
 } from './TableFilters';
+import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
+import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
+import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
+import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
+import type { ConditionType } from '~/hooks/graphql/useConditions';
 
 interface MarketsDataTableProps {
   conditions: ConditionType[];
@@ -144,86 +141,37 @@ const getCategoryColor = (categorySlug?: string | null): string => {
   return getDeterministicCategoryColor(categorySlug);
 };
 
-// UMA resolver ABI for wrappedMarkets query
-const umaWrappedMarketAbi = [
-  {
-    inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    name: 'wrappedMarkets',
-    outputs: [
-      { internalType: 'bool', name: 'initialized', type: 'bool' },
-      { internalType: 'bool', name: 'resolved', type: 'bool' },
-      { internalType: 'bool', name: 'payout', type: 'bool' },
-      { internalType: 'bytes32', name: 'assertionId', type: 'bytes32' },
-      { internalType: 'uint8', name: 'payoutStatus', type: 'uint8' },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const;
-
 // Forecast cell that shows prediction request or resolution status
 function ForecastCell({ condition }: { condition: ConditionType }) {
-  const { claimStatement, endTime } = condition;
+  const { endTime, settled, resolvedToYes } = condition;
 
   // Check if past end time synchronously (no state needed)
   const nowSec = Math.floor(Date.now() / 1000);
   const isPastEnd = !!endTime && endTime <= nowSec;
-
-  const UMA_CHAIN_ID = DEFAULT_CHAIN_ID;
-  const UMA_RESOLVER_ADDRESS = umaResolver[DEFAULT_CHAIN_ID]?.address;
-
-  // Compute marketId from claimStatement + endTime (only if past end)
-  const marketId = React.useMemo(() => {
-    if (!isPastEnd) return undefined;
-    try {
-      if (claimStatement && endTime) {
-        const claimHex = toHex(claimStatement);
-        const colonHex = toHex(':');
-        const endTimeHex = toHex(BigInt(endTime), { size: 32 });
-        const packed = concatHex([claimHex, colonHex, endTimeHex]);
-        return keccak256(packed);
-      }
-    } catch {
-      return undefined;
-    }
-    return undefined;
-  }, [claimStatement, endTime, isPastEnd]);
-
-  // Query UMA resolver for settlement status (only when condition has ended)
-  const { data: umaData, isLoading: umaLoading } = useReadContract({
-    address: UMA_RESOLVER_ADDRESS,
-    abi: umaWrappedMarketAbi,
-    functionName: 'wrappedMarkets',
-    args: marketId ? [marketId] : undefined,
-    chainId: UMA_CHAIN_ID,
-    query: { enabled: isPastEnd && Boolean(marketId && UMA_RESOLVER_ADDRESS) },
-  });
 
   // If not past end time, show the regular prediction request
   if (!isPastEnd) {
     return <MarketPredictionRequest conditionId={condition.id} />;
   }
 
-  // Past end time - show resolution status
-  if (umaLoading) {
-    return <span className="text-muted-foreground">Loading...</span>;
-  }
-
-  const tuple = umaData as
-    | [boolean, boolean, boolean, `0x${string}`, number]
-    | undefined;
-  const resolved = Boolean(tuple?.[1]);
-  const payout = Boolean(tuple?.[2]);
-
-  if (!resolved) {
+  // Past end time - show resolution status from GraphQL API
+  // Use settled and resolvedToYes fields that are already fetched from the API
+  if (!settled) {
     return <span className="text-muted-foreground">Resolution Pending</span>;
   }
 
-  // Resolved - show Yes or No
+  // Resolved - show badge with Yes or No based on resolvedToYes from GraphQL
   return (
-    <span className={payout ? 'text-yes font-medium' : 'text-no font-medium'}>
-      Resolved: {payout ? 'Yes' : 'No'}
-    </span>
+    <Badge
+      variant="outline"
+      className={`px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono ${
+        resolvedToYes
+          ? 'border-yes/40 bg-yes/10 text-yes'
+          : 'border-no/40 bg-no/10 text-no'
+      }`}
+    >
+      RESOLVED {resolvedToYes ? 'YES' : 'NO'}
+    </Badge>
   );
 }
 
