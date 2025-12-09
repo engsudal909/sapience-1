@@ -15,6 +15,7 @@ import {
 import {
   ArrowLeftRight,
   Bot,
+  FileText,
   DollarSign,
   Handshake,
   Telescope,
@@ -407,7 +408,12 @@ export default function QuestionPageContent({
   const hasForecasts = forecastScatterData.length > 0;
   const shouldShowChart = hasPositions || hasForecasts || isLoadingPositions;
 
-  type PrimaryTab = 'predictions' | 'forecasts' | 'resolution' | 'agent';
+  type PrimaryTab =
+    | 'predictions'
+    | 'forecasts'
+    | 'resolution'
+    | 'agent'
+    | 'techspecs';
 
   // Keep primary tab controlled so we can default to Positions when available
   const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>('forecasts');
@@ -538,8 +544,12 @@ export default function QuestionPageContent({
     />
   );
 
-  const renderTechSpecsCard = () => (
-    <div className="border border-border rounded-lg bg-brand-black p-0 overflow-hidden">
+  const renderTechSpecsCard = (withBorder = true) => (
+    <div
+      className={`${
+        withBorder ? 'border border-border rounded-lg' : ''
+      } bg-brand-black p-0 overflow-hidden`}
+    >
       <TechSpecTable
         conditionId={conditionId}
         chainId={data.chainId ?? 42161}
@@ -614,6 +624,13 @@ export default function QuestionPageContent({
               <Bot className="h-3.5 w-3.5" />
               Agent
             </TabsTrigger>
+            <TabsTrigger
+              value="techspecs"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Tech Specs
+            </TabsTrigger>
           </TabsList>
         </div>
         {/* Content area - Positions */}
@@ -672,6 +689,10 @@ export default function QuestionPageContent({
             endTime={data.endTime}
             description={data.description}
           />
+        </TabsContent>
+        {/* Content area - Tech Specs */}
+        <TabsContent value="techspecs" className="m-0">
+          {renderTechSpecsCard(false)}
         </TabsContent>
       </div>
     </Tabs>
@@ -864,7 +885,6 @@ export default function QuestionPageContent({
               <div className="lg:hidden flex flex-col gap-6 mb-12">
                 {renderPredictionFormCard()}
                 {renderScatterPlotCard()}
-                {renderTechSpecsCard()}
                 {mobileTabs}
               </div>
             </>
@@ -879,7 +899,6 @@ export default function QuestionPageContent({
               </div>
               <div className="lg:hidden flex flex-col gap-6 mb-12">
                 {renderPredictionFormCard()}
-                {renderTechSpecsCard()}
                 {mobileTabs}
               </div>
             </>

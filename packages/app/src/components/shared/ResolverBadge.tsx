@@ -54,7 +54,7 @@ export function ResolverBadge({
   const baseBadgeClasses =
     size === 'large'
       ? 'h-9 items-center px-3.5 text-sm leading-none font-medium'
-      : 'h-8 items-center px-3 text-xs leading-none font-medium';
+      : 'h-9 items-center px-3.5 text-sm leading-none font-medium';
   const brandWhiteBadgeExtras =
     appearance === 'brandWhite' ? 'text-brand-white border-brand-white/20' : '';
   const badgeClassName =
@@ -63,7 +63,7 @@ export function ResolverBadge({
   const iconSize = size === 'large' ? 36 : 32;
   const iconHeight = size === 'large' ? 36 : 32;
   const iconClass = size === 'large' ? 'h-9 w-9' : 'h-8 w-8';
-  const gavelIconClass = size === 'large' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+  const gavelIconClass = size === 'large' ? 'h-4 w-4' : 'h-4 w-4';
   const gavelColorClass = appearance === 'brandWhite' ? 'text-brand-white' : '';
   const iconOpacity = appearance === 'brandWhite' ? 'opacity-70' : 'opacity-70';
 

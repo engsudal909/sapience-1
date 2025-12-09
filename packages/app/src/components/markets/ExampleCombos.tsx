@@ -365,7 +365,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                         />
                       </TableCell>
                       {/* Question cell - includes all content on mobile */}
-                      <TableCell className="py-3 pl-4 md:pl-1 pr-4 md:pr-0">
+                      <TableCell className="py-3 pl-3 md:pl-1 pr-3 md:pr-0">
                         <div className="flex flex-col gap-2">
                           {/* Mobile Row 1: Icons skeleton */}
                           <div
@@ -448,7 +448,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                           <StackedIcons legs={legs} />
                         </TableCell>
                         {/* Question cell - includes all content on mobile */}
-                        <TableCell className="py-3 pl-4 md:pl-1 pr-4 md:pr-0 min-w-0">
+                        <TableCell className="py-3 pl-3 md:pl-1 pr-3 md:pr-0 min-w-0">
                           <div className="flex flex-col gap-2 min-w-0">
                             {/* Mobile Row 1: Icons (on their own line) */}
                             <StackedIcons
@@ -461,35 +461,41 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                               className="md:gap-x-2"
                               maxWidthClass="max-w-[calc(100%-160px)] md:max-w-[300px]"
                             />
-                            {/* Mobile Row 3: Probability info */}
-                            <div className="md:hidden text-sm">
-                              {status === 'received' && probability !== null ? (
-                                <>
-                                  <PercentChance
-                                    probability={1 - probability}
-                                    showLabel
-                                    label="chance"
-                                    className="font-mono text-ethena"
-                                  />
-                                  <span className="text-muted-foreground ml-1">
-                                    implied by 1 USDe to win{' '}
+                            {/* Mobile Row 3/4: Probability + PICK in one row */}
+                            <div className="md:hidden mt-2 flex items-center gap-3">
+                              <div className="text-sm min-w-0 max-w-[280px]">
+                                {status === 'received' &&
+                                probability !== null ? (
+                                  <>
+                                    <PercentChance
+                                      probability={1 - probability}
+                                      showLabel
+                                      label="chance"
+                                      className="font-mono text-ethena"
+                                    />
+                                    <span className="text-muted-foreground ml-1">
+                                      implied by 1 USDe
+                                    </span>
+                                    <br />
+                                    <span className="text-muted-foreground">
+                                      to win{' '}
+                                    </span>
+                                    <span className="text-brand-white font-medium font-mono">
+                                      {(1 / (1 - probability)).toFixed(2)} USDe
+                                    </span>
+                                  </>
+                                ) : status === 'error' ? (
+                                  <span className="text-muted-foreground">
+                                    —
                                   </span>
-                                  <span className="text-brand-white font-medium font-mono">
-                                    {(1 / (1 - probability)).toFixed(2)} USDe
+                                ) : (
+                                  <span className="text-foreground/70">
+                                    Initializing auction...
                                   </span>
-                                </>
-                              ) : status === 'error' ? (
-                                <span className="text-muted-foreground">—</span>
-                              ) : (
-                                <span className="text-foreground/70">
-                                  Initializing auction...
-                                </span>
-                              )}
-                            </div>
-                            {/* Mobile Row 4: PICK button */}
-                            <div className="md:hidden">
+                                )}
+                              </div>
                               <Button
-                                className="tracking-wider font-mono text-xs w-full h-8 bg-brand-white text-brand-black"
+                                className="tracking-wider font-mono text-xs px-3 h-8 bg-brand-white text-brand-black ml-auto"
                                 variant="default"
                                 size="sm"
                                 type="button"
