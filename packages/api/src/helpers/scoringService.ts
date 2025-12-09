@@ -1,7 +1,7 @@
 import prisma from '../db';
 import {
   normalizePredictionToProbability,
-  outcomeFromSettlement,
+  outcomeFromCondition,
 } from './predictionNormalization';
 
 export async function upsertAttestationScoreFromAttestation(
@@ -12,18 +12,7 @@ export async function upsertAttestationScoreFromAttestation(
   });
   if (!att) return;
 
-  // Try to load market for bounds and, if already settled, outcome
-  const market = await prisma.market.findFirst({
-    where: {
-      market_group: { address: att.marketAddress.toLowerCase() },
-      marketId: parseInt(att.marketId, 16) || Number(att.marketId) || 0,
-    },
-  });
-
-  const normalized = normalizePredictionToProbability(
-    att.prediction,
-    market ?? null
-  );
+  const normalized = normalizePredictionToProbability(att.prediction);
 
   await prisma.attestationScore.upsert({
     where: { attestationId: att.id },
@@ -49,16 +38,13 @@ export async function selectLatestPreEndForMarket(
   marketAddress: string,
   marketId: string
 ) {
-  const market = await prisma.market.findFirst({
-    where: {
-      market_group: { address: marketAddress.toLowerCase() },
-      marketId: parseInt(marketId, 16) || Number(marketId) || 0,
-    },
-    include: { market_group: true },
+  // Find the condition by questionId (marketId in attestation maps to condition ID)
+  const condition = await prisma.condition.findUnique({
+    where: { id: marketId },
   });
-  if (!market || market.endTimestamp == null) return;
+  if (!condition || condition.endTime == null) return;
 
-  const end = market.endTimestamp;
+  const end = condition.endTime;
 
   // Get unique attesters with pre-end forecasts for this market
   const distinctAttesters = await prisma.attestationScore.findMany({
@@ -108,30 +94,15 @@ export async function scoreSelectedForecastsForSettledMarket(
   marketAddress: string,
   marketId: string
 ) {
-  const market = await prisma.market.findFirst({
-    where: {
-      market_group: { address: marketAddress.toLowerCase() },
-      marketId: parseInt(marketId, 16) || Number(marketId) || 0,
-    },
-    include: { market_group: true },
+  // Find the condition by ID (marketId in attestation maps to condition ID)
+  const condition = await prisma.condition.findUnique({
+    where: { id: marketId },
   });
-  if (!market) return;
+  if (!condition) return;
 
-  // Gate accuracy scoring to YES/NO markets by checking baseTokenName
-  if (market.market_group?.baseTokenName !== 'Yes') {
-    await prisma.attestationScore.updateMany({
-      where: {
-        marketAddress: marketAddress.toLowerCase(),
-        marketId,
-      },
-      data: { errorSquared: null, scoredAt: null, outcome: null },
-    });
-    return;
-  }
-
-  const outcome = outcomeFromSettlement(market);
+  const outcome = outcomeFromCondition(condition);
   if (outcome === null) {
-    // Non-binary market or not strictly settled at bounds: clear any stale scores
+    // Not settled yet: clear any stale scores
     await prisma.attestationScore.updateMany({
       where: {
         marketAddress: marketAddress.toLowerCase(),
@@ -142,8 +113,8 @@ export async function scoreSelectedForecastsForSettledMarket(
     return;
   }
 
-  // Score all pre-end forecasts (not just a selected/latest one)
-  const end = market.endTimestamp ?? null;
+  // Score all pre-end forecasts
+  const end = condition.endTime ?? null;
   if (end == null) return;
   const selected = await prisma.attestationScore.findMany({
     where: {
@@ -177,16 +148,11 @@ export async function computeTimeWeightedForAttesterMarketValue(
   marketId: string,
   attester: string
 ): Promise<number | null> {
-  const market = await prisma.market.findFirst({
-    where: {
-      market_group: { address: marketAddress.toLowerCase() },
-      marketId: parseInt(marketId, 16) || Number(marketId) || 0,
-    },
-    include: { market_group: true },
+  const condition = await prisma.condition.findUnique({
+    where: { id: marketId },
   });
-  if (!market || market.endTimestamp == null) return null;
-  if (market.market_group?.baseTokenName !== 'Yes') return null;
-  const outcome = outcomeFromSettlement(market);
+  if (!condition || condition.endTime == null) return null;
+  const outcome = outcomeFromCondition(condition);
   if (outcome === null) return null;
 
   const rows = await prisma.attestationScore.findMany({
@@ -194,7 +160,7 @@ export async function computeTimeWeightedForAttesterMarketValue(
       marketAddress: marketAddress.toLowerCase(),
       marketId,
       attester,
-      madeAt: { lte: market.endTimestamp },
+      madeAt: { lte: condition.endTime },
       probabilityFloat: { not: null },
     },
     orderBy: { madeAt: 'asc' },
@@ -203,7 +169,7 @@ export async function computeTimeWeightedForAttesterMarketValue(
 
   // Build intervals from each forecast to next or end
   const start = rows[0].madeAt;
-  const end = market.endTimestamp;
+  const end = condition.endTime;
   if (end <= start) return null;
 
   const alphaEnv = process.env.HWBS_ALPHA;
@@ -248,33 +214,23 @@ export async function computeTimeWeightedForAttesterSummary(
   if (distinctMarkets.length === 0)
     return { sumTimeWeightedError: 0, numTimeWeighted: 0 };
 
-  const combos = distinctMarkets.map((m) => ({
-    address: (m.marketAddress || '').toLowerCase(),
-    marketId: m.marketId,
-  }));
+  const conditionIds = [...new Set(distinctMarkets.map((m) => m.marketId))];
 
-  // 2) Fetch market metadata needed for outcome and end time in ONE query
-  const markets = await prisma.market.findMany({
+  // 2) Fetch condition metadata needed for outcome and end time in ONE query
+  const conditions = await prisma.condition.findMany({
     where: {
-      OR: combos.map((c) => ({
-        market_group: { address: c.address },
-        marketId: parseInt(c.marketId, 16) || Number(c.marketId) || 0,
-      })),
+      id: { in: conditionIds },
     },
     select: {
-      marketId: true,
-      endTimestamp: true,
+      id: true,
+      endTime: true,
       settled: true,
-      settlementPriceD18: true,
-      minPriceD18: true,
-      maxPriceD18: true,
-      market_group: { select: { address: true, baseTokenName: true } },
+      resolvedToYes: true,
     },
   });
 
   type MarketKey = string;
-  const key = (addr: string, id: number | string): MarketKey =>
-    `${addr.toLowerCase()}::${Number(id)}`;
+  const key = (marketId: string): MarketKey => marketId;
 
   const meta = new Map<
     MarketKey,
@@ -284,21 +240,9 @@ export async function computeTimeWeightedForAttesterSummary(
     }
   >();
 
-  for (const m of markets) {
-    const addr = (m.market_group?.address || '').toLowerCase();
-    if (!addr) continue;
-    if (m.market_group?.baseTokenName !== 'Yes') {
-      meta.set(key(addr, m.marketId), { end: null, outcome: null });
-      continue;
-    }
-    const out = outcomeFromSettlement({
-      settled: m.settled,
-      settlementPriceD18: m.settlementPriceD18,
-      minPriceD18: m.minPriceD18,
-      maxPriceD18: m.maxPriceD18,
-    });
-    const end = m.endTimestamp ?? null;
-    meta.set(key(addr, m.marketId), { end, outcome: out });
+  for (const c of conditions) {
+    const outcome = outcomeFromCondition(c);
+    meta.set(key(c.id), { end: c.endTime ?? null, outcome });
   }
 
   // 3) Fetch all forecasts by this attester across those markets in ONE query
@@ -306,10 +250,6 @@ export async function computeTimeWeightedForAttesterSummary(
     where: {
       attester: a,
       probabilityFloat: { not: null },
-      OR: combos.map((c) => ({
-        marketAddress: c.address,
-        marketId: c.marketId,
-      })),
     },
     orderBy: { madeAt: 'asc' },
     select: {
@@ -323,8 +263,7 @@ export async function computeTimeWeightedForAttesterSummary(
   // 4) Group rows by market and compute time-weighted error per market
   const byMarket = new Map<MarketKey, { madeAt: number; p: number }[]>();
   for (const r of rows) {
-    const addr = (r.marketAddress || '').toLowerCase();
-    const k = key(addr, parseInt(r.marketId, 16) || Number(r.marketId) || 0);
+    const k = key(r.marketId);
     const m = meta.get(k);
     if (!m || m.end == null || m.outcome == null) continue;
     if (r.madeAt > m.end) continue;
@@ -402,33 +341,23 @@ export async function computeTimeWeightedForAttestersSummary(
       { sumTimeWeightedError: number; numTimeWeighted: number }
     >();
 
-  const combos = distinctMarkets.map((m) => ({
-    address: (m.marketAddress || '').toLowerCase(),
-    marketId: m.marketId,
-  }));
+  const conditionIds = [...new Set(distinctMarkets.map((m) => m.marketId))];
 
-  // 2) Market metadata for those combos
-  const markets = await prisma.market.findMany({
+  // 2) Condition metadata for those IDs
+  const conditions = await prisma.condition.findMany({
     where: {
-      OR: combos.map((c) => ({
-        market_group: { address: c.address },
-        marketId: parseInt(c.marketId, 16) || Number(c.marketId) || 0,
-      })),
+      id: { in: conditionIds },
     },
     select: {
-      marketId: true,
-      endTimestamp: true,
+      id: true,
+      endTime: true,
       settled: true,
-      settlementPriceD18: true,
-      minPriceD18: true,
-      maxPriceD18: true,
-      market_group: { select: { address: true, baseTokenName: true } },
+      resolvedToYes: true,
     },
   });
 
   type MarketKey = string;
-  const key = (addr: string, id: number | string): MarketKey =>
-    `${addr.toLowerCase()}::${Number(id)}`;
+  const key = (marketId: string): MarketKey => marketId;
 
   const meta = new Map<
     MarketKey,
@@ -438,21 +367,9 @@ export async function computeTimeWeightedForAttestersSummary(
     }
   >();
 
-  for (const m of markets) {
-    const addr = (m.market_group?.address || '').toLowerCase();
-    if (!addr) continue;
-    if (m.market_group?.baseTokenName !== 'Yes') {
-      meta.set(key(addr, m.marketId), { end: null, outcome: null });
-      continue;
-    }
-    const out = outcomeFromSettlement({
-      settled: m.settled,
-      settlementPriceD18: m.settlementPriceD18,
-      minPriceD18: m.minPriceD18,
-      maxPriceD18: m.maxPriceD18,
-    });
-    const end = m.endTimestamp ?? null;
-    meta.set(key(addr, m.marketId), { end, outcome: out });
+  for (const c of conditions) {
+    const outcome = outcomeFromCondition(c);
+    meta.set(key(c.id), { end: c.endTime ?? null, outcome });
   }
 
   // 3) All forecasts for these attesters across those markets
@@ -460,10 +377,6 @@ export async function computeTimeWeightedForAttestersSummary(
     where: {
       attester: { in: normalized },
       probabilityFloat: { not: null },
-      OR: combos.map((c) => ({
-        marketAddress: c.address,
-        marketId: c.marketId,
-      })),
     },
     orderBy: { madeAt: 'asc' },
     select: {
@@ -485,8 +398,7 @@ export async function computeTimeWeightedForAttestersSummary(
 
   // Group and compute per (attester, market)
   type GroupKey = string;
-  const gk = (att: string, addr: string, id: number | string): GroupKey =>
-    `${att}::${addr}::${Number(id)}`;
+  const gk = (att: string, marketId: string): GroupKey => `${att}::${marketId}`;
   const groups = new Map<
     GroupKey,
     {
@@ -499,15 +411,10 @@ export async function computeTimeWeightedForAttestersSummary(
 
   for (const r of rows) {
     const att = (r.attester || '').toLowerCase();
-    const addr = (r.marketAddress || '').toLowerCase();
-    const k = key(addr, parseInt(r.marketId, 16) || Number(r.marketId) || 0);
+    const k = key(r.marketId);
     const m = meta.get(k);
     if (!m || m.end == null || m.outcome == null) continue;
-    const gg = gk(
-      att,
-      addr,
-      parseInt(r.marketId, 16) || Number(r.marketId) || 0
-    );
+    const gg = gk(att, r.marketId);
     if (!groups.has(gg))
       groups.set(gg, {
         att,

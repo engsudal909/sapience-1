@@ -28,7 +28,6 @@ import {
   ChevronDown,
   Telescope,
   Bot,
-  Zap,
   Trophy,
   Users,
 } from 'lucide-react';
@@ -130,13 +129,6 @@ const NavLinks = ({
           onClick={handleLinkClick}
         >
           Forecasting
-        </Link>
-        <Link
-          href="/feed"
-          className={`flex w-fit px-3 py-2 rounded-full ${linkClass} ${isActive('/feed', pathname) ? activeClass : ''} hover:text-accent-gold transition-colors`}
-          onClick={handleLinkClick}
-        >
-          Activity Feed
         </Link>
         <Link
           href="/bots"
@@ -489,15 +481,6 @@ const Header = () => {
                     >
                       <Telescope className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
                       <span>Forecasting</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/feed"
-                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
-                    >
-                      <Zap className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
-                      <span>Activity Feed</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

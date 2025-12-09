@@ -9,8 +9,6 @@ import {
 } from 'viem';
 import { mainnet, sepolia, cannon, base, arbitrum } from 'viem/chains';
 import { TOKEN_PRECISION } from '../constants';
-import prisma from '../db';
-import { Deployment } from '../interfaces';
 import dotenv from 'dotenv';
 import { fromRoot } from './fromRoot';
 import * as viem from 'viem';
@@ -190,63 +188,6 @@ export const bigintReplacer = (key: string, value: unknown) => {
     return value.toString(); // Convert BigInt to string
   }
   return value;
-};
-
-export const getTimestampsForReindex = async (
-  client: PublicClient,
-  contractDeployment: Deployment,
-  chainId: number,
-  marketId?: number
-) => {
-  const now = Math.round(new Date().getTime() / 1000);
-
-  // if no market is provided, get the latest one from the contract
-  if (!marketId) {
-    const latestMarket = (await client.readContract({
-      address: contractDeployment.address.toLowerCase() as `0x${string}`,
-      abi: contractDeployment.abi,
-      functionName: 'getLatestMarket',
-    })) as [number, number, number];
-    marketId = Number(latestMarket[0]);
-    return {
-      startTimestamp: Number(latestMarket[1]),
-      endTimestamp: Math.min(Number(latestMarket[2]), now),
-    };
-  }
-
-  // get info from database
-  const market = await prisma.market.findFirst({
-    where: {
-      marketId: marketId,
-      market_group: {
-        address: contractDeployment.address.toLowerCase(),
-        chainId,
-      },
-    },
-    include: {
-      market_group: true,
-    },
-  });
-
-  if (!market || !market.startTimestamp || !market.endTimestamp) {
-    // get info from contract
-    console.log('fetching market from contract to get timestamps...');
-    const marketContract = (await client.readContract({
-      address: contractDeployment.address.toLowerCase() as `0x${string}`,
-      abi: contractDeployment.abi,
-      functionName: 'getMarket',
-      args: [`${marketId}`],
-    })) as [number, number, number];
-    return {
-      startTimestamp: Number(marketContract[0]),
-      endTimestamp: Math.min(Number(marketContract[1]), now),
-    };
-  }
-
-  return {
-    startTimestamp: Number(market.startTimestamp),
-    endTimestamp: Math.min(Number(market.endTimestamp), now),
-  };
 };
 
 export async function getBlockRanges(

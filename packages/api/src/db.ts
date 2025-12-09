@@ -1,16 +1,9 @@
 import { PrismaClient } from '../generated/prisma';
 import { config } from './config';
 
-const renderServiceName = process.env.RENDER_SERVICE_NAME;
-const shouldLogInProduction =
-  renderServiceName === 'candle-cache-builder' ? false : true;
-
 // Create Prisma client with appropriate logging
 const prisma = new PrismaClient({
-  log:
-    config.isProd && shouldLogInProduction
-      ? ['query', 'info', 'warn', 'error']
-      : ['warn', 'error'],
+  log: config.isProd ? ['query', 'info', 'warn', 'error'] : ['warn', 'error'],
 });
 
 // Initialize database connection

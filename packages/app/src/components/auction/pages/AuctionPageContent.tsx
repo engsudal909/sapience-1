@@ -5,14 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { decodeAbiParameters } from 'viem';
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
-import { SquareStack as SquareStackIcon, Zap } from 'lucide-react';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { SquareStack as SquareStackIcon } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
   TabsTrigger,
 } from '@sapience/sdk/ui/components/ui/tabs';
-import Link from 'next/link';
 import { NumberDisplay } from '@sapience/sdk/ui/components/NumberDisplay';
 import {
   TransactionTimeCell,
@@ -311,16 +309,6 @@ const AuctionPageContent: React.FC = () => {
                 <TabsTrigger value="auctions">Auctions</TabsTrigger>
                 <TabsTrigger value="vault-quotes">Vault Quotes</TabsTrigger>
               </SegmentedTabsList>
-              <Link href="/feed">
-                <Button
-                  variant="default"
-                  size="xs"
-                  className="h-7 px-2 text-xs whitespace-nowrap shrink-0 inline-flex items-center gap-2 lg:h-8 lg:px-3 lg:text-sm"
-                >
-                  <Zap className="h-4 w-4" />
-                  Live Activity
-                </Button>
-              </Link>
             </div>
           </div>
 

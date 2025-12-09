@@ -1,32 +1,21 @@
 import 'reflect-metadata';
 import { initializeDataSource } from '../db';
 import { initializeFixtures } from '../fixtures';
-import { CandleCacheBuilder } from '../candle-cache/candleCacheBuilder';
-import { createResilientProcess } from '../utils/utils';
-import { PnlAccuracyReconciler } from '../precompute/reconciler';
-import { MarketEventReconciler } from '../market-events/reconciler';
-import { ParlayReconciler } from '../parlay-reconciler/reconciler';
 
-async function runCandleCacheBuilder(intervalSeconds: number) {
+import { createResilientProcess } from '../utils/utils';
+
+
+import { ParlayReconciler } from './reconcilers/parlay/parlayReconciler';
+
+async function runReconcilerWorker(intervalSeconds: number) {
   await initializeDataSource();
   await initializeFixtures();
 
-  const candleCacheBuilder = CandleCacheBuilder.getInstance();
-  const pnlAccuracyReconciler = PnlAccuracyReconciler.getInstance();
-  const marketEventReconciler = MarketEventReconciler.getInstance();
+ 
   const parlayReconciler = ParlayReconciler.getInstance();
 
   while (true) {
     try {
-      console.log(`Running update at ${new Date().toISOString()}`);
-      await candleCacheBuilder.buildCandles();
-      // After candle build, run synchronous precompute reconciliation
-      console.log('[WORKER] Starting PnL/accuracy reconciliation...');
-      await pnlAccuracyReconciler.runOnce();
-      console.log('[WORKER] PnL/accuracy reconciliation completed');
-      console.log('[WORKER] Starting MarketEvent reconciliation...');
-      await marketEventReconciler.runOnce();
-      console.log('[WORKER] MarketEvent reconciliation completed');
       console.log('[WORKER] Starting Parlay reconciliation...');
       await parlayReconciler.runOnce();
       console.log('[WORKER] Parlay reconciliation completed');
@@ -46,7 +35,7 @@ async function handleWorkerCommands(args: string[]): Promise<boolean> {
 
   const command = args[2];
 
-  if (command === 'candle-cache') {
+  if (command === 'reconciler') {
     // Get interval from command line, default to 15 seconds if not specified
     const intervalSeconds = parseInt(args[3] || '15', 10);
     if (isNaN(intervalSeconds) || intervalSeconds <= 0) {
@@ -57,11 +46,11 @@ async function handleWorkerCommands(args: string[]): Promise<boolean> {
     }
 
     console.log(
-      `Starting candle cache worker with ${intervalSeconds} second interval`
+      `Starting reconciler worker with ${intervalSeconds} second interval`
     );
     await createResilientProcess(
-      () => runCandleCacheBuilder(intervalSeconds),
-      'candleCacheBuilder'
+      () => runReconcilerWorker(intervalSeconds),
+      'reconcilerWorker'
     )();
     return true;
   }
@@ -77,8 +66,8 @@ async function handleWorkerCommands(args: string[]): Promise<boolean> {
   if (!workerHandled) {
     console.log('Starting candle cache worker with default 60 second interval');
     await createResilientProcess(
-      () => runCandleCacheBuilder(15),
-      'candleCacheBuilder'
+      () => runReconcilerWorker(15),
+      'ReconcilerWorker'
     )();
   }
 })();

@@ -29,18 +29,25 @@ export async function backfillAccuracy(): Promise<void> {
     lastId = atts[atts.length - 1].id;
   }
 
-  // 2) Score all settled markets
-  const settledMarkets = await prisma.market.findMany({
+  // 2) Score all settled conditions
+  const settledConditions = await prisma.condition.findMany({
     where: { settled: true },
-    include: { market_group: true },
     orderBy: { settledAt: 'asc' },
   });
 
-  for (const m of settledMarkets) {
-    if (!m.market_group?.address) continue;
-    await scoreSelectedForecastsForSettledMarket(
-      m.market_group.address,
-      m.marketId.toString()
-    );
+  // Get distinct marketAddresses from attestations for each condition
+  for (const c of settledConditions) {
+    // Find attestations that reference this condition (via questionId)
+    const attestations = await prisma.attestation.findFirst({
+      where: { questionId: c.id },
+      select: { marketAddress: true },
+    });
+
+    if (attestations?.marketAddress) {
+      await scoreSelectedForecastsForSettledMarket(
+        attestations.marketAddress,
+        c.id
+      );
+    }
   }
 }
