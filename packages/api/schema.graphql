@@ -1255,7 +1255,7 @@ type PositionType {
   makerWon: Boolean
   marketAddress: String!
   mintedAt: Int!
-  predictedOutcomes: [PredictedOutcomeType!]!
+  predictions: [PredictedOutcomeType!]!
   refCode: String
   settledAt: Int
   status: String!
@@ -1263,6 +1263,7 @@ type PositionType {
   takerCollateral: String
   takerNftTokenId: String!
   totalCollateral: String!
+  predictions: [PredictedOutcomeType!]!
 }
 
 type PnLType {

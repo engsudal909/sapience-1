@@ -215,9 +215,9 @@ model Position {
   // Derived for UI convenience
   endsAt           Int?
 
-  // Raw predicted outcomes as emitted/encoded on-chain
+  // Raw predictions as emitted/encoded on-chain
   // Example JSON: [{ conditionId: "0x...", prediction: true }]
-  predictedOutcomes Json      @db.Json
+  predictions Json      @db.Json
 
   @@index([maker], map: "IDX_position_maker")
   @@index([taker], map: "IDX_position_taker")
@@ -264,7 +264,7 @@ model LimitOrder {
   filledTxHash      String?   @db.VarChar
   cancelledTxHash   String?   @db.VarChar
   
-  predictedOutcomes Json      @db.Json
+  predictions Json      @db.Json
   
   @@unique([chainId, marketAddress, orderId], map: "UQ_limit_order_chain_market_id")
   @@index([maker], map: "IDX_limit_order_maker")

@@ -661,7 +661,7 @@ class PredictionMarketIndexer implements IIndexer {
           mintedAt: Number(block.timestamp),
           settledAt: null,
           endsAt: endsAt ?? null,
-          predictedOutcomes: predictedOutcomes as unknown as object,
+          predictions: predictedOutcomes as unknown as object,
         },
       });
 
@@ -968,7 +968,7 @@ class PredictionMarketIndexer implements IIndexer {
             status: 'pending',
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictedOutcomes: predictedOutcomes as unknown as object,
+            predictions: predictedOutcomes as unknown as object,
           },
           update: {
             maker: eventData.maker.toLowerCase(),
@@ -978,7 +978,7 @@ class PredictionMarketIndexer implements IIndexer {
             refCode: eventData.refCode,
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictedOutcomes: predictedOutcomes as unknown as object,
+            predictions: predictedOutcomes as unknown as object,
           },
         });
       } catch (orderError) {

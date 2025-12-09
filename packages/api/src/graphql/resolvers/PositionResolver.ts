@@ -80,7 +80,7 @@ class PositionType {
   endsAt?: number | null;
 
   @Field(() => [PredictedOutcomeType])
-  predictedOutcomes!: PredictedOutcomeType[];
+  predictions!: PredictedOutcomeType[];
 }
 
 @Resolver()
@@ -115,16 +115,16 @@ export class PositionResolver {
     const processRows = async (rows: Position[]): Promise<PositionType[]> => {
       const conditionSet = new Set<string>();
       for (const r of rows) {
-        let predictedOutcomesParsed = r.predictedOutcomes;
-        if (typeof predictedOutcomesParsed === 'string') {
+        let predictionsParsed = r.predictions;
+        if (typeof predictionsParsed === 'string') {
           try {
-            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+            predictionsParsed = JSON.parse(predictionsParsed);
           } catch {
-            predictedOutcomesParsed = [];
+            predictionsParsed = [];
           }
         }
         const outcomes =
-          (predictedOutcomesParsed as unknown as { conditionId: string }[]) ||
+          (predictionsParsed as unknown as { conditionId: string }[]) ||
           [];
         for (const o of outcomes) conditionSet.add(o.conditionId);
       }
@@ -143,16 +143,16 @@ export class PositionResolver {
       const condMap = new Map(conditions.map((c) => [c.id, c]));
 
       return rows.map((r) => {
-        let predictedOutcomesParsed = r.predictedOutcomes;
-        if (typeof predictedOutcomesParsed === 'string') {
+        let predictionsParsed = r.predictions;
+        if (typeof predictionsParsed === 'string') {
           try {
-            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+            predictionsParsed = JSON.parse(predictionsParsed);
           } catch {
-            predictedOutcomesParsed = [];
+            predictionsParsed = [];
           }
         }
         const outcomesRaw =
-          (predictedOutcomesParsed as unknown as {
+          (predictionsParsed as unknown as {
             conditionId: string;
             prediction: boolean;
           }[]) || [];
@@ -178,7 +178,7 @@ export class PositionResolver {
           mintedAt: r.mintedAt,
           settledAt: r.settledAt ?? null,
           endsAt: r.endsAt ?? null,
-          predictedOutcomes: outcomes,
+          predictions: outcomes,
         };
       });
     };
@@ -352,7 +352,7 @@ export class PositionResolver {
         SELECT * FROM position
         WHERE "chainId" = ${chainId}
           AND EXISTS (
-            SELECT 1 FROM jsonb_array_elements("predictedOutcomes"::jsonb) AS outcome
+            SELECT 1 FROM jsonb_array_elements("predictions"::jsonb) AS outcome
             WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
           )
         ORDER BY "mintedAt" DESC
@@ -363,7 +363,7 @@ export class PositionResolver {
       rows = await prisma.$queryRaw<Position[]>`
         SELECT * FROM position
         WHERE EXISTS (
-          SELECT 1 FROM jsonb_array_elements("predictedOutcomes"::jsonb) AS outcome
+            SELECT 1 FROM jsonb_array_elements("predictions"::jsonb) AS outcome
           WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
         )
         ORDER BY "mintedAt" DESC
@@ -375,16 +375,16 @@ export class PositionResolver {
     const processRows = async (rows: Position[]): Promise<PositionType[]> => {
       const conditionSet = new Set<string>();
       for (const r of rows) {
-        let predictedOutcomesParsed = r.predictedOutcomes;
-        if (typeof predictedOutcomesParsed === 'string') {
+        let predictionsParsed = r.predictions;
+        if (typeof predictionsParsed === 'string') {
           try {
-            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+            predictionsParsed = JSON.parse(predictionsParsed);
           } catch {
-            predictedOutcomesParsed = [];
+            predictionsParsed = [];
           }
         }
         const outcomes =
-          (predictedOutcomesParsed as unknown as { conditionId: string }[]) ||
+          (predictionsParsed as unknown as { conditionId: string }[]) ||
           [];
         for (const o of outcomes) conditionSet.add(o.conditionId);
       }
@@ -403,16 +403,16 @@ export class PositionResolver {
       const condMap = new Map(conditions.map((c) => [c.id, c]));
 
       return rows.map((r) => {
-        let predictedOutcomesParsed = r.predictedOutcomes;
-        if (typeof predictedOutcomesParsed === 'string') {
+        let predictionsParsed = r.predictions;
+        if (typeof predictionsParsed === 'string') {
           try {
-            predictedOutcomesParsed = JSON.parse(predictedOutcomesParsed);
+            predictionsParsed = JSON.parse(predictionsParsed);
           } catch {
-            predictedOutcomesParsed = [];
+            predictionsParsed = [];
           }
         }
         const outcomesRaw =
-          (predictedOutcomesParsed as unknown as {
+          (predictionsParsed as unknown as {
             conditionId: string;
             prediction: boolean;
           }[]) || [];
@@ -438,7 +438,7 @@ export class PositionResolver {
           mintedAt: r.mintedAt,
           settledAt: r.settledAt ?? null,
           endsAt: r.endsAt ?? null,
-          predictedOutcomes: outcomes,
+          predictions: outcomes,
         };
       });
     };
