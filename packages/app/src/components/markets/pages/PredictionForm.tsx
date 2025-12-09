@@ -180,7 +180,7 @@ export default function PredictionForm({
       {/* Current Forecast Display */}
       <div className="border border-border rounded-lg bg-brand-black p-4">
         <div className="flex flex-col items-start gap-1">
-          <Label className="text-foreground font-normal text-base lg:text-lg -mt-0.5">
+          <Label className="text-foreground font-normal text-lg -mt-0.5">
             Current Forecast
           </Label>
           <span className="font-mono text-ethena text-3xl">
@@ -208,7 +208,7 @@ export default function PredictionForm({
       {/* Make a Prediction */}
       <div className="border border-border rounded-lg bg-brand-black p-4 pb-5">
         <div className="flex flex-col items-start gap-1">
-          <Label className="text-foreground font-normal text-base lg:text-lg -mt-0.5">
+          <Label className="text-foreground font-normal text-lg -mt-0.5">
             Make a Prediction
           </Label>
           <div className="font-mono w-full mt-1.5">

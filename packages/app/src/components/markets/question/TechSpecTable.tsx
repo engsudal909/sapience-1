@@ -51,12 +51,12 @@ export function TechSpecTable({
     <table className="w-full text-xs border-collapse">
       <tbody className="divide-y divide-border/60">
         <tr>
-          <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24">
+          <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24 align-middle leading-none">
             Escrow
           </td>
-          <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
+          <td className="px-4 py-3 text-brand-white font-mono text-sm break-all align-middle leading-none">
             {marketAddress ? (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 align-middle leading-none">
                 <a
                   href="https://explorer.ethereal.trade/"
                   target="_blank"
@@ -88,12 +88,12 @@ export function TechSpecTable({
           </td>
         </tr>
         <tr>
-          <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24">
+          <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24 align-middle leading-none">
             Resolver
           </td>
-          <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
+          <td className="px-4 py-3 text-brand-white font-mono text-sm break-all align-middle leading-none">
             {resolverAddress ? (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 align-middle leading-none">
                 {isUmaResolver && (
                   <a
                     href="https://uma.xyz/"
@@ -127,11 +127,11 @@ export function TechSpecTable({
           </td>
         </tr>
         <tr>
-          <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24">
+          <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24 align-middle leading-none">
             Condition
           </td>
-          <td className="px-4 py-3 text-brand-white font-mono text-sm break-all">
-            <span className="inline-flex items-center gap-1.5">
+          <td className="px-4 py-3 text-brand-white font-mono text-sm break-all align-middle leading-none">
+            <span className="inline-flex items-center gap-1.5 align-middle leading-none">
               <ConditionStatusIndicator
                 endTime={endTime}
                 settled={settled}

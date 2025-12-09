@@ -551,7 +551,10 @@ export default function QuestionPageContent({
   );
 
   const renderScatterPlotCard = () => (
-    <div className="relative w-full min-w-0 min-h-[350px] h-full bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
+    <div
+      className="relative w-full min-w-0 bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2 min-h-[320px] h-[320px] sm:h-[360px] lg:min-h-[350px] lg:h-full"
+      // Explicit height on small screens so Recharts can compute dimensions
+    >
       <PredictionScatterChart
         scatterData={scatterData}
         forecastScatterData={forecastScatterData}
@@ -783,7 +786,7 @@ export default function QuestionPageContent({
         {/* Main content */}
         <div className={`w-full mt-4 md:mt-8 max-w-[900px]`}>
           {/* Title */}
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-normal text-foreground mb-4 break-words">
+          <h1 className="text-3xl lg:text-4xl font-normal text-foreground mb-4 break-words">
             {displayTitle}
           </h1>
 
@@ -823,7 +826,7 @@ export default function QuestionPageContent({
                     aria-hidden="true"
                     className="hidden md:inline-block mx-2.5 h-4 w-px bg-muted-foreground/30"
                   />
-                  <span className="whitespace-nowrap text-foreground font-normal">
+                  <span className="whitespace-nowrap text-foreground font-normal ml-1.5 md:ml-0">
                     {(() => {
                       // Get open interest from data and format it
                       const openInterestWei = data?.openInterest || '0';
