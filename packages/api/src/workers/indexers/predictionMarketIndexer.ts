@@ -621,7 +621,6 @@ class PredictionMarketIndexer implements IIndexer {
         conditionId: marketId,
         prediction,
       }));
-
       // Compute endsAt from known conditions (optional)
       let endsAt: number | null = null;
       try {
@@ -643,7 +642,16 @@ class PredictionMarketIndexer implements IIndexer {
         );
       }
 
-      // Create Position
+      const predictionResolver =
+        this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
+      const predictionLegsData = predictedOutcomes.map((outcome) => ({
+        conditionId: outcome.conditionId,
+        resolver: predictionResolver,
+        outcomeYes: outcome.prediction,
+        chainId: this.chainId,
+      }));
+
+      // Create Position with normalized predictions
       await prisma.position.create({
         data: {
           chainId: this.chainId,
@@ -661,7 +669,9 @@ class PredictionMarketIndexer implements IIndexer {
           mintedAt: Number(block.timestamp),
           settledAt: null,
           endsAt: endsAt ?? null,
-          predictions: predictedOutcomes as unknown as object,
+          predictions: {
+            create: predictionLegsData,
+          },
         },
       });
 
@@ -968,7 +978,9 @@ class PredictionMarketIndexer implements IIndexer {
             status: 'pending',
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictions: predictedOutcomes as unknown as object,
+            predictions: {
+              create: predictionLegsData,
+            },
           },
           update: {
             predictor: eventData.predictor.toLowerCase(),
@@ -978,7 +990,10 @@ class PredictionMarketIndexer implements IIndexer {
             refCode: eventData.refCode,
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictions: predictedOutcomes as unknown as object,
+            predictions: {
+              deleteMany: {},
+              create: predictionLegsData,
+            },
           },
         });
       } catch (orderError) {

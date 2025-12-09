@@ -18,12 +18,18 @@ class ConditionSummary {
 }
 
 @ObjectType()
-class PredictedOutcomeType {
+class PredictionType {
   @Field(() => String)
   conditionId!: string;
 
+  @Field(() => String)
+  resolver!: string;
+
   @Field(() => Boolean)
-  prediction!: boolean;
+  outcomeYes!: boolean;
+
+  @Field(() => Int, { nullable: true })
+  chainId?: number | null;
 
   @Field(() => ConditionSummary, { nullable: true })
   condition?: ConditionSummary | null;
@@ -79,8 +85,8 @@ class PositionType {
   @Field(() => Int, { nullable: true })
   endsAt?: number | null;
 
-  @Field(() => [PredictedOutcomeType])
-  predictions!: PredictedOutcomeType[];
+  @Field(() => [PredictionType])
+  predictions!: PredictionType[];
 }
 
 @Resolver()
@@ -112,75 +118,73 @@ export class PositionResolver {
   ): Promise<PositionType[]> {
     const addr = address.toLowerCase();
 
-    const processRows = async (rows: Position[]): Promise<PositionType[]> => {
-      const conditionSet = new Set<string>();
-      for (const r of rows) {
-        let predictionsParsed = r.predictions;
-        if (typeof predictionsParsed === 'string') {
-          try {
-            predictionsParsed = JSON.parse(predictionsParsed);
-          } catch {
-            predictionsParsed = [];
-          }
-        }
-        const outcomes =
-          (predictionsParsed as unknown as { conditionId: string }[]) ||
-          [];
-        for (const o of outcomes) conditionSet.add(o.conditionId);
-      }
-      const conditionIds = Array.from(conditionSet);
-      const conditions = conditionIds.length
-        ? await prisma.condition.findMany({
-            where: { id: { in: conditionIds } },
+    const buildPredictionMap = async (
+      rows: Position[]
+    ): Promise<Map<number, PredictionType[]>> => {
+      const positionIds = rows.map((r) => r.id);
+      if (positionIds.length === 0) return new Map();
+
+      const predictions = await prisma.prediction.findMany({
+        where: { positionId: { in: positionIds } },
+        include: {
+          condition: {
             select: {
               id: true,
               question: true,
               shortName: true,
               endTime: true,
             },
-          })
-        : [];
-      const condMap = new Map(conditions.map((c) => [c.id, c]));
-
-      return rows.map((r) => {
-        let predictionsParsed = r.predictions;
-        if (typeof predictionsParsed === 'string') {
-          try {
-            predictionsParsed = JSON.parse(predictionsParsed);
-          } catch {
-            predictionsParsed = [];
-          }
-        }
-        const outcomesRaw =
-          (predictionsParsed as unknown as {
-            conditionId: string;
-            prediction: boolean;
-          }[]) || [];
-        const outcomes: PredictedOutcomeType[] = outcomesRaw.map((o) => ({
-          conditionId: o.conditionId,
-          prediction: o.prediction,
-          condition: condMap.get(o.conditionId) || null,
-        }));
-        return {
-          id: r.id,
-          chainId: r.chainId,
-          marketAddress: r.marketAddress,
-          predictor: r.predictor,
-          counterparty: r.counterparty,
-          predictorNftTokenId: r.predictorNftTokenId,
-          counterpartyNftTokenId: r.counterpartyNftTokenId,
-          totalCollateral: r.totalCollateral,
-          predictorCollateral: r.predictorCollateral ?? null,
-          counterpartyCollateral: r.counterpartyCollateral ?? null,
-          refCode: r.refCode,
-          status: r.status as unknown as PositionType['status'],
-          predictorWon: r.predictorWon,
-          mintedAt: r.mintedAt,
-          settledAt: r.settledAt ?? null,
-          endsAt: r.endsAt ?? null,
-          predictions: outcomes,
-        };
+          },
+        },
       });
+
+      const map = new Map<number, PredictionType[]>();
+      for (const p of predictions) {
+        if (!p.positionId) continue;
+        const condition =
+          p.condition && {
+            id: p.condition.id,
+            question: p.condition.question ?? null,
+            shortName: p.condition.shortName ?? null,
+            endTime: p.condition.endTime ?? null,
+          };
+        const entry: PredictionType = {
+          conditionId: p.conditionId,
+          resolver: p.resolver,
+          outcomeYes: p.outcomeYes,
+          chainId: p.chainId ?? null,
+          condition: condition ?? null,
+        };
+        if (!map.has(p.positionId)) {
+          map.set(p.positionId, []);
+        }
+        map.get(p.positionId)!.push(entry);
+      }
+      return map;
+    };
+
+    const processRows = async (rows: Position[]): Promise<PositionType[]> => {
+      const predictionMap = await buildPredictionMap(rows);
+
+      return rows.map((r) => ({
+        id: r.id,
+        chainId: r.chainId,
+        marketAddress: r.marketAddress,
+        predictor: r.predictor,
+        counterparty: r.counterparty,
+        predictorNftTokenId: r.predictorNftTokenId,
+        counterpartyNftTokenId: r.counterpartyNftTokenId,
+        totalCollateral: r.totalCollateral,
+        predictorCollateral: r.predictorCollateral ?? null,
+        counterpartyCollateral: r.counterpartyCollateral ?? null,
+        refCode: r.refCode,
+        status: r.status as unknown as PositionType['status'],
+        predictorWon: r.predictorWon,
+        mintedAt: r.mintedAt,
+        settledAt: r.settledAt ?? null,
+        endsAt: r.endsAt ?? null,
+        predictions: predictionMap.get(r.id) ?? [],
+      }));
     };
 
     if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
@@ -344,105 +348,94 @@ export class PositionResolver {
     @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
     @Arg('chainId', () => Int, { nullable: true }) chainId?: number
   ): Promise<PositionType[]> {
-    const conditionIdLower = conditionId.toLowerCase();
+    const predictionMatches = await prisma.prediction.findMany({
+      where: {
+        positionId: { not: null },
+        conditionId: { equals: conditionId, mode: 'insensitive' },
+        ...(chainId !== undefined && chainId !== null
+          ? { chainId }
+          : undefined),
+      },
+      select: { positionId: true },
+    });
 
-    let rows: Position[];
-    if (chainId !== undefined && chainId !== null) {
-      rows = await prisma.$queryRaw<Position[]>`
-        SELECT * FROM position
-        WHERE "chainId" = ${chainId}
-          AND EXISTS (
-            SELECT 1 FROM jsonb_array_elements("predictions"::jsonb) AS outcome
-            WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
-          )
-        ORDER BY "mintedAt" DESC
-        LIMIT ${take}
-        OFFSET ${skip}
-      `;
-    } else {
-      rows = await prisma.$queryRaw<Position[]>`
-        SELECT * FROM position
-        WHERE EXISTS (
-            SELECT 1 FROM jsonb_array_elements("predictions"::jsonb) AS outcome
-          WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
-        )
-        ORDER BY "mintedAt" DESC
-        LIMIT ${take}
-        OFFSET ${skip}
-      `;
+    const positionIds = Array.from(
+      new Set(
+        predictionMatches
+          .map((p) => p.positionId)
+          .filter((id): id is number => id !== null)
+      )
+    );
+
+    if (positionIds.length === 0) return [];
+
+    const rows = await prisma.position.findMany({
+      where: {
+        id: { in: positionIds },
+        ...(chainId !== undefined && chainId !== null
+          ? { chainId }
+          : undefined),
+      },
+      orderBy: { mintedAt: 'desc' },
+      take,
+      skip,
+    });
+
+    const predictionMap = await prisma.prediction.findMany({
+      where: { positionId: { in: rows.map((r) => r.id) } },
+      include: {
+        condition: {
+          select: {
+            id: true,
+            question: true,
+            shortName: true,
+            endTime: true,
+          },
+        },
+      },
+    });
+
+    const map = new Map<number, PredictionType[]>();
+    for (const p of predictionMap) {
+      if (!p.positionId) continue;
+      const condition =
+        p.condition && {
+          id: p.condition.id,
+          question: p.condition.question ?? null,
+          shortName: p.condition.shortName ?? null,
+          endTime: p.condition.endTime ?? null,
+        };
+      const entry: PredictionType = {
+        conditionId: p.conditionId,
+        resolver: p.resolver,
+        outcomeYes: p.outcomeYes,
+        chainId: p.chainId ?? null,
+        condition: condition ?? null,
+      };
+      if (!map.has(p.positionId)) {
+        map.set(p.positionId, []);
+      }
+      map.get(p.positionId)!.push(entry);
     }
 
-    const processRows = async (rows: Position[]): Promise<PositionType[]> => {
-      const conditionSet = new Set<string>();
-      for (const r of rows) {
-        let predictionsParsed = r.predictions;
-        if (typeof predictionsParsed === 'string') {
-          try {
-            predictionsParsed = JSON.parse(predictionsParsed);
-          } catch {
-            predictionsParsed = [];
-          }
-        }
-        const outcomes =
-          (predictionsParsed as unknown as { conditionId: string }[]) ||
-          [];
-        for (const o of outcomes) conditionSet.add(o.conditionId);
-      }
-      const conditionIds = Array.from(conditionSet);
-      const conditions = conditionIds.length
-        ? await prisma.condition.findMany({
-            where: { id: { in: conditionIds } },
-            select: {
-              id: true,
-              question: true,
-              shortName: true,
-              endTime: true,
-            },
-          })
-        : [];
-      const condMap = new Map(conditions.map((c) => [c.id, c]));
-
-      return rows.map((r) => {
-        let predictionsParsed = r.predictions;
-        if (typeof predictionsParsed === 'string') {
-          try {
-            predictionsParsed = JSON.parse(predictionsParsed);
-          } catch {
-            predictionsParsed = [];
-          }
-        }
-        const outcomesRaw =
-          (predictionsParsed as unknown as {
-            conditionId: string;
-            prediction: boolean;
-          }[]) || [];
-        const outcomes: PredictedOutcomeType[] = outcomesRaw.map((o) => ({
-          conditionId: o.conditionId,
-          prediction: o.prediction,
-          condition: condMap.get(o.conditionId) || null,
-        }));
-        return {
-          id: r.id,
-          chainId: r.chainId,
-          marketAddress: r.marketAddress,
-          predictor: r.predictor,
-          counterparty: r.counterparty,
-          predictorNftTokenId: r.predictorNftTokenId,
-          counterpartyNftTokenId: r.counterpartyNftTokenId,
-          totalCollateral: r.totalCollateral,
-          predictorCollateral: r.predictorCollateral ?? null,
-          counterpartyCollateral: r.counterpartyCollateral ?? null,
-          refCode: r.refCode,
-          status: r.status as unknown as PositionType['status'],
-          predictorWon: r.predictorWon,
-          mintedAt: r.mintedAt,
-          settledAt: r.settledAt ?? null,
-          endsAt: r.endsAt ?? null,
-          predictions: outcomes,
-        };
-      });
-    };
-
-    return processRows(rows);
+    return rows.map((r) => ({
+      id: r.id,
+      chainId: r.chainId,
+      marketAddress: r.marketAddress,
+      predictor: r.predictor,
+      counterparty: r.counterparty,
+      predictorNftTokenId: r.predictorNftTokenId,
+      counterpartyNftTokenId: r.counterpartyNftTokenId,
+      totalCollateral: r.totalCollateral,
+      predictorCollateral: r.predictorCollateral ?? null,
+      counterpartyCollateral: r.counterpartyCollateral ?? null,
+      refCode: r.refCode,
+      status: r.status as unknown as PositionType['status'],
+      predictorWon: r.predictorWon,
+      mintedAt: r.mintedAt,
+      settledAt: r.settledAt ?? null,
+      endsAt: r.endsAt ?? null,
+      predictions: map.get(r.id) ?? [],
+    }));
   }
 }

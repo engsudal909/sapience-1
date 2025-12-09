@@ -1255,7 +1255,7 @@ type PositionType {
   predictorWon: Boolean
   marketAddress: String!
   mintedAt: Int!
-  predictions: [PredictedOutcomeType!]!
+  predictions: [PredictionType!]!
   refCode: String
   settledAt: Int
   status: String!
@@ -1263,7 +1263,6 @@ type PositionType {
   counterpartyCollateral: String
   counterpartyNftTokenId: String!
   totalCollateral: String!
-  predictions: [PredictedOutcomeType!]!
 }
 
 type PnLType {
@@ -1280,10 +1279,12 @@ type PnLType {
   totalWithdrawals: String!
 }
 
-type PredictedOutcomeType {
+type PredictionType {
+  chainId: Int
   condition: ConditionSummary
   conditionId: String!
-  prediction: Boolean!
+  outcomeYes: Boolean!
+  resolver: String!
 }
 
 type ProfitRankType {

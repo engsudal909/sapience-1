@@ -184,9 +184,41 @@ model Condition {
   assertionId    String?   @db.VarChar
   assertionTimestamp Int?
 
+  predictions    Prediction[]
+
   @@index([categoryId])
   @@index([endTime])
   @@map("condition")
+}
+
+model Prediction {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+
+  // The market condition being predicted
+  conditionId String
+  condition   Condition @relation(fields: [conditionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Exactly one of these should be set; enforced in application logic
+  positionId   Int?
+  position     Position?   @relation(fields: [positionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  limitOrderId Int?
+  limitOrder   LimitOrder?  @relation(fields: [limitOrderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Conceptual prediction data
+  resolver   String  @db.VarChar
+  outcomeYes Boolean
+
+  // Optional derived / debugging / traceability fields
+  chainId Int?
+
+  @@index([conditionId], map: "IDX_prediction_condition")
+  @@index([resolver], map: "IDX_prediction_resolver")
+  @@index([positionId], map: "IDX_prediction_position")
+  @@index([limitOrderId], map: "IDX_prediction_limit_order")
+  @@unique([positionId, conditionId, resolver], map: "UQ_prediction_position_condition_resolver")
+  @@map("prediction")
 }
 
 /// Position model to store on-chain prediction positions
@@ -216,9 +248,8 @@ model Position {
   // Derived for UI convenience
   endsAt           Int?
 
-  // Raw predictions as emitted/encoded on-chain
-  // Example JSON: [{ conditionId: "0x...", prediction: true }]
-  predictions Json      @db.Json
+  // Normalized predictions
+  predictions   Prediction[]
 
   @@index([predictor], map: "IDX_position_predictor")
   @@index([counterparty], map: "IDX_position_counterparty")
@@ -265,7 +296,8 @@ model LimitOrder {
   filledTxHash      String?   @db.VarChar
   cancelledTxHash   String?   @db.VarChar
   
-  predictions Json      @db.Json
+  // Normalized predictions
+  predictions    Prediction[]
   
   @@unique([chainId, marketAddress, orderId], map: "UQ_limit_order_chain_market_id")
   @@index([predictor], map: "IDX_limit_order_predictor")
