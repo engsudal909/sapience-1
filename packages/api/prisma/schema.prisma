@@ -189,8 +189,8 @@ model Condition {
   @@map("condition")
 }
 
-/// Parlay model to store on-chain prediction parlays
-model Parlay {
+/// Position model to store on-chain prediction positions
+model Position {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now()) @db.Timestamp(6)
 
@@ -207,7 +207,7 @@ model Parlay {
   refCode          String?   @db.VarChar
 
   // Status
-  status           ParlayStatus @default(active)
+  status           PositionStatus @default(active)
   makerWon         Boolean?
   mintedAt         Int
   settledAt        Int?
@@ -219,13 +219,13 @@ model Parlay {
   // Example JSON: [{ conditionId: "0x...", prediction: true }]
   predictedOutcomes Json      @db.Json
 
-  @@index([maker], map: "IDX_parlay_maker")
-  @@index([taker], map: "IDX_parlay_taker")
-  @@index([chainId, marketAddress], map: "IDX_parlay_chain_market")
-  @@map("parlay")
+  @@index([maker], map: "IDX_position_maker")
+  @@index([taker], map: "IDX_position_taker")
+  @@index([chainId, marketAddress], map: "IDX_position_chain_market")
+  @@map("position")
 }
 
-enum ParlayStatus {
+enum PositionStatus {
   active
   settled
   consolidated

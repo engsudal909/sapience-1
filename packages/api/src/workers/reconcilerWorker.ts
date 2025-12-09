@@ -5,20 +5,20 @@ import { initializeFixtures } from '../fixtures';
 import { createResilientProcess } from '../utils/utils';
 
 
-import { ParlayReconciler } from './reconcilers/parlay/parlayReconciler';
+import { PositionReconciler } from './reconcilers/position/positionReconciler';
 
 async function runReconcilerWorker(intervalSeconds: number) {
   await initializeDataSource();
   await initializeFixtures();
 
  
-  const parlayReconciler = ParlayReconciler.getInstance();
+  const positionReconciler = PositionReconciler.getInstance();
 
   while (true) {
     try {
-      console.log('[WORKER] Starting Parlay reconciliation...');
-      await parlayReconciler.runOnce();
-      console.log('[WORKER] Parlay reconciliation completed');
+      console.log('[WORKER] Starting position reconciliation...');
+      await positionReconciler.runOnce();
+      console.log('[WORKER] Position reconciliation completed');
       console.log(`Update completed at ${new Date().toISOString()}`);
     } catch (error) {
       console.error('Error in update:', error);

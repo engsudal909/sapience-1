@@ -1,6 +1,6 @@
 import { Resolver, Query, Arg, Int, ObjectType, Field } from 'type-graphql';
 import prisma from '../../db';
-import { Prisma, Parlay } from '../../../generated/prisma';
+import { Prisma, Position } from '../../../generated/prisma';
 
 @ObjectType()
 class ConditionSummary {
@@ -30,7 +30,7 @@ class PredictedOutcomeType {
 }
 
 @ObjectType()
-class ParlayType {
+class PositionType {
   @Field(() => Int)
   id!: number;
 
@@ -84,25 +84,24 @@ class ParlayType {
 }
 
 @Resolver()
-export class ParlayResolver {
+export class PositionResolver {
   @Query(() => Int)
-  async userParlaysCount(
+  async positionsCount(
     @Arg('address', () => String) address: string,
     @Arg('chainId', () => Int, { nullable: true }) chainId?: number
   ): Promise<number> {
     const addr = address.toLowerCase();
-    const where: Prisma.ParlayWhereInput = {
+    const where: Prisma.PositionWhereInput = {
       OR: [{ maker: addr }, { taker: addr }],
     };
     if (chainId !== undefined && chainId !== null) {
       where.chainId = chainId;
     }
-    const count = await prisma.parlay.count({ where });
-    return count;
+    return prisma.position.count({ where });
   }
 
-  @Query(() => [ParlayType])
-  async userParlays(
+  @Query(() => [PositionType])
+  async positions(
     @Arg('address', () => String) address: string,
     @Arg('take', () => Int, { defaultValue: 50 }) take: number,
     @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
@@ -110,15 +109,12 @@ export class ParlayResolver {
     @Arg('orderDirection', () => String, { nullable: true })
     orderDirection?: string,
     @Arg('chainId', () => Int, { nullable: true }) chainId?: number
-  ): Promise<ParlayType[]> {
+  ): Promise<PositionType[]> {
     const addr = address.toLowerCase();
 
-    // Helper function to process rows and return ParlayType[]
-    const processRows = async (rows: Parlay[]): Promise<ParlayType[]> => {
-      // Collect condition ids
+    const processRows = async (rows: Position[]): Promise<PositionType[]> => {
       const conditionSet = new Set<string>();
       for (const r of rows) {
-        // Parse predictedOutcomes if it's a string (from raw SQL)
         let predictedOutcomesParsed = r.predictedOutcomes;
         if (typeof predictedOutcomesParsed === 'string') {
           try {
@@ -147,7 +143,6 @@ export class ParlayResolver {
       const condMap = new Map(conditions.map((c) => [c.id, c]));
 
       return rows.map((r) => {
-        // Parse predictedOutcomes if it's a string (from raw SQL)
         let predictedOutcomesParsed = r.predictedOutcomes;
         if (typeof predictedOutcomesParsed === 'string') {
           try {
@@ -178,7 +173,7 @@ export class ParlayResolver {
           makerCollateral: r.makerCollateral ?? null,
           takerCollateral: r.takerCollateral ?? null,
           refCode: r.refCode,
-          status: r.status as unknown as ParlayType['status'],
+          status: r.status as unknown as PositionType['status'],
           makerWon: r.makerWon,
           mintedAt: r.mintedAt,
           settledAt: r.settledAt ?? null,
@@ -188,15 +183,13 @@ export class ParlayResolver {
       });
     };
 
-    // For numeric/calculated sorting (wager, toWin, pnl), we need raw SQL
     if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
       const direction = orderDirection === 'asc' ? 'ASC' : 'DESC';
 
       if (orderBy === 'wager') {
-        // For wager, sort by the viewer's individual collateral
         if (chainId !== undefined && chainId !== null) {
-          const rows = await prisma.$queryRaw<Parlay[]>`
-            SELECT * FROM parlay
+          const rows = await prisma.$queryRaw<Position[]>`
+            SELECT * FROM position
             WHERE (LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}) AND "chainId" = ${chainId}
             ORDER BY CASE 
               WHEN LOWER(maker) = ${addr} THEN CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
@@ -208,8 +201,8 @@ export class ParlayResolver {
           `;
           return processRows(rows);
         } else {
-          const rows = await prisma.$queryRaw<Parlay[]>`
-            SELECT * FROM parlay
+          const rows = await prisma.$queryRaw<Position[]>`
+            SELECT * FROM position
             WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
             ORDER BY CASE 
               WHEN LOWER(maker) = ${addr} THEN CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
@@ -224,10 +217,9 @@ export class ParlayResolver {
       }
 
       if (orderBy === 'pnl') {
-        // For PnL, calculate profit/loss based on whether user is maker/taker and won/lost
         if (chainId !== undefined && chainId !== null) {
-          const rows = await prisma.$queryRaw<Parlay[]>`
-            SELECT * FROM parlay
+          const rows = await prisma.$queryRaw<Position[]>`
+            SELECT * FROM position
             WHERE (LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}) AND "chainId" = ${chainId}
             ORDER BY CASE 
               WHEN status = 'active' THEN 0
@@ -252,8 +244,8 @@ export class ParlayResolver {
           `;
           return processRows(rows);
         } else {
-          const rows = await prisma.$queryRaw<Parlay[]>`
-            SELECT * FROM parlay
+          const rows = await prisma.$queryRaw<Position[]>`
+            SELECT * FROM position
             WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
             ORDER BY CASE 
               WHEN status = 'active' THEN 0
@@ -280,10 +272,10 @@ export class ParlayResolver {
         }
       }
 
-      // For toWin, sort by totalCollateral but treat lost parlays as 0
+      // For toWin, sort by totalCollateral but treat lost positions as 0
       if (chainId !== undefined && chainId !== null) {
-        const rows = await prisma.$queryRaw<Parlay[]>`
-          SELECT * FROM parlay
+        const rows = await prisma.$queryRaw<Position[]>`
+          SELECT * FROM position
           WHERE (LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}) AND "chainId" = ${chainId}
           ORDER BY CASE 
             WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
@@ -300,8 +292,8 @@ export class ParlayResolver {
         `;
         return processRows(rows);
       } else {
-        const rows = await prisma.$queryRaw<Parlay[]>`
-          SELECT * FROM parlay
+        const rows = await prisma.$queryRaw<Position[]>`
+          SELECT * FROM position
           WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
           ORDER BY CASE 
             WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
@@ -320,23 +312,22 @@ export class ParlayResolver {
       }
     }
 
-    // For other sorting (like 'created'), use normal Prisma orderBy
-    let orderByClause: Prisma.ParlayOrderByWithRelationInput = {
+    let orderByClause: Prisma.PositionOrderByWithRelationInput = {
       mintedAt: 'desc',
-    }; // default
+    };
 
     if (orderBy === 'created') {
       orderByClause = { mintedAt: orderDirection === 'asc' ? 'asc' : 'desc' };
     }
 
-    const where: Prisma.ParlayWhereInput = {
+    const where: Prisma.PositionWhereInput = {
       OR: [{ maker: addr }, { taker: addr }],
     };
     if (chainId !== undefined && chainId !== null) {
       where.chainId = chainId;
     }
 
-    const rows = await prisma.parlay.findMany({
+    const rows = await prisma.position.findMany({
       where,
       orderBy: orderByClause,
       take,
@@ -346,21 +337,19 @@ export class ParlayResolver {
     return processRows(rows);
   }
 
-  @Query(() => [ParlayType])
-  async parlaysByConditionId(
+  @Query(() => [PositionType])
+  async positionsByConditionId(
     @Arg('conditionId', () => String) conditionId: string,
     @Arg('take', () => Int, { defaultValue: 100 }) take: number,
     @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
     @Arg('chainId', () => Int, { nullable: true }) chainId?: number
-  ): Promise<ParlayType[]> {
-    // Use raw SQL to filter parlays where predictedOutcomes JSON contains the conditionId
-    // PostgreSQL JSONB path query: check if any element in the array has conditionId matching
+  ): Promise<PositionType[]> {
     const conditionIdLower = conditionId.toLowerCase();
 
-    let rows: Parlay[];
+    let rows: Position[];
     if (chainId !== undefined && chainId !== null) {
-      rows = await prisma.$queryRaw<Parlay[]>`
-        SELECT * FROM parlay
+      rows = await prisma.$queryRaw<Position[]>`
+        SELECT * FROM position
         WHERE "chainId" = ${chainId}
           AND EXISTS (
             SELECT 1 FROM jsonb_array_elements("predictedOutcomes"::jsonb) AS outcome
@@ -371,8 +360,8 @@ export class ParlayResolver {
         OFFSET ${skip}
       `;
     } else {
-      rows = await prisma.$queryRaw<Parlay[]>`
-        SELECT * FROM parlay
+      rows = await prisma.$queryRaw<Position[]>`
+        SELECT * FROM position
         WHERE EXISTS (
           SELECT 1 FROM jsonb_array_elements("predictedOutcomes"::jsonb) AS outcome
           WHERE LOWER(outcome->>'conditionId') = ${conditionIdLower}
@@ -383,12 +372,9 @@ export class ParlayResolver {
       `;
     }
 
-    // Reuse the processRows helper from userParlays
-    const processRows = async (rows: Parlay[]): Promise<ParlayType[]> => {
-      // Collect condition ids
+    const processRows = async (rows: Position[]): Promise<PositionType[]> => {
       const conditionSet = new Set<string>();
       for (const r of rows) {
-        // Parse predictedOutcomes if it's a string (from raw SQL)
         let predictedOutcomesParsed = r.predictedOutcomes;
         if (typeof predictedOutcomesParsed === 'string') {
           try {
@@ -417,7 +403,6 @@ export class ParlayResolver {
       const condMap = new Map(conditions.map((c) => [c.id, c]));
 
       return rows.map((r) => {
-        // Parse predictedOutcomes if it's a string (from raw SQL)
         let predictedOutcomesParsed = r.predictedOutcomes;
         if (typeof predictedOutcomesParsed === 'string') {
           try {
@@ -448,7 +433,7 @@ export class ParlayResolver {
           makerCollateral: r.makerCollateral ?? null,
           takerCollateral: r.takerCollateral ?? null,
           refCode: r.refCode,
-          status: r.status as unknown as ParlayType['status'],
+          status: r.status as unknown as PositionType['status'],
           makerWon: r.makerWon,
           mintedAt: r.mintedAt,
           settledAt: r.settledAt ?? null,

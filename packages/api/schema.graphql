@@ -1245,7 +1245,7 @@ enum NullsOrder {
   last
 }
 
-type ParlayType {
+type PositionType {
   chainId: Int!
   endsAt: Int
   id: Int!
@@ -1317,18 +1317,18 @@ type Query {
   getAttestation(where: AttestationWhereUniqueInput!): Attestation
   getCategory(where: CategoryWhereUniqueInput!): Category
   getCondition(where: ConditionWhereUniqueInput!): Condition
-  getParlayLeaderboard(chainId: Int!, marketAddress: String!): [PnLType!]!
+  getLeaderboard(chainId: Int!, marketAddress: String!): [PnLType!]!
   getUser(where: UserWhereUniqueInput!): User
   groupByAttestation(by: [AttestationScalarFieldEnum!]!, having: AttestationScalarWhereWithAggregatesInput, orderBy: [AttestationOrderByWithAggregationInput!], skip: Int, take: Int, where: AttestationWhereInput): [AttestationGroupBy!]!
   groupByCategory(by: [CategoryScalarFieldEnum!]!, having: CategoryScalarWhereWithAggregatesInput, orderBy: [CategoryOrderByWithAggregationInput!], skip: Int, take: Int, where: CategoryWhereInput): [CategoryGroupBy!]!
   groupByCondition(by: [ConditionScalarFieldEnum!]!, having: ConditionScalarWhereWithAggregatesInput, orderBy: [ConditionOrderByWithAggregationInput!], skip: Int, take: Int, where: ConditionWhereInput): [ConditionGroupBy!]!
   groupByUser(by: [UserScalarFieldEnum!]!, having: UserScalarWhereWithAggregatesInput, orderBy: [UserOrderByWithAggregationInput!], skip: Int, take: Int, where: UserWhereInput): [UserGroupBy!]!
-  parlaysByConditionId(chainId: Int, conditionId: String!, skip: Int! = 0, take: Int! = 100): [ParlayType!]!
+  positionsByConditionId(chainId: Int, conditionId: String!, skip: Int! = 0, take: Int! = 100): [PositionType!]!
   profitRankByAddress(owner: String!): ProfitRankType!
   topForecasters(limit: Int! = 10): [ForecasterScoreType!]!
   user(where: UserWhereUniqueInput!): User
-  userParlays(address: String!, chainId: Int, orderBy: String, orderDirection: String, skip: Int! = 0, take: Int! = 50): [ParlayType!]!
-  userParlaysCount(address: String!, chainId: Int): Int!
+  positions(address: String!, chainId: Int, orderBy: String, orderDirection: String, skip: Int! = 0, take: Int! = 50): [PositionType!]!
+  positionsCount(address: String!, chainId: Int): Int!
   users(cursor: UserWhereUniqueInput, distinct: [UserScalarFieldEnum!], orderBy: [UserOrderByWithRelationInput!], skip: Int, take: Int, where: UserWhereInput): [User!]!
 }
 

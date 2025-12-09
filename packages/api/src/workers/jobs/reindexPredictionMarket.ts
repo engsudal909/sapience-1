@@ -25,7 +25,7 @@ export async function reindexPredictionMarket(
     // Clear existing data if requested
     if (clearExisting) {
       console.log(
-        `[PredictionMarket Reindex] Clearing existing parlay and prediction market event data for chain ${chainId}`
+        `[PredictionMarket Reindex] Clearing existing position and prediction market event data for chain ${chainId}`
       );
 
       const predictionMarketEvents = await prisma.event.findMany({
@@ -46,8 +46,8 @@ export async function reindexPredictionMarket(
         );
       }
 
-      // Delete parlays for this chain
-      const deletedParlays = await prisma.parlay.deleteMany({
+      // Delete positions for this chain
+      const deletedPositions = await prisma.position.deleteMany({
         where: { chainId },
       });
 
@@ -62,7 +62,7 @@ export async function reindexPredictionMarket(
       });
 
       console.log(
-        `[PredictionMarket Reindex] Cleared ${deletedParlays.count} parlays and ${deletedEvents.count} events`
+        `[PredictionMarket Reindex] Cleared ${deletedPositions.count} positions and ${deletedEvents.count} events`
       );
     }
 
@@ -92,7 +92,7 @@ export async function reindexPredictionMarket(
       );
 
       // Log some statistics
-      const parlayCount = await prisma.parlay.count({
+      const positionCount = await prisma.position.count({
         where: { chainId },
       });
 
@@ -106,7 +106,7 @@ export async function reindexPredictionMarket(
       });
 
       console.log(
-        `[PredictionMarket Reindex] Final counts - Parlays: ${parlayCount}, Events: ${eventCount}`
+        `[PredictionMarket Reindex] Final counts - Positions: ${positionCount}, Events: ${eventCount}`
       );
     } else {
       console.error(

@@ -574,8 +574,8 @@ class PredictionMarketIndexer implements IIndexer {
           `[PredictionMarketIndexer] Event already exists tx=${uniqueEventKey.transactionHash} block=${uniqueEventKey.blockNumber} logIndex=${uniqueEventKey.logIndex}`
         );
 
-        // For reindexing: still check if parlay needs to be created (might be missing due to old bug)
-        const existingParlay = await prisma.parlay.findFirst({
+        // For reindexing: still check if position needs to be created (might be missing due to old bug)
+        const existingPosition = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
@@ -584,16 +584,16 @@ class PredictionMarketIndexer implements IIndexer {
           },
         });
 
-        if (existingParlay) {
+        if (existingPosition) {
           console.log(
-            `[PredictionMarketIndexer] Parlay already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+            `[PredictionMarketIndexer] Position already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
           );
           return;
         } else {
           console.log(
-            `[PredictionMarketIndexer] Event exists but parlay missing - creating parlay for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+            `[PredictionMarketIndexer] Event exists but position missing - creating position for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
           );
-          // Continue to parlay creation logic below
+          // Continue to position creation logic below
         }
       } else {
         // Store new event in database
@@ -643,8 +643,8 @@ class PredictionMarketIndexer implements IIndexer {
         );
       }
 
-      // Create Parlay
-      await prisma.parlay.create({
+      // Create Position
+      await prisma.position.create({
         data: {
           chainId: this.chainId,
           marketAddress: log.address.toLowerCase(),
@@ -665,7 +665,7 @@ class PredictionMarketIndexer implements IIndexer {
         },
       });
 
-      // Update open interest for all conditions in this parlay
+      // Update open interest for all conditions in this position
       const conditionIds = predictedOutcomes.map((o) => o.conditionId);
       const collateralStr = eventData.totalCollateral;
       for (const conditionId of conditionIds) {
@@ -743,9 +743,9 @@ class PredictionMarketIndexer implements IIndexer {
         },
       });
 
-      // Update Parlay status
+      // Update Position status
       try {
-        const parlay = await prisma.parlay.findFirst({
+        const position = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
@@ -755,9 +755,9 @@ class PredictionMarketIndexer implements IIndexer {
             ],
           },
         });
-        if (parlay) {
-          await prisma.parlay.update({
-            where: { id: parlay.id },
+        if (position) {
+          await prisma.position.update({
+            where: { id: position.id },
             data: {
               status: 'settled',
               makerWon: eventData.makerWon,
@@ -767,7 +767,7 @@ class PredictionMarketIndexer implements IIndexer {
         }
       } catch (e) {
         console.warn(
-          '[PredictionMarketIndexer] Failed updating Parlay on burn:',
+          '[PredictionMarketIndexer] Failed updating Position on burn:',
           e
         );
       }
@@ -839,9 +839,9 @@ class PredictionMarketIndexer implements IIndexer {
         },
       });
 
-      // Update Parlay status
+      // Update Position status
       try {
-        const parlay = await prisma.parlay.findFirst({
+        const position = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
@@ -851,9 +851,9 @@ class PredictionMarketIndexer implements IIndexer {
             ],
           },
         });
-        if (parlay) {
-          await prisma.parlay.update({
-            where: { id: parlay.id },
+        if (position) {
+          await prisma.position.update({
+            where: { id: position.id },
             data: {
               status: 'consolidated',
               makerWon: true,
@@ -863,7 +863,7 @@ class PredictionMarketIndexer implements IIndexer {
         }
       } catch (e) {
         console.warn(
-          '[PredictionMarketIndexer] Failed updating Parlay on consolidate:',
+          '[PredictionMarketIndexer] Failed updating Position on consolidate:',
           e
         );
       }
