@@ -18,6 +18,7 @@ import { useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
+import { DollarSign } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, type CSSProperties } from 'react';
 import { useForm, type UseFormReturn } from 'react-hook-form';
@@ -642,18 +643,11 @@ const CreatePositionForm = ({
         <Drawer open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <DrawerTrigger asChild>
             <Button
-              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 lg:hidden rounded-full h-10 w-10 p-0 shadow-md"
+              className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 lg:hidden rounded-full h-10 w-10 p-0 shadow-md bg-accent-gold hover:bg-accent-gold/90 transition-transform duration-500 hover:scale-[1.1]"
               size="icon"
-              variant="default"
               aria-label="Open position form"
             >
-              <Image
-                src="/usde.svg"
-                alt="USDe"
-                width={40}
-                height={40}
-                className="h-10 w-10"
-              />
+              <DollarSign className="h-5 w-5 text-brand-black" />
             </Button>
           </DrawerTrigger>
           <DrawerContent

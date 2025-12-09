@@ -9,9 +9,6 @@ const GET_CATEGORIES = /* GraphQL */ `
       id
       name
       slug
-      marketGroups {
-        id
-      }
     }
   }
 `;

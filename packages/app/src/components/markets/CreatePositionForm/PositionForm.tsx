@@ -298,7 +298,10 @@ export default function PositionForm({
                   transition={{ duration: 0.2 }}
                   className="text-muted-foreground/50 flex items-center gap-1 ml-2"
                 >
-                  <Info className="h-3.5 w-3.5" />
+                  <Info
+                    className="hidden sm:inline h-3.5 w-3.5"
+                    aria-hidden="true"
+                  />
                   ALL MUST BE CORRECT TO WIN
                 </motion.span>
               )}

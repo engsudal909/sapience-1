@@ -1,31 +1,4 @@
 {
-  "RESOURCES": [
-    {
-      "name": "Ethereum Gas",
-      "slug": "ethereum-gas",
-      "category": "crypto"
-    },
-    {
-      "name": "Celestia Blobspace",
-      "slug": "celestia-blobspace",
-      "category": "crypto"
-    },
-    {
-      "name": "San Francisco Precipitation",
-      "slug": "sf-precipitation",
-      "category": "weather"
-    },
-    {
-      "name": "New York City Air Temperature",
-      "slug": "nyc-air-temperature",
-      "category": "weather"
-    },
-    {
-      "name": "Bitcoin Hashrate",
-      "slug": "bitcoin-hashrate",
-      "category": "crypto"
-    }
-  ],
   "CATEGORIES": [
     {
       "name": "Crypto",

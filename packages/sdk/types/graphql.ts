@@ -3704,6 +3704,7 @@ export type Query = {
   marketPrice?: Maybe<MarketPrice>;
   marketPrices: Array<MarketPrice>;
   markets: Array<Market>;
+  parlaysByConditionId: Array<ParlayType>;
   position?: Maybe<Position>;
   positions: Array<Position>;
   profitRankByAddress: ProfitRankType;
@@ -4356,6 +4357,14 @@ export type QueryMarketsArgs = {
   skip?: InputMaybe<Scalars['Int']['input']>;
   take?: InputMaybe<Scalars['Int']['input']>;
   where?: InputMaybe<MarketWhereInput>;
+};
+
+
+export type QueryParlaysByConditionIdArgs = {
+  chainId?: InputMaybe<Scalars['Int']['input']>;
+  conditionId: Scalars['String']['input'];
+  skip?: Scalars['Int']['input'];
+  take?: Scalars['Int']['input'];
 };
 
 
