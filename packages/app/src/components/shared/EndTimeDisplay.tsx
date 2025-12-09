@@ -72,7 +72,7 @@ const EndTimeDisplay: React.FC<EndTimeDisplayProps> = ({
     }
 
     const baseBadgeClasses =
-      'h-8 items-center px-3 text-sm leading-none font-medium';
+      'h-9 items-center px-3.5 text-sm leading-none font-medium';
     const outlineExtras = 'bg-card border-border';
     const smallBadgeClassName =
       `${baseBadgeClasses} ${isPast ? '' : outlineExtras}`.trim();
