@@ -102,10 +102,11 @@ export default function BidDisplay({
   useEffect(() => {
     const prevBid = prevBestBidRef.current;
     const isFirstBid = !prevBid && bestBid;
-    const isNewBid = bestBid && prevBid && (
-      bestBid.makerWager !== prevBid.makerWager ||
-      bestBid.makerDeadline !== prevBid.makerDeadline
-    );
+    const isNewBid =
+      bestBid &&
+      prevBid &&
+      (bestBid.makerWager !== prevBid.makerWager ||
+        bestBid.makerDeadline !== prevBid.makerDeadline);
 
     // Trigger "To Win" fade-in whenever a new bid appears (first or subsequent)
     if (isFirstBid || isNewBid) {
@@ -292,7 +293,11 @@ export default function BidDisplay({
       {/* Submit / Request Bids Button */}
       {bestBid ? (
         <motion.div
-          key={buttonAnimationKey > 0 ? `submit-button-${buttonAnimationKey}` : 'submit-button-static'}
+          key={
+            buttonAnimationKey > 0
+              ? `submit-button-${buttonAnimationKey}`
+              : 'submit-button-static'
+          }
           initial={buttonAnimationKey > 0 ? { y: -80 } : false}
           animate={{ y: 0 }}
           transition={
