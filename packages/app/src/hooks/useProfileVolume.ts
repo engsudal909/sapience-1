@@ -16,21 +16,21 @@ export function useProfileVolume(
 
       for (const position of positions || []) {
         try {
-          const makerIsUser =
-            typeof position.maker === 'string' &&
-            position.maker.toLowerCase() === viewer;
-          const takerIsUser =
-            typeof position.taker === 'string' &&
-            position.taker.toLowerCase() === viewer;
-          if (makerIsUser && position.makerCollateral) {
+          const predictorIsUser =
+            typeof position.predictor === 'string' &&
+            position.predictor.toLowerCase() === viewer;
+          const counterpartyIsUser =
+            typeof position.counterparty === 'string' &&
+            position.counterparty.toLowerCase() === viewer;
+          if (predictorIsUser && position.predictorCollateral) {
             const human = Number(
-              formatUnits(BigInt(position.makerCollateral), 18)
+              formatUnits(BigInt(position.predictorCollateral), 18)
             );
             if (Number.isFinite(human)) total += human;
           }
-          if (takerIsUser && position.takerCollateral) {
+          if (counterpartyIsUser && position.counterpartyCollateral) {
             const human = Number(
-              formatUnits(BigInt(position.takerCollateral), 18)
+              formatUnits(BigInt(position.counterpartyCollateral), 18)
             );
             if (Number.isFinite(human)) total += human;
           }

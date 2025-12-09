@@ -37,7 +37,7 @@ const UMA_RESOLVER_MIN_ABI = [
     outputs: [
       { name: 'isValid', type: 'bool' },
       { name: 'error', type: 'uint8' },
-      { name: 'makerWon', type: 'bool' },
+      { name: 'predictorWon', type: 'bool' },
     ],
   },
 ] as const;
@@ -133,10 +133,10 @@ export default function PositionsTable({
     tokenIdToClaim?: bigint;
     createdAt: number; // ms
     totalPayoutWei: bigint; // total payout if won
-    makerCollateralWei?: bigint; // user's wager if they are maker
-    takerCollateralWei?: bigint; // user's wager if they are taker
+  predictorCollateralWei?: bigint; // user's wager if they are predictor
+  counterpartyCollateralWei?: bigint; // user's wager if they are counterparty
     userPnL: string; // pnl for settled positions
-    addressRole: 'maker' | 'taker' | 'unknown';
+  addressRole: 'predictor' | 'counterparty' | 'unknown';
     counterpartyAddress?: Address | null;
     chainId: number;
     marketAddress: Address;
@@ -236,54 +236,55 @@ export default function PositionsTable({
             (o: any) => o?.condition?.endTime || 0
           )
         );
-      const userIsMaker =
-        typeof p.maker === 'string' && p.maker.toLowerCase() === viewer;
-      const userIsTaker =
-        typeof p.taker === 'string' && p.taker.toLowerCase() === viewer;
+      const userIsPredictor =
+        typeof p.predictor === 'string' && p.predictor.toLowerCase() === viewer;
+      const userIsCounterparty =
+        typeof p.counterparty === 'string' &&
+        p.counterparty.toLowerCase() === viewer;
       const isActive = p.status === 'active';
       const userWon =
         !isActive &&
-        ((userIsMaker && p.makerWon === true) ||
-          (userIsTaker && p.makerWon === false));
+        ((userIsPredictor && p.predictorWon === true) ||
+          (userIsCounterparty && p.predictorWon === false));
       const status: UIPosition['status'] = isActive
         ? 'active'
         : userWon
           ? 'won'
           : 'lost';
       const tokenIdToClaim = userWon
-        ? userIsMaker
-          ? BigInt(p.makerNftTokenId)
-          : BigInt(p.takerNftTokenId)
+        ? userIsPredictor
+          ? BigInt(p.predictorNftTokenId)
+          : BigInt(p.counterpartyNftTokenId)
         : undefined;
 
       // Calculate PnL for settled positions
       let userPnL = '0';
       if (
         !isActive &&
-        p.makerCollateral &&
-        p.takerCollateral &&
+        p.predictorCollateral &&
+        p.counterpartyCollateral &&
         p.totalCollateral
       ) {
         try {
-          const makerCollateral = BigInt(p.makerCollateral);
-          const takerCollateral = BigInt(p.takerCollateral);
+          const predictorCollateral = BigInt(p.predictorCollateral);
+          const counterpartyCollateral = BigInt(p.counterpartyCollateral);
           const totalCollateral = BigInt(p.totalCollateral);
 
-          if (userIsMaker) {
-            if (p.makerWon) {
-              // Maker won: profit = totalCollateral - makerCollateral
-              userPnL = (totalCollateral - makerCollateral).toString();
+          if (userIsPredictor) {
+            if (p.predictorWon) {
+              // Predictor won: profit = totalCollateral - predictorCollateral
+              userPnL = (totalCollateral - predictorCollateral).toString();
             } else {
-              // Maker lost: loss = -makerCollateral
-              userPnL = (-makerCollateral).toString();
+              // Predictor lost: loss = -predictorCollateral
+              userPnL = (-predictorCollateral).toString();
             }
-          } else if (userIsTaker) {
-            if (!p.makerWon) {
-              // Taker won: profit = totalCollateral - takerCollateral
-              userPnL = (totalCollateral - takerCollateral).toString();
+          } else if (userIsCounterparty) {
+            if (!p.predictorWon) {
+              // Counterparty won: profit = totalCollateral - counterpartyCollateral
+              userPnL = (totalCollateral - counterpartyCollateral).toString();
             } else {
-              // Taker lost: loss = -takerCollateral
-              userPnL = (-takerCollateral).toString();
+              // Counterparty lost: loss = -counterpartyCollateral
+              userPnL = (-counterpartyCollateral).toString();
             }
           }
         } catch (e) {
@@ -292,26 +293,28 @@ export default function PositionsTable({
       }
 
       // Choose positionId based on the profile address' role
-      const positionId = userIsMaker
-        ? Number(p.makerNftTokenId)
-        : userIsTaker
-          ? Number(p.takerNftTokenId)
-          : p.makerNftTokenId
-            ? Number(p.makerNftTokenId)
+      const positionId = userIsPredictor
+        ? Number(p.predictorNftTokenId)
+        : userIsCounterparty
+          ? Number(p.counterpartyNftTokenId)
+          : p.predictorNftTokenId
+            ? Number(p.predictorNftTokenId)
             : p.id;
       // Create unique row key combining position ID and role
-      const uniqueRowKey = `${p.id}-${userIsMaker ? 'maker' : userIsTaker ? 'taker' : 'unknown'}`;
+      const uniqueRowKey = `${p.id}-${userIsPredictor ? 'predictor' : userIsCounterparty ? 'counterparty' : 'unknown'}`;
       // Choose wager based on the profile address' role
-      const viewerMakerCollateralWei = (() => {
+      const viewerPredictorCollateralWei = (() => {
         try {
-          return p.makerCollateral ? BigInt(p.makerCollateral) : undefined;
+          return p.predictorCollateral ? BigInt(p.predictorCollateral) : undefined;
         } catch {
           return undefined;
         }
       })();
-      const viewerTakerCollateralWei = (() => {
+      const viewerCounterpartyCollateralWei = (() => {
         try {
-          return p.takerCollateral ? BigInt(p.takerCollateral) : undefined;
+          return p.counterpartyCollateral
+            ? BigInt(p.counterpartyCollateral)
+            : undefined;
         } catch {
           return undefined;
         }
@@ -332,19 +335,19 @@ export default function PositionsTable({
             return 0n;
           }
         })(),
-        makerCollateralWei: viewerMakerCollateralWei,
-        takerCollateralWei: viewerTakerCollateralWei,
+        predictorCollateralWei: viewerPredictorCollateralWei,
+        counterpartyCollateralWei: viewerCounterpartyCollateralWei,
         userPnL,
-        addressRole: userIsMaker
-          ? ('maker' as const)
-          : userIsTaker
-            ? ('taker' as const)
+        addressRole: userIsPredictor
+          ? ('predictor' as const)
+          : userIsCounterparty
+            ? ('counterparty' as const)
             : ('unknown' as const),
         counterpartyAddress:
-          (userIsMaker
-            ? (p.taker as Address | undefined)
-            : userIsTaker
-              ? (p.maker as Address | undefined)
+          (userIsPredictor
+            ? (p.counterparty as Address | undefined)
+            : userIsCounterparty
+              ? (p.predictor as Address | undefined)
               : undefined) ?? null,
         chainId: Number(p.chainId || DEFAULT_CHAIN_ID),
         marketAddress: p.marketAddress as Address,
@@ -418,8 +421,8 @@ export default function PositionsTable({
       rowsNeedingResolution.map((r) => ({
         rowKey: r.positionId,
         tokenId:
-          r.addressRole === 'maker'
-            ? BigInt(r.positionId) // positionId chosen from maker/taker id earlier
+          r.addressRole === 'predictor'
+            ? BigInt(r.positionId) // positionId chosen from predictor/counterparty id earlier
             : BigInt(r.positionId),
         // Note: positionId was set to the viewer-relevant NFT id earlier
         marketAddress: r.marketAddress,
@@ -546,9 +549,9 @@ export default function PositionsTable({
         continue;
       }
       try {
-        const tuple = resItem.result as any; // [isValid, error, makerWon]
+        const tuple = resItem.result as any; // [isValid, error, predictorWon]
         const isValid = Boolean(tuple?.[0]);
-        const makerWon = Boolean(tuple?.[2]);
+        const predictorWon = Boolean(tuple?.[2]);
         if (!isValid) {
           map.set(rowKey, { state: 'awaiting' });
           continue;
@@ -556,8 +559,8 @@ export default function PositionsTable({
         // Determine if viewer is winner
         const row = rows.find((r) => r.positionId === rowKey);
         if (!row) continue;
-        const viewerIsMaker = row.addressRole === 'maker';
-        const viewerWon = viewerIsMaker ? makerWon : !makerWon;
+        const viewerIsPredictor = row.addressRole === 'predictor';
+        const viewerWon = viewerIsPredictor ? predictorWon : !predictorWon;
         map.set(
           rowKey,
           viewerWon
@@ -719,11 +722,13 @@ export default function PositionsTable({
         accessorFn: (row) => {
           // Show the viewer's contributed collateral as the wager
           const viewerWagerWei =
-            row.addressRole === 'maker'
-              ? (row.makerCollateralWei ?? 0n)
-              : row.addressRole === 'taker'
-                ? (row.takerCollateralWei ?? 0n)
-                : (row.makerCollateralWei ?? row.takerCollateralWei ?? 0n);
+            row.addressRole === 'predictor'
+              ? (row.predictorCollateralWei ?? 0n)
+              : row.addressRole === 'counterparty'
+                ? (row.counterpartyCollateralWei ?? 0n)
+                : (row.predictorCollateralWei ??
+                  row.counterpartyCollateralWei ??
+                  0n);
           return Number(formatEther(viewerWagerWei));
         },
         size: 180,
@@ -756,12 +761,12 @@ export default function PositionsTable({
         cell: ({ row }) => {
           const symbol = collateralSymbol;
           const viewerWagerWei =
-            row.original.addressRole === 'maker'
-              ? (row.original.makerCollateralWei ?? 0n)
-              : row.original.addressRole === 'taker'
-                ? (row.original.takerCollateralWei ?? 0n)
-                : (row.original.makerCollateralWei ??
-                  row.original.takerCollateralWei ??
+            row.original.addressRole === 'predictor'
+              ? (row.original.predictorCollateralWei ?? 0n)
+              : row.original.addressRole === 'counterparty'
+                ? (row.original.counterpartyCollateralWei ?? 0n)
+                : (row.original.predictorCollateralWei ??
+                  row.original.counterpartyCollateralWei ??
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
 
@@ -906,12 +911,12 @@ export default function PositionsTable({
           }
 
           const viewerWagerWei =
-            row.original.addressRole === 'maker'
-              ? (row.original.makerCollateralWei ?? 0n)
-              : row.original.addressRole === 'taker'
-                ? (row.original.takerCollateralWei ?? 0n)
-                : (row.original.makerCollateralWei ??
-                  row.original.takerCollateralWei ??
+            row.original.addressRole === 'predictor'
+              ? (row.original.predictorCollateralWei ?? 0n)
+              : row.original.addressRole === 'counterparty'
+                ? (row.original.counterpartyCollateralWei ?? 0n)
+                : (row.original.predictorCollateralWei ??
+                  row.original.counterpartyCollateralWei ??
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
 
@@ -1246,8 +1251,8 @@ export default function PositionsTable({
           }))}
           wager={Number(
             formatEther(
-              selectedPosition.makerCollateralWei ??
-                selectedPosition.takerCollateralWei ??
+              selectedPosition.predictorCollateralWei ??
+                selectedPosition.counterpartyCollateralWei ??
                 0n
             )
           )}
@@ -1256,7 +1261,9 @@ export default function PositionsTable({
           owner={String(account)}
           imagePath="/og/position"
           extraParams={
-            selectedPosition.addressRole === 'taker' ? { anti: '1' } : undefined
+            selectedPosition.addressRole === 'counterparty'
+              ? { anti: '1' }
+              : undefined
           }
           open={openSharePositionId !== null}
           onOpenChange={(next) => {

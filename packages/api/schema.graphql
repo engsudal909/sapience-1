@@ -1249,19 +1249,19 @@ type PositionType {
   chainId: Int!
   endsAt: Int
   id: Int!
-  maker: String!
-  makerCollateral: String
-  makerNftTokenId: String!
-  makerWon: Boolean
+  predictor: String!
+  predictorCollateral: String
+  predictorNftTokenId: String!
+  predictorWon: Boolean
   marketAddress: String!
   mintedAt: Int!
   predictions: [PredictedOutcomeType!]!
   refCode: String
   settledAt: Int
   status: String!
-  taker: String!
-  takerCollateral: String
-  takerNftTokenId: String!
+  counterparty: String!
+  counterpartyCollateral: String
+  counterpartyNftTokenId: String!
   totalCollateral: String!
   predictions: [PredictedOutcomeType!]!
 }

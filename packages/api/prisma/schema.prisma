@@ -197,18 +197,19 @@ model Position {
   // On-chain identifiers
   chainId          Int
   marketAddress    String    @db.VarChar
-  maker            String    @db.VarChar
-  taker            String    @db.VarChar
-  makerNftTokenId  String    @db.VarChar
-  takerNftTokenId  String    @db.VarChar
+  predictor        String    @db.VarChar
+  counterparty     String    @db.VarChar
+  predictorNftTokenId  String    @db.VarChar
+  counterpartyNftTokenId  String    @db.VarChar
   totalCollateral  String    @db.VarChar
-  makerCollateral  String?   @db.VarChar
-  takerCollateral  String?   @db.VarChar
+  predictorCollateral  String?   @db.VarChar
+  counterpartyCollateral  String?   @db.VarChar
   refCode          String?   @db.VarChar
 
   // Status
   status           PositionStatus @default(active)
-  makerWon         Boolean?
+  /// True when the predictor's submitted outcomes were correct (previously makerWon)
+  predictorWon     Boolean?
   mintedAt         Int
   settledAt        Int?
 
@@ -219,8 +220,8 @@ model Position {
   // Example JSON: [{ conditionId: "0x...", prediction: true }]
   predictions Json      @db.Json
 
-  @@index([maker], map: "IDX_position_maker")
-  @@index([taker], map: "IDX_position_taker")
+  @@index([predictor], map: "IDX_position_predictor")
+  @@index([counterparty], map: "IDX_position_counterparty")
   @@index([chainId, marketAddress], map: "IDX_position_chain_market")
   @@map("position")
 }

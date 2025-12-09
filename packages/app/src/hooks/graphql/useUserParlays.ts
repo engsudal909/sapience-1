@@ -20,16 +20,16 @@ export type Parlay = {
   id: number;
   chainId: number;
   marketAddress: string;
-  maker: string;
-  taker: string;
-  makerNftTokenId: string;
-  takerNftTokenId: string;
+  predictor: string;
+  counterparty: string;
+  predictorNftTokenId: string;
+  counterpartyNftTokenId: string;
   totalCollateral: string;
-  makerCollateral?: string | null;
-  takerCollateral?: string | null;
+  predictorCollateral?: string | null;
+  counterpartyCollateral?: string | null;
   refCode?: string | null;
   status: 'active' | 'settled' | 'consolidated';
-  makerWon?: boolean | null;
+  predictorWon?: boolean | null;
   mintedAt: number;
   settledAt?: number | null;
   endsAt?: number | null;
@@ -56,16 +56,16 @@ const USER_PARLAYS_QUERY = /* GraphQL */ `
       id
       chainId
       marketAddress
-      maker
-      taker
-      makerNftTokenId
-      takerNftTokenId
+      predictor
+      counterparty
+      predictorNftTokenId
+      counterpartyNftTokenId
       totalCollateral
-      makerCollateral
-      takerCollateral
+      predictorCollateral
+      counterpartyCollateral
       refCode
       status
-      makerWon
+      predictorWon
       mintedAt
       settledAt
       endsAt

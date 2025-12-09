@@ -108,9 +108,9 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
 
           const collateralDecimals = 18;
           const collateralSymbol = 'testUSDe';
-          if (position?.makerCollateral) {
+          if (position?.predictorCollateral) {
             const wager = parseFloat(
-              formatUnits(BigInt(position.makerCollateral), collateralDecimals)
+              formatUnits(BigInt(position.predictorCollateral), collateralDecimals)
             ).toFixed(2);
             qp.set('wager', wager);
           }

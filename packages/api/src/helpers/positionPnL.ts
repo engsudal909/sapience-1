@@ -14,12 +14,12 @@ export async function calculatePositionPnL(
 ): Promise<PositionPnLEntry[]> {
   const whereClause: {
     status: { in: PositionStatus[] };
-    makerWon: { not: null };
+    predictorWon: { not: null };
     chainId?: number;
     marketAddress?: string;
   } = {
     status: { in: [PositionStatus.settled, PositionStatus.consolidated] },
-    makerWon: { not: null },
+    predictorWon: { not: null },
   };
 
   if (chainId) whereClause.chainId = chainId;
@@ -62,41 +62,41 @@ export async function calculatePositionPnL(
   >();
 
   for (const position of positions) {
-    const mintKey = `${position.makerNftTokenId}-${position.takerNftTokenId}`;
+    const mintKey = `${position.predictorNftTokenId}-${position.counterpartyNftTokenId}`;
     const mintData = mintEventMap.get(mintKey);
     if (!mintData) continue;
 
-    const maker = position.maker.toLowerCase();
-    const taker = position.taker.toLowerCase();
-    const makerCollateral = BigInt(mintData.makerCollateral || '0');
-    const takerCollateral = BigInt(mintData.takerCollateral || '0');
+    const predictor = position.predictor.toLowerCase();
+    const counterparty = position.counterparty.toLowerCase();
+    const predictorCollateral = BigInt(mintData.makerCollateral || '0');
+    const counterpartyCollateral = BigInt(mintData.takerCollateral || '0');
     const totalCollateral = BigInt(mintData.totalCollateral || '0');
 
     if (owners?.length) {
       const ownerSet = new Set(owners.map((o) => o.toLowerCase()));
-      if (!ownerSet.has(maker) && !ownerSet.has(taker)) continue;
+      if (!ownerSet.has(predictor) && !ownerSet.has(counterparty)) continue;
     }
 
-    if (!ownerStats.has(maker)) {
-      ownerStats.set(maker, { totalPnL: 0n, positionCount: 0 });
+    if (!ownerStats.has(predictor)) {
+      ownerStats.set(predictor, { totalPnL: 0n, positionCount: 0 });
     }
-    if (!ownerStats.has(taker)) {
-      ownerStats.set(taker, { totalPnL: 0n, positionCount: 0 });
+    if (!ownerStats.has(counterparty)) {
+      ownerStats.set(counterparty, { totalPnL: 0n, positionCount: 0 });
     }
 
-    const makerStats = ownerStats.get(maker)!;
-    const takerStats = ownerStats.get(taker)!;
+    const predictorStats = ownerStats.get(predictor)!;
+    const counterpartyStats = ownerStats.get(counterparty)!;
 
-    if (position.makerWon) {
-      makerStats.totalPnL += totalCollateral - makerCollateral;
-      makerStats.positionCount++;
-      takerStats.totalPnL -= takerCollateral;
-      takerStats.positionCount++;
+    if (position.predictorWon) {
+      predictorStats.totalPnL += totalCollateral - predictorCollateral;
+      predictorStats.positionCount++;
+      counterpartyStats.totalPnL -= counterpartyCollateral;
+      counterpartyStats.positionCount++;
     } else {
-      takerStats.totalPnL += totalCollateral - takerCollateral;
-      takerStats.positionCount++;
-      makerStats.totalPnL -= makerCollateral;
-      makerStats.positionCount++;
+      counterpartyStats.totalPnL += totalCollateral - counterpartyCollateral;
+      counterpartyStats.positionCount++;
+      predictorStats.totalPnL -= predictorCollateral;
+      predictorStats.positionCount++;
     }
   }
 

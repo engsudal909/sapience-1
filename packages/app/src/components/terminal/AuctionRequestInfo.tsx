@@ -357,7 +357,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
 
   const { data: lastParlay, refetch: refetchLastTrade } = useLastTradeForIntent(
     {
-      maker: taker || uiTx?.position?.owner,
+      predictor: taker || uiTx?.position?.owner,
       outcomesSignature: outcomesSignature,
     }
   );
@@ -374,16 +374,20 @@ const AuctionRequestInfo: React.FC<Props> = ({
   const lastTrade = useMemo(() => {
     try {
       if (!lastParlay) return null;
-      const makerWei = BigInt(String(lastParlay?.makerCollateral ?? '0'));
-      const takerWei = BigInt(String(lastParlay?.takerCollateral ?? '0'));
-      const takerEth = Number(formatEther(takerWei));
-      const totalEth = Number(formatEther(makerWei + takerWei));
+      const predictorWei = BigInt(String(lastParlay?.predictorCollateral ?? '0'));
+      const counterpartyWei = BigInt(
+        String(lastParlay?.counterpartyCollateral ?? '0')
+      );
+      const counterpartyEth = Number(formatEther(counterpartyWei));
+      const totalEth = Number(formatEther(predictorWei + counterpartyWei));
       const pct =
-        Number.isFinite(takerEth) && Number.isFinite(totalEth) && totalEth > 0
-          ? Math.round((takerEth / totalEth) * 100)
+        Number.isFinite(counterpartyEth) &&
+        Number.isFinite(totalEth) &&
+        totalEth > 0
+          ? Math.round((counterpartyEth / totalEth) * 100)
           : undefined;
       return {
-        takerStr: takerEth.toLocaleString(undefined, {
+        takerStr: counterpartyEth.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         }),
@@ -391,7 +395,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         }),
-        takerNum: takerEth,
+        takerNum: counterpartyEth,
         totalNum: totalEth,
         pct,
       } as const;

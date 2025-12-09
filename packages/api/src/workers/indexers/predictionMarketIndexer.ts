@@ -579,8 +579,8 @@ class PredictionMarketIndexer implements IIndexer {
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
-            makerNftTokenId: eventData.makerNftTokenId,
-            takerNftTokenId: eventData.takerNftTokenId,
+            predictorNftTokenId: eventData.makerNftTokenId,
+            counterpartyNftTokenId: eventData.takerNftTokenId,
           },
         });
 
@@ -648,16 +648,16 @@ class PredictionMarketIndexer implements IIndexer {
         data: {
           chainId: this.chainId,
           marketAddress: log.address.toLowerCase(),
-          maker: eventData.maker.toLowerCase(),
-          taker: eventData.taker.toLowerCase(),
-          makerNftTokenId: eventData.makerNftTokenId,
-          takerNftTokenId: eventData.takerNftTokenId,
+          predictor: eventData.maker.toLowerCase(),
+          counterparty: eventData.taker.toLowerCase(),
+          predictorNftTokenId: eventData.makerNftTokenId,
+          counterpartyNftTokenId: eventData.takerNftTokenId,
           totalCollateral: eventData.totalCollateral,
-          makerCollateral: eventData.makerCollateral,
-          takerCollateral: eventData.takerCollateral,
+          predictorCollateral: eventData.makerCollateral,
+          counterpartyCollateral: eventData.takerCollateral,
           refCode: eventData.refCode,
           status: 'active',
-          makerWon: null,
+          predictorWon: null,
           mintedAt: Number(block.timestamp),
           settledAt: null,
           endsAt: endsAt ?? null,
@@ -750,8 +750,8 @@ class PredictionMarketIndexer implements IIndexer {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             OR: [
-              { makerNftTokenId: eventData.makerNftTokenId },
-              { takerNftTokenId: eventData.takerNftTokenId },
+              { predictorNftTokenId: eventData.makerNftTokenId },
+              { counterpartyNftTokenId: eventData.takerNftTokenId },
             ],
           },
         });
@@ -760,7 +760,7 @@ class PredictionMarketIndexer implements IIndexer {
             where: { id: position.id },
             data: {
               status: 'settled',
-              makerWon: eventData.makerWon,
+              predictorWon: eventData.makerWon,
               settledAt: Number(block.timestamp),
             },
           });
@@ -773,7 +773,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed PredictionBurned: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}, winner: ${eventData.makerWon ? 'maker' : 'taker'}`
+        `[PredictionMarketIndexer] Processed PredictionBurned: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}, winner: ${eventData.makerWon ? 'predictor' : 'counterparty'}`
       );
     } catch (error) {
       console.error(
@@ -846,8 +846,8 @@ class PredictionMarketIndexer implements IIndexer {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             OR: [
-              { makerNftTokenId: eventData.makerNftTokenId },
-              { takerNftTokenId: eventData.takerNftTokenId },
+              { predictorNftTokenId: eventData.makerNftTokenId },
+              { counterpartyNftTokenId: eventData.takerNftTokenId },
             ],
           },
         });
@@ -856,7 +856,7 @@ class PredictionMarketIndexer implements IIndexer {
             where: { id: position.id },
             data: {
               status: 'consolidated',
-              makerWon: true,
+              predictorWon: true,
               settledAt: Number(block.timestamp),
             },
           });

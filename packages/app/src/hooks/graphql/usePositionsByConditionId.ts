@@ -19,16 +19,16 @@ const POSITIONS_BY_CONDITION_ID_QUERY = /* GraphQL */ `
       id
       chainId
       marketAddress
-      maker
-      taker
-      makerNftTokenId
-      takerNftTokenId
+      predictor
+      counterparty
+      predictorNftTokenId
+      counterpartyNftTokenId
       totalCollateral
-      makerCollateral
-      takerCollateral
+      predictorCollateral
+      counterpartyCollateral
       refCode
       status
-      makerWon
+      predictorWon
       mintedAt
       settledAt
       endsAt

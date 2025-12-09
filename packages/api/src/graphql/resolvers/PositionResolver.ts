@@ -41,25 +41,25 @@ class PositionType {
   marketAddress!: string;
 
   @Field(() => String)
-  maker!: string;
+  predictor!: string;
 
   @Field(() => String)
-  taker!: string;
+  counterparty!: string;
 
   @Field(() => String)
-  makerNftTokenId!: string;
+  predictorNftTokenId!: string;
 
   @Field(() => String)
-  takerNftTokenId!: string;
+  counterpartyNftTokenId!: string;
 
   @Field(() => String)
   totalCollateral!: string;
 
   @Field(() => String, { nullable: true })
-  makerCollateral?: string | null;
+  predictorCollateral?: string | null;
 
   @Field(() => String, { nullable: true })
-  takerCollateral?: string | null;
+  counterpartyCollateral?: string | null;
 
   @Field(() => String, { nullable: true })
   refCode?: string | null;
@@ -68,7 +68,7 @@ class PositionType {
   status!: 'active' | 'settled' | 'consolidated';
 
   @Field(() => Boolean, { nullable: true })
-  makerWon?: boolean | null;
+  predictorWon?: boolean | null;
 
   @Field(() => Int)
   mintedAt!: number;
@@ -92,7 +92,7 @@ export class PositionResolver {
   ): Promise<number> {
     const addr = address.toLowerCase();
     const where: Prisma.PositionWhereInput = {
-      OR: [{ maker: addr }, { taker: addr }],
+      OR: [{ predictor: addr }, { counterparty: addr }],
     };
     if (chainId !== undefined && chainId !== null) {
       where.chainId = chainId;
@@ -165,16 +165,16 @@ export class PositionResolver {
           id: r.id,
           chainId: r.chainId,
           marketAddress: r.marketAddress,
-          maker: r.maker,
-          taker: r.taker,
-          makerNftTokenId: r.makerNftTokenId,
-          takerNftTokenId: r.takerNftTokenId,
+          predictor: r.predictor,
+          counterparty: r.counterparty,
+          predictorNftTokenId: r.predictorNftTokenId,
+          counterpartyNftTokenId: r.counterpartyNftTokenId,
           totalCollateral: r.totalCollateral,
-          makerCollateral: r.makerCollateral ?? null,
-          takerCollateral: r.takerCollateral ?? null,
+          predictorCollateral: r.predictorCollateral ?? null,
+          counterpartyCollateral: r.counterpartyCollateral ?? null,
           refCode: r.refCode,
           status: r.status as unknown as PositionType['status'],
-          makerWon: r.makerWon,
+          predictorWon: r.predictorWon,
           mintedAt: r.mintedAt,
           settledAt: r.settledAt ?? null,
           endsAt: r.endsAt ?? null,
@@ -190,10 +190,10 @@ export class PositionResolver {
         if (chainId !== undefined && chainId !== null) {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE (LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}) AND "chainId" = ${chainId}
+            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId}
             ORDER BY CASE 
-              WHEN LOWER(maker) = ${addr} THEN CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
-              WHEN LOWER(taker) = ${addr} THEN CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+              WHEN LOWER(predictor) = ${addr} THEN CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
+              WHEN LOWER(counterparty) = ${addr} THEN CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
               ELSE 0
             END ${Prisma.raw(direction)}
             LIMIT ${take}
@@ -203,10 +203,10 @@ export class PositionResolver {
         } else {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
+            WHERE LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}
             ORDER BY CASE 
-              WHEN LOWER(maker) = ${addr} THEN CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
-              WHEN LOWER(taker) = ${addr} THEN CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+              WHEN LOWER(predictor) = ${addr} THEN CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
+              WHEN LOWER(counterparty) = ${addr} THEN CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
               ELSE 0
             END ${Prisma.raw(direction)}
             LIMIT ${take}
@@ -220,22 +220,22 @@ export class PositionResolver {
         if (chainId !== undefined && chainId !== null) {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE (LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}) AND "chainId" = ${chainId}
+            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId}
             ORDER BY CASE 
               WHEN status = 'active' THEN 0
-              WHEN LOWER(maker) = ${addr} THEN
+              WHEN LOWER(predictor) = ${addr} THEN
                 CASE 
-                  WHEN "makerWon" = true THEN 
-                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+                  WHEN "predictorWon" = true THEN 
+                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
                   ELSE 
-                    -CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+                    -CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
                 END
-              WHEN LOWER(taker) = ${addr} THEN
+              WHEN LOWER(counterparty) = ${addr} THEN
                 CASE 
-                  WHEN "makerWon" = false THEN 
-                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+                  WHEN "predictorWon" = false THEN 
+                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
                   ELSE 
-                    -CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+                    -CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
                 END
               ELSE 0
             END ${Prisma.raw(direction)}
@@ -246,22 +246,22 @@ export class PositionResolver {
         } else {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
+            WHERE LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}
             ORDER BY CASE 
               WHEN status = 'active' THEN 0
-              WHEN LOWER(maker) = ${addr} THEN
+              WHEN LOWER(predictor) = ${addr} THEN
                 CASE 
-                  WHEN "makerWon" = true THEN 
-                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+                  WHEN "predictorWon" = true THEN 
+                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
                   ELSE 
-                    -CAST(COALESCE("makerCollateral", '0') AS DECIMAL)
+                    -CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
                 END
-              WHEN LOWER(taker) = ${addr} THEN
+              WHEN LOWER(counterparty) = ${addr} THEN
                 CASE 
-                  WHEN "makerWon" = false THEN 
-                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+                  WHEN "predictorWon" = false THEN 
+                    CAST(COALESCE("totalCollateral", '0') AS DECIMAL) - CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
                   ELSE 
-                    -CAST(COALESCE("takerCollateral", '0') AS DECIMAL)
+                    -CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
                 END
               ELSE 0
             END ${Prisma.raw(direction)}
@@ -276,13 +276,13 @@ export class PositionResolver {
       if (chainId !== undefined && chainId !== null) {
         const rows = await prisma.$queryRaw<Position[]>`
           SELECT * FROM position
-          WHERE (LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}) AND "chainId" = ${chainId}
+          WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId}
           ORDER BY CASE 
             WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
             WHEN status != 'active' THEN
               CASE
-                WHEN (LOWER(maker) = ${addr} AND "makerWon" = true) THEN CAST("totalCollateral" AS DECIMAL)
-                WHEN (LOWER(taker) = ${addr} AND "makerWon" = false) THEN CAST("totalCollateral" AS DECIMAL)
+                WHEN (LOWER(predictor) = ${addr} AND "predictorWon" = true) THEN CAST("totalCollateral" AS DECIMAL)
+                WHEN (LOWER(counterparty) = ${addr} AND "predictorWon" = false) THEN CAST("totalCollateral" AS DECIMAL)
                 ELSE 0
               END
             ELSE 0
@@ -294,13 +294,13 @@ export class PositionResolver {
       } else {
         const rows = await prisma.$queryRaw<Position[]>`
           SELECT * FROM position
-          WHERE LOWER(maker) = ${addr} OR LOWER(taker) = ${addr}
+          WHERE LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}
           ORDER BY CASE 
             WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
             WHEN status != 'active' THEN
               CASE
-                WHEN (LOWER(maker) = ${addr} AND "makerWon" = true) THEN CAST("totalCollateral" AS DECIMAL)
-                WHEN (LOWER(taker) = ${addr} AND "makerWon" = false) THEN CAST("totalCollateral" AS DECIMAL)
+                WHEN (LOWER(predictor) = ${addr} AND "predictorWon" = true) THEN CAST("totalCollateral" AS DECIMAL)
+                WHEN (LOWER(counterparty) = ${addr} AND "predictorWon" = false) THEN CAST("totalCollateral" AS DECIMAL)
                 ELSE 0
               END
             ELSE 0
@@ -321,7 +321,7 @@ export class PositionResolver {
     }
 
     const where: Prisma.PositionWhereInput = {
-      OR: [{ maker: addr }, { taker: addr }],
+      OR: [{ predictor: addr }, { counterparty: addr }],
     };
     if (chainId !== undefined && chainId !== null) {
       where.chainId = chainId;
@@ -425,16 +425,16 @@ export class PositionResolver {
           id: r.id,
           chainId: r.chainId,
           marketAddress: r.marketAddress,
-          maker: r.maker,
-          taker: r.taker,
-          makerNftTokenId: r.makerNftTokenId,
-          takerNftTokenId: r.takerNftTokenId,
+          predictor: r.predictor,
+          counterparty: r.counterparty,
+          predictorNftTokenId: r.predictorNftTokenId,
+          counterpartyNftTokenId: r.counterpartyNftTokenId,
           totalCollateral: r.totalCollateral,
-          makerCollateral: r.makerCollateral ?? null,
-          takerCollateral: r.takerCollateral ?? null,
+          predictorCollateral: r.predictorCollateral ?? null,
+          counterpartyCollateral: r.counterpartyCollateral ?? null,
           refCode: r.refCode,
           status: r.status as unknown as PositionType['status'],
-          makerWon: r.makerWon,
+          predictorWon: r.predictorWon,
           mintedAt: r.mintedAt,
           settledAt: r.settledAt ?? null,
           endsAt: r.endsAt ?? null,
