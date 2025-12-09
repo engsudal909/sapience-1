@@ -58,7 +58,7 @@ export default function PredictionForm({
   chainId,
   collateralSymbol,
   collateralDecimals = 18,
-  minWager,
+  minWager: _minWager,
   predictionMarketAddress,
   bids,
   requestQuotes,
@@ -236,11 +236,6 @@ export default function PredictionForm({
   // Determine if we should show the bid display (user has made a selection)
   const showBidDisplay = selectedPrediction !== null;
 
-  // Validate wager amount
-  const wagerNum = parseFloat(wagerAmount || '0');
-  const minWagerNum = parseFloat(minWager || '0');
-  const isWagerValid = wagerNum >= minWagerNum && wagerNum > 0;
-
   // Compute taker wager in wei for auction chart
   const takerWagerWei = useMemo(() => {
     try {
@@ -252,9 +247,9 @@ export default function PredictionForm({
 
   return (
     <div
-      className={`min-h-[340px] lg:min-h-[420px] border border-border rounded-lg bg-brand-black p-4 flex flex-col ${className ?? ''}`}
+      className={`min-h-[340px] lg:min-h-[360px] border border-border rounded-lg bg-brand-black p-4 flex flex-col ${className ?? ''}`}
     >
-      <div className="flex flex-col gap-3 flex-1">
+      <div className="flex flex-col gap-3">
         {/* Current Forecast Display */}
         <div className="flex flex-col items-start gap-1 pt-1">
           <Label className="text-brand-white">Current Forecast</Label>
@@ -335,7 +330,7 @@ export default function PredictionForm({
       </div>
 
       {/* Bid Display / Submit Section */}
-      {showBidDisplay && isWagerValid ? (
+      {showBidDisplay ? (
         <BidDisplay
           bestBid={bestBid}
           wagerAmount={wagerAmount}
@@ -354,11 +349,7 @@ export default function PredictionForm({
         />
       ) : (
         <div className="mt-auto pt-4 text-center text-sm text-muted-foreground">
-          {!selectedPrediction
-            ? 'Select Yes or No to make a prediction'
-            : !isWagerValid
-              ? `Minimum wager: ${minWager || '0'} ${collateralSymbol}`
-              : ''}
+          Select Yes or No to make a prediction
         </div>
       )}
     </div>
