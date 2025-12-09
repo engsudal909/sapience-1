@@ -43,6 +43,8 @@ export function ConditionStatusIndicator({
     return resolvedToYes ? 'resolvedYes' : 'resolvedNo';
   })();
 
+  const isResolved = state === 'resolvedYes' || state === 'resolvedNo';
+
   const circle = (() => {
     const base =
       'relative inline-flex h-[18px] w-[18px] items-center justify-center';
@@ -86,7 +88,15 @@ export function ConditionStatusIndicator({
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>{circle}</TooltipTrigger>
-        <TooltipContent>{tooltipContent}</TooltipContent>
+        <TooltipContent
+          className={
+            isResolved
+              ? 'border-none bg-transparent shadow-none p-0'
+              : undefined
+          }
+        >
+          {tooltipContent}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

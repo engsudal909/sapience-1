@@ -48,7 +48,7 @@ export function TechSpecTable({
   };
 
   return (
-    <table className="w-full text-xs">
+    <table className="w-full text-xs border-collapse">
       <tbody className="divide-y divide-border/60">
         <tr>
           <td className="px-4 py-3 text-xs text-muted-foreground font-mono uppercase tracking-wider whitespace-nowrap w-24">

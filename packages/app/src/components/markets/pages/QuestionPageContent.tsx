@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import dynamic from 'next/dynamic';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
-import { Label } from '@sapience/sdk/ui/components/ui/label';
 import {
   Tabs,
   TabsContent,
@@ -16,36 +15,32 @@ import {
 import {
   ArrowLeftRight,
   Bot,
-  Code,
   DollarSign,
   Handshake,
   Telescope,
 } from 'lucide-react';
 import {
-  predictionMarket,
   umaResolver,
   lzPMResolver,
   lzUmaResolver,
 } from '@sapience/sdk/contracts/addresses';
-import { erc20Abi } from 'viem';
-import { useReadContracts } from 'wagmi';
-import { predictionMarketAbi } from '@sapience/sdk';
-import { DEFAULT_CHAIN_ID, COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import { predictionMarket } from '@sapience/sdk/contracts';
+import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
+import { formatEther } from 'viem';
 import EndTimeDisplay from '~/components/shared/EndTimeDisplay';
 import SafeMarkdown from '~/components/shared/SafeMarkdown';
 import { ResolverBadge } from '~/components/shared/ResolverBadge';
-import PredictionForm from './PredictionForm';
 import Comments, { CommentFilters } from '~/components/shared/Comments';
+import PredictionForm from '~/components/markets/pages/PredictionForm';
 import ConditionForecastForm from '~/components/conditions/ConditionForecastForm';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import ResearchAgent from '~/components/markets/ResearchAgent';
-import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import { usePositionsByConditionId } from '~/hooks/graphql/usePositionsByConditionId';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
 import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
 import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
-import { formatEther } from 'viem';
+import { useAuctionStart } from '~/lib/auction/useAuctionStart';
 import {
   type PredictionData,
   type ForecastData,
@@ -142,75 +137,6 @@ export default function QuestionPageContent({
     lzPMResolver[chainId]?.address ??
     lzUmaResolver[chainId]?.address ??
     umaResolver[chainId]?.address;
-
-  // Get PredictionMarket address for this chain
-  const predictionMarketAddress = predictionMarket[chainId]?.address;
-
-  // Initiate auction start hook for RFQ quote management
-  const { bids, requestQuotes } = useAuctionStart();
-
-  // Fetch PredictionMarket configuration (collateral token, min collateral)
-  const predictionMarketConfigRead = useReadContracts({
-    contracts: [
-      {
-        address: predictionMarketAddress,
-        abi: predictionMarketAbi,
-        functionName: 'getConfig',
-        chainId,
-      },
-    ],
-    query: {
-      enabled: !!predictionMarketAddress,
-    },
-  });
-
-  // Extract collateral token address from config
-  const collateralToken = useMemo(() => {
-    const item = predictionMarketConfigRead.data?.[0];
-    if (item && item.status === 'success') {
-      const cfg = item.result as { collateralToken: `0x${string}` } | undefined;
-      return cfg?.collateralToken;
-    }
-    return undefined;
-  }, [predictionMarketConfigRead.data]);
-
-  // Check if we're on an Ethereal chain (native USDe)
-  const isEtherealChain = useMemo(() => {
-    return COLLATERAL_SYMBOLS[chainId] === 'USDe';
-  }, [chainId]);
-
-  // Fetch collateral token symbol and decimals (skip for Ethereal chains)
-  const erc20MetaRead = useReadContracts({
-    contracts: collateralToken
-      ? [
-          {
-            address: collateralToken,
-            abi: erc20Abi,
-            functionName: 'symbol',
-            chainId,
-          },
-          {
-            address: collateralToken,
-            abi: erc20Abi,
-            functionName: 'decimals',
-            chainId,
-          },
-        ]
-      : [],
-    query: { enabled: !!collateralToken && !isEtherealChain },
-  });
-
-  // Derive collateral decimals
-  const collateralDecimals = useMemo(() => {
-    if (isEtherealChain) {
-      return 18;
-    }
-    const item = erc20MetaRead.data?.[1];
-    if (item && item.status === 'success') {
-      return Number(item.result);
-    }
-    return 18;
-  }, [erc20MetaRead.data, isEtherealChain]);
 
   // Fetch positions for this condition
   const { data: positions, isLoading: isLoadingPositions } =
@@ -479,14 +405,9 @@ export default function QuestionPageContent({
   // Computed flags for conditional rendering
   const hasPositions = scatterData.length > 0;
   const hasForecasts = forecastScatterData.length > 0;
-  const shouldShowChart = hasPositions || hasForecasts;
+  const shouldShowChart = hasPositions || hasForecasts || isLoadingPositions;
 
-  type PrimaryTab =
-    | 'predictions'
-    | 'forecasts'
-    | 'resolution'
-    | 'agent'
-    | 'techspec';
+  type PrimaryTab = 'predictions' | 'forecasts' | 'resolution' | 'agent';
 
   // Keep primary tab controlled so we can default to Positions when available
   const [primaryTab, setPrimaryTab] = React.useState<PrimaryTab>('forecasts');
@@ -550,6 +471,11 @@ export default function QuestionPageContent({
     return { xDomain: domain, xTicks: ticks, xTickLabels: labels };
   }, [scatterData]);
 
+  const { bids, requestQuotes } = useAuctionStart();
+  const predictionMarketAddress =
+    predictionMarket[chainId]?.address ??
+    predictionMarket[DEFAULT_CHAIN_ID]?.address;
+
   if (isLoading) {
     return (
       <div
@@ -599,6 +525,254 @@ export default function QuestionPageContent({
     if (c.startsWith('rgb(')) return toSlashAlpha('rgb', c.slice(4, -1));
     return c;
   };
+
+  const renderPredictionFormCard = () => (
+    <PredictionForm
+      conditionId={conditionId}
+      question={data.shortName || data.question || ''}
+      categorySlug={data.category?.slug}
+      chainId={chainId}
+      predictionMarketAddress={predictionMarketAddress}
+      bids={bids}
+      requestQuotes={requestQuotes}
+    />
+  );
+
+  const renderTechSpecsCard = () => (
+    <div className="border border-border rounded-lg bg-brand-black p-0 overflow-hidden">
+      <TechSpecTable
+        conditionId={conditionId}
+        chainId={data.chainId ?? 42161}
+        endTime={data?.endTime ?? null}
+        settled={data?.settled ?? null}
+        resolvedToYes={data?.resolvedToYes ?? null}
+      />
+    </div>
+  );
+
+  const renderScatterPlotCard = () => (
+    <div className="relative w-full min-w-0 min-h-[350px] h-full bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
+      <PredictionScatterChart
+        scatterData={scatterData}
+        forecastScatterData={forecastScatterData}
+        isLoading={isLoadingPositions}
+        wagerRange={wagerRange}
+        xDomain={xDomain}
+        xTicks={xTicks}
+        xTickLabels={xTickLabels}
+      />
+    </div>
+  );
+
+  const sidebarContent = (
+    <div className="flex flex-col gap-4">
+      {renderPredictionFormCard()}
+      {renderTechSpecsCard()}
+    </div>
+  );
+
+  const mobileTabs = (
+    <Tabs
+      value={primaryTabValue}
+      onValueChange={handlePrimaryTabChange}
+      className="w-full min-w-0"
+    >
+      <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
+        {/* Header with all tabs */}
+        <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10 overflow-x-auto">
+          <TabsList className="h-auto p-0 bg-transparent gap-2 flex-nowrap">
+            {hasPositions && (
+              <TabsTrigger
+                value="predictions"
+                className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                Positions
+              </TabsTrigger>
+            )}
+            <TabsTrigger
+              value="forecasts"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Telescope className="h-3.5 w-3.5" />
+              Forecasts
+            </TabsTrigger>
+            <TabsTrigger
+              value="resolution"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Handshake className="h-3.5 w-3.5" />
+              Resolution
+            </TabsTrigger>
+            <TabsTrigger
+              value="agent"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              Agent
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {/* Content area - Positions */}
+        <TabsContent value="predictions" className="m-0">
+          <PredictionsTable data={scatterData} isLoading={isLoadingPositions} />
+        </TabsContent>
+        {/* Content area - Forecasts */}
+        <TabsContent value="forecasts" className="m-0">
+          <div className="p-4 border-b border-border/60">
+            <ConditionForecastForm
+              conditionId={conditionId}
+              question={data.shortName || data.question || ''}
+              endTime={data.endTime ?? undefined}
+              categorySlug={data.category?.slug}
+              onSuccess={handleForecastSuccess}
+            />
+          </div>
+          <Comments
+            selectedCategory={CommentFilters.SelectedQuestion}
+            question={data.shortName || data.question}
+            conditionId={conditionId}
+            refetchTrigger={refetchTrigger}
+          />
+        </TabsContent>
+        {/* Content area - Resolution */}
+        <TabsContent value="resolution" className="m-0 p-4">
+          <div className="mb-4 flex items-center gap-3 flex-wrap">
+            <ResolverBadge
+              resolverAddress={resolverAddress}
+              size="normal"
+              appearance="brandWhite"
+            />
+            <EndTimeDisplay
+              endTime={data.endTime ?? null}
+              size="normal"
+              appearance="brandWhite"
+            />
+          </div>
+          {data.description ? (
+            <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
+              <SafeMarkdown
+                content={data.description}
+                className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+              />
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-sm">
+              No resolution criteria available.
+            </span>
+          )}
+        </TabsContent>
+        {/* Content area - Agent */}
+        <TabsContent value="agent" className="m-0">
+          <ResearchAgent
+            question={data.shortName || data.question}
+            endTime={data.endTime}
+            description={data.description}
+          />
+        </TabsContent>
+      </div>
+    </Tabs>
+  );
+
+  const desktopTabs = (
+    <Tabs
+      value={primaryTabValue}
+      onValueChange={handlePrimaryTabChange}
+      className="w-full min-w-0"
+    >
+      <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
+        {/* Header with integrated tabs */}
+        <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
+          <TabsList className="h-auto p-0 bg-transparent gap-2">
+            {hasPositions && (
+              <TabsTrigger
+                value="predictions"
+                className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                Positions
+              </TabsTrigger>
+            )}
+            <TabsTrigger
+              value="forecasts"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+            >
+              <Telescope className="h-3.5 w-3.5" />
+              Forecasts
+            </TabsTrigger>
+            <TabsTrigger
+              value="resolution"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+            >
+              <Handshake className="h-3.5 w-3.5" />
+              Resolution
+            </TabsTrigger>
+            <TabsTrigger
+              value="agent"
+              className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              Agent
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {/* Content area */}
+        <TabsContent value="predictions" className="m-0">
+          <PredictionsTable data={scatterData} isLoading={isLoadingPositions} />
+        </TabsContent>
+        <TabsContent value="forecasts" className="m-0">
+          <div className="p-4 border-b border-border/60">
+            <ConditionForecastForm
+              conditionId={conditionId}
+              question={data.shortName || data.question || ''}
+              endTime={data.endTime ?? undefined}
+              categorySlug={data.category?.slug}
+              onSuccess={handleForecastSuccess}
+            />
+          </div>
+          <Comments
+            selectedCategory={CommentFilters.SelectedQuestion}
+            question={data.shortName || data.question}
+            conditionId={conditionId}
+            refetchTrigger={refetchTrigger}
+          />
+        </TabsContent>
+        <TabsContent value="resolution" className="m-0 p-4">
+          <div className="mb-4 flex items-center gap-3 flex-wrap">
+            <ResolverBadge
+              resolverAddress={resolverAddress}
+              size="normal"
+              appearance="brandWhite"
+            />
+            <EndTimeDisplay
+              endTime={data.endTime ?? null}
+              size="normal"
+              appearance="brandWhite"
+            />
+          </div>
+          {data.description ? (
+            <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
+              <SafeMarkdown
+                content={data.description}
+                className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
+              />
+            </div>
+          ) : (
+            <span className="text-muted-foreground text-sm">
+              No resolution criteria available.
+            </span>
+          )}
+        </TabsContent>
+        <TabsContent value="agent" className="m-0">
+          <ResearchAgent
+            question={data.shortName || data.question}
+            endTime={data.endTime}
+            description={data.description}
+          />
+        </TabsContent>
+      </div>
+    </Tabs>
+  );
 
   return (
     <div
@@ -676,411 +850,41 @@ export default function QuestionPageContent({
             />
           </div>
 
-          {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
-          {/* Only render this row when there's chart data to show */}
+          {/* When we have chart data, keep scatter plot on the left and sidebar cards on the right */}
           {shouldShowChart && (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
-              {/* Scatterplot - height matches the PredictionForm dynamically */}
-              <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2 order-2 lg:order-1">
-                <PredictionScatterChart
-                  scatterData={scatterData}
-                  forecastScatterData={forecastScatterData}
-                  isLoading={isLoadingPositions}
-                  wagerRange={wagerRange}
-                  xDomain={xDomain}
-                  xTicks={xTicks}
-                  xTickLabels={xTickLabels}
-                />
+            <>
+              <div className="hidden lg:grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 mb-6 items-stretch">
+                {renderScatterPlotCard()}
+                {sidebarContent}
               </div>
 
-              {/* Current Forecast + Prediction Form + Tech Spec */}
-              <div className="flex flex-col gap-4 order-1 lg:order-2">
-                <PredictionForm
-                  conditionId={conditionId}
-                  question={data.shortName || data.question || ''}
-                  categorySlug={data.category?.slug}
-                  chainId={chainId}
-                  collateralDecimals={collateralDecimals}
-                  predictionMarketAddress={predictionMarketAddress}
-                  bids={bids}
-                  requestQuotes={requestQuotes}
-                />
-                {/* Tech Spec - Desktop only, hidden on mobile (shown in tabs there) */}
-                <div className="hidden lg:block border border-border rounded-lg bg-brand-black overflow-hidden">
-                  <TechSpecTable
-                    conditionId={conditionId}
-                    chainId={data.chainId ?? 42161}
-                    endTime={data?.endTime ?? null}
-                    settled={data?.settled ?? null}
-                    resolvedToYes={data?.resolvedToYes ?? null}
-                  />
-                </div>
+              <div className="lg:hidden flex flex-col gap-6 mb-12">
+                {renderPredictionFormCard()}
+                {renderScatterPlotCard()}
+                {renderTechSpecsCard()}
+                {mobileTabs}
               </div>
-            </div>
+            </>
           )}
 
-          {/* Mobile: Show PredictionForm when no chart data */}
+          {/* When there is no chart data, use the tabs in the left slot and keep sidebar on the right */}
           {!shouldShowChart && (
-            <div className="lg:hidden mb-6">
-              <PredictionForm
-                conditionId={conditionId}
-                question={data.shortName || data.question || ''}
-                categorySlug={data.category?.slug}
-                chainId={chainId}
-                collateralDecimals={collateralDecimals}
-                predictionMarketAddress={predictionMarketAddress}
-                bids={bids}
-                requestQuotes={requestQuotes}
-              />
-            </div>
+            <>
+              <div className="hidden lg:grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 mb-6 items-stretch">
+                <div className="min-w-0">{desktopTabs}</div>
+                {sidebarContent}
+              </div>
+              <div className="lg:hidden flex flex-col gap-6 mb-12">
+                {renderPredictionFormCard()}
+                {renderTechSpecsCard()}
+                {mobileTabs}
+              </div>
+            </>
           )}
 
-          {/* Row 2: Mobile - All tabs in one container */}
-          <div className="lg:hidden mb-12">
-            <Tabs
-              value={primaryTabValue}
-              onValueChange={handlePrimaryTabChange}
-              className="w-full min-w-0"
-            >
-              <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
-                {/* Header with all 5 tabs */}
-                <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10 overflow-x-auto">
-                  <TabsList className="h-auto p-0 bg-transparent gap-2 flex-nowrap">
-                    {hasPositions && (
-                      <TabsTrigger
-                        value="predictions"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                      >
-                        <ArrowLeftRight className="h-3.5 w-3.5" />
-                        Positions
-                      </TabsTrigger>
-                    )}
-                    <TabsTrigger
-                      value="forecasts"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Telescope className="h-3.5 w-3.5" />
-                      Forecasts
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="resolution"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Handshake className="h-3.5 w-3.5" />
-                      Resolution
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="agent"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      Agent
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="techspec"
-                      className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Code className="h-3.5 w-3.5" />
-                      Tech Spec
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-                {/* Content area - Positions */}
-                <TabsContent value="predictions" className="m-0">
-                  <PredictionsTable
-                    data={scatterData}
-                    isLoading={isLoadingPositions}
-                  />
-                </TabsContent>
-                {/* Content area - Forecasts */}
-                <TabsContent value="forecasts" className="m-0">
-                  <div className="p-4 border-b border-border/60">
-                    <ConditionForecastForm
-                      conditionId={conditionId}
-                      question={data.shortName || data.question || ''}
-                      endTime={data.endTime ?? undefined}
-                      categorySlug={data.category?.slug}
-                      onSuccess={handleForecastSuccess}
-                    />
-                  </div>
-                  <Comments
-                    selectedCategory={CommentFilters.SelectedQuestion}
-                    question={data.shortName || data.question}
-                    conditionId={conditionId}
-                    refetchTrigger={refetchTrigger}
-                  />
-                </TabsContent>
-                {/* Content area - Resolution */}
-                <TabsContent value="resolution" className="m-0 p-4">
-                  <div className="mb-4 flex items-center gap-3 flex-wrap">
-                    <ResolverBadge
-                      resolverAddress={resolverAddress}
-                      size="normal"
-                      appearance="brandWhite"
-                    />
-                    <EndTimeDisplay
-                      endTime={data.endTime ?? null}
-                      size="normal"
-                      appearance="brandWhite"
-                    />
-                  </div>
-                  {data.description ? (
-                    <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
-                      <SafeMarkdown
-                        content={data.description}
-                        className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">
-                      No resolution criteria available.
-                    </span>
-                  )}
-                </TabsContent>
-                {/* Content area - Agent */}
-                <TabsContent value="agent" className="m-0">
-                  <ResearchAgent
-                    question={data.shortName || data.question}
-                    endTime={data.endTime}
-                    description={data.description}
-                  />
-                </TabsContent>
-                {/* Content area - Tech Spec */}
-                <TabsContent value="techspec" className="m-0">
-                  <TechSpecTable
-                    conditionId={conditionId}
-                    chainId={data.chainId ?? 42161}
-                    endTime={data?.endTime ?? null}
-                    settled={data?.settled ?? null}
-                    resolvedToYes={data?.resolvedToYes ?? null}
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </div>
-
-          {/* Row 2: Desktop - Predictions/Forecasts (left) | Agent (right) */}
-          {/* Only show this layout when chart is visible (has positions or forecasts) */}
+          {/* Desktop tabs: show here only when the chart is present (otherwise rendered in grid) */}
           {shouldShowChart && (
-            <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
-              {/* Predictions/Forecasts/Resolution - Unified container with integrated tabs */}
-              <Tabs
-                value={primaryTabValue}
-                onValueChange={handlePrimaryTabChange}
-                className="w-full min-w-0"
-              >
-                <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
-                  {/* Header with integrated tabs */}
-                  <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
-                    <TabsList className="h-auto p-0 bg-transparent gap-2">
-                      {hasPositions && (
-                        <TabsTrigger
-                          value="predictions"
-                          className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                        >
-                          <ArrowLeftRight className="h-3.5 w-3.5" />
-                          Positions
-                        </TabsTrigger>
-                      )}
-                      <TabsTrigger
-                        value="forecasts"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Telescope className="h-3.5 w-3.5" />
-                        Forecasts
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="resolution"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Handshake className="h-3.5 w-3.5" />
-                        Resolution
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-                  {/* Content area */}
-                  <TabsContent value="predictions" className="m-0">
-                    <PredictionsTable
-                      data={scatterData}
-                      isLoading={isLoadingPositions}
-                    />
-                  </TabsContent>
-                  <TabsContent value="forecasts" className="m-0">
-                    <div className="p-4 border-b border-border/60">
-                      <ConditionForecastForm
-                        conditionId={conditionId}
-                        question={data.shortName || data.question || ''}
-                        endTime={data.endTime ?? undefined}
-                        categorySlug={data.category?.slug}
-                        onSuccess={handleForecastSuccess}
-                      />
-                    </div>
-                    <Comments
-                      selectedCategory={CommentFilters.SelectedQuestion}
-                      question={data.shortName || data.question}
-                      conditionId={conditionId}
-                      refetchTrigger={refetchTrigger}
-                    />
-                  </TabsContent>
-                  <TabsContent value="resolution" className="m-0 p-4">
-                    <div className="mb-4 flex items-center gap-3 flex-wrap">
-                      <ResolverBadge
-                        resolverAddress={resolverAddress}
-                        size="normal"
-                        appearance="brandWhite"
-                      />
-                      <EndTimeDisplay
-                        endTime={data.endTime ?? null}
-                        size="normal"
-                        appearance="brandWhite"
-                      />
-                    </div>
-                    {data.description ? (
-                      <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
-                        <SafeMarkdown
-                          content={data.description}
-                          className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">
-                        No resolution criteria available.
-                      </span>
-                    )}
-                  </TabsContent>
-                </div>
-              </Tabs>
-
-              {/* Right column: Agent */}
-              <div className="border border-border rounded-lg bg-brand-black overflow-hidden">
-                <div className="flex h-[52px] items-center gap-2 px-4 border-b border-border/60 bg-muted/10">
-                  <Bot className="h-4 w-4 text-brand-white" />
-                  <Label className="text-brand-white">Agent</Label>
-                </div>
-                <ResearchAgent
-                  question={data.shortName || data.question}
-                  endTime={data.endTime}
-                  description={data.description}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Alternative Desktop layout when no chart data - Forecasts/Resolution (left) | PredictionForm + Agent/TechSpec (right) */}
-          {!shouldShowChart && (
-            <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
-              {/* Forecasts/Resolution - Left column */}
-              <Tabs
-                value={primaryTabValue}
-                onValueChange={handlePrimaryTabChange}
-                className="w-full min-w-0"
-              >
-                <div className="border border-border rounded-lg overflow-hidden bg-brand-black w-full min-w-0">
-                  {/* Header with integrated tabs */}
-                  <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
-                    <TabsList className="h-auto p-0 bg-transparent gap-2">
-                      <TabsTrigger
-                        value="forecasts"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Telescope className="h-3.5 w-3.5" />
-                        Forecasts
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="resolution"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Handshake className="h-3.5 w-3.5" />
-                        Resolution
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-                  {/* Content area */}
-                  <TabsContent value="forecasts" className="m-0">
-                    <div className="p-4 border-b border-border/60">
-                      <ConditionForecastForm
-                        conditionId={conditionId}
-                        question={data.shortName || data.question || ''}
-                        endTime={data.endTime ?? undefined}
-                        categorySlug={data.category?.slug}
-                        onSuccess={handleForecastSuccess}
-                      />
-                    </div>
-                    <Comments
-                      selectedCategory={CommentFilters.SelectedQuestion}
-                      question={data.shortName || data.question}
-                      conditionId={conditionId}
-                      refetchTrigger={refetchTrigger}
-                    />
-                  </TabsContent>
-                  <TabsContent value="resolution" className="m-0 p-4">
-                    <div className="mb-4 flex items-center gap-3 flex-wrap">
-                      <ResolverBadge
-                        resolverAddress={resolverAddress}
-                        size="normal"
-                        appearance="brandWhite"
-                      />
-                      <EndTimeDisplay
-                        endTime={data.endTime ?? null}
-                        size="normal"
-                        appearance="brandWhite"
-                      />
-                    </div>
-                    {data.description ? (
-                      <div className="text-sm leading-relaxed break-words [&_a]:break-all text-brand-white/90">
-                        <SafeMarkdown
-                          content={data.description}
-                          className="break-words [&_a]:break-all prose prose-invert prose-sm max-w-none"
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">
-                        No resolution criteria available.
-                      </span>
-                    )}
-                  </TabsContent>
-                </div>
-              </Tabs>
-
-              {/* Right column: PredictionForm + TechSpec + Agent stacked */}
-              <div className="flex flex-col gap-4">
-                {/* PredictionForm at top */}
-                <PredictionForm
-                  conditionId={conditionId}
-                  question={data.shortName || data.question || ''}
-                  categorySlug={data.category?.slug}
-                  chainId={chainId}
-                  collateralDecimals={collateralDecimals}
-                  predictionMarketAddress={predictionMarketAddress}
-                  bids={bids}
-                  requestQuotes={requestQuotes}
-                />
-
-                {/* Tech Spec - Desktop only */}
-                <div className="border border-border rounded-lg bg-brand-black overflow-hidden">
-                  <TechSpecTable
-                    conditionId={conditionId}
-                    chainId={data.chainId ?? 42161}
-                    endTime={data?.endTime ?? null}
-                    settled={data?.settled ?? null}
-                    resolvedToYes={data?.resolvedToYes ?? null}
-                  />
-                </div>
-
-                {/* Agent - Desktop only */}
-                <div className="border border-border rounded-lg bg-brand-black overflow-hidden">
-                  <div className="flex h-[48px] items-center gap-2.5 px-4 border-b border-border/60 bg-muted/10">
-                    <Bot className="h-4 w-4 text-brand-white" />
-                    <Label className="text-brand-white">Agent</Label>
-                  </div>
-                  <ResearchAgent
-                    question={data.shortName || data.question}
-                    endTime={data.endTime}
-                    description={data.description}
-                  />
-                </div>
-              </div>
-            </div>
+            <div className="hidden lg:block mb-12">{desktopTabs}</div>
           )}
         </div>
       </div>
