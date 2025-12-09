@@ -47,8 +47,7 @@ export function validateAuctionForMint(auction: AuctionRequestPayload): {
   valid: boolean;
   error?: string;
 } {
-  if (!auction.wager || BigInt(auction.wager) < 0n) {
-    // Notice: we allow 0 wager for price discovery
+  if (!auction.wager || BigInt(auction.wager) <= 0n) {
     return { valid: false, error: 'Invalid wager' };
   }
   if (!auction.predictedOutcomes || auction.predictedOutcomes.length === 0) {

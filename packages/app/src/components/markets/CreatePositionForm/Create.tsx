@@ -28,7 +28,7 @@ import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
-interface PositionFormProps {
+interface CreateProps {
   methods: UseFormReturn<{
     wagerAmount: string;
     limitAmount: string | number;
@@ -55,7 +55,7 @@ interface PositionFormProps {
   predictionMarketAddress?: `0x${string}`;
 }
 
-export default function PositionForm({
+export default function Create({
   methods,
   onSubmit,
   isSubmitting,
@@ -68,7 +68,7 @@ export default function PositionForm({
   collateralDecimals,
   minWager,
   predictionMarketAddress,
-}: PositionFormProps) {
+}: CreateProps) {
   const { selections, removeSelection } = useCreatePositionContext();
   const { address: takerAddress } = useAccount();
   const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
@@ -404,7 +404,6 @@ export default function PositionForm({
               allBids={bids}
               takerWagerWei={takerWagerWei}
               takerAddress={selectedTakerAddress}
-              showAddPredictionsHint={selections.length === 1}
             />
           </div>
           {error && (
