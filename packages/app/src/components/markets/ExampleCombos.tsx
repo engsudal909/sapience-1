@@ -459,11 +459,11 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                             <StackedPredictionsTitle
                               legs={legs}
                               className="md:gap-x-2"
-                              maxWidthClass="max-w-[calc(100%-160px)] md:max-w-[300px]"
+                              maxWidthClass="max-w-[calc(100%-190px)] md:max-w-[300px]"
                             />
                             {/* Mobile Row 3/4: Probability + PICK in one row */}
-                            <div className="md:hidden mt-2 flex items-center gap-3">
-                              <div className="text-sm min-w-0 max-w-[280px]">
+                            <div className="md:hidden mt-0.5 flex items-center gap-3">
+                              <div className="text-sm flex-1 min-w-0 max-w-[240px]">
                                 {status === 'received' &&
                                 probability !== null ? (
                                   <>
