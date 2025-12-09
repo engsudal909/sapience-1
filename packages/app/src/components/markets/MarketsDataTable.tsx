@@ -286,7 +286,7 @@ const columns: ColumnDef<ConditionType>[] = [
       const color = getCategoryColor(categorySlug);
       const displayQ = condition.shortName || condition.question;
       return (
-        <div className="flex items-center gap-3 max-w-[200px] md:max-w-[400px] min-w-0">
+        <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
           <MarketBadge
             label={displayQ}
             size={24}
@@ -513,7 +513,7 @@ export default function MarketsDataTable({
                   const colId = header.column.id;
                   let className = '';
                   if (colId === 'question') {
-                    className = 'pl-4 max-w-[400px]';
+                    className = 'pl-4 max-w-[180px] md:max-w-none';
                   } else if (colId === 'endTime') {
                     className = 'pr-4';
                   } else if (colId === 'predict') {
@@ -557,7 +557,7 @@ export default function MarketsDataTable({
                     const colId = cell.column.id;
                     let className = 'py-2';
                     if (colId === 'question') {
-                      className = 'py-2 pl-4 max-w-[400px]';
+                      className = 'py-2 pl-4 max-w-[180px] md:max-w-none';
                     } else if (
                       colId === 'forecast' ||
                       colId === 'openInterest'
