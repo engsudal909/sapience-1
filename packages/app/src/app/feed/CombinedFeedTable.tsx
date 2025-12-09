@@ -18,8 +18,7 @@ import {
   TransactionQuestionCell,
 } from '~/components/markets/DataDrawer/TransactionCells';
 import { useSapience } from '~/lib/context/SapienceProvider';
-import { YES_SQRT_X96_PRICE } from '~/lib/constants/numbers';
-import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
+import { d18ToPercentage } from '~/lib/utils/util';
 import { formatPercentChance } from '~/lib/format/percentChance';
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
@@ -40,12 +39,8 @@ function createForecastRow(attestation: FormattedAttestation) {
     let actionBadge: React.ReactNode = null;
     try {
       if (attestation && attestation.value) {
-        const priceD18 = sqrtPriceX96ToPriceD18(BigInt(attestation.value));
-        const YES_SQRT_X96_PRICE_D18 =
-          sqrtPriceX96ToPriceD18(YES_SQRT_X96_PRICE);
-        const percentageD2 =
-          (priceD18 * BigInt(10000)) / YES_SQRT_X96_PRICE_D18;
-        const percentage = Math.round(Number(percentageD2) / 100);
+        // Convert D18 to percentage (0-100)
+        const percentage = Math.round(d18ToPercentage(attestation.value));
         const shouldColor = percentage !== 50;
         const isGreen = shouldColor && percentage > 50;
         const isRed = shouldColor && percentage < 50;
