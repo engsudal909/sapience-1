@@ -15,6 +15,8 @@
     "start": "pnpm run prisma:setup && concurrently \"pnpm run start:service\" \"pnpm run start:worker\"",
     "start:service": "pnpm run prisma:setup && tsx src/server.ts",
     "start:worker": "pnpm run prisma:setup && tsx src/workers/worker.ts",
+    "start:reconciler-worker": "pnpm run prisma:setup && tsx src/workers/reconcilerWorker.ts reconciler",
+    "dev:reconciler-worker": "tsx watch src/workers/reconcilerWorker.ts reconciler",
     "start:reindex-eas": "tsx src/workers/worker.ts reindexEAS $*",
     "start:reindex-accuracy": "tsx src/workers/worker.ts reindexAccuracy $*",
     "start:reindex-prediction-market": "tsx src/workers/worker.ts reindexPredictionMarket $*",
