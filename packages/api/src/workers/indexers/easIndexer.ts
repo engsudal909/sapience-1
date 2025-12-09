@@ -10,10 +10,7 @@ import {
 import Sentry from '../../instrument';
 import { SchemaEncoder } from '@ethereum-attestation-service/eas-sdk';
 import { IIndexer } from '../../interfaces';
-import {
-  upsertAttestationScoreFromAttestation,
-  selectLatestPreEndForMarket,
-} from '../../helpers/scoringService';
+import { upsertAttestationScoreFromAttestation } from '../../helpers/scoringService';
 
 const BLOCK_BATCH_SIZE = 100;
 
