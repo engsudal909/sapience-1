@@ -1,7 +1,6 @@
 import { initializeDataSource } from '../../db';
 import * as Sentry from '@sentry/node';
 import EASPredictionIndexer from '../indexers/easIndexer';
-import { Resource } from '../../../generated/prisma';
 
 export async function reindexEAS(
   chainId: number,
@@ -16,25 +15,7 @@ export async function reindexEAS(
 
     await initializeDataSource();
 
-    // Notice: there's no resource for EAS, so we use an empty resource for the indexer
-    const resource = {
-      id: 0,
-      slug: 'attestation-prediction-market',
-      name: 'Attestation prediction market',
-      description: 'Attestation prediction market',
-      createdAt: new Date(),
-      categoryId: 1,
-    } as Resource;
-
-    // // Get the attestation prediction market resource
-    // const resource = await prisma.resource.findFirst({
-    //   where: { slug: 'attestation-prediction-market' },
-    // });
-
-    // if (!resource) {
-    //   console.error('Attestation prediction market resource not found');
-    //   return false;
-    // }
+    const resourceSlug = 'attestation-prediction-market';
 
     // Create the EAS indexer for the specified chain
     const indexer = new EASPredictionIndexer(chainId);
@@ -45,11 +26,11 @@ export async function reindexEAS(
     const endTime = endTimestamp || Math.floor(Date.now() / 1000);
 
     console.log(
-      `[EAS Reindex] Starting EAS reindexing for resource ${resource.name} (${resource.slug}) on chain ${chainId}`
+      `[EAS Reindex] Starting EAS reindexing for resource ${resourceSlug} on chain ${chainId}`
     );
 
     const result = await indexer.indexBlockPriceFromTimestamp(
-      resource,
+      resourceSlug,
       startTime,
       endTime,
       overwriteExisting

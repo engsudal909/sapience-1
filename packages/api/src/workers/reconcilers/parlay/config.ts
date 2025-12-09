@@ -1,4 +1,4 @@
-import { getStringParam, setStringParam } from '../candle-cache/dbUtils';
+import { getStringParam, setStringParam } from '../reconcilerUtils';
 
 export const PARLAY_RECONCILE_CONFIG = {
   defaultLookbackSeconds: Number(
