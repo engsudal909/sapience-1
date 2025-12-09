@@ -241,12 +241,12 @@ model LimitOrder {
   chainId           Int
   marketAddress     String    @db.VarChar
   orderId           String    @db.VarChar
-  maker             String    @db.VarChar
+  predictor         String    @db.VarChar
   resolver          String    @db.VarChar
   
   // Order details
-  makerCollateral   String    @db.VarChar
-  takerCollateral   String    @db.VarChar
+  predictorCollateral   String    @db.VarChar
+  counterpartyCollateral   String    @db.VarChar
   refCode           String?   @db.VarChar
   
   // Status and lifecycle
@@ -258,7 +258,7 @@ model LimitOrder {
   cancelledAt       Int?
   
   // Set when order is filled
-  taker             String?   @db.VarChar
+  counterparty             String?   @db.VarChar
   
   // Transaction hashes for traceability
   placedTxHash      String    @db.VarChar
@@ -268,7 +268,7 @@ model LimitOrder {
   predictions Json      @db.Json
   
   @@unique([chainId, marketAddress, orderId], map: "UQ_limit_order_chain_market_id")
-  @@index([maker], map: "IDX_limit_order_maker")
+  @@index([predictor], map: "IDX_limit_order_predictor")
   @@index([chainId, status], map: "IDX_limit_order_chain_status")
   @@index([status], map: "IDX_limit_order_status")
   @@map("limit_order")

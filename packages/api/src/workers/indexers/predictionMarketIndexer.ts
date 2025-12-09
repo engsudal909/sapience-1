@@ -890,11 +890,11 @@ class PredictionMarketIndexer implements IIndexer {
 
       const eventData = {
         eventType: 'OrderPlaced',
-        maker: decoded.args.maker,
+        predictor: decoded.args.maker,
         orderId: decoded.args.orderId.toString(),
         resolver: decoded.args.resolver,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         refCode: decoded.args.refCode,
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
@@ -960,10 +960,10 @@ class PredictionMarketIndexer implements IIndexer {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             orderId: eventData.orderId,
-            maker: eventData.maker.toLowerCase(),
+            predictor: eventData.predictor.toLowerCase(),
             resolver: eventData.resolver.toLowerCase(),
-            makerCollateral: eventData.makerCollateral,
-            takerCollateral: eventData.takerCollateral,
+            predictorCollateral: eventData.predictorCollateral,
+            counterpartyCollateral: eventData.counterpartyCollateral,
             refCode: eventData.refCode,
             status: 'pending',
             placedAt: Number(block.timestamp),
@@ -971,10 +971,10 @@ class PredictionMarketIndexer implements IIndexer {
             predictions: predictedOutcomes as unknown as object,
           },
           update: {
-            maker: eventData.maker.toLowerCase(),
+            predictor: eventData.predictor.toLowerCase(),
             resolver: eventData.resolver.toLowerCase(),
-            makerCollateral: eventData.makerCollateral,
-            takerCollateral: eventData.takerCollateral,
+            predictorCollateral: eventData.predictorCollateral,
+            counterpartyCollateral: eventData.counterpartyCollateral,
             refCode: eventData.refCode,
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
@@ -989,7 +989,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderPlaced: orderId=${eventData.orderId}, maker=${eventData.maker}`
+        `[PredictionMarketIndexer] Processed OrderPlaced: orderId=${eventData.orderId}, predictor=${eventData.predictor}`
       );
     } catch (error) {
       console.error(
@@ -1011,10 +1011,10 @@ class PredictionMarketIndexer implements IIndexer {
       const eventData = {
         eventType: 'OrderFilled',
         orderId: decoded.args.orderId.toString(),
-        maker: decoded.args.maker,
-        taker: decoded.args.taker,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictor: decoded.args.maker,
+        counterparty: decoded.args.taker,
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         refCode: decoded.args.refCode,
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
@@ -1070,7 +1070,7 @@ class PredictionMarketIndexer implements IIndexer {
             where: { id: order.id },
             data: {
               status: 'filled',
-              taker: eventData.taker.toLowerCase(),
+              counterparty: eventData.counterparty.toLowerCase(),
               filledAt: Number(block.timestamp),
               filledTxHash: log.transactionHash || '',
             },
@@ -1088,7 +1088,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderFilled: orderId=${eventData.orderId}, maker=${eventData.maker}, taker=${eventData.taker}`
+        `[PredictionMarketIndexer] Processed OrderFilled: orderId=${eventData.orderId}, predictor=${eventData.predictor}, counterparty=${eventData.counterparty}`
       );
     } catch (error) {
       console.error(
@@ -1110,9 +1110,9 @@ class PredictionMarketIndexer implements IIndexer {
       const eventData = {
         eventType: 'OrderCancelled',
         orderId: decoded.args.orderId.toString(),
-        maker: decoded.args.maker,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictor: decoded.args.maker,
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
         logIndex: log.logIndex,
@@ -1183,7 +1183,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderCancelled: orderId=${eventData.orderId}, maker=${eventData.maker}`
+        `[PredictionMarketIndexer] Processed OrderCancelled: orderId=${eventData.orderId}, predictor=${eventData.predictor}`
       );
     } catch (error) {
       console.error(
