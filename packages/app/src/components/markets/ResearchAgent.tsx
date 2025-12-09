@@ -278,7 +278,7 @@ const ResearchAgent: React.FC<ResearchAgentProps> = ({
               className="h-9 w-9 mx-auto mb-2 text-muted-foreground"
               strokeWidth={1.5}
             />
-            <div className="mb-0">
+            <div className="mb-0 max-w-[250px]">
               Add an{' '}
               <a
                 href="https://openrouter.ai"
