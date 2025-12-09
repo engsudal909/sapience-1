@@ -306,22 +306,14 @@ const Comments = ({
 
   return (
     <div className={`${className || ''}`}>
-      {selectedFilter === CommentFilters.SelectedQuestion && !question && (
-        <div className="text-center text-muted-foreground py-16">
-          No forecasts found
-        </div>
-      )}
+      {selectedFilter === CommentFilters.SelectedQuestion && !question && null}
       {!(selectedFilter === CommentFilters.SelectedQuestion && !question) && (
         <>
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16">
               <LottieLoader width={32} height={32} />
             </div>
-          ) : displayComments.length === 0 ? (
-            <div className="text-center text-muted-foreground py-16">
-              No forecasts found
-            </div>
-          ) : (
+          ) : displayComments.length === 0 ? null : (
             <>
               {displayComments.map((comment, idx) => {
                 const isLast = idx === displayComments.length - 1;

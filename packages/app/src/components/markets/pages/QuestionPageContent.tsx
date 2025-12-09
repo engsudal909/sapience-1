@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import dynamic from 'next/dynamic';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Label } from '@sapience/sdk/ui/components/ui/label';
 import {
   Tabs,
   TabsContent,
@@ -26,7 +27,7 @@ import {
   lzPMResolver,
   lzUmaResolver,
 } from '@sapience/sdk/contracts/addresses';
-import { erc20Abi, formatUnits } from 'viem';
+import { erc20Abi } from 'viem';
 import { useReadContracts } from 'wagmi';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { DEFAULT_CHAIN_ID, COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
@@ -40,7 +41,6 @@ import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import ResearchAgent from '~/components/markets/ResearchAgent';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
-import { useSubmitPosition } from '~/hooks/forms/useSubmitPosition';
 import { usePositionsByConditionId } from '~/hooks/graphql/usePositionsByConditionId';
 import { useForecasts } from '~/hooks/graphql/useForecasts';
 import { sqrtPriceX96ToPriceD18 } from '~/lib/utils/util';
@@ -77,6 +77,8 @@ export default function QuestionPageContent({
       question: string;
       shortName?: string | null;
       endTime?: number | null;
+      settled?: boolean | null;
+      resolvedToYes?: boolean | null;
       description?: string | null;
       category?: { slug: string } | null;
       chainId?: number | null;
@@ -95,6 +97,8 @@ export default function QuestionPageContent({
             question
             shortName
             endTime
+            settled
+            resolvedToYes
             description
             chainId
             openInterest
@@ -110,6 +114,8 @@ export default function QuestionPageContent({
           question: string;
           shortName?: string | null;
           endTime?: number | null;
+          settled?: boolean | null;
+          resolvedToYes?: boolean | null;
           description?: string | null;
           category?: { slug: string } | null;
           chainId?: number | null;
@@ -141,8 +147,7 @@ export default function QuestionPageContent({
   const predictionMarketAddress = predictionMarket[chainId]?.address;
 
   // Initiate auction start hook for RFQ quote management
-  const { bids, requestQuotes, buildMintRequestDataFromBid } =
-    useAuctionStart();
+  const { bids, requestQuotes } = useAuctionStart();
 
   // Fetch PredictionMarket configuration (collateral token, min collateral)
   const predictionMarketConfigRead = useReadContracts({
@@ -165,16 +170,6 @@ export default function QuestionPageContent({
     if (item && item.status === 'success') {
       const cfg = item.result as { collateralToken: `0x${string}` } | undefined;
       return cfg?.collateralToken;
-    }
-    return undefined;
-  }, [predictionMarketConfigRead.data]);
-
-  // Extract min collateral from config
-  const minCollateralRaw = useMemo(() => {
-    const item = predictionMarketConfigRead.data?.[0];
-    if (item && item.status === 'success') {
-      const cfg = item.result as { minCollateral: bigint } | undefined;
-      return cfg?.minCollateral;
     }
     return undefined;
   }, [predictionMarketConfigRead.data]);
@@ -205,18 +200,6 @@ export default function QuestionPageContent({
     query: { enabled: !!collateralToken && !isEtherealChain },
   });
 
-  // Derive collateral symbol
-  const collateralSymbol = useMemo(() => {
-    if (isEtherealChain) {
-      return COLLATERAL_SYMBOLS[chainId] || 'USDe';
-    }
-    const item = erc20MetaRead.data?.[0];
-    if (item && item.status === 'success') {
-      return String(item.result);
-    }
-    return 'USDe';
-  }, [erc20MetaRead.data, isEtherealChain, chainId]);
-
   // Derive collateral decimals
   const collateralDecimals = useMemo(() => {
     if (isEtherealChain) {
@@ -228,25 +211,6 @@ export default function QuestionPageContent({
     }
     return 18;
   }, [erc20MetaRead.data, isEtherealChain]);
-
-  // Derive min wager as human-readable string
-  const minWager = useMemo(() => {
-    if (!minCollateralRaw) return undefined;
-    try {
-      return formatUnits(minCollateralRaw, collateralDecimals);
-    } catch {
-      return String(minCollateralRaw);
-    }
-  }, [minCollateralRaw, collateralDecimals]);
-
-  // Initialize submit position hook for mint transaction
-  const { submitPosition, isSubmitting: isPositionSubmitting } =
-    useSubmitPosition({
-      chainId,
-      predictionMarketAddress: predictionMarketAddress,
-      collateralTokenAddress: collateralToken as `0x${string}`,
-      enabled: !!predictionMarketAddress && !!collateralToken,
-    });
 
   // Fetch positions for this condition
   const { data: positions, isLoading: isLoadingPositions } =
@@ -643,7 +607,7 @@ export default function QuestionPageContent({
     >
       <div className="flex flex-col w-full px-4 md:px-6 lg:px-8 items-center">
         {/* Main content */}
-        <div className="w-full max-w-[1200px] mt-4 md:mt-8">
+        <div className={`w-full mt-4 md:mt-8 max-w-[900px]`}>
           {/* Title */}
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-normal text-foreground mb-4 break-words">
             {displayTitle}
@@ -710,13 +674,6 @@ export default function QuestionPageContent({
               size="large"
               appearance="brandWhite"
             />
-
-            {/* Resolver Badge */}
-            <ResolverBadge
-              resolverAddress={resolverAddress}
-              size="large"
-              appearance="brandWhite"
-            />
           </div>
 
           {/* Row 1: Scatterplot (left) | Current Forecast + Prediction (right) - same height */}
@@ -724,7 +681,7 @@ export default function QuestionPageContent({
           {shouldShowChart && (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mb-6 items-stretch">
               {/* Scatterplot - height matches the PredictionForm dynamically */}
-              <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2">
+              <div className="relative w-full min-w-0 min-h-[350px] bg-brand-black border border-border rounded-lg pt-6 pr-8 pb-2 pl-2 order-2 lg:order-1">
                 <PredictionScatterChart
                   scatterData={scatterData}
                   forecastScatterData={forecastScatterData}
@@ -736,21 +693,29 @@ export default function QuestionPageContent({
                 />
               </div>
 
-              {/* Current Forecast + Prediction Form - same height as scatter plot */}
-              <PredictionForm
-                conditionId={conditionId}
-                chainId={chainId}
-                collateralToken={collateralToken}
-                collateralSymbol={collateralSymbol}
-                collateralDecimals={collateralDecimals}
-                minWager={minWager}
-                predictionMarketAddress={predictionMarketAddress}
-                bids={bids}
-                requestQuotes={requestQuotes}
-                buildMintRequestDataFromBid={buildMintRequestDataFromBid}
-                submitPosition={submitPosition}
-                isSubmitting={isPositionSubmitting}
-              />
+              {/* Current Forecast + Prediction Form + Tech Spec */}
+              <div className="flex flex-col gap-4 order-1 lg:order-2">
+                <PredictionForm
+                  conditionId={conditionId}
+                  question={data.shortName || data.question || ''}
+                  categorySlug={data.category?.slug}
+                  chainId={chainId}
+                  collateralDecimals={collateralDecimals}
+                  predictionMarketAddress={predictionMarketAddress}
+                  bids={bids}
+                  requestQuotes={requestQuotes}
+                />
+                {/* Tech Spec - Desktop only, hidden on mobile (shown in tabs there) */}
+                <div className="hidden lg:block border border-border rounded-lg bg-brand-black overflow-hidden">
+                  <TechSpecTable
+                    conditionId={conditionId}
+                    chainId={data.chainId ?? 42161}
+                    endTime={data?.endTime ?? null}
+                    settled={data?.settled ?? null}
+                    resolvedToYes={data?.resolvedToYes ?? null}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -759,17 +724,13 @@ export default function QuestionPageContent({
             <div className="lg:hidden mb-6">
               <PredictionForm
                 conditionId={conditionId}
+                question={data.shortName || data.question || ''}
+                categorySlug={data.category?.slug}
                 chainId={chainId}
-                collateralToken={collateralToken}
-                collateralSymbol={collateralSymbol}
                 collateralDecimals={collateralDecimals}
-                minWager={minWager}
                 predictionMarketAddress={predictionMarketAddress}
                 bids={bids}
                 requestQuotes={requestQuotes}
-                buildMintRequestDataFromBid={buildMintRequestDataFromBid}
-                submitPosition={submitPosition}
-                isSubmitting={isPositionSubmitting}
               />
             </div>
           )}
@@ -852,13 +813,13 @@ export default function QuestionPageContent({
                 {/* Content area - Resolution */}
                 <TabsContent value="resolution" className="m-0 p-4">
                   <div className="mb-4 flex items-center gap-3 flex-wrap">
-                    <EndTimeDisplay
-                      endTime={data.endTime ?? null}
+                    <ResolverBadge
+                      resolverAddress={resolverAddress}
                       size="normal"
                       appearance="brandWhite"
                     />
-                    <ResolverBadge
-                      resolverAddress={resolverAddress}
+                    <EndTimeDisplay
+                      endTime={data.endTime ?? null}
                       size="normal"
                       appearance="brandWhite"
                     />
@@ -889,13 +850,16 @@ export default function QuestionPageContent({
                   <TechSpecTable
                     conditionId={conditionId}
                     chainId={data.chainId ?? 42161}
+                    endTime={data?.endTime ?? null}
+                    settled={data?.settled ?? null}
+                    resolvedToYes={data?.resolvedToYes ?? null}
                   />
                 </TabsContent>
               </div>
             </Tabs>
           </div>
 
-          {/* Row 2: Desktop - Predictions/Forecasts (left) | Agent/Tech Spec (right) */}
+          {/* Row 2: Desktop - Predictions/Forecasts (left) | Agent (right) */}
           {/* Only show this layout when chart is visible (has positions or forecasts) */}
           {shouldShowChart && (
             <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 mb-12">
@@ -960,13 +924,13 @@ export default function QuestionPageContent({
                   </TabsContent>
                   <TabsContent value="resolution" className="m-0 p-4">
                     <div className="mb-4 flex items-center gap-3 flex-wrap">
-                      <EndTimeDisplay
-                        endTime={data.endTime ?? null}
+                      <ResolverBadge
+                        resolverAddress={resolverAddress}
                         size="normal"
                         appearance="brandWhite"
                       />
-                      <ResolverBadge
-                        resolverAddress={resolverAddress}
+                      <EndTimeDisplay
+                        endTime={data.endTime ?? null}
                         size="normal"
                         appearance="brandWhite"
                       />
@@ -987,44 +951,18 @@ export default function QuestionPageContent({
                 </div>
               </Tabs>
 
-              {/* Agent / Tech Spec - Unified container with integrated tabs */}
-              <Tabs defaultValue="agent" className="w-full">
-                <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
-                  {/* Header with integrated tabs */}
-                  <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
-                    <TabsList className="h-auto p-0 bg-transparent gap-2">
-                      <TabsTrigger
-                        value="agent"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Bot className="h-3.5 w-3.5" />
-                        Agent
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="techspec"
-                        className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <Code className="h-3.5 w-3.5" />
-                        Tech Spec
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-                  {/* Content area */}
-                  <TabsContent value="agent" className="m-0">
-                    <ResearchAgent
-                      question={data.shortName || data.question}
-                      endTime={data.endTime}
-                      description={data.description}
-                    />
-                  </TabsContent>
-                  <TabsContent value="techspec" className="m-0">
-                    <TechSpecTable
-                      conditionId={conditionId}
-                      chainId={data.chainId ?? 42161}
-                    />
-                  </TabsContent>
+              {/* Right column: Agent */}
+              <div className="border border-border rounded-lg bg-brand-black overflow-hidden">
+                <div className="flex h-[52px] items-center gap-2 px-4 border-b border-border/60 bg-muted/10">
+                  <Bot className="h-4 w-4 text-brand-white" />
+                  <Label className="text-brand-white">Agent</Label>
                 </div>
-              </Tabs>
+                <ResearchAgent
+                  question={data.shortName || data.question}
+                  endTime={data.endTime}
+                  description={data.description}
+                />
+              </div>
             </div>
           )}
 
@@ -1077,13 +1015,13 @@ export default function QuestionPageContent({
                   </TabsContent>
                   <TabsContent value="resolution" className="m-0 p-4">
                     <div className="mb-4 flex items-center gap-3 flex-wrap">
-                      <EndTimeDisplay
-                        endTime={data.endTime ?? null}
+                      <ResolverBadge
+                        resolverAddress={resolverAddress}
                         size="normal"
                         appearance="brandWhite"
                       />
-                      <ResolverBadge
-                        resolverAddress={resolverAddress}
+                      <EndTimeDisplay
+                        endTime={data.endTime ?? null}
                         size="normal"
                         appearance="brandWhite"
                       />
@@ -1104,62 +1042,43 @@ export default function QuestionPageContent({
                 </div>
               </Tabs>
 
-              {/* Right column: PredictionForm + Agent/TechSpec stacked */}
-              <div className="flex flex-col gap-6">
+              {/* Right column: PredictionForm + TechSpec + Agent stacked */}
+              <div className="flex flex-col gap-4">
                 {/* PredictionForm at top */}
                 <PredictionForm
                   conditionId={conditionId}
+                  question={data.shortName || data.question || ''}
+                  categorySlug={data.category?.slug}
                   chainId={chainId}
-                  collateralToken={collateralToken}
-                  collateralSymbol={collateralSymbol}
                   collateralDecimals={collateralDecimals}
-                  minWager={minWager}
                   predictionMarketAddress={predictionMarketAddress}
                   bids={bids}
                   requestQuotes={requestQuotes}
-                  buildMintRequestDataFromBid={buildMintRequestDataFromBid}
-                  submitPosition={submitPosition}
-                  isSubmitting={isPositionSubmitting}
                 />
 
-                {/* Agent / Tech Spec tabs below */}
-                <Tabs defaultValue="agent" className="w-full">
-                  <div className="border border-border rounded-lg overflow-hidden bg-brand-black">
-                    {/* Header with integrated tabs */}
-                    <div className="flex items-center gap-4 px-2 py-2.5 border-b border-border/60 bg-muted/10">
-                      <TabsList className="h-auto p-0 bg-transparent gap-2">
-                        <TabsTrigger
-                          value="agent"
-                          className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                        >
-                          <Bot className="h-3.5 w-3.5" />
-                          Agent
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="techspec"
-                          className="px-3 py-1.5 text-sm rounded-md bg-brand-white/[0.08] data-[state=active]:bg-brand-white/15 data-[state=active]:text-brand-white text-muted-foreground hover:text-brand-white/80 hover:bg-brand-white/[0.12] transition-colors inline-flex items-center gap-1.5"
-                        >
-                          <Code className="h-3.5 w-3.5" />
-                          Tech Spec
-                        </TabsTrigger>
-                      </TabsList>
-                    </div>
-                    {/* Content area */}
-                    <TabsContent value="agent" className="m-0">
-                      <ResearchAgent
-                        question={data.shortName || data.question}
-                        endTime={data.endTime}
-                        description={data.description}
-                      />
-                    </TabsContent>
-                    <TabsContent value="techspec" className="m-0">
-                      <TechSpecTable
-                        conditionId={conditionId}
-                        chainId={data.chainId ?? 42161}
-                      />
-                    </TabsContent>
+                {/* Tech Spec - Desktop only */}
+                <div className="border border-border rounded-lg bg-brand-black overflow-hidden">
+                  <TechSpecTable
+                    conditionId={conditionId}
+                    chainId={data.chainId ?? 42161}
+                    endTime={data?.endTime ?? null}
+                    settled={data?.settled ?? null}
+                    resolvedToYes={data?.resolvedToYes ?? null}
+                  />
+                </div>
+
+                {/* Agent - Desktop only */}
+                <div className="border border-border rounded-lg bg-brand-black overflow-hidden">
+                  <div className="flex h-[48px] items-center gap-2.5 px-4 border-b border-border/60 bg-muted/10">
+                    <Bot className="h-4 w-4 text-brand-white" />
+                    <Label className="text-brand-white">Agent</Label>
                   </div>
-                </Tabs>
+                  <ResearchAgent
+                    question={data.shortName || data.question}
+                    endTime={data.endTime}
+                    description={data.description}
+                  />
+                </div>
               </div>
             </div>
           )}
