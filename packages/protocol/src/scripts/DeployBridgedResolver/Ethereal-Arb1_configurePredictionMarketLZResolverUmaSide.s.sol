@@ -27,6 +27,10 @@ contract ConfigurePredictionMarketLZResolverUmaSide is Script {
         vm.startBroadcast(vm.envUint("ARB_PRIVATE_KEY"));
         PredictionMarketLZResolverUmaSide resolver = PredictionMarketLZResolverUmaSide(payable(umaSideResolver));
 
+        // eid of other network 
+        (uint32 peerEid, bytes32 peerResolver) = (uint32(pmSideEid), bytes32(uint256(uint160(pmLzResolver))));
+        resolver.setPeer(peerEid, peerResolver);
+
         resolver.setBridgeConfig(
             BridgeTypes.BridgeConfig({
                 remoteEid: pmSideEid,
