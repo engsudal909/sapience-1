@@ -22,7 +22,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatEther } from 'viem';
 import {
@@ -141,6 +141,19 @@ const getCategoryColor = (categorySlug?: string | null): string => {
   return getDeterministicCategoryColor(categorySlug);
 };
 
+// Shared hook to know if a condition has passed its end time
+function useIsPastEndTime(endTime?: number | null) {
+  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!endTime) return false;
+  return endTime * 1000 <= nowMs;
+}
+
 // Forecast cell that shows prediction request or resolution status
 function ForecastCell({ condition }: { condition: ConditionType }) {
   const { endTime, settled, resolvedToYes } = condition;
@@ -180,6 +193,7 @@ function PredictCell({ condition }: { condition: ConditionType }) {
   const { addSelection, removeSelection, selections } =
     useCreatePositionContext();
 
+  const isPastEnd = useIsPastEndTime(condition.endTime);
   const displayQ = condition.shortName || condition.question;
 
   const selectionState = React.useMemo(() => {
@@ -234,6 +248,14 @@ function PredictCell({ condition }: { condition: ConditionType }) {
     removeSelection,
     addSelection,
   ]);
+
+  if (isPastEnd) {
+    return (
+      <div className="w-full max-w-[320px] ml-auto text-sm text-center text-muted-foreground opacity-50">
+        <Minus className="h-3 w-3 mx-auto" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[320px] font-mono ml-auto">
@@ -382,7 +404,7 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     id: 'predict',
-    header: () => <span className="block text-right">Select Predictions</span>,
+    header: () => <span className="block text-center">Select Predictions</span>,
     cell: ({ row }) => {
       return <PredictCell condition={row.original} />;
     },
@@ -494,6 +516,8 @@ export default function MarketsDataTable({
                     className = 'pl-4 max-w-[400px]';
                   } else if (colId === 'endTime') {
                     className = 'pr-4';
+                  } else if (colId === 'predict') {
+                    className = 'text-center pr-4';
                   }
                   return (
                     <TableHead key={header.id} className={className}>

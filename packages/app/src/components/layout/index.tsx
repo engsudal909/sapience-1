@@ -8,7 +8,6 @@ import type { ReactNode } from 'react';
 
 import Header from './Header';
 import Footer from './Footer';
-import RouteBackgroundOverlay from './RouteBackgroundOverlay';
 import BannerCoordinator from '~/components/shared/BannerCoordinator';
 
 const ContentArea = ({ children }: { children: ReactNode }) => {
@@ -27,7 +26,6 @@ const Layout = ({ children }: { children: ReactNode }) => {
       defaultOpen
       style={{ '--sidebar-width': '12rem' } as React.CSSProperties}
     >
-      <RouteBackgroundOverlay />
       <div
         className="min-h-[100dvh] flex flex-col w-full relative z-10"
         style={

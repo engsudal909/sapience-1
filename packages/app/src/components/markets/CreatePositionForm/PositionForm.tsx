@@ -401,6 +401,7 @@ export default function PositionForm({
               allBids={bids}
               takerWagerWei={takerWagerWei}
               takerAddress={selectedTakerAddress}
+              showAddPredictionsHint={selections.length === 1}
             />
           </div>
           {error && (
