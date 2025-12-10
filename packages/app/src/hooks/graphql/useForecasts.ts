@@ -114,6 +114,7 @@ interface UseForecastsProps {
   };
 }
 
+
 // Function to generate consistent query key for both useForecasts and prefetchForecasts
 const generateForecastsQueryKey = ({
   schemaId = SCHEMA_UID,
