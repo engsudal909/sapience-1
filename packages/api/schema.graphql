@@ -57,8 +57,8 @@ type Attestation {
   data: String!
   decodedDataJson: String!
   id: Int!
-  marketAddress: String!
-  marketId: String!
+  marketAddress: String
+  marketId: String
   prediction: String!
   questionId: String
   recipient: String!
@@ -138,8 +138,8 @@ type AttestationGroupBy {
   data: String!
   decodedDataJson: String!
   id: Int!
-  marketAddress: String!
-  marketId: String!
+  marketAddress: String
+  marketId: String
   prediction: String!
   questionId: String
   recipient: String!
@@ -248,8 +248,8 @@ input AttestationOrderByWithAggregationInput {
   data: SortOrder
   decodedDataJson: SortOrder
   id: SortOrder
-  marketAddress: SortOrder
-  marketId: SortOrder
+  marketAddress: SortOrderInput
+  marketId: SortOrderInput
   prediction: SortOrder
   questionId: SortOrderInput
   recipient: SortOrder
@@ -270,8 +270,8 @@ input AttestationOrderByWithRelationInput {
   data: SortOrder
   decodedDataJson: SortOrder
   id: SortOrder
-  marketAddress: SortOrder
-  marketId: SortOrder
+  marketAddress: SortOrderInput
+  marketId: SortOrderInput
   prediction: SortOrder
   questionId: SortOrderInput
   recipient: SortOrder
@@ -320,8 +320,8 @@ input AttestationScalarWhereWithAggregatesInput {
   data: StringWithAggregatesFilter
   decodedDataJson: StringWithAggregatesFilter
   id: IntWithAggregatesFilter
-  marketAddress: StringWithAggregatesFilter
-  marketId: StringWithAggregatesFilter
+  marketAddress: StringNullableWithAggregatesFilter
+  marketId: StringNullableWithAggregatesFilter
   prediction: StringWithAggregatesFilter
   questionId: StringNullableWithAggregatesFilter
   recipient: StringWithAggregatesFilter
@@ -340,8 +340,8 @@ type AttestationScore {
   errorSquared: Float
   id: Int!
   madeAt: Int!
-  marketAddress: String!
-  marketId: String!
+  marketAddress: String
+  marketId: String
   outcome: Int
   probabilityD18: String
   probabilityFloat: Float
@@ -364,8 +364,8 @@ input AttestationScoreOrderByWithRelationInput {
   errorSquared: SortOrderInput
   id: SortOrder
   madeAt: SortOrder
-  marketAddress: SortOrder
-  marketId: SortOrder
+  marketAddress: SortOrderInput
+  marketId: SortOrderInput
   outcome: SortOrderInput
   probabilityD18: SortOrderInput
   probabilityFloat: SortOrderInput
@@ -386,8 +386,8 @@ input AttestationScoreWhereInput {
   errorSquared: FloatNullableFilter
   id: IntFilter
   madeAt: IntFilter
-  marketAddress: StringFilter
-  marketId: StringFilter
+  marketAddress: StringNullableFilter
+  marketId: StringNullableFilter
   outcome: IntNullableFilter
   probabilityD18: StringNullableFilter
   probabilityFloat: FloatNullableFilter
@@ -422,8 +422,8 @@ input AttestationWhereInput {
   data: StringFilter
   decodedDataJson: StringFilter
   id: IntFilter
-  marketAddress: StringFilter
-  marketId: StringFilter
+  marketAddress: StringNullableFilter
+  marketId: StringNullableFilter
   prediction: StringFilter
   questionId: StringNullableFilter
   recipient: StringFilter
@@ -447,8 +447,8 @@ input AttestationWhereUniqueInput {
   data: StringFilter
   decodedDataJson: StringFilter
   id: Int
-  marketAddress: StringFilter
-  marketId: StringFilter
+  marketAddress: StringNullableFilter
+  marketId: StringNullableFilter
   prediction: StringFilter
   questionId: StringNullableFilter
   recipient: StringFilter
