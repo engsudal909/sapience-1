@@ -34,7 +34,7 @@ import { ResolverBadge } from '~/components/shared/ResolverBadge';
 import Comments, { CommentFilters } from '~/components/shared/Comments';
 import PredictionForm from '~/components/markets/pages/PredictionForm';
 import ConditionForecastForm from '~/components/conditions/ConditionForecastForm';
-import { UMA_RESOLVER_ARBITRUM } from '~/lib/constants/eas';
+import { UMA_RESOLVER_ARBITRUM } from '~/lib/constants';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import ResearchAgent from '~/components/markets/ResearchAgent';

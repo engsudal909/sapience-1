@@ -3,7 +3,7 @@ import { encodeAbiParameters, parseAbiParameters, type Hash } from 'viem';
 import { useAccount } from 'wagmi';
 
 import { MarketGroupClassification } from '../../lib/types';
-import { SCHEMA_UID } from '~/lib/constants/eas';
+import { SCHEMA_UID } from '~/lib/constants';
 import { EAS_ATTEST_ABI, getEASContractAddress } from '~/hooks/contract/EAS';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 

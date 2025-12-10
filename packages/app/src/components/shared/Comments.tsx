@@ -7,7 +7,7 @@ import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import { AddressDisplay } from './AddressDisplay';
 import LottieLoader from './LottieLoader';
 import { useInfiniteForecasts } from '~/hooks/graphql/useForecasts';
-import { SCHEMA_UID } from '~/lib/constants/eas';
+import { SCHEMA_UID } from '~/lib/constants';
 import { d18ToPercentage } from '~/lib/utils/util';
 import { formatRelativeTime } from '~/lib/utils/timeUtils';
 import EnsAvatar from '~/components/shared/EnsAvatar';

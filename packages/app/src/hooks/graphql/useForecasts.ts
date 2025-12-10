@@ -4,7 +4,7 @@ import React from 'react';
 import { getAddress } from 'viem';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
-import { SCHEMA_UID } from '../../lib/constants/eas';
+import { SCHEMA_UID } from '~/lib/constants';
 
 // Type for the raw data fetched from the API
 interface RawAttestation {
