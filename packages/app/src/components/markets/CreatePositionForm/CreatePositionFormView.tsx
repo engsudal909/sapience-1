@@ -218,10 +218,8 @@ export default function CreatePositionFormView({
   // Show "Request Bids" button when:
   // 1. No valid bids exist (never received or all expired)
   // 2. Not in the 5-second cooldown period after making a request
-  const showNoBidsHint =
-    !bestBid &&
-    !recentlyRequested &&
-    (allBidsExpired || lastQuoteRequestMs != null);
+  // Since automatic auction trigger is disabled, show button immediately when no bids
+  const showNoBidsHint = !bestBid && !recentlyRequested;
 
   // Crossfade between disclaimer and hint when bids may not arrive
   const HINT_FADE_MS = 300;
@@ -272,10 +270,6 @@ export default function CreatePositionFormView({
     return () => window.clearInterval(id);
   }, []);
 
-  // Trigger RFQ quote requests when selections or wager change
-  useEffect(() => {
-    triggerAuctionRequest();
-  }, [triggerAuctionRequest]);
 
   return (
     <FormProvider {...methods}>
