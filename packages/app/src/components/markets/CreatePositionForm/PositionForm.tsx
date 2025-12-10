@@ -157,9 +157,6 @@ export default function PositionForm({
     });
   }, [bids, parlayWagerAmount, nowMs]);
 
-  // Check if we received bids but they've all expired
-  const allBidsExpired = bids.length > 0 && !bestBid;
-
   // Check if we recently made a request (within 5 seconds) - show "Waiting for Bids..." during cooldown
   const recentlyRequested =
     lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 5000;
@@ -269,7 +266,6 @@ export default function PositionForm({
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
-
 
   return (
     <FormProvider {...methods}>
