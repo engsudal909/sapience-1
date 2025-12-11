@@ -315,7 +315,7 @@ contract PredictionMarketUmaResolver is
             config.assertionLiveness,
             bondCurrency,
             effectiveBondAmount,
-            optimisticOracleV3.defaultIdentifier(),
+            bytes32('ASSERT_TRUTH2'),
             bytes32(0)
         );
 

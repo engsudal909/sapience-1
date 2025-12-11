@@ -32,7 +32,6 @@ export async function calculateParlayPnL(
   );
   const mintEvents = await prisma.event.findMany({
     where: {
-      marketGroupId: null,
       timestamp: { in: mintTimestamps },
     },
   });

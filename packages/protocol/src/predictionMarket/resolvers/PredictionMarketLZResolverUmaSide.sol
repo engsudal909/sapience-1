@@ -159,7 +159,7 @@ contract PredictionMarketLZResolverUmaSide is
             config.assertionLiveness,
             bondCurrency,
             config.bondAmount,
-            optimisticOracleV3.defaultIdentifier(),
+            bytes32('ASSERT_TRUTH2'),
             bytes32(0)
         );
 

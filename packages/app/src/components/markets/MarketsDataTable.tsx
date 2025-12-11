@@ -22,7 +22,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatEther } from 'viem';
 import {
@@ -141,6 +141,19 @@ const getCategoryColor = (categorySlug?: string | null): string => {
   return getDeterministicCategoryColor(categorySlug);
 };
 
+// Shared hook to know if a condition has passed its end time
+function useIsPastEndTime(endTime?: number | null) {
+  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!endTime) return false;
+  return endTime * 1000 <= nowMs;
+}
+
 // Forecast cell that shows prediction request or resolution status
 function ForecastCell({ condition }: { condition: ConditionType }) {
   const { endTime, settled, resolvedToYes } = condition;
@@ -180,6 +193,7 @@ function PredictCell({ condition }: { condition: ConditionType }) {
   const { addSelection, removeSelection, selections } =
     useCreatePositionContext();
 
+  const isPastEnd = useIsPastEndTime(condition.endTime);
   const displayQ = condition.shortName || condition.question;
 
   const selectionState = React.useMemo(() => {
@@ -235,6 +249,14 @@ function PredictCell({ condition }: { condition: ConditionType }) {
     addSelection,
   ]);
 
+  if (isPastEnd) {
+    return (
+      <div className="w-full max-w-[320px] ml-auto text-sm text-center text-muted-foreground opacity-50">
+        <Minus className="h-3 w-3 mx-auto" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-[320px] font-mono ml-auto">
       <YesNoSplitButton
@@ -264,7 +286,7 @@ const columns: ColumnDef<ConditionType>[] = [
       const color = getCategoryColor(categorySlug);
       const displayQ = condition.shortName || condition.question;
       return (
-        <div className="flex items-center gap-3 max-w-[200px] md:max-w-[400px] min-w-0">
+        <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
           <MarketBadge
             label={displayQ}
             size={24}
@@ -382,7 +404,7 @@ const columns: ColumnDef<ConditionType>[] = [
   },
   {
     id: 'predict',
-    header: () => <span className="block text-right">Select Predictions</span>,
+    header: () => <span className="block text-center">Select Predictions</span>,
     cell: ({ row }) => {
       return <PredictCell condition={row.original} />;
     },
@@ -491,9 +513,11 @@ export default function MarketsDataTable({
                   const colId = header.column.id;
                   let className = '';
                   if (colId === 'question') {
-                    className = 'pl-4 max-w-[400px]';
+                    className = 'pl-4 max-w-[180px] md:max-w-none';
                   } else if (colId === 'endTime') {
                     className = 'pr-4';
+                  } else if (colId === 'predict') {
+                    className = 'text-center pr-4';
                   }
                   return (
                     <TableHead key={header.id} className={className}>
@@ -533,7 +557,7 @@ export default function MarketsDataTable({
                     const colId = cell.column.id;
                     let className = 'py-2';
                     if (colId === 'question') {
-                      className = 'py-2 pl-4 max-w-[400px]';
+                      className = 'py-2 pl-4 max-w-[180px] md:max-w-none';
                     } else if (
                       colId === 'forecast' ||
                       colId === 'openInterest'

@@ -4,19 +4,7 @@ import Image from 'next/image';
 import { Badge } from '@sapience/sdk/ui/components/ui/badge';
 import { Copy, Gavel } from 'lucide-react';
 import { useMemo } from 'react';
-
-// Mapping of resolver addresses to their display names and icons
-const RESOLVER_INFO: Record<
-  string,
-  { name: string; icon?: string; iconAlt?: string }
-> = {
-  '0xC873efA9D22A09e39101efB977C03011620bF015': {
-    name: 'UMA',
-    icon: '/uma.svg',
-    iconAlt: 'UMA',
-  },
-  // Add more resolver mappings here as needed
-};
+import { UMA_RESOLVER_DISPLAY } from '~/lib/constants';
 
 interface ResolverBadgeProps {
   resolverAddress: string | null | undefined;
@@ -37,10 +25,10 @@ export function ResolverBadge({
     if (!resolverAddress) return null;
     const normalizedAddress = resolverAddress.toLowerCase();
     // Find matching resolver info (case-insensitive)
-    const entry = Object.entries(RESOLVER_INFO).find(
+    const entry = Object.entries(UMA_RESOLVER_DISPLAY).find(
       ([address]) => address.toLowerCase() === normalizedAddress
     );
-    return entry ? RESOLVER_INFO[entry[0]] : null;
+    return entry ? UMA_RESOLVER_DISPLAY[entry[0]] : null;
   }, [resolverAddress]);
 
   if (!resolverAddress) {
@@ -54,7 +42,7 @@ export function ResolverBadge({
   const baseBadgeClasses =
     size === 'large'
       ? 'h-9 items-center px-3.5 text-sm leading-none font-medium'
-      : 'h-8 items-center px-3 text-xs leading-none font-medium';
+      : 'h-9 items-center px-3.5 text-sm leading-none font-medium';
   const brandWhiteBadgeExtras =
     appearance === 'brandWhite' ? 'text-brand-white border-brand-white/20' : '';
   const badgeClassName =
@@ -63,7 +51,7 @@ export function ResolverBadge({
   const iconSize = size === 'large' ? 36 : 32;
   const iconHeight = size === 'large' ? 36 : 32;
   const iconClass = size === 'large' ? 'h-9 w-9' : 'h-8 w-8';
-  const gavelIconClass = size === 'large' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+  const gavelIconClass = size === 'large' ? 'h-4 w-4' : 'h-4 w-4';
   const gavelColorClass = appearance === 'brandWhite' ? 'text-brand-white' : '';
   const iconOpacity = appearance === 'brandWhite' ? 'opacity-70' : 'opacity-70';
 

@@ -1,7 +1,5 @@
 'use client';
 
-import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
-import type { MarketGroup as GraphQLMarketGroup } from '@sapience/sdk/types/graphql';
 import type {
   QueryObserverResult,
   RefetchOptions,
@@ -25,49 +23,11 @@ interface SapienceContextType {
   refetchPermitData: (
     options?: RefetchOptions
   ) => Promise<QueryObserverResult<PermitResponse, Error>>;
-
-  // Market data
-  marketGroups: GraphQLMarketGroup[];
-  isMarketsLoading: boolean;
-  marketsError: Error | null;
-  refetchMarketGroup: (
-    options?: RefetchOptions
-  ) => Promise<QueryObserverResult<GraphQLMarketGroup[], Error>>;
 }
 
 const SapienceContext = createContext<SapienceContextType | undefined>(
   undefined
 );
-
-// Define GraphQL query for market groups
-const MARKET_GROUPS_QUERY = /* GraphQL */ `
-  query MarketGroups {
-    marketGroups {
-      id
-      chainId
-      address
-      question
-      baseTokenName
-      quoteTokenName
-      markets {
-        id
-        marketId
-        question
-        startTimestamp
-        endTimestamp
-        settled
-        settlementPriceD18
-        optionName
-        startingSqrtPriceX96
-        baseAssetMinPriceTick
-        baseAssetMaxPriceTick
-        poolAddress
-        claimStatementYesOrNumeric
-        claimStatementNo
-      }
-    }
-  }
-`;
 
 export const SapienceProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -116,32 +76,6 @@ export const SapienceProvider: React.FC<{ children: React.ReactNode }> = ({
     retry: 1,
   });
 
-  // Fetch market groups
-  const {
-    data: marketGroups,
-    isLoading: isMarketsLoading,
-    error: marketsError,
-    refetch: refetchMarketGroup,
-  } = useQuery<GraphQLMarketGroup[], Error>({
-    queryKey: ['marketGroups'],
-    queryFn: async () => {
-      try {
-        const data = await graphqlRequest<{
-          marketGroups: GraphQLMarketGroup[];
-        }>(MARKET_GROUPS_QUERY);
-        if (!data || !data.marketGroups) {
-          console.error('No marketGroups data in response:', data);
-          return [];
-        }
-        // Return the marketGroups as-is, since they match the generated type
-        return data.marketGroups;
-      } catch (error) {
-        console.error('Error fetching market groups via GraphQL:', error);
-        throw error;
-      }
-    },
-  });
-
   /*
   // Handle InstallDialog visibility
   useEffect(() => {
@@ -172,17 +106,10 @@ export const SapienceProvider: React.FC<{ children: React.ReactNode }> = ({
   return (
     <SapienceContext.Provider
       value={{
-        // Permit data
         permitData,
         isPermitLoading,
         permitError,
         refetchPermitData,
-
-        // Market data
-        marketGroups: marketGroups || [],
-        isMarketsLoading,
-        marketsError,
-        refetchMarketGroup,
       }}
     >
       {children}

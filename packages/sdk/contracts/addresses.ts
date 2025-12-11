@@ -34,7 +34,7 @@ export const umaResolver: ChainAddressMap = {
 
 export const lzPMResolver: ChainAddressMap = {
   5064014: {
-    address: '0xC873efA9D22A09e39101efB977C03011620bF015',
+    address: '0xd82F211D0d9bE9A73a829A5F1f0e34b02Bf2FB36',
     legacy: [] as const,
   },
   13374202: {
@@ -45,7 +45,7 @@ export const lzPMResolver: ChainAddressMap = {
 
 export const lzUmaResolver: ChainAddressMap = {
   42161: {
-    address: '0x070Bd542474390c3AFED2DAE85C2d13932c75F17',
+    address: '0x77Bf3900D79D7Ba4DAEfEb5Ed4D216308dbfbf53',
     legacy: [] as const,
   },
   421614: {

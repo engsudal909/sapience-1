@@ -157,9 +157,6 @@ export default function PositionForm({
     });
   }, [bids, parlayWagerAmount, nowMs]);
 
-  // Check if we received bids but they've all expired
-  const allBidsExpired = bids.length > 0 && !bestBid;
-
   // Check if we recently made a request (within 5 seconds) - show "Waiting for Bids..." during cooldown
   const recentlyRequested =
     lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 5000;
@@ -218,10 +215,8 @@ export default function PositionForm({
   // Show "Request Bids" button when:
   // 1. No valid bids exist (never received or all expired)
   // 2. Not in the 5-second cooldown period after making a request
-  const showNoBidsHint =
-    !bestBid &&
-    !recentlyRequested &&
-    (allBidsExpired || lastQuoteRequestMs != null);
+  // Since automatic auction trigger is disabled, show button immediately when no bids
+  const showNoBidsHint = !bestBid && !recentlyRequested;
 
   // Crossfade between disclaimer and hint when bids may not arrive
   const HINT_FADE_MS = 300;
@@ -272,11 +267,6 @@ export default function PositionForm({
     return () => window.clearInterval(id);
   }, []);
 
-  // Trigger RFQ quote requests when selections or wager change
-  useEffect(() => {
-    triggerAuctionRequest();
-  }, [triggerAuctionRequest]);
-
   return (
     <FormProvider {...methods}>
       <form
@@ -298,7 +288,10 @@ export default function PositionForm({
                   transition={{ duration: 0.2 }}
                   className="text-muted-foreground/50 flex items-center gap-1 ml-2"
                 >
-                  <Info className="h-3.5 w-3.5" />
+                  <Info
+                    className="hidden sm:inline h-3.5 w-3.5"
+                    aria-hidden="true"
+                  />
                   ALL MUST BE CORRECT TO WIN
                 </motion.span>
               )}
@@ -401,6 +394,7 @@ export default function PositionForm({
               allBids={bids}
               takerWagerWei={takerWagerWei}
               takerAddress={selectedTakerAddress}
+              showAddPredictionsHint={selections.length === 1}
             />
           </div>
           {error && (

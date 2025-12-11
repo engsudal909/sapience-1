@@ -358,7 +358,7 @@ export function PredictionsTable({ data, isLoading }: PredictionsTableProps) {
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="hover:!bg-background bg-background border-b border-border/60"
+              className="hover:!bg-background bg-background border-b border-border"
             >
               {headerGroup.headers.map((header) => (
                 <TableHead
@@ -381,7 +381,7 @@ export function PredictionsTable({ data, isLoading }: PredictionsTableProps) {
             table.getRowModel().rows.map((row) => (
               <TableRow
                 key={row.id}
-                className="border-b border-border/60 hover:bg-brand-white/5 transition-colors"
+                className="border-b border-border hover:bg-brand-white/5 transition-colors"
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="px-4 py-3">
