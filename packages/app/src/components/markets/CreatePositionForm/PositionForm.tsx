@@ -126,10 +126,33 @@ export default function PositionForm({
     }
   }, [parlayWagerAmount, collateralDecimals]);
 
-  const bestBid = useMemo(() => {
-    if (!bids || bids.length === 0) return null;
-    const validBids = bids.filter((bid) => bid.makerDeadline * 1000 > nowMs);
-    if (validBids.length === 0) return null;
+  // Filter bids: only show bids with successful simulation as valid best bids
+  const { bestBid, estimateBid } = useMemo(() => {
+    if (!bids || bids.length === 0) return { bestBid: null, estimateBid: null };
+
+    // Get non-expired bids
+    const nonExpiredBids = bids.filter((bid) => bid.makerDeadline * 1000 > nowMs);
+    if (nonExpiredBids.length === 0) return { bestBid: null, estimateBid: null };
+
+    // Only bids with successful simulation are valid for submission
+    const validBids = nonExpiredBids.filter(
+      (bid) => bid.simulationStatus === 'success'
+    );
+
+    // Check if we have only one bid that failed simulation - show as estimate
+    // (If it's pending, we wait; if it's failed and only one, show estimate)
+    const failedBids = nonExpiredBids.filter(
+      (bid) => bid.simulationStatus === 'failed'
+    );
+    const onlyFailedBid =
+      validBids.length === 0 && failedBids.length === 1
+        ? failedBids[0]
+        : null;
+
+    if (validBids.length === 0) {
+      return { bestBid: null, estimateBid: onlyFailedBid };
+    }
+
     const makerWagerStr = parlayWagerAmount || '0';
     let makerWager: bigint;
     try {
@@ -137,7 +160,8 @@ export default function PositionForm({
     } catch {
       makerWager = 0n;
     }
-    return validBids.reduce((best, current) => {
+
+    const best = validBids.reduce((best, current) => {
       const bestPayout = (() => {
         try {
           return makerWager + BigInt(best.makerWager);
@@ -155,6 +179,8 @@ export default function PositionForm({
 
       return currentPayout > bestPayout ? current : best;
     });
+
+    return { bestBid: best, estimateBid: null };
   }, [bids, parlayWagerAmount, nowMs]);
 
   // Check if we recently made a request (within 5 seconds) - show "Waiting for Bids..." during cooldown
@@ -372,12 +398,13 @@ export default function PositionForm({
             />
             <BidDisplay
               bestBid={bestBid}
+              estimateBid={estimateBid}
               wagerAmount={parlayWagerAmount || '0'}
               collateralSymbol={collateralSymbol}
               collateralDecimals={collateralDecimals}
               nowMs={nowMs}
-              isWaitingForBids={recentlyRequested && !bestBid}
-              showRequestBidsButton={showNoBidsHint}
+              isWaitingForBids={recentlyRequested && !bestBid && !estimateBid}
+              showRequestBidsButton={showNoBidsHint && !estimateBid}
               onRequestBids={() =>
                 triggerAuctionRequest({ forceRefresh: true })
               }
@@ -386,7 +413,7 @@ export default function PositionForm({
               isSubmitDisabled={isPermitLoading || isRestricted}
               enableRainbowHover={isRainbowHoverEnabled}
               onLimitOrderClick={() => setIsLimitDialogOpen(true)}
-              showNoBidsHint={showNoBidsHint}
+              showNoBidsHint={showNoBidsHint && !estimateBid}
               hintVisible={hintVisible}
               hintMounted={hintMounted}
               disclaimerVisible={disclaimerVisible}
