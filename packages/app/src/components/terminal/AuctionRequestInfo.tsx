@@ -355,7 +355,7 @@ const AuctionRequestInfo: React.FC<Props> = ({
     }
   }, [predictedOutcomes]);
 
-  const { data: lastParlay, refetch: refetchLastTrade } = useLastTradeForIntent(
+  const { data: lastPosition, refetch: refetchLastTrade } = useLastTradeForIntent(
     {
       predictor: taker || uiTx?.position?.owner,
       outcomesSignature: outcomesSignature,
@@ -373,10 +373,10 @@ const AuctionRequestInfo: React.FC<Props> = ({
 
   const lastTrade = useMemo(() => {
     try {
-      if (!lastParlay) return null;
-      const predictorWei = BigInt(String(lastParlay?.predictorCollateral ?? '0'));
+      if (!lastPosition) return null;
+      const predictorWei = BigInt(String(lastPosition?.predictorCollateral ?? '0'));
       const counterpartyWei = BigInt(
-        String(lastParlay?.counterpartyCollateral ?? '0')
+        String(lastPosition?.counterpartyCollateral ?? '0')
       );
       const counterpartyEth = Number(formatEther(counterpartyWei));
       const totalEth = Number(formatEther(predictorWei + counterpartyWei));
@@ -402,17 +402,17 @@ const AuctionRequestInfo: React.FC<Props> = ({
     } catch {
       return null;
     }
-  }, [lastParlay]);
+  }, [lastPosition]);
 
   const lastTradeTimeAgo = useMemo(() => {
     try {
-      const ms = lastParlay ? Number(lastParlay.mintedAt) * 1000 : 0;
+      const ms = lastPosition ? Number(lastPosition.mintedAt) * 1000 : 0;
       if (!Number.isFinite(ms) || ms <= 0) return null;
       return formatDistanceToNowStrict(new Date(ms), { addSuffix: true });
     } catch {
       return null;
     }
-  }, [lastParlay, now]);
+  }, [lastPosition, now]);
 
   const maxDurationLabel = useMemo(() => {
     try {
