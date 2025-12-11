@@ -175,7 +175,7 @@ export default function QuestionPageContent({
     }
   }, [forecasts, conditionId]);
 
-  // Transform parlay data for scatter plot
+  // Transform position data for scatter plot
   // x = time (unix timestamp), y = prediction probability (0-100), wager = amount wagered
   const scatterData = useMemo((): PredictionData[] => {
     // If no real positions, return empty array
@@ -184,10 +184,10 @@ export default function QuestionPageContent({
     }
 
     const realData = positions
-      .map((parlay) => {
+      .map((position) => {
         try {
-          // Find the prediction for the current conditionId in this parlay
-          const currentConditionOutcome = parlay.predictedOutcomes.find(
+          // Find the prediction for the current conditionId in this position
+          const currentConditionOutcome = position.predictedOutcomes.find(
             (outcome) =>
               outcome.conditionId.toLowerCase() === conditionId.toLowerCase()
           );
@@ -196,8 +196,8 @@ export default function QuestionPageContent({
             return null;
           }
 
-          // Get other conditions in the parlay (for combined predictions)
-          const otherOutcomes = parlay.predictedOutcomes.filter(
+          // Get other conditions in the position (for combined predictions)
+          const otherOutcomes = position.predictedOutcomes.filter(
             (outcome) =>
               outcome.conditionId.toLowerCase() !== conditionId.toLowerCase()
           );
@@ -206,18 +206,18 @@ export default function QuestionPageContent({
           let predictorCollateral = 0;
           let counterpartyCollateral = 0;
           try {
-            predictorCollateral = parlay.predictorCollateral
-              ? parseFloat(formatEther(BigInt(parlay.predictorCollateral)))
+            predictorCollateral = position.predictorCollateral
+              ? parseFloat(formatEther(BigInt(position.predictorCollateral)))
               : 0;
-            counterpartyCollateral = parlay.counterpartyCollateral
+            counterpartyCollateral = position.counterpartyCollateral
               ? parseFloat(
-                  formatEther(BigInt(parlay.counterpartyCollateral))
+                  formatEther(BigInt(position.counterpartyCollateral))
                 )
               : 0;
           } catch {
             // Fallback: try to derive from totalCollateral if individual amounts not available
             try {
-              const totalCollateralWei = BigInt(parlay.totalCollateral || '0');
+              const totalCollateralWei = BigInt(position.totalCollateral || '0');
               const totalCollateral = parseFloat(
                 formatEther(totalCollateralWei)
               );
@@ -252,7 +252,7 @@ export default function QuestionPageContent({
               : undefined;
 
           // Convert mintedAt (seconds) to milliseconds
-          const timestamp = parlay.mintedAt * 1000;
+          const timestamp = position.mintedAt * 1000;
           const date = new Date(timestamp);
 
           // Calculate implied probability of YES from wager amounts
@@ -277,8 +277,8 @@ export default function QuestionPageContent({
             x: timestamp,
             y: predictionPercent,
             wager,
-            predictor: parlay.predictor,
-            counterparty: parlay.counterparty,
+            predictor: position.predictor,
+            counterparty: position.counterparty,
             predictorPrediction,
             predictorCollateral,
             counterpartyCollateral,
@@ -287,7 +287,7 @@ export default function QuestionPageContent({
             combinedWithYes: predictorPrediction,
           };
         } catch (error) {
-          console.error('Error processing parlay:', error);
+          console.error('Error processing position:', error);
           return null;
         }
       })
