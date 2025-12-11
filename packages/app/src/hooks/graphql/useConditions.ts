@@ -19,6 +19,7 @@ export interface ConditionType {
   assertionTimestamp?: number;
   openInterest: string;
   conditionGroupId?: number | null;
+  conditionGroup?: { id: number; name: string } | null;
 }
 
 // Filter options for backend filtering
@@ -28,6 +29,7 @@ export interface ConditionFilters {
   endTimeGte?: number; // Unix timestamp in seconds
   endTimeLte?: number; // Unix timestamp in seconds
   publicOnly?: boolean;
+  ungroupedOnly?: boolean; // Filter to only conditions without a group
 }
 
 const GET_CONDITIONS = /* GraphQL */ `
@@ -54,6 +56,10 @@ const GET_CONDITIONS = /* GraphQL */ `
       assertionTimestamp
       openInterest
       conditionGroupId
+      conditionGroup {
+        id
+        name
+      }
       category {
         id
         name
@@ -114,6 +120,11 @@ function buildWhereClause(
       endTimeFilter.lte = filters.endTimeLte;
     }
     andConditions.push({ endTime: endTimeFilter });
+  }
+
+  // Ungrouped only filter - conditions without a group
+  if (filters?.ungroupedOnly) {
+    andConditions.push({ conditionGroupId: { equals: null } });
   }
 
   if (andConditions.length > 0) {
