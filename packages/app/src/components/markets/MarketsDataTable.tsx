@@ -76,19 +76,22 @@ function groupConditionToConditionType(
 ): ConditionType {
   return {
     id: gc.id,
-    createdAt: '',
+    createdAt: gc.createdAt,
     question: gc.question,
     shortName: gc.shortName,
     endTime: gc.endTime,
     public: gc.public,
     claimStatement: gc.claimStatement,
     description: gc.description,
-    similarMarkets: [],
+    similarMarkets: gc.similarMarkets,
     chainId: gc.chainId,
     category: gc.category,
     openInterest: gc.openInterest,
     settled: gc.settled,
     resolvedToYes: gc.resolvedToYes,
+    assertionId: gc.assertionId,
+    assertionTimestamp: gc.assertionTimestamp,
+    conditionGroupId: gc.conditionGroupId,
   };
 }
 

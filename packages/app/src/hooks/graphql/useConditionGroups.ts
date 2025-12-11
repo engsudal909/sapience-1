@@ -117,29 +117,27 @@ function buildGroupWhereClause(opts?: {
     });
   }
 
-  // Only groups with at least one public condition
+  // Ensure group rows have at least one relevant condition.
+  //
+  // Important: combine constraints into a single `some` clause so we don't return
+  // groups that pass (e.g. has a public condition on a different chain) but then
+  // fetch zero child conditions due to `$conditionsWhere`.
+  const conditionSomeAnd: Record<string, unknown>[] = [];
   if (opts?.filters?.publicOnly) {
-    andConditions.push({
-      conditions: {
-        some: { public: { equals: true } },
-      },
-    });
+    conditionSomeAnd.push({ public: { equals: true } });
   }
-
-  // If a chainId is provided, only include groups that have at least one
-  // condition on that chain (otherwise group rows become irrelevant in Markets).
   if (opts?.chainId !== undefined) {
-    andConditions.push({
-      conditions: {
-        some: { chainId: { equals: opts.chainId } },
-      },
-    });
+    conditionSomeAnd.push({ chainId: { equals: opts.chainId } });
   }
 
-  // Unless explicitly requested, exclude groups with zero conditions.
-  if (!opts?.includeEmptyGroups) {
+  const shouldRequireSomeCondition =
+    !opts?.includeEmptyGroups || conditionSomeAnd.length > 0;
+
+  if (shouldRequireSomeCondition) {
     andConditions.push({
-      conditions: { some: {} },
+      conditions: {
+        some: conditionSomeAnd.length > 0 ? { AND: conditionSomeAnd } : {},
+      },
     });
   }
 
