@@ -5,7 +5,7 @@ This note gives agents the key context needed when working inside `@sapience/api
 ## Overview
 - GraphQL API built with TypeGraphQL (`schema.graphql` + resolvers in `src/`).
 - Prisma ORM (`prisma/schema.prisma`) against Postgres (`DATABASE_URL` required).
-- Background workers handle market/resource indexing, candle cache building, auctions, and Discord notifications.
+- Background workers handle prediction market indexing, auctions, and Discord notifications.
 - Depends on the shared SDK (`@sapience/sdk`) for contract types, ABIs, and GraphQL helpers.
 
 ## Core Commands
@@ -16,8 +16,7 @@ pnpm --filter @sapience/api install --prod=false  # ensure deps present (include
 pnpm --filter @sapience/api run prisma:setup      # deploy migrations + generate client
 pnpm run dev:api                                  # starts service, worker, and codegen with tsx watch
 pnpm --filter @sapience/api run dev:service       # API server only (tsx watch src/server.ts)
-pnpm --filter @sapience/api run dev:worker        # background worker (markets + resources)
-pnpm --filter @sapience/api run dev:candle-cache  # candle cache worker
+pnpm --filter @sapience/api run dev:worker        # background worker (prediction market indexers)
 pnpm --filter @sapience/api run generate-types    # GraphQL Codegen
 pnpm --filter @sapience/api run compile           # lint, prisma generate, tsc
 pnpm --filter @sapience/api run test              # vitest suite
@@ -36,7 +35,7 @@ Reindex/backfill helpers (`start:reindex-*`, `start:backfill-accuracy`) are CLIs
 
 ## Folder Layout Highlights
 - `src/server.ts` – Express/Apollo entrypoint.
-- `src/workers/` – Background job runner, including `worker.ts` (market/resource indexing) and `candleCacheWorker.ts`.
+- `src/workers/` – Background job runner, including `worker.ts` (prediction market and EAS indexing).
 - `prisma/` – Schema, migrations, seeds (`prisma/seed.ts`).
 - **Note**: Auction WebSocket service has been extracted to `packages/auction-ws` (package name: `@sapience/auction`).
 - `schema.graphql` – TypeGraphQL schema emitted for reference; do not edit manually.
@@ -44,9 +43,8 @@ Reindex/backfill helpers (`start:reindex-*`, `start:backfill-accuracy`) are CLIs
 
 ## Deployment
 - Render configuration lives in `render.yaml`. The `web-service` entry deploys the API by installing pnpm 9, running `render-build-sdk.sh`, and starting `pnpm --filter @sapience/api start:service`.
-- Two Render workers support background processing:
+- One Render worker supports background processing:
   - `background-worker` runs the same build steps, executes `pnpm --filter @sapience/api prisma:generate`, then starts `pnpm --filter @sapience/api start:worker`.
-  - `candle-cache-builder` mirrors the build script and runs `pnpm --filter @sapience/api start:candle-cache`.
 - All services share the managed Postgres instance (`DATABASE_URL` provided via Render environment variables) and deploy from the `main` branch of the GitHub repo.
 
 ## Agent Tips
