@@ -1,21 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
-// Extended condition type with fields needed for table aggregates
 export interface ConditionGroupConditionType {
   id: string;
+  createdAt: string;
   question: string;
   shortName?: string | null;
   endTime: number;
   public: boolean;
-  displayOrder?: number | null;
-  openInterest: string;
+  claimStatement: string;
+  description: string;
+  similarMarkets: string[];
   chainId: number;
   category?: { id: number; name: string; slug: string } | null;
   settled?: boolean;
   resolvedToYes?: boolean;
-  claimStatement: string;
-  description: string;
+  assertionId?: string;
+  assertionTimestamp?: number;
+  openInterest: string;
+  conditionGroupId?: number | null;
+  displayOrder?: number | null;
 }
 
 export interface ConditionGroupType {
@@ -26,11 +30,12 @@ export interface ConditionGroupType {
   conditions: ConditionGroupConditionType[];
 }
 
-// Filter options for condition groups
+// Filter options for backend filtering of groups.
+// Note: group-level filtering can only target group fields and relations.
 export interface ConditionGroupFilters {
-  search?: string;
+  search?: string; // searches group name
   categorySlugs?: string[];
-  publicOnly?: boolean;
+  publicOnly?: boolean; // only groups with at least one public condition
 }
 
 const GET_CONDITION_GROUPS = /* GraphQL */ `
@@ -41,7 +46,7 @@ const GET_CONDITION_GROUPS = /* GraphQL */ `
     $conditionsWhere: ConditionWhereInput
   ) {
     conditionGroups(
-      orderBy: { createdAt: desc }
+      orderBy: [{ createdAt: desc }]
       take: $take
       skip: $skip
       where: $where
@@ -54,51 +59,87 @@ const GET_CONDITION_GROUPS = /* GraphQL */ `
         name
         slug
       }
-      conditions(orderBy: { displayOrder: asc }, where: $conditionsWhere) {
+      conditions(
+        orderBy: [{ displayOrder: { sort: asc } }]
+        where: $conditionsWhere
+      ) {
         id
+        createdAt
         question
         shortName
         endTime
         public
-        displayOrder
-        openInterest
+        claimStatement
+        description
+        similarMarkets
         chainId
         settled
         resolvedToYes
-        claimStatement
-        description
+        assertionId
+        assertionTimestamp
+        openInterest
+        conditionGroupId
         category {
           id
           name
           slug
         }
+        displayOrder
       }
     }
   }
 `;
 
-function buildGroupWhereClause(
-  filters?: ConditionGroupFilters
-): Record<string, unknown> {
+function buildGroupWhereClause(opts?: {
+  chainId?: number;
+  filters?: ConditionGroupFilters;
+  includeEmptyGroups?: boolean;
+}): Record<string, unknown> {
   const where: Record<string, unknown> = {};
   const andConditions: Record<string, unknown>[] = [];
 
-  // Search filter - search group name
-  if (filters?.search?.trim()) {
-    const searchTerm = filters.search.trim();
+  // Search filter - group name only
+  if (opts?.filters?.search?.trim()) {
+    const searchTerm = opts.filters.search.trim();
     andConditions.push({
       name: { contains: searchTerm, mode: 'insensitive' },
     });
   }
 
   // Category filter by slugs
-  if (filters?.categorySlugs && filters.categorySlugs.length > 0) {
+  if (opts?.filters?.categorySlugs && opts.filters.categorySlugs.length > 0) {
     andConditions.push({
       category: {
         is: {
-          slug: { in: filters.categorySlugs },
+          slug: { in: opts.filters.categorySlugs },
         },
       },
+    });
+  }
+
+  // Only groups with at least one public condition
+  if (opts?.filters?.publicOnly) {
+    andConditions.push({
+      conditions: {
+        some: { public: { equals: true } },
+      },
+    });
+  }
+
+  // If a chainId is provided, only include groups that have at least one
+  // condition on that chain (otherwise group rows become irrelevant in Markets).
+  if (opts?.chainId !== undefined) {
+    andConditions.push({
+      conditions: {
+        some: { chainId: { equals: opts.chainId } },
+      },
+    });
+  }
+
+  // Unless explicitly requested, exclude groups with zero conditions.
+  if (!opts?.includeEmptyGroups) {
+    andConditions.push({
+      conditions: { some: {} },
     });
   }
 
@@ -109,20 +150,18 @@ function buildGroupWhereClause(
   return where;
 }
 
-function buildConditionsWhereClause(
-  chainId?: number,
-  publicOnly?: boolean
-): Record<string, unknown> {
+function buildConditionsWhereClause(opts?: {
+  chainId?: number;
+  filters?: ConditionGroupFilters;
+}): Record<string, unknown> {
   const where: Record<string, unknown> = {};
   const andConditions: Record<string, unknown>[] = [];
 
-  // Chain ID filter for conditions
-  if (chainId !== undefined) {
-    andConditions.push({ chainId: { equals: chainId } });
+  if (opts?.chainId !== undefined) {
+    andConditions.push({ chainId: { equals: opts.chainId } });
   }
 
-  // Public only filter for conditions
-  if (publicOnly) {
+  if (opts?.filters?.publicOnly) {
     andConditions.push({ public: { equals: true } });
   }
 
@@ -146,12 +185,8 @@ export const useConditionGroups = (opts?: {
   const filters = opts?.filters;
   const includeEmptyGroups = opts?.includeEmptyGroups ?? false;
 
-  // Build where clauses
-  const groupWhere = buildGroupWhereClause(filters);
-  const conditionsWhere = buildConditionsWhereClause(
-    chainId,
-    filters?.publicOnly
-  );
+  const where = buildGroupWhereClause({ chainId, filters, includeEmptyGroups });
+  const conditionsWhere = buildConditionsWhereClause({ chainId, filters });
 
   return useQuery<ConditionGroupType[], Error>({
     queryKey: [
@@ -169,7 +204,7 @@ export const useConditionGroups = (opts?: {
       const variables = {
         take,
         skip,
-        where: Object.keys(groupWhere).length > 0 ? groupWhere : undefined,
+        where: Object.keys(where).length > 0 ? where : undefined,
         conditionsWhere:
           Object.keys(conditionsWhere).length > 0 ? conditionsWhere : undefined,
       };
@@ -179,12 +214,7 @@ export const useConditionGroups = (opts?: {
         variables
       );
 
-      const groups = data.conditionGroups ?? [];
-      // Default behavior (used by Markets): drop groups that end up with zero
-      // conditions after filtering. Admin needs to see empty groups too.
-      return includeEmptyGroups
-        ? groups
-        : groups.filter((g) => g.conditions.length > 0);
+      return data.conditionGroups ?? [];
     },
   });
 };

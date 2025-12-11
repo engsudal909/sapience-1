@@ -28,12 +28,6 @@ const Loader = dynamic(() => import('~/components/shared/Loader'), {
   loading: () => <div className="w-8 h-8" />,
 });
 
-// Helper to convert days from now to Unix timestamp
-function daysFromNowToTimestamp(days: number): number {
-  const nowSec = Math.floor(Date.now() / 1000);
-  return nowSec + days * 86400;
-}
-
 const MarketsPage = () => {
   const { data: allCategories = [], isLoading: isLoadingCategories } =
     useCategories();

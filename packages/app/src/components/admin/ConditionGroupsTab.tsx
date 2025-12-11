@@ -679,9 +679,7 @@ const ConditionGroupsTab = ({
                 <Select
                   value={categorySlug || CATEGORY_NONE_VALUE}
                   onValueChange={(value) => {
-                    setCategorySlug(
-                      value === CATEGORY_NONE_VALUE ? '' : value
-                    );
+                    setCategorySlug(value === CATEGORY_NONE_VALUE ? '' : value);
                   }}
                 >
                   <SelectTrigger>

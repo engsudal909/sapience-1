@@ -287,12 +287,16 @@ function GroupForecastCell({
     return <span className="text-muted-foreground">Requesting...</span>;
   }
 
-  const displayName = bestOption.condition.shortName || bestOption.condition.question;
+  const displayName =
+    bestOption.condition.shortName || bestOption.condition.question;
   const percent = Math.round(bestOption.probability * 100);
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-foreground truncate max-w-[120px]" title={displayName}>
+      <span
+        className="text-foreground truncate max-w-[120px]"
+        title={displayName}
+      >
         {displayName}
       </span>
       <Badge
