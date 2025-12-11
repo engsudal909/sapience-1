@@ -26,8 +26,8 @@ import ReindexPredictionMarketForm from './ReindexPredictionMarketForm';
 import { useAdminApi } from '~/hooks/useAdminApi';
 import { useSettings } from '~/lib/context/SettingsContext';
 
-// Dynamically import LottieLoader
-const LottieLoader = dynamic(() => import('~/components/shared/LottieLoader'), {
+// Dynamically import Loader
+const Loader = dynamic(() => import('~/components/shared/Loader'), {
   ssr: false,
   loading: () => <div className="w-8 h-8" />,
 });
@@ -103,7 +103,7 @@ const ReindexAccuracyForm = () => {
       <Button type="submit" disabled={isLoading}>
         {isLoading ? (
           <>
-            <LottieLoader width={16} height={16} />
+            <Loader size={12} />
             <span className="ml-2">Processing...</span>
           </>
         ) : (

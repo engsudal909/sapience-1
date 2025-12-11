@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { formatUnits, parseUnits } from 'viem';
 import { ChevronDown, Info } from 'lucide-react';
+import Loader from '~/components/shared/Loader';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { QuoteBid } from '~/lib/auction/useAuctionStart';
 import { formatNumber } from '~/lib/utils/util';
@@ -14,6 +15,8 @@ import WagerDisclaimer from './WagerDisclaimer';
 export interface BidDisplayProps {
   /** The best valid bid */
   bestBid: QuoteBid | null;
+  /** Estimate bid (failed simulation but only bid available) - shown with muted styling */
+  estimateBid?: QuoteBid | null;
   /** User's wager amount (human-readable string) */
   wagerAmount: string;
   /** Collateral token symbol (e.g., "USDe") */
@@ -68,6 +71,7 @@ export interface BidDisplayProps {
  */
 export default function BidDisplay({
   bestBid,
+  estimateBid,
   wagerAmount,
   collateralSymbol,
   collateralDecimals = 18,
@@ -130,6 +134,7 @@ export default function BidDisplay({
 
   // Convert QuoteBids to AuctionBidData for the chart
   const chartBids = useMemo(() => quoteBidsToAuctionBids(allBids), [allBids]);
+
   // Calculate payout from best bid
   const { humanTotal, remainingSecs } = (() => {
     if (!bestBid) {
@@ -166,6 +171,33 @@ export default function BidDisplay({
     return { humanTotal: humanTotalVal, remainingSecs: secs };
   })();
 
+  // Calculate estimate payout from estimate bid (failed simulation, only bid available)
+  const estimateTotal = useMemo(() => {
+    if (!estimateBid) return null;
+
+    let userWagerWei: bigint = 0n;
+    try {
+      userWagerWei = parseUnits(wagerAmount || '0', collateralDecimals);
+    } catch {
+      userWagerWei = 0n;
+    }
+
+    const totalWei = (() => {
+      try {
+        return userWagerWei + BigInt(estimateBid.makerWager);
+      } catch {
+        return 0n;
+      }
+    })();
+
+    try {
+      const human = Number(formatUnits(totalWei, collateralDecimals));
+      return formatNumber(human, 2);
+    } catch {
+      return '0.00';
+    }
+  }, [estimateBid, wagerAmount, collateralDecimals]);
+
   const _suffix = remainingSecs === 1 ? 'second' : 'seconds';
   const isBidExpired = bestBid
     ? bestBid.makerDeadline * 1000 - nowMs <= 0
@@ -182,8 +214,8 @@ export default function BidDisplay({
       };
     }
     return {
-      text: showRequestBidsButton ? 'INITIATE AUCTION' : 'WAITING FOR BIDS...',
-      disabled: !showRequestBidsButton || isWaitingForBids,
+      text: 'INITIATE AUCTION',
+      disabled: !showRequestBidsButton,
       onClick: () => showRequestBidsButton && onRequestBids(),
       type: 'button' as const,
     };
@@ -215,7 +247,7 @@ export default function BidDisplay({
                   <span className="font-light text-brand-white uppercase tracking-wider">
                     To Win
                   </span>
-                  <span className="text-brand-white font-semibold inline-flex items-center whitespace-nowrap">
+                  <span className="text-brand-white font-semibold inline-flex items-center gap-1.5 whitespace-nowrap">
                     {`${humanTotal} ${collateralSymbol}`}
                   </span>
                 </span>
@@ -277,6 +309,30 @@ export default function BidDisplay({
             )}
           </div>
         </motion.div>
+      ) : estimateBid && estimateTotal ? (
+        /* Estimated To Win Display - muted styling for failed simulation bid */
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.4,
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
+          className={`mt-4 mb-4 ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
+        >
+          <div className="rounded-md border border-muted-foreground/30 bg-muted/30 px-4 py-2.5 w-full">
+            <div className="flex items-center min-h-[40px]">
+              <span className="inline-flex items-center gap-2 whitespace-nowrap font-mono">
+                <span className="font-light text-muted-foreground uppercase tracking-wider">
+                  Est. Quote to Win
+                </span>
+                <span className="text-muted-foreground font-semibold whitespace-nowrap">
+                  {`${estimateTotal} ${collateralSymbol}`}
+                </span>
+              </span>
+            </div>
+          </div>
+        </motion.div>
       ) : showAddPredictionsHint ? (
         <div className="mt-4 mb-4">
           <div className="rounded-md border border-border bg-muted/30 px-4 py-2.5 w-full">
@@ -334,13 +390,13 @@ export default function BidDisplay({
               ? 'position-form-submit hover:text-brand-white'
               : ''
           }`}
-          disabled={buttonState.disabled}
+          disabled={buttonState.disabled || isWaitingForBids}
           type={buttonState.type}
           size="lg"
           variant="default"
           onClick={buttonState.onClick}
         >
-          {buttonState.text}
+          {isWaitingForBids ? <Loader size={12} /> : buttonState.text}
         </Button>
       )}
 
