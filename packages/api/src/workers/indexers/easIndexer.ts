@@ -9,12 +9,8 @@ import {
 } from 'viem';
 import Sentry from '../../instrument';
 import { SchemaEncoder } from '@ethereum-attestation-service/eas-sdk';
-import { IResourcePriceIndexer } from '../../interfaces';
-import type { Resource } from '../../../generated/prisma';
-import {
-  upsertAttestationScoreFromAttestation,
-  selectLatestPreEndForMarket,
-} from '../../helpers/scoringService';
+import { IIndexer } from '../../interfaces';
+import { upsertAttestationScoreFromAttestation } from '../../helpers/scoringService';
 
 const BLOCK_BATCH_SIZE = 100;
 
@@ -37,19 +33,19 @@ const EAS_START_BLOCK = {
   432: 1,
 } as const; // FROM https://github.com/ethereum-attestation-service/eas-indexing-service/blob/master/utils.ts
 
-// Your specific prediction market schema
-const PREDICTION_MARKET_SCHEMA_ID =
-  '0x2dbb0921fa38ebc044ab0a7fe109442c456fb9ad39a68ce0a32f193744d17744';
+// Forecast schema
+// Schema: address resolver, bytes condition, uint256 forecast, string comment
+const FORECAST_SCHEMA_ID =
+  '0x7df55bcec6eb3b17b25c503cc318a36d33b0a9bbc2d6bc0d9788f9bd61980d49';
 const schemaEncoder = new SchemaEncoder(
-  'address marketAddress,uint256 marketId,bytes32 questionId,uint160 prediction,string comment'
+  'address resolver,bytes condition,uint256 forecast,string comment'
 );
 
-// Schema for decoding prediction market data: address marketAddress, uint256 marketId, uint160 prediction, string comment
-const PREDICTION_MARKET_SCHEMA = [
-  { type: 'address', name: 'marketAddress' },
-  { type: 'uint256', name: 'marketId' },
-  { type: 'bytes32', name: 'questionId' },
-  { type: 'uint160', name: 'prediction' },
+// Schema for decoding forecast data
+const FORECAST_SCHEMA = [
+  { type: 'address', name: 'resolver' },
+  { type: 'bytes', name: 'condition' },
+  { type: 'uint256', name: 'forecast' },
   { type: 'string', name: 'comment' },
 ] as const;
 
@@ -108,15 +104,14 @@ interface PredictionMarketEvent {
   timestamp: number;
 }
 
-interface DecodedPredictionData {
-  marketAddress: string;
-  marketId: string;
-  questionId: string;
-  prediction: string;
+interface DecodedForecastData {
+  resolver: string;
+  condition: string;
+  forecast: string;
   comment: string;
 }
 
-class EASPredictionIndexer implements IResourcePriceIndexer {
+class EASPredictionIndexer implements IIndexer {
   public client: PublicClient;
   private isWatching: boolean = false;
   private chainId: number;
@@ -175,29 +170,26 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
     }
   }
 
-  private decodePredictionMarketData(
-    rawData: string
-  ): DecodedPredictionData | null {
+  private decodeForecastData(rawData: string): DecodedForecastData | null {
     try {
       if (!rawData || rawData === '0x') {
         return null;
       }
 
       const decoded = decodeAbiParameters(
-        PREDICTION_MARKET_SCHEMA,
+        FORECAST_SCHEMA,
         rawData as `0x${string}`
       );
 
       return {
-        marketAddress: decoded[0].toString(),
-        marketId: decoded[1].toString(),
-        questionId: decoded[2].toString(),
-        prediction: decoded[3].toString(),
-        comment: decoded[4].toString(),
+        resolver: decoded[0].toString(),
+        condition: decoded[1].toString(),
+        forecast: decoded[2].toString(),
+        comment: decoded[3].toString(),
       };
     } catch (error) {
       console.error(
-        '[EASPredictionIndexer] Error decoding prediction market data:',
+        '[EASPredictionIndexer] Error decoding forecast data:',
         error
       );
       return null;
@@ -216,7 +208,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
         ] as `0x${string}`,
         event: attestedEventSignature,
         args: {
-          schemaUID: PREDICTION_MARKET_SCHEMA_ID as `0x${string}`,
+          schemaUID: FORECAST_SCHEMA_ID as `0x${string}`,
         },
         fromBlock: fromBlock,
         toBlock: toBlock,
@@ -225,7 +217,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
       const events: PredictionMarketEvent[] = [];
 
       for (const log of attestedLogs) {
-        if (log.args.schemaUID !== PREDICTION_MARKET_SCHEMA_ID) {
+        if (log.args.schemaUID !== FORECAST_SCHEMA_ID) {
           continue;
         }
 
@@ -253,11 +245,10 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
     }
   }
 
-  private async storePredictionAttestation(
+  private async storeForecastAttestation(
     event: PredictionMarketEvent
   ): Promise<void> {
     try {
-      // Get full attestation data to decode the prediction
       const attestationData = await this.getAttestationData(event.uid);
       if (!attestationData) {
         console.warn(
@@ -266,11 +257,10 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
         return;
       }
 
-      // Decode the prediction market data
-      const decodedData = this.decodePredictionMarketData(attestationData.data);
+      const decodedData = this.decodeForecastData(attestationData.data);
       if (!decodedData) {
         console.warn(
-          `[EASPredictionIndexer] Could not decode prediction data for ${event.uid}`
+          `[EASPredictionIndexer] Could not decode forecast data for ${event.uid}`
         );
         return;
       }
@@ -293,38 +283,27 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
           schemaId: event.schemaUID,
           blockNumber: Number(event.blockNumber),
           transactionHash: event.transactionHash,
-          // AES Indexer backward compatibility
           data: data,
           decodedDataJson: decodedDataJson,
-          // Exploded data
-          marketAddress: decodedData.marketAddress,
-          marketId: decodedData.marketId,
-          questionId: decodedData.questionId,
-          prediction: decodedData.prediction,
+          resolver: decodedData.resolver,
+          condition: decodedData.condition,
+          prediction: decodedData.forecast,
           comment: decodedData.comment || null,
         },
         update: {
-          // AES Indexer backward compatibility
           data: data,
           decodedDataJson: decodedDataJson,
-          // Exploded data
-          marketAddress: decodedData.marketAddress,
-          marketId: decodedData.marketId,
-          questionId: decodedData.questionId,
-          prediction: decodedData.prediction,
+          resolver: decodedData.resolver,
+          condition: decodedData.condition,
+          prediction: decodedData.forecast,
           comment: decodedData.comment || null,
         },
       });
 
-      // Update per-attestation scoring info and selection
       await upsertAttestationScoreFromAttestation(att.id);
-      await selectLatestPreEndForMarket(
-        decodedData.marketAddress,
-        decodedData.marketId
-      );
 
       console.log(
-        `[EASPredictionIndexer] Stored prediction attestation ${event.uid} for market ${decodedData.marketAddress} (questionId: ${decodedData.questionId}) with prediction ${decodedData.prediction}`
+        `[EASPredictionIndexer] Stored forecast attestation ${event.uid} (resolver: ${decodedData.resolver}) with forecast ${decodedData.forecast}`
       );
     } catch (error) {
       console.error(
@@ -340,7 +319,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
   }
 
   async indexBlockPriceFromTimestamp(
-    _: Resource,
+    _resourceSlug: string,
     startTimestamp: number,
     endTimestamp?: number,
     overwriteExisting: boolean = false
@@ -459,7 +438,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
               continue;
             }
 
-            await this.storePredictionAttestation(event);
+            await this.storeForecastAttestation(event);
           } catch (error) {
             console.error(
               `[EASPredictionIndexer] Error processing block ${event.blockNumber}:`,
@@ -494,7 +473,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
     }
   }
 
-  async indexBlocks(_: Resource, blocks: number[]): Promise<boolean> {
+  async indexBlocks(_resourceSlug: string, blocks: number[]): Promise<boolean> {
     try {
       console.log(
         `[EASPredictionIndexer] Indexing ${blocks.length} specific blocks`
@@ -513,7 +492,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
             );
 
             for (const event of events) {
-              await this.storePredictionAttestation(event);
+              await this.storeForecastAttestation(event);
             }
           }
         } catch (error) {
@@ -545,7 +524,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async watchBlocksForResource(resource: Resource): Promise<void> {
+  async watchBlocksForResource(_resourceSlug: string): Promise<void> {
     if (this.isWatching) {
       console.log(
         `[EASPredictionIndexer] Already watching for new predictions`
@@ -565,12 +544,12 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
         ] as `0x${string}`,
         event: attestedEventSignature,
         args: {
-          schemaUID: PREDICTION_MARKET_SCHEMA_ID as `0x${string}`,
+          schemaUID: FORECAST_SCHEMA_ID as `0x${string}`,
         },
         onLogs: async (logs) => {
           for (const log of logs) {
             try {
-              if (log.args.schemaUID !== PREDICTION_MARKET_SCHEMA_ID) {
+              if (log.args.schemaUID !== FORECAST_SCHEMA_ID) {
                 // Skip if not a prediction market attestation for this schema
                 console.log(
                   `[EASPredictionIndexer] Skipping event with schema ${log.args.schemaUID}`
@@ -592,7 +571,7 @@ class EASPredictionIndexer implements IResourcePriceIndexer {
                 timestamp: Number(block.timestamp),
               };
 
-              await this.storePredictionAttestation(event);
+              await this.storeForecastAttestation(event);
               console.log(
                 `[EASPredictionIndexer] Processed new prediction: ${event.uid}`
               );

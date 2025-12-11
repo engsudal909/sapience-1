@@ -6,19 +6,7 @@ This bridge implementation enables UMA settlement functionality on networks wher
 
 The bridge consists of two main contracts:
 
-1. **UMA-Side Bridge Contract (`UMALayerZeroBridge`)**
-   - Deployed on the network where UMA is available
-   - Interacts with UMA's OptimisticOracleV3
-   - Manages bond tokens and gas fees
-   - Handles cross-chain communication
-   - Inherits from `ETHManagement` and `BondManagement` abstract contracts
-
-2. **Market-Side Bridge Contract (`MarketLayerZeroBridge`)**
-   - Deployed on networks without UMA, where the Markets live (e.g., Converge)
-   - Implements UMA's interface for seamless integration
-   - Tracks remote bond balances
-   - Handles cross-chain communication
-   - Inherits from `ETHManagement` abstract contract
+**Note:** The full bridge contracts (`UMALayerZeroBridge` and `MarketLayerZeroBridge`) have been removed. The bridge abstractions (`ETHManagement`, `FeeManagement`, and `ILayerZeroBridge`) are now used by the prediction market resolvers.
 
 ## Abstract Contracts
 
@@ -36,12 +24,10 @@ The implementation uses several abstract contracts to share common functionality
 - Implements receive function
 - Inherits from `FeeManagement`
 
-### `BondManagement`
-- Manages bond token deposits and withdrawals
-- Implements withdrawal intent system with delay
-- Tracks bond balances and withdrawal intents
-- Provides bond management functions including withdrawal intent removal
-- Inherits from `ReentrancyGuard`
+### `ILayerZeroBridge`
+- Common interface for LayerZero bridge contracts
+- Provides bridge configuration management
+- Defines common errors and events
 
 ## Data Structures
 

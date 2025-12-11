@@ -19,22 +19,26 @@ export async function reindexAccuracy(
   }
 
   const normalizedAddress = address.toLowerCase();
-  let marketIds: string[] = [];
+  let conditionIds: string[] = [];
 
   if (marketId) {
-    marketIds = [marketId];
+    conditionIds = [marketId];
   } else {
-    const markets = await prisma.market.findMany({
-      where: { market_group: { address: normalizedAddress } },
-      select: { marketId: true },
+    // Get all distinct condition IDs from attestations for this market address
+    const distinctConditions = await prisma.attestation.findMany({
+      where: { marketAddress: normalizedAddress },
+      select: { questionId: true },
+      distinct: ['questionId'],
     });
-    marketIds = markets.map((m) => String(m.marketId));
+    conditionIds = distinctConditions
+      .map((a) => a.questionId)
+      .filter((id): id is string => !!id);
   }
 
-  for (const mId of marketIds) {
+  for (const condId of conditionIds) {
     // 1) Upsert scores for attestations in scope
     const atts = await prisma.attestation.findMany({
-      where: { marketAddress: normalizedAddress, marketId: mId },
+      where: { marketAddress: normalizedAddress, questionId: condId },
       select: { id: true },
     });
     for (const att of atts) {
@@ -42,6 +46,6 @@ export async function reindexAccuracy(
     }
 
     // 2) If settled, score (no selection step; we score all pre-end forecasts)
-    await scoreSelectedForecastsForSettledMarket(normalizedAddress, mId);
+    await scoreSelectedForecastsForSettledMarket(normalizedAddress, condId);
   }
 }

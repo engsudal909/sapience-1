@@ -1,0 +1,44 @@
+---
+title: "Contracts & Addresses"
+description: "Access deployed contract addresses and ABIs."
+---
+
+# Contracts & Addresses
+
+All deployed contract addresses and ABIs are published through the SDK.
+
+## Installation
+
+```bash
+npm install @sapience/sdk
+```
+
+## Addresses
+
+```typescript
+import { contracts } from '@sapience/sdk/contracts';
+
+// Core contracts:
+// - predictionMarket
+// - passiveLiquidityVault
+// - eas
+
+const pmAddress = contracts.predictionMarket[5064014].address;
+const vaultAddress = contracts.passiveLiquidityVault[5064014].address;
+```
+
+## ABIs
+
+```typescript
+import {
+  predictionMarketAbi,
+  liquidityVaultAbi,
+} from '@sapience/sdk/abis';
+```
+
+## Supported Chains
+
+| Chain    | ID        | Usage                             |
+| -------- | --------- | --------------------------------- |
+| Ethereal | `5064014` | Primary chain for markets & vaults |
+| Arbitrum | `42161`   | EAS attestations                  |

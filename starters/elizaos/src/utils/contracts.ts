@@ -1,5 +1,12 @@
 import { elizaLogger } from "@elizaos/core";
-import { createArbitrumPublicClient, createArbitrumWalletClient, getContractAddresses, getTradingConfig } from "./blockchain.js";
+import { 
+  createEtherealPublicClient, 
+  createEtherealWalletClient, 
+  getTradingContractAddresses, 
+  getTradingConfig,
+  getTradingRpcUrl
+} from "./blockchain.js";
+import { loadSdk } from "./sdk.js";
 
 interface Bid {
   auctionId: string;
@@ -17,12 +24,12 @@ interface Bid {
 }
 
 /**
- * Get the current maker nonce from the PredictionMarket contract
+ * Get the current maker nonce from the PredictionMarket contract on Ethereal
  */
 export async function getCurrentMakerNonce(walletAddress: string, rpcUrl?: string): Promise<number> {
   try {
-    const publicClient = await createArbitrumPublicClient(rpcUrl);
-    const { PREDICTION_MARKET } = getContractAddresses();
+    const publicClient = await createEtherealPublicClient(rpcUrl);
+    const { PREDICTION_MARKET } = getTradingContractAddresses();
     
     const nonce = await publicClient.readContract({
       address: PREDICTION_MARKET,
@@ -45,7 +52,14 @@ export async function getCurrentMakerNonce(walletAddress: string, rpcUrl?: strin
 }
 
 /**
- * Ensure ERC-20 token approval for USDe before trading
+ * Prepare for trading by wrapping USDe to WUSDe and approving for the PredictionMarket.
+ * 
+ * This follows the same pattern as the frontend betslip/parlay forms:
+ * 1. Always wrap the full collateral amount (no balance optimization)
+ * 2. Check allowance and approve only if insufficient
+ * 3. Execute transactions sequentially, waiting for each to confirm
+ * 
+ * On Ethereal chain, the native token is USDe but contracts expect WUSDe (Wrapped USDe) as collateral.
  */
 export async function ensureTokenApproval({
   privateKey,
@@ -57,75 +71,71 @@ export async function ensureTokenApproval({
   amount: string;
 }): Promise<void> {
   try {
-    const { erc20Abi } = await import("viem");
-    const { USDE_TOKEN, PREDICTION_MARKET } = getContractAddresses();
-    const { approvalAmount } = getTradingConfig();
-
-    const publicClient = await createArbitrumPublicClient(rpcUrl);
-    const walletClient = await createArbitrumWalletClient(privateKey, rpcUrl);
-
-    const allowance = await publicClient.readContract({
-      address: USDE_TOKEN,
-      abi: erc20Abi,
-      functionName: 'allowance',
-      args: [walletClient.account.address, PREDICTION_MARKET],
-    }) as bigint;
-
+    const sdk = await loadSdk();
+    const { PREDICTION_MARKET } = getTradingContractAddresses();
     const requiredAmount = BigInt(amount);
-    elizaLogger.info(`[Contracts] Current allowance: ${allowance}, required: ${requiredAmount}`);
-
-    if (allowance >= requiredAmount) {
-      elizaLogger.info("[Contracts] Sufficient allowance already exists");
-      return;
+    
+    elizaLogger.info(`[Contracts] Preparing for trade...`);
+    elizaLogger.info(`[Contracts] Required collateral: ${requiredAmount}`);
+    
+    // Use SDK's prepareForTrade which handles wrapping and approval sequentially
+    if (!sdk.prepareForTrade) {
+      throw new Error("SDK prepareForTrade function not available");
     }
 
-    elizaLogger.info("[Contracts] Approving USDe tokens for PredictionMarket contract...");
-
-    const hash = await walletClient.writeContract({
-      address: USDE_TOKEN,
-      abi: erc20Abi,
-      functionName: 'approve',
-      args: [PREDICTION_MARKET, BigInt(approvalAmount)],
+    const result = await sdk.prepareForTrade({
+      privateKey,
+      collateralAmount: requiredAmount,
+      spender: PREDICTION_MARKET,
+      rpcUrl: rpcUrl || getTradingRpcUrl(),
     });
-
-    elizaLogger.info(`[Contracts] Approval transaction submitted: ${hash}`);
-    await publicClient.waitForTransactionReceipt({ hash });
-    elizaLogger.info("[Contracts] Approval confirmed");
+    
+    if (result.wrapTxHash) {
+      elizaLogger.info(`[Contracts] Wrapped USDe -> WUSDe, tx: ${result.wrapTxHash}`);
+    }
+    if (result.approvalTxHash) {
+      elizaLogger.info(`[Contracts] Approved WUSDe, tx: ${result.approvalTxHash}`);
+    }
+    elizaLogger.info(`[Contracts] Ready for trade. WUSDe balance: ${result.wusdBalance}`);
   } catch (error) {
-    elizaLogger.error("[Contracts] Failed to ensure token approval:", error);
+    elizaLogger.error("[Contracts] Failed to prepare for trading:", error);
     throw error;
   }
 }
 
 /**
- * Build mint transaction calldata for PredictionMarket contract
+ * Build mint transaction calldata for PredictionMarket contract on Ethereal
+ * 
+ * Role mapping:
+ * - Requester = auction creator (agent) = calls mint = contract "maker"
+ * - Responder = bidder = signs the bid = contract "taker"
+ * 
+ * The contract requires msg.sender == maker, so the requester must be "maker"
  */
 export async function buildMintCalldata({
   bid,
-  maker,
+  requester,
+  requesterNonce,
 }: {
   bid: Bid;
-  maker: string;
+  requester: string;
+  requesterNonce: bigint;
 }): Promise<`0x${string}`> {
   const { encodeFunctionData } = await import("viem");
-  const { UMA_RESOLVER } = getContractAddresses();
+  const { RESOLVER } = getTradingContractAddresses();
   
-  // Contract field names haven't changed - map API roles to contract roles:
-  // Contract "maker" = API "maker" (bidder)
-  // Contract "taker" = API "taker" (auction creator)
+  // Requester (auction creator) = contract "maker" (msg.sender)
+  // Responder (bidder) = contract "taker" (provides signature)
   const mintRequest = {
     encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
-    resolver: bid.resolver || UMA_RESOLVER,
-    makerCollateral: BigInt(bid.makerWager || '0'), // Contract maker = API maker (bidder's wager)
-    takerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'), // Contract taker = API taker (auction creator's wager)
-    maker: bid.maker, // Contract maker = API maker (bidder)
-    taker: maker, // Contract taker = API taker (auction creator - passed as parameter)
-    makerNonce: BigInt(bid.makerNonce ?? 0), // Contract maker = API maker (bidder's nonce)
-    // NOTE: Contract expects takerSignature to validate the counterparty's approval.
-    // For now we continue to pass the maker's signature here until taker signatures
-    // are fully wired through the auction flow.
-    takerSignature: bid.makerSignature || "0x",
-    takerDeadline: BigInt(bid.makerDeadline || 0), // Deadline associated with the maker's bid
+    resolver: bid.resolver || RESOLVER,
+    makerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'), // Requester's stake
+    takerCollateral: BigInt(bid.makerWager || '0'), // Responder's stake
+    maker: requester, // Requester - must match msg.sender
+    taker: bid.maker, // Responder (bidder address from API)
+    makerNonce: requesterNonce, // Requester's nonce from contract
+    takerSignature: bid.makerSignature || "0x", // Responder's signature
+    takerDeadline: BigInt(bid.makerDeadline || 0), // Responder's deadline
     refCode: "0x0000000000000000000000000000000000000000000000000000000000000000"
   };
   

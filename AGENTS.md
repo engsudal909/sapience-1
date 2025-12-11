@@ -5,12 +5,11 @@ This document captures the context agents need when working in the Sapience mono
 ## Project Snapshot
 - Workspace manager: `pnpm` (Node >= 20.14, pnpm 9.x). Install everything with `pnpm install`.
 - Monorepo packages:
-  - `packages/protocol` – Foundry/Cannon Solidity contracts for the Foil protocol (see `packages/protocol/CLAUDE.md` for a deeper contract-specific brief).
+  - `packages/protocol` – Solidity smart contracts for the Sapience protocol (see `packages/protocol/CLAUDE.md` for a deeper contract-specific brief).
   - `packages/api` – TypeGraphQL + Prisma application with background workers, candle cache, and auction utilities.
-  - `packages/sapience` – Next.js 14 product app consuming the SDK and API.
+  - `packages/app` – Next.js 14 product app consuming the SDK and API.
   - `packages/sdk` – Shared TypeScript SDK (ABIs, hooks, UI kit, GraphQL helpers) built via `tsup` and Storybook.
-  - `packages/foil` – Marketing site (Next.js 15).
-  - `packages/foil-docs` and `packages/sapience-docs` – Documentation portals powered by Vocs.
+  - `packages/docs` – Documentation portal powered by Vocs.
 - Shared script: `render-build-sdk.sh` installs workspace devDependencies and builds the SDK before deployment.
 
 ## Core Commands
@@ -21,7 +20,6 @@ pnpm install                 # install all workspace dependencies (dev + prod)
 pnpm run dev:protocol        # launch Anvil + Cannon on 8545 with hot-deploys
 pnpm run dev:app             # start product app on http://localhost:3000
 pnpm run dev:api             # start GraphQL API + worker + codegen (requires Postgres)
-pnpm run dev:foil            # marketing site on http://localhost:3002
 pnpm run dev:docs            # Vocs docs on http://localhost:3003
 pnpm run test --recursive    # run package tests (delegates to package scripts)
 ```
@@ -30,7 +28,7 @@ Package-specific highlights:
 - Protocol: `pnpm --filter protocol run test` (Cannon + Forge), `pnpm --filter protocol run deploy:*` for network builds.
 - API: `pnpm --filter @sapience/api run prisma:setup` before local runs; use `vitest` (`test`/`test:watch`) and `tsx` CLIs (e.g., `start:reindex-*`).
 - SDK: build with `pnpm --filter @sapience/sdk run build:lib`; Storybook lives at `packages/sdk`.
-- App & Foil: standard Next.js commands (`dev`, `build`, `lint`, `type-check`).
+- App: standard Next.js commands (`dev`, `build`, `lint`, `type-check`).
 
 ## Environment Notes
 - Services expect a Postgres connection string in `DATABASE_URL` (see `render.yaml` for deployment wiring).
@@ -41,7 +39,7 @@ Package-specific highlights:
 ## Testing & Quality
 - Prefer package-level lint/format commands (`lint`, `lint:fix`, `format`) instead of manual `eslint` invocations.
 - For contract work, use Foundry’s targeted flags (`forge test --match-path …`).
-- Frontend tests use Jest (`pnpm --filter @sapience/sapience run test`) and Playwright for E2E (`test:e2e`).
+- Frontend tests use Jest (`pnpm --filter @sapience/app run test`) and Playwright for E2E (`test:e2e`).
 - Keep Storybook snapshots current when touching shared UI (`pnpm --filter @sapience/sdk run build-storybook`).
 
 ## Deployment & Ops
