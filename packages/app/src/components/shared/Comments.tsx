@@ -308,7 +308,7 @@ const Comments = ({
         <>
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <LottieLoader width={32} height={32} />
+              <LottieLoader size={16} />
             </div>
           ) : displayComments.length === 0 ? null : (
             <>
@@ -424,7 +424,7 @@ const Comments = ({
               })}
               {isFetchingNextPage && (
                 <div className="flex flex-col items-center justify-center py-6">
-                  <LottieLoader width={32} height={32} />
+                  <LottieLoader size={12} />
                 </div>
               )}
               {!hasNextPage && <div className="py-4" />}

@@ -20,7 +20,7 @@ const GlobalLoader = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <LottieLoader width={48} height={48} />
+      <LottieLoader size={24} />
     </div>
   );
 };

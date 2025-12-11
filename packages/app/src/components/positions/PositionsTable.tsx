@@ -1161,14 +1161,14 @@ export default function PositionsTable({
         <EmptyTabState centered message="No positions found" />
       ) : isLoading && rows.length === 0 ? (
         <div className="w-full min-h-[300px] flex items-center justify-center">
-          <LottieLoader width={12} height={12} />
+          <LottieLoader size={12} />
         </div>
       ) : (
         <>
           <div className="border-y border-border rounded-none overflow-hidden bg-brand-black relative">
             {isLoading && (
               <div className="absolute inset-0 bg-brand-black/50 flex items-center justify-center z-10">
-                <LottieLoader width={12} height={12} />
+                <LottieLoader size={12} />
               </div>
             )}
             <Table className="table-auto">
@@ -1223,7 +1223,7 @@ export default function PositionsTable({
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <LottieLoader width={24} height={24} />
+                  <LottieLoader size={12} />
                   <span className="text-sm text-muted-foreground">
                     Loading more positions...
                   </span>

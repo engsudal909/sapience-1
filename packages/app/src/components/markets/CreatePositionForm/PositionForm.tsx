@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@sapience/sdk/ui/components/ui/dialog';
 import { Info } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { parseUnits } from 'viem';
@@ -131,8 +131,11 @@ export default function PositionForm({
     if (!bids || bids.length === 0) return { bestBid: null, estimateBid: null };
 
     // Get non-expired bids
-    const nonExpiredBids = bids.filter((bid) => bid.makerDeadline * 1000 > nowMs);
-    if (nonExpiredBids.length === 0) return { bestBid: null, estimateBid: null };
+    const nonExpiredBids = bids.filter(
+      (bid) => bid.makerDeadline * 1000 > nowMs
+    );
+    if (nonExpiredBids.length === 0)
+      return { bestBid: null, estimateBid: null };
 
     // Only bids with successful simulation are valid for submission
     const validBids = nonExpiredBids.filter(
@@ -145,9 +148,7 @@ export default function PositionForm({
       (bid) => bid.simulationStatus === 'failed'
     );
     const onlyFailedBid =
-      validBids.length === 0 && failedBids.length === 1
-        ? failedBids[0]
-        : null;
+      validBids.length === 0 && failedBids.length === 1 ? failedBids[0] : null;
 
     if (validBids.length === 0) {
       return { bestBid: null, estimateBid: onlyFailedBid };
@@ -183,9 +184,24 @@ export default function PositionForm({
     return { bestBid: best, estimateBid: null };
   }, [bids, parlayWagerAmount, nowMs]);
 
-  // Check if we recently made a request (within 5 seconds) - show "Waiting for Bids..." during cooldown
+  // Cooldown duration for showing loader after requesting bids (30 seconds)
+  const QUOTE_COOLDOWN_MS = 30000;
+
+  // Check if we recently made a request - show loader during cooldown
   const recentlyRequested =
-    lastQuoteRequestMs != null && nowMs - lastQuoteRequestMs < 5000;
+    lastQuoteRequestMs != null &&
+    nowMs - lastQuoteRequestMs < QUOTE_COOLDOWN_MS;
+
+  // Restart cooldown when we receive an estimate bid (failed simulation)
+  // This keeps the loader showing while waiting for valid bids
+  const prevEstimateBidRef = useRef<typeof estimateBid>(null);
+  useEffect(() => {
+    if (estimateBid && !prevEstimateBidRef.current) {
+      // New estimate bid received - restart cooldown
+      setLastQuoteRequestMs(Date.now());
+    }
+    prevEstimateBidRef.current = estimateBid;
+  }, [estimateBid]);
 
   // Derive a stable dependency for form validation state
   const hasFormErrors = Object.keys(methods.formState.errors).length > 0;
@@ -240,7 +256,7 @@ export default function PositionForm({
 
   // Show "Request Bids" button when:
   // 1. No valid bids exist (never received or all expired)
-  // 2. Not in the 5-second cooldown period after making a request
+  // 2. Not in the cooldown period after making a request
   // Since automatic auction trigger is disabled, show button immediately when no bids
   const showNoBidsHint = !bestBid && !recentlyRequested;
 
@@ -398,12 +414,12 @@ export default function PositionForm({
             />
             <BidDisplay
               bestBid={bestBid}
-              estimateBid={estimateBid}
+              estimateBid={recentlyRequested ? estimateBid : null}
               wagerAmount={parlayWagerAmount || '0'}
               collateralSymbol={collateralSymbol}
               collateralDecimals={collateralDecimals}
               nowMs={nowMs}
-              isWaitingForBids={recentlyRequested && !bestBid && !estimateBid}
+              isWaitingForBids={recentlyRequested && !bestBid}
               showRequestBidsButton={showNoBidsHint && !estimateBid}
               onRequestBids={() =>
                 triggerAuctionRequest({ forceRefresh: true })

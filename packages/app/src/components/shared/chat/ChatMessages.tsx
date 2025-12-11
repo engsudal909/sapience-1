@@ -101,7 +101,7 @@ export function ChatMessages({
       )}
       {messages.length === 0 && showLoader && (
         <div className="w-full h-full flex items-center justify-center">
-          <LottieLoader width={32} height={32} />
+          <LottieLoader size={16} />
         </div>
       )}
       <div ref={endRef} />

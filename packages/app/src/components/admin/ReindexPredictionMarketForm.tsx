@@ -197,7 +197,7 @@ const ReindexPredictionMarketForm = () => {
       <Button type="submit" disabled={isLoading} className="w-full">
         {isLoading ? (
           <>
-            <LottieLoader width={16} height={16} />
+            <LottieLoader size={12} />
             <span className="ml-2">Processing...</span>
           </>
         ) : (

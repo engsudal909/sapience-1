@@ -86,7 +86,7 @@ export default function CollateralBalance({
   if (isBalanceLoading) {
     return (
       <div className="flex items-center space-x-2 opacity-50 py-1">
-        <LottieLoader width={16} height={16} />
+        <LottieLoader size={12} />
       </div>
     );
   }

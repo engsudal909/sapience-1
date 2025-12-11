@@ -103,7 +103,7 @@ export function PredictionScatterChart({
   if (isLoading) {
     return (
       <div className="absolute inset-0 flex items-center justify-center">
-        <LottieLoader width={32} height={32} />
+        <LottieLoader size={16} />
       </div>
     );
   }

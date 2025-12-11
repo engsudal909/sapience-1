@@ -355,7 +355,7 @@ const SettingsPageContent = () => {
 
         {!hydrated ? (
           <div className="h-[720px] flex items-center justify-center">
-            <LottieLoader width={48} height={48} />
+            <LottieLoader size={20} />
           </div>
         ) : (
           <Tabs

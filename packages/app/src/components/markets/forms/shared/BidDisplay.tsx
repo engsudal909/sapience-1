@@ -311,7 +311,13 @@ export default function BidDisplay({
         </motion.div>
       ) : estimateBid && estimateTotal ? (
         /* Estimated To Win Display - muted styling for failed simulation bid */
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.4,
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
           className={`mt-4 mb-4 ${toWinTakesSpace ? '' : 'absolute left-0 right-0 top-0 z-10'}`}
         >
           <div className="rounded-md border border-muted-foreground/30 bg-muted/30 px-4 py-2.5 w-full">
@@ -326,7 +332,7 @@ export default function BidDisplay({
               </span>
             </div>
           </div>
-        </div>
+        </motion.div>
       ) : showAddPredictionsHint ? (
         <div className="mt-4 mb-4">
           <div className="rounded-md border border-border bg-muted/30 px-4 py-2.5 w-full">
@@ -390,11 +396,7 @@ export default function BidDisplay({
           variant="default"
           onClick={buttonState.onClick}
         >
-          {isWaitingForBids ? (
-            <LottieLoader width={24} height={24} />
-          ) : (
-            buttonState.text
-          )}
+          {isWaitingForBids ? <LottieLoader size={12} /> : buttonState.text}
         </Button>
       )}
 

@@ -63,7 +63,12 @@ export function useBidSimulation({
       typeof buildMintRequestDataFromBid === 'function' &&
       bids.length > 0
     );
-  }, [bids.length, buildMintRequestDataFromBid, chainId, predictionMarketAddress]);
+  }, [
+    bids.length,
+    buildMintRequestDataFromBid,
+    chainId,
+    predictionMarketAddress,
+  ]);
 
   useEffect(() => {
     if (!canSimulate) {

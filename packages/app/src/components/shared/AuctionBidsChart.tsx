@@ -350,13 +350,35 @@ const AuctionBidsChart: React.FC<Props> = ({
             </linearGradient>
             {/* Gradient for failed simulation bids (orange/warning) */}
             <linearGradient id="colorBidFailed" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--warning))" stopOpacity={0.5} />
-              <stop offset="95%" stopColor="hsl(var(--warning))" stopOpacity={0.03} />
+              <stop
+                offset="5%"
+                stopColor="hsl(var(--warning))"
+                stopOpacity={0.5}
+              />
+              <stop
+                offset="95%"
+                stopColor="hsl(var(--warning))"
+                stopOpacity={0.03}
+              />
             </linearGradient>
             {/* Highlighted gradient for hovered failed bid */}
-            <linearGradient id="colorBidFailedHovered" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--warning))" stopOpacity={0.7} />
-              <stop offset="95%" stopColor="hsl(var(--warning))" stopOpacity={0.08} />
+            <linearGradient
+              id="colorBidFailedHovered"
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop
+                offset="5%"
+                stopColor="hsl(var(--warning))"
+                stopOpacity={0.7}
+              />
+              <stop
+                offset="95%"
+                stopColor="hsl(var(--warning))"
+                stopOpacity={0.08}
+              />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -437,9 +459,7 @@ const AuctionBidsChart: React.FC<Props> = ({
               nowMs - s.start < Math.max(300, Math.min(1200, refreshMs * 2));
             const isHovered = displayBidData?.seriesKey === s.key;
             const isFailed = s.simulationStatus === 'failed';
-            const strokeColor = isFailed
-              ? 'hsl(var(--warning))'
-              : seriesColor;
+            const strokeColor = isFailed ? 'hsl(var(--warning))' : seriesColor;
             const fillGradient = isFailed
               ? isHovered
                 ? 'url(#colorBidFailedHovered)'

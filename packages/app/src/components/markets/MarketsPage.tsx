@@ -118,7 +118,7 @@ const MarketsPage = () => {
           minHeight: 'calc(100dvh - var(--page-top-offset, 0px))',
         }}
       >
-        <LottieLoader width={32} height={32} />
+        <LottieLoader size={16} />
       </div>
     );
   }
