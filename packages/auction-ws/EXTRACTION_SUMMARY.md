@@ -32,7 +32,6 @@
 - ✅ Created `README.md` with API documentation
 - ✅ Created `DEPLOYMENT.md` with deployment guide
 - ✅ Created `EXTRACTION_NOTES.md` with migration notes
-- ✅ Created `nginx.example.conf` for reverse proxy setup
 - ✅ Updated root `package.json` with `dev:auction` script
 
 ### 6. Package Configuration
@@ -65,7 +64,6 @@ packages/auction-ws/
 ├── README.md
 ├── DEPLOYMENT.md
 ├── EXTRACTION_NOTES.md
-├── nginx.example.conf
 └── .gitignore
 ```
 
@@ -96,12 +94,17 @@ pnpm --filter @sapience/auction run start
 
 ## 🔄 Next Steps for Production
 
-1. **Set up Reverse Proxy** (Recommended)
-   - Use nginx or similar to route `/auction` to the auction service
-   - See `nginx.example.conf` for configuration
+1. **Deploy to Render** (Recommended)
+   - Service is already configured in `render.yaml`
+   - Render handles routing internally - no nginx needed
+   - Set environment variables in Render dashboard
+   - Service will auto-deploy on push to main branch
+
+2. **Self-Hosted Setup** (Alternative)
+   - If self-hosting, set up a reverse proxy (nginx, etc.) to route `/auction` to the auction service
    - This allows frontend to continue using same URL pattern
 
-2. **Update Frontend** (Alternative)
+3. **Update Frontend** (Alternative)
    - Update `packages/sapience/src/lib/ws.ts` to point to auction service
    - Or use environment variable for auction service URL
 

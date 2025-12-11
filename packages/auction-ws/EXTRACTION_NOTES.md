@@ -43,30 +43,17 @@ pnpm --filter @sapience/auction run start
 
 The frontend currently constructs the auction WebSocket URL from the API base URL. You have several options:
 
-### Option 1: Reverse Proxy (Recommended)
-Use nginx or another reverse proxy to route `/auction` requests to the auction service:
+### Option 1: Render.com (Recommended)
+If deploying to Render, the service is configured in `render.yaml` and Render handles routing internally. No additional reverse proxy setup needed.
 
-```nginx
-location /auction {
-    proxy_pass http://localhost:3002;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-}
-```
+### Option 2: Self-Hosted Reverse Proxy
+If self-hosting, use nginx or another reverse proxy to route `/auction` requests to the auction service. This allows the frontend to continue using the same URL pattern (`ws://api.example.com/auction`).
 
-This allows the frontend to continue using the same URL pattern (`ws://api.example.com/auction`).
-
-### Option 2: Update Frontend Configuration
+### Option 3: Update Frontend Configuration
 Update the frontend to use a separate auction service URL. Modify:
 - `packages/sapience/src/lib/ws.ts` - `toAuctionWsUrl` function
 - Environment variables for auction service URL
 
-### Option 3: Same Port, Different Service
-Run both services behind a load balancer that routes based on path:
-- `/graphql`, `/chat` → API service (port 3001)
-- `/auction` → Auction service (port 3002)
 
 ## Environment Variables
 

@@ -62,36 +62,30 @@ Set these in your deployment platform:
 
 ## Reverse Proxy Setup
 
-To maintain the same URL structure for clients, set up a reverse proxy to route `/auction` requests to the auction-ws service.
+### Render.com (Recommended)
 
-### Option 1: Nginx (Recommended)
+If deploying to Render, no reverse proxy setup is needed. Render handles routing internally. The service is configured in `render.yaml` and will be accessible at its own URL (e.g., `https://auction-ws.onrender.com`).
 
-See `nginx.example.conf` for a complete nginx configuration example.
+### Self-Hosted Setup
 
-Key configuration:
+If self-hosting, set up a reverse proxy to route `/auction` requests to the auction-ws service. Example nginx configuration:
+
 ```nginx
 location /auction {
     proxy_pass http://localhost:3002;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 86400;
     proxy_send_timeout 86400;
 }
 ```
 
-### Option 2: Render.com Internal Services
-
-If both services are on Render, you can use Render's internal service discovery:
-
-```nginx
-location /auction {
-    proxy_pass http://auction-ws.onrender.com;
-    # ... same headers as above
-}
-```
-
-### Option 3: Update Frontend Configuration
+### Alternative: Update Frontend Configuration
 
 Alternatively, update the frontend to point directly to the auction-ws service:
 
