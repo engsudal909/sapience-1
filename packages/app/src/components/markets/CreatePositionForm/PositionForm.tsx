@@ -83,6 +83,11 @@ export default function PositionForm({
   const [lastQuoteRequestMs, setLastQuoteRequestMs] = useState<number | null>(
     null
   );
+  // Keep the last estimate visible even if subsequent bids arrive as pending/failed
+  // so the UI doesn't flicker back to a disabled "waiting" state.
+  const [stickyEstimateBid, setStickyEstimateBid] = useState<QuoteBid | null>(
+    null
+  );
 
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
@@ -130,7 +135,7 @@ export default function PositionForm({
     }
   }, [parlayWagerAmount, collateralDecimals]);
 
-  // Filter bids: only show bids with successful simulation as valid best bids
+  // Filter bids: only show bids marked as valid as best bids
   const { bestBid, estimateBid } = useMemo(() => {
     if (!bids || bids.length === 0) return { bestBid: null, estimateBid: null };
 
@@ -141,21 +146,21 @@ export default function PositionForm({
     if (nonExpiredBids.length === 0)
       return { bestBid: null, estimateBid: null };
 
-    // Only bids with successful simulation are valid for submission
+    // Only bids marked as valid are valid for submission
     const validBids = nonExpiredBids.filter(
-      (bid) => bid.simulationStatus === 'success'
+      (bid) => bid.validationStatus === 'valid'
     );
 
-    // Check if we have only one bid that failed simulation - show as estimate
-    // (If it's pending, we wait; if it's failed and only one, show estimate)
+    // If we have no valid bids and exactly one invalid bid, show it as an estimate.
+    // This matches the "single failing bid shows ESTIMATE" behavior.
     const failedBids = nonExpiredBids.filter(
-      (bid) => bid.simulationStatus === 'failed'
+      (bid) => bid.validationStatus === 'invalid'
     );
-    const onlyFailedBid =
+    const estimateFromFailed =
       validBids.length === 0 && failedBids.length === 1 ? failedBids[0] : null;
 
     if (validBids.length === 0) {
-      return { bestBid: null, estimateBid: onlyFailedBid };
+      return { bestBid: null, estimateBid: estimateFromFailed };
     }
 
     const makerWagerStr = parlayWagerAmount || '0';
@@ -187,6 +192,21 @@ export default function PositionForm({
 
     return { bestBid: best, estimateBid: null };
   }, [bids, parlayWagerAmount, nowMs]);
+
+  // Make estimate "sticky" so it doesn't disappear while we're still waiting for a success bid.
+  useEffect(() => {
+    if (bestBid) {
+      setStickyEstimateBid(null);
+      return;
+    }
+    if (estimateBid) {
+      setStickyEstimateBid(estimateBid);
+      return;
+    }
+    // Clear the sticky estimate when there are no non-expired bids left.
+    const hasAnyNonExpired = bids.some((b) => b.makerDeadline * 1000 > nowMs);
+    if (!hasAnyNonExpired) setStickyEstimateBid(null);
+  }, [bestBid, estimateBid, bids, nowMs]);
 
   // Cooldown duration for showing loader after requesting bids (15 seconds)
   const QUOTE_COOLDOWN_MS = 15000;
@@ -431,20 +451,22 @@ export default function PositionForm({
             />
             <BidDisplay
               bestBid={bestBid}
-              estimateBid={recentlyRequested ? estimateBid : null}
+              estimateBid={stickyEstimateBid}
               wagerAmount={parlayWagerAmount || '0'}
               collateralSymbol={collateralSymbol}
               collateralDecimals={collateralDecimals}
               nowMs={nowMs}
-              isWaitingForBids={recentlyRequested && !bestBid}
-              showRequestBidsButton={showNoBidsHint && !estimateBid}
+              isWaitingForBids={
+                recentlyRequested && !bestBid && !stickyEstimateBid
+              }
+              showRequestBidsButton={showNoBidsHint}
               onRequestBids={handleRequestBids}
               isSubmitting={isSubmitting}
               onSubmit={onSubmit}
               isSubmitDisabled={isPermitLoading || isRestricted}
               enableRainbowHover={isRainbowHoverEnabled}
               onLimitOrderClick={() => setIsLimitDialogOpen(true)}
-              showNoBidsHint={showNoBidsHint && !estimateBid}
+              showNoBidsHint={showNoBidsHint}
               hintVisible={hintVisible}
               hintMounted={hintMounted}
               disclaimerVisible={disclaimerVisible}

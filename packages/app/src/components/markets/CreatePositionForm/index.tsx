@@ -41,7 +41,7 @@ import { CreatePositionFormContent } from '~/components/markets/CreatePositionFo
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useSubmitPosition } from '~/hooks/forms/useSubmitPosition';
 import { useAuctionStart } from '~/lib/auction/useAuctionStart';
-import { useBidSimulation } from '~/lib/auction/useBidSimulation';
+import { validateBids } from '~/lib/auction/validateBids';
 import { MarketGroupClassification } from '~/lib/types';
 import {
   DEFAULT_WAGER_AMOUNT,
@@ -91,13 +91,8 @@ const CreatePositionForm = ({
   // PredictionMarket address via centralized mapping (use parlayChainId)
   const PREDICTION_MARKET_ADDRESS = predictionMarket[parlayChainId]?.address;
 
-  // Simulate bids to detect potential on-chain failures early
-  const bids = useBidSimulation({
-    bids: rawBids,
-    chainId: parlayChainId,
-    predictionMarketAddress: PREDICTION_MARKET_ADDRESS,
-    buildMintRequestDataFromBid,
-  });
+  // Mark bids as "valid" if they have a non-zero maker address
+  const bids = useMemo(() => validateBids(rawBids), [rawBids]);
 
   // Fetch PredictionMarket configuration
   const predictionMarketConfigRead = useReadContracts({
