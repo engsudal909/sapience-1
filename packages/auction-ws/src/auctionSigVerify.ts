@@ -96,7 +96,3 @@ export function generateSigningMessage(
     issuedAt || new Date().toISOString()
   );
 }
-<<<<<<< HEAD:packages/auction-ws/src/auctionSigVerify.ts
-
-=======
->>>>>>> main:packages/api/src/auction/auctionSigVerify.ts
