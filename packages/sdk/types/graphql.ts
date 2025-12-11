@@ -2018,6 +2018,7 @@ export type SortOrderInput = {
   sort: SortOrder;
 };
 
+
 export type StringFilter = {
   contains?: InputMaybe<Scalars['String']['input']>;
   endsWith?: InputMaybe<Scalars['String']['input']>;
