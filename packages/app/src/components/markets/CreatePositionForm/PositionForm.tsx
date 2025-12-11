@@ -13,7 +13,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { FormProvider, type UseFormReturn, useWatch } from 'react-hook-form';
 import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
+import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { predictionMarketAbi } from '@sapience/sdk';
+import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { WagerInput } from '~/components/markets/forms';
 import BidDisplay from '~/components/markets/forms/shared/BidDisplay';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
@@ -71,6 +73,8 @@ export default function PositionForm({
 }: PositionFormProps) {
   const { selections, removeSelection } = useCreatePositionContext();
   const { address: takerAddress } = useAccount();
+  const { hasConnectedWallet } = useConnectedWallet();
+  const { connectOrCreateWallet } = useConnectOrCreateWallet({});
   const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;
   const [nowMs, setNowMs] = useState<number>(Date.now());
@@ -254,6 +258,19 @@ export default function PositionForm({
     ]
   );
 
+  // Handler for "Initiate Auction" button - requires login first
+  const handleRequestBids = useCallback(() => {
+    if (!hasConnectedWallet) {
+      try {
+        connectOrCreateWallet();
+      } catch (error) {
+        console.error('connectOrCreateWallet failed', error);
+      }
+      return;
+    }
+    triggerAuctionRequest({ forceRefresh: true });
+  }, [hasConnectedWallet, connectOrCreateWallet, triggerAuctionRequest]);
+
   // Show "Request Bids" button when:
   // 1. No valid bids exist (never received or all expired)
   // 2. Not in the cooldown period after making a request
@@ -421,9 +438,7 @@ export default function PositionForm({
               nowMs={nowMs}
               isWaitingForBids={recentlyRequested && !bestBid}
               showRequestBidsButton={showNoBidsHint && !estimateBid}
-              onRequestBids={() =>
-                triggerAuctionRequest({ forceRefresh: true })
-              }
+              onRequestBids={handleRequestBids}
               isSubmitting={isSubmitting}
               onSubmit={onSubmit}
               isSubmitDisabled={isPermitLoading || isRestricted}
