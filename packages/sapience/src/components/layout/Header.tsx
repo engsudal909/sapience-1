@@ -1,6 +1,6 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import {
   DropdownMenu,
@@ -34,7 +34,7 @@ import { usePathname } from 'next/navigation';
 import { SiSubstack } from 'react-icons/si';
 
 import { useEffect, useRef, useState } from 'react';
-import { useDisconnect } from 'wagmi';
+import { useDisconnect, useAccount } from 'wagmi';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import CollateralBalanceButton from './CollateralBalanceButton';
 import { shortenAddress } from '~/lib/utils/util';
@@ -44,6 +44,7 @@ import EnsAvatar from '~/components/shared/EnsAvatar';
 import ReferralsDialog from '~/components/shared/ReferralsDialog';
 import RequiredReferralCodeDialog from '~/components/shared/RequiredReferralCodeDialog';
 import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
+import { useAuth } from '~/lib/context/AuthContext';
 
 const USER_REFERRAL_STATUS_QUERY = `
   query UserReferralStatus($wallet: String!) {
@@ -194,9 +195,12 @@ const NavLinks = ({
 const Header = () => {
   const { ready, hasConnectedWallet, connectedWallet } = useConnectedWallet();
   const { logout, authenticated } = usePrivy();
+  const { wallets: privyWallets } = useWallets();
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
   const { openConnectDialog } = useConnectDialog();
-  const { disconnect } = useDisconnect();
+  const { disconnectAsync, connectors } = useDisconnect();
+  const { isConnected: wagmiIsConnected } = useAccount();
+  const { setLoggedOut } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const thresholdRef = useRef(12);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -326,27 +330,41 @@ const Header = () => {
         window.dispatchEvent(new Event('sapience:chat_logout'));
       }
     } catch {
-      /* noop */
+      // localStorage not available
     }
 
-    // Disconnect wagmi connections (external wallets like Rabby)
-    // This must be called explicitly since Privy logout doesn't handle
-    // connections made directly through wagmi
-    try {
-      disconnect?.();
-    } catch {
-      /* noop */
+    // Disconnect Privy wallets (external wallets detected by Privy)
+    for (const wallet of privyWallets) {
+      try {
+        wallet.disconnect();
+      } catch {
+        // Some wallets don't support programmatic disconnect (e.g., Frame)
+      }
     }
 
-    // Only call Privy logout if user is authenticated with Privy
-    // (skip for external wallet connections like Rabby that bypass Privy)
+    // Disconnect wagmi connections (in case any are connected directly)
+    if (wagmiIsConnected) {
+      for (const c of connectors) {
+        try {
+          await disconnectAsync({ connector: c });
+        } catch {
+          // Ignore errors for connectors that aren't connected
+        }
+      }
+    }
+
+    // Privy logout if authenticated
     if (authenticated) {
       try {
         await logout();
       } catch {
-        /* noop */
+        // Ignore logout errors
       }
     }
+
+    // Mark as logged out in app state
+    // This handles wallets that don't support programmatic disconnect (e.g., Frame)
+    setLoggedOut();
   };
 
   return (

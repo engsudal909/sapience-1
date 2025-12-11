@@ -20,6 +20,7 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import { WagerFlipProvider } from '~/lib/context/WagerFlipContext';
 import { ConnectDialogProvider } from '~/lib/context/ConnectDialogContext';
 import { SessionKeyProvider } from '~/lib/context/SessionKeyContext';
+import { AuthProvider } from '~/lib/context/AuthContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -173,17 +174,19 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
           ) : null}
 
           <SettingsProvider>
-            <WagmiRoot>
-              <SessionKeyProvider>
-                <SapienceProvider>
-                  <ConnectDialogProvider>
-                    <BetSlipProvider>
-                      <WagerFlipProvider>{children}</WagerFlipProvider>
-                    </BetSlipProvider>
-                  </ConnectDialogProvider>
-                </SapienceProvider>
-              </SessionKeyProvider>
-            </WagmiRoot>
+            <AuthProvider>
+              <WagmiRoot>
+                <SessionKeyProvider>
+                  <SapienceProvider>
+                    <ConnectDialogProvider>
+                      <BetSlipProvider>
+                        <WagerFlipProvider>{children}</WagerFlipProvider>
+                      </BetSlipProvider>
+                    </ConnectDialogProvider>
+                  </SapienceProvider>
+                </SessionKeyProvider>
+              </WagmiRoot>
+            </AuthProvider>
           </SettingsProvider>
         </QueryClientProvider>
       </ThemeProvider>
