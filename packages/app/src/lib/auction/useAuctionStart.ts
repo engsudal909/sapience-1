@@ -33,6 +33,7 @@ export interface QuoteBid {
   makerDeadline: number; // unix seconds
   makerSignature: string; // Maker's bid signature
   makerNonce: number; // nonce for the maker
+  simulationStatus?: 'pending' | 'success' | 'failed';
 }
 
 // Struct shape expected by PredictionMarket.mint()
