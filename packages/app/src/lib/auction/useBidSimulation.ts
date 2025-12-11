@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { getPublicClientForChainId } from '~/lib/utils/util';
 import type {
@@ -40,21 +40,10 @@ export function useBidSimulation({
 }: UseBidSimulationArgs): QuoteBid[] {
   const [simulatedBids, setSimulatedBids] = useState<QuoteBid[]>(bids);
 
-  // Reset local state when bids change
-  useEffect(() => {
-    setSimulatedBids((prev) => {
-      // Preserve existing simulationStatus when possible
-      const prevMap = new Map(prev.map((b) => [b.makerSignature, b]));
-      return bids.map((b) => {
-        const existing = prevMap.get(b.makerSignature);
-        return {
-          ...b,
-          simulationStatus:
-            existing?.simulationStatus ?? b.simulationStatus ?? 'pending',
-        };
-      });
-    });
-  }, [bids]);
+  // Track which bids we've already simulated to avoid re-simulating
+  const simulatedSignaturesRef = useRef<Map<string, 'success' | 'failed'>>(
+    new Map()
+  );
 
   const canSimulate = useMemo(() => {
     return (
@@ -72,7 +61,16 @@ export function useBidSimulation({
 
   useEffect(() => {
     if (!canSimulate) {
-      setSimulatedBids(bids);
+      // Preserve cached simulation results even when simulation is disabled
+      setSimulatedBids(
+        bids.map((b) => ({
+          ...b,
+          simulationStatus:
+            simulatedSignaturesRef.current.get(b.makerSignature) ??
+            b.simulationStatus ??
+            'pending',
+        }))
+      );
       return;
     }
 
@@ -82,9 +80,12 @@ export function useBidSimulation({
     const simulate = async () => {
       const updated = await Promise.all(
         bids.map(async (bid) => {
-          // Early exit if we've already marked this bid
-          if (bid.simulationStatus && bid.simulationStatus !== 'pending') {
-            return bid;
+          // Check cache first to avoid re-simulating
+          const cachedStatus = simulatedSignaturesRef.current.get(
+            bid.makerSignature
+          );
+          if (cachedStatus) {
+            return { ...bid, simulationStatus: cachedStatus };
           }
 
           const mintData = buildMintRequestDataFromBid?.({
@@ -92,6 +93,7 @@ export function useBidSimulation({
           });
 
           if (!mintData) {
+            simulatedSignaturesRef.current.set(bid.makerSignature, 'failed');
             return { ...bid, simulationStatus: 'failed' as const };
           }
 
@@ -116,8 +118,10 @@ export function useBidSimulation({
               args: [requestArg],
               account: mintData.maker,
             });
+            simulatedSignaturesRef.current.set(bid.makerSignature, 'success');
             return { ...bid, simulationStatus: 'success' as const };
           } catch {
+            simulatedSignaturesRef.current.set(bid.makerSignature, 'failed');
             return { ...bid, simulationStatus: 'failed' as const };
           }
         })

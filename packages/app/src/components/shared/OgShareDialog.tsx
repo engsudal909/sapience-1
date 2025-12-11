@@ -12,7 +12,7 @@ import Image from 'next/image';
 import { Copy, Share2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
-import LottieLoader from '~/components/shared/LottieLoader';
+import Loader from '~/components/shared/Loader';
 
 interface OgShareDialogBaseProps {
   imageSrc: string; // Relative path with query, e.g. "/og/trade?..."
@@ -106,7 +106,7 @@ export default function OgShareDialogBase(props: OgShareDialogBaseProps) {
           <div className="w-full aspect-[1200/630] bg-muted rounded overflow-hidden relative border border-border">
             {imgLoading && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <LottieLoader size={loaderSizePx} />
+                <Loader size={loaderSizePx} />
               </div>
             )}
             <Image

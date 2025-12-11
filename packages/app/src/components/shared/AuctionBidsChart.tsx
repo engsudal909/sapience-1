@@ -28,7 +28,6 @@ export type AuctionBidData = {
   makerSignature: string;
   makerNonce: number;
   receivedAtMs?: number;
-  simulationStatus?: 'pending' | 'success' | 'failed';
 };
 
 type Props = {
@@ -131,7 +130,6 @@ const AuctionBidsChart: React.FC<Props> = ({
               key: string;
               start: number;
               end: number;
-              simulationStatus?: 'pending' | 'success' | 'failed';
               data: {
                 time: number;
                 amount: number;
@@ -146,7 +144,6 @@ const AuctionBidsChart: React.FC<Props> = ({
             key,
             start,
             end,
-            simulationStatus: b.simulationStatus,
             data: [
               {
                 time: start,
@@ -348,38 +345,6 @@ const AuctionBidsChart: React.FC<Props> = ({
               <stop offset="5%" stopColor={seriesColor} stopOpacity={0.7} />
               <stop offset="95%" stopColor={seriesColor} stopOpacity={0.08} />
             </linearGradient>
-            {/* Gradient for failed simulation bids (orange/warning) */}
-            <linearGradient id="colorBidFailed" x1="0" y1="0" x2="0" y2="1">
-              <stop
-                offset="5%"
-                stopColor="hsl(var(--warning))"
-                stopOpacity={0.5}
-              />
-              <stop
-                offset="95%"
-                stopColor="hsl(var(--warning))"
-                stopOpacity={0.03}
-              />
-            </linearGradient>
-            {/* Highlighted gradient for hovered failed bid */}
-            <linearGradient
-              id="colorBidFailedHovered"
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
-            >
-              <stop
-                offset="5%"
-                stopColor="hsl(var(--warning))"
-                stopOpacity={0.7}
-              />
-              <stop
-                offset="95%"
-                stopColor="hsl(var(--warning))"
-                stopOpacity={0.08}
-              />
-            </linearGradient>
           </defs>
           <CartesianGrid
             stroke="rgba(128,128,128,0.15)"
@@ -458,25 +423,16 @@ const AuctionBidsChart: React.FC<Props> = ({
             const isNew =
               nowMs - s.start < Math.max(300, Math.min(1200, refreshMs * 2));
             const isHovered = displayBidData?.seriesKey === s.key;
-            const isFailed = s.simulationStatus === 'failed';
-            const strokeColor = isFailed ? 'hsl(var(--warning))' : seriesColor;
-            const fillGradient = isFailed
-              ? isHovered
-                ? 'url(#colorBidFailedHovered)'
-                : 'url(#colorBidFailed)'
-              : isHovered
-                ? 'url(#colorBidHovered)'
-                : 'url(#colorBid)';
             return (
               <Area
                 key={s.key}
                 type="stepAfter"
                 data={s.data}
                 dataKey="amount"
-                stroke={strokeColor}
+                stroke={seriesColor}
                 strokeWidth={isHovered ? 2 : 1.5}
                 fillOpacity={isHovered ? 0.3 : 0.2}
-                fill={fillGradient}
+                fill={isHovered ? 'url(#colorBidHovered)' : 'url(#colorBid)'}
                 isAnimationActive={isNew}
                 animationBegin={0}
                 animationDuration={isNew ? 500 : 0}

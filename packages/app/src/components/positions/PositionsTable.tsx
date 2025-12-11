@@ -64,7 +64,7 @@ import ShareDialog from '~/components/shared/ShareDialog';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge';
 import EnsAvatar from '~/components/shared/EnsAvatar';
-import LottieLoader from '~/components/shared/LottieLoader';
+import Loader from '~/components/shared/Loader';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 
 function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
@@ -1161,14 +1161,14 @@ export default function PositionsTable({
         <EmptyTabState centered message="No positions found" />
       ) : isLoading && rows.length === 0 ? (
         <div className="w-full min-h-[300px] flex items-center justify-center">
-          <LottieLoader size={12} />
+          <Loader size={12} />
         </div>
       ) : (
         <>
           <div className="border-y border-border rounded-none overflow-hidden bg-brand-black relative">
             {isLoading && (
               <div className="absolute inset-0 bg-brand-black/50 flex items-center justify-center z-10">
-                <LottieLoader size={12} />
+                <Loader size={12} />
               </div>
             )}
             <Table className="table-auto">
@@ -1223,7 +1223,7 @@ export default function PositionsTable({
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <LottieLoader size={12} />
+                  <Loader size={12} />
                   <span className="text-sm text-muted-foreground">
                     Loading more positions...
                   </span>

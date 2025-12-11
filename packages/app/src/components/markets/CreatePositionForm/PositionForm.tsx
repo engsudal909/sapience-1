@@ -184,8 +184,8 @@ export default function PositionForm({
     return { bestBid: best, estimateBid: null };
   }, [bids, parlayWagerAmount, nowMs]);
 
-  // Cooldown duration for showing loader after requesting bids (30 seconds)
-  const QUOTE_COOLDOWN_MS = 30000;
+  // Cooldown duration for showing loader after requesting bids (15 seconds)
+  const QUOTE_COOLDOWN_MS = 15000;
 
   // Check if we recently made a request - show loader during cooldown
   const recentlyRequested =

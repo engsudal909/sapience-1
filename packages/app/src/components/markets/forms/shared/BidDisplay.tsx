@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
 import { formatUnits, parseUnits } from 'viem';
 import { ChevronDown, Info } from 'lucide-react';
-import LottieLoader from '~/components/shared/LottieLoader';
+import Loader from '~/components/shared/Loader';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { QuoteBid } from '~/lib/auction/useAuctionStart';
 import { formatNumber } from '~/lib/utils/util';
@@ -396,7 +396,7 @@ export default function BidDisplay({
           variant="default"
           onClick={buttonState.onClick}
         >
-          {isWaitingForBids ? <LottieLoader size={12} /> : buttonState.text}
+          {isWaitingForBids ? <Loader size={12} /> : buttonState.text}
         </Button>
       )}
 

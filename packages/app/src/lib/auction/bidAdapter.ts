@@ -30,7 +30,6 @@ export function quoteBidsToAuctionBids(bids: QuoteBid[]): AuctionBidData[] {
       makerSignature: bid.makerSignature,
       makerNonce: bid.makerNonce,
       receivedAtMs: estimatedReceivedAt,
-      simulationStatus: bid.simulationStatus,
     };
   });
 }
