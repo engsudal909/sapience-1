@@ -35,10 +35,16 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Name is required' });
     }
 
-    let resolvedCategoryId: number | null = null;
+    if (typeof categoryId !== 'number' && !categorySlug) {
+      return res
+        .status(400)
+        .json({ message: 'Either categoryId or categorySlug is required' });
+    }
+
+    let resolvedCategoryId: number;
     if (typeof categoryId === 'number') {
       resolvedCategoryId = categoryId;
-    } else if (categorySlug) {
+    } else {
       const category = await prisma.category.findFirst({
         where: { slug: categorySlug },
       });
@@ -54,7 +60,7 @@ router.post('/', async (req: Request, res: Response) => {
       const group = await prisma.conditionGroup.create({
         data: {
           name: name.trim(),
-          categoryId: resolvedCategoryId ?? undefined,
+          categoryId: resolvedCategoryId,
         },
         include: { category: true, condition: true },
       });
