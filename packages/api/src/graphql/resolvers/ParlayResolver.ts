@@ -192,7 +192,9 @@ export class ParlayResolver {
     // For numeric/calculated sorting (wager, toWin, pnl), we need raw SQL
     if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
       const direction = orderDirection === 'asc' ? 'ASC' : 'DESC';
-      const statusFilter = status ? Prisma.sql`AND status = ${status}` : Prisma.empty;
+      const statusFilter = status
+        ? Prisma.sql`AND status = ${status}`
+        : Prisma.empty;
 
       if (orderBy === 'wager') {
         // For wager, sort by the viewer's individual collateral

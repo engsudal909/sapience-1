@@ -36,11 +36,13 @@ AUCTION_SERVICE_URL=https://auction-ws.example.com
 ## Testing
 
 1. Start the auction service:
+
    ```bash
    pnpm dev:auction
    ```
 
 2. Start the API service:
+
    ```bash
    pnpm dev:api:service
    ```
@@ -51,4 +53,3 @@ AUCTION_SERVICE_URL=https://auction-ws.example.com
    ```
 
 The proxy will forward the connection to `ws://localhost:3002/auction`.
-

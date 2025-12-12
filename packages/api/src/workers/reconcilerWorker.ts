@@ -4,14 +4,12 @@ import { initializeFixtures } from '../fixtures';
 
 import { createResilientProcess } from '../utils/utils';
 
-
 import { ParlayReconciler } from './reconcilers/parlay/parlayReconciler';
 
 async function runReconcilerWorker(intervalSeconds: number) {
   await initializeDataSource();
   await initializeFixtures();
 
- 
   const parlayReconciler = ParlayReconciler.getInstance();
 
   while (true) {

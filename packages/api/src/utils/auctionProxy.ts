@@ -1,7 +1,8 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import type { Request, Response } from 'express';
 import { config } from '../config';
 import http from 'http';
+import type { Request, Response } from 'express';
+import type { Socket } from 'net';
 
 /**
  * Get the auction service URL from environment or default to localhost
@@ -23,18 +24,20 @@ export function createAuctionProxyMiddleware() {
     target,
     changeOrigin: true,
     ws: false, // We handle WebSocket upgrades separately
-    logLevel: config.isDev ? 'debug' : 'warn',
-    onError: (err, req, res) => {
-      console.error('[Auction Proxy] Error proxying request:', err.message);
-      if (!res.headersSent) {
-        res.status(502).json({ error: 'Auction service unavailable' });
-      }
-    },
-    onProxyReq: (proxyReq, req) => {
-      // Preserve original host header for proper routing
-      if (req.headers.host) {
-        proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
-      }
+    on: {
+      error: (err: Error, req: Request, res: Response | Socket) => {
+        console.error('[Auction Proxy] Error proxying request:', err.message);
+        // Only handle HTTP responses, not WebSocket sockets
+        if ('status' in res && !res.headersSent) {
+          res.status(502).json({ error: 'Auction service unavailable' });
+        }
+      },
+      proxyReq: (proxyReq: http.ClientRequest, req: Request) => {
+        // Preserve original host header for proper routing
+        if (req.headers.host) {
+          proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
+        }
+      },
     },
   });
 }
@@ -75,82 +78,94 @@ export async function proxyAuctionWebSocket(
       resolve(false);
     });
 
-    proxyReq.on('upgrade', (proxyRes: import('http').IncomingMessage, proxySocket: import('net').Socket, proxyHead: Buffer) => {
-      // Upgrade successful, pipe the connection
-      proxySocket.on('error', (err: Error) => {
-        console.error('[Auction Proxy] Proxy socket error:', err.message);
-        try {
-          socket.destroy();
-        } catch {
-          /* ignore */
-        }
-      });
+    proxyReq.on(
+      'upgrade',
+      (
+        proxyRes: import('http').IncomingMessage,
+        proxySocket: import('net').Socket,
+        proxyHead: Buffer
+      ) => {
+        // Upgrade successful, pipe the connection
+        proxySocket.on('error', (err: Error) => {
+          console.error('[Auction Proxy] Proxy socket error:', err.message);
+          try {
+            socket.destroy();
+          } catch {
+            /* ignore */
+          }
+        });
 
-      socket.on('error', (err: Error) => {
-        console.error('[Auction Proxy] Client socket error:', err.message);
-        try {
-          proxySocket.destroy();
-        } catch {
-          /* ignore */
-        }
-      });
+        socket.on('error', (err: Error) => {
+          console.error('[Auction Proxy] Client socket error:', err.message);
+          try {
+            proxySocket.destroy();
+          } catch {
+            /* ignore */
+          }
+        });
 
-      // Write upgrade response to client
-      socket.write(
-        `HTTP/1.1 ${proxyRes.statusCode} ${proxyRes.statusMessage}\r\n`
-      );
-      Object.keys(proxyRes.headers).forEach((key) => {
-        const value = proxyRes.headers[key];
-        if (value && key.toLowerCase() !== 'connection' && key.toLowerCase() !== 'upgrade') {
-          socket.write(`${key}: ${Array.isArray(value) ? value.join(', ') : value}\r\n`);
-        }
-      });
-      socket.write('Connection: Upgrade\r\n');
-      socket.write('Upgrade: websocket\r\n');
-      socket.write('\r\n');
+        // Write upgrade response to client
+        socket.write(
+          `HTTP/1.1 ${proxyRes.statusCode} ${proxyRes.statusMessage}\r\n`
+        );
+        Object.keys(proxyRes.headers).forEach((key) => {
+          const value = proxyRes.headers[key];
+          if (
+            value &&
+            key.toLowerCase() !== 'connection' &&
+            key.toLowerCase() !== 'upgrade'
+          ) {
+            socket.write(
+              `${key}: ${Array.isArray(value) ? value.join(', ') : value}\r\n`
+            );
+          }
+        });
+        socket.write('Connection: Upgrade\r\n');
+        socket.write('Upgrade: websocket\r\n');
+        socket.write('\r\n');
 
-      // Handle head data first
-      if (head && head.length > 0) {
-        proxySocket.write(head);
+        // Handle head data first
+        if (head && head.length > 0) {
+          proxySocket.write(head);
+        }
+        if (proxyHead && proxyHead.length > 0) {
+          socket.write(proxyHead);
+        }
+
+        // Pipe data between sockets (bidirectional)
+        proxySocket.on('data', (chunk: Buffer) => {
+          if (socket.writable) {
+            socket.write(chunk);
+          }
+        });
+
+        socket.on('data', (chunk: Buffer) => {
+          if (proxySocket.writable) {
+            proxySocket.write(chunk);
+          }
+        });
+
+        proxySocket.on('close', () => {
+          try {
+            socket.destroy();
+          } catch {
+            /* ignore */
+          }
+        });
+
+        socket.on('close', () => {
+          try {
+            proxySocket.destroy();
+          } catch {
+            /* ignore */
+          }
+        });
+
+        resolve(true);
       }
-      if (proxyHead && proxyHead.length > 0) {
-        socket.write(proxyHead);
-      }
-
-      // Pipe data between sockets (bidirectional)
-      proxySocket.on('data', (chunk: Buffer) => {
-        if (socket.writable) {
-          socket.write(chunk);
-        }
-      });
-
-      socket.on('data', (chunk: Buffer) => {
-        if (proxySocket.writable) {
-          proxySocket.write(chunk);
-        }
-      });
-
-      proxySocket.on('close', () => {
-        try {
-          socket.destroy();
-        } catch {
-          /* ignore */
-        }
-      });
-
-      socket.on('close', () => {
-        try {
-          proxySocket.destroy();
-        } catch {
-          /* ignore */
-        }
-      });
-
-      resolve(true);
-    });
+    );
 
     // Send upgrade request with head data
     proxyReq.end(head);
   });
 }
-
