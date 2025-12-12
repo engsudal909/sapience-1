@@ -175,6 +175,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       claimStatement,
       endTime,
       chainId,
+      groupName,
     } = req.body as {
       question?: string;
       shortName?: string;
@@ -186,6 +187,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       claimStatement?: string;
       endTime?: number | string;
       chainId?: number;
+      groupName?: string;
     };
 
     const existing = await prisma.condition.findUnique({ where: { id } });
@@ -231,6 +233,25 @@ router.put('/:id', async (req: Request, res: Response) => {
       resolvedCategoryId = category.id;
     }
 
+    // Find or create condition group if groupName is provided
+    let resolvedGroupId: number | undefined;
+    if (groupName && groupName.trim()) {
+      let group = await prisma.conditionGroup.findFirst({
+        where: { name: groupName.trim() },
+      });
+      if (!group) {
+        // Create with inherited category (smart default: use resolved or existing category)
+        const categoryForGroup = resolvedCategoryId ?? existing.categoryId;
+        group = await prisma.conditionGroup.create({
+          data: {
+            name: groupName.trim(),
+            categoryId: categoryForGroup ?? undefined,
+          },
+        });
+      }
+      resolvedGroupId = group.id;
+    }
+
     try {
       // Validate similarMarkets URLs if provided
       if (
@@ -269,8 +290,12 @@ router.put('/:id', async (req: Request, res: Response) => {
                   : [],
               }
             : {}),
+          // Assign to group if groupName was provided
+          ...(resolvedGroupId !== undefined
+            ? { conditionGroupId: resolvedGroupId, displayOrder: 0 }
+            : {}),
         },
-        include: { category: true },
+        include: { category: true, conditionGroup: true },
       });
       return res.json(condition);
     } catch (e: unknown) {

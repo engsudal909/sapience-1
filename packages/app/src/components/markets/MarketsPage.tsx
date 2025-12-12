@@ -10,6 +10,10 @@ import {
   useConditions,
   type ConditionFilters,
 } from '~/hooks/graphql/useConditions';
+import {
+  useConditionGroups,
+  type ConditionGroupFilters,
+} from '~/hooks/graphql/useConditionGroups';
 import CreatePositionForm from '~/components/markets/CreatePositionForm';
 import ExampleCombos from '~/components/markets/ExampleCombos';
 import MarketsDataTable from '~/components/markets/MarketsDataTable';
@@ -23,12 +27,6 @@ const Loader = dynamic(() => import('~/components/shared/Loader'), {
   // Use a simple div as placeholder during load
   loading: () => <div className="w-8 h-8" />,
 });
-
-// Helper to convert days from now to Unix timestamp
-function daysFromNowToTimestamp(days: number): number {
-  const nowSec = Math.floor(Date.now() / 1000);
-  return nowSec + days * 86400;
-}
 
 const MarketsPage = () => {
   const { data: allCategories = [], isLoading: isLoadingCategories } =
@@ -48,10 +46,11 @@ const MarketsPage = () => {
   // Debounce search term for backend queries (300ms)
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
 
-  // Convert UI filter state to backend filter format
-  const backendFilters = useMemo((): ConditionFilters => {
+  // Convert UI filter state to backend filter format for ungrouped conditions
+  const backendConditionFilters = useMemo((): ConditionFilters => {
     const result: ConditionFilters = {
       publicOnly: true, // Always filter to public conditions
+      ungroupedOnly: true, // Only fetch conditions without a group
     };
 
     // Search filter (debounced)
@@ -64,26 +63,49 @@ const MarketsPage = () => {
       result.categorySlugs = filters.selectedCategories;
     }
 
-    // Time to resolution filter (convert days to timestamps)
-    const [minDays, maxDays] = filters.timeToResolutionRange;
-    // Only apply if not at the extreme bounds (-1000 to 1000)
-    if (minDays > -1000) {
-      result.endTimeGte = daysFromNowToTimestamp(minDays);
+    // Note: Time to resolution and open interest filters are applied client-side
+    // because they need to apply to group aggregates as well
+
+    return result;
+  }, [debouncedSearchTerm, filters.selectedCategories]);
+
+  // Convert UI filter state to backend filter format for condition groups
+  const backendGroupFilters = useMemo((): ConditionGroupFilters => {
+    const result: ConditionGroupFilters = {
+      publicOnly: true, // Filter to groups with public conditions
+    };
+
+    // Search filter (debounced) - searches group name
+    if (debouncedSearchTerm.trim()) {
+      result.search = debouncedSearchTerm.trim();
     }
-    if (maxDays < 1000) {
-      result.endTimeLte = daysFromNowToTimestamp(maxDays);
+
+    // Category filter
+    if (filters.selectedCategories.length > 0) {
+      result.categorySlugs = filters.selectedCategories;
     }
 
     return result;
-  }, [debouncedSearchTerm, filters]);
+  }, [debouncedSearchTerm, filters.selectedCategories]);
 
-  // RFQ Conditions via GraphQL with backend filtering
-  const { data: allConditions = [], isLoading: isLoadingConditions } =
+  // Fetch condition groups with their conditions
+  const { data: conditionGroups = [], isLoading: isLoadingGroups } =
+    useConditionGroups({
+      take: 200,
+      chainId,
+      filters: backendGroupFilters,
+    });
+
+  // Fetch ungrouped conditions via GraphQL with backend filtering
+  const { data: ungroupedConditions = [], isLoading: isLoadingConditions } =
     useConditions({
       take: 200,
       chainId,
-      filters: backendFilters,
+      filters: backendConditionFilters,
     });
+
+  // Combined loading state
+  const isLoadingData = isLoadingGroups || isLoadingConditions;
 
   // Callbacks for filter changes
   const handleSearchChange = useCallback((value: string) => {
@@ -148,8 +170,9 @@ const MarketsPage = () => {
             transition={{ duration: 0.25 }}
           >
             <MarketsDataTable
-              conditions={allConditions}
-              isLoading={isLoadingConditions}
+              conditionGroups={conditionGroups}
+              ungroupedConditions={ungroupedConditions}
+              isLoading={isLoadingData}
               searchTerm={searchTerm}
               onSearchChange={handleSearchChange}
               filters={filters}

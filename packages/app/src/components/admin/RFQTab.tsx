@@ -67,6 +67,7 @@ type RFQRow = {
   question: string;
   shortName?: string | null;
   category?: { id?: number; name?: string; slug?: string };
+  conditionGroup?: { id?: number; name?: string } | null;
   endTime?: number;
   public?: boolean;
   claimStatement: string;
@@ -149,6 +150,7 @@ const RFQTab = ({
   const [claimStatement, setClaimStatement] = useState('');
   const [description, setDescription] = useState('');
   const [similarMarketsText, setSimilarMarketsText] = useState('');
+  const [groupName, setGroupName] = useState('');
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [editingChainId, setEditingChainId] = useState<number | undefined>(
     undefined
@@ -230,6 +232,7 @@ const RFQTab = ({
     setClaimStatement('');
     setDescription('');
     setSimilarMarketsText('');
+    setGroupName('');
     setEditingId(undefined);
     setEditingChainId(undefined);
   };
@@ -713,6 +716,7 @@ const RFQTab = ({
                   setSimilarMarketsText(
                     (original.similarMarketUrls || []).join(', ')
                   );
+                  setGroupName(original.conditionGroup?.name || '');
                   setCreateOpen(true);
                 }}
               >
@@ -753,6 +757,7 @@ const RFQTab = ({
         question: c.question,
         shortName: c.shortName,
         category: c.category || undefined,
+        conditionGroup: c.conditionGroup || undefined,
         endTime: c.endTime,
         public: c.public,
         claimStatement: c.claimStatement,
@@ -801,6 +806,7 @@ const RFQTab = ({
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
+      const trimmedGroupName = groupName.trim();
       if (editingId) {
         const body = {
           question,
@@ -809,6 +815,8 @@ const RFQTab = ({
           public: isPublic,
           description,
           similarMarkets,
+          // Only send groupName if non-empty (empty means "leave unchanged")
+          ...(trimmedGroupName ? { groupName: trimmedGroupName } : {}),
         };
         await putJson<RFQRow>(`/conditions/${editingId}`, body);
         await refetch();
@@ -826,6 +834,7 @@ const RFQTab = ({
           description,
           similarMarkets,
           chainId: currentChainId,
+          ...(trimmedGroupName ? { groupName: trimmedGroupName } : {}),
         };
         await postJson<RFQRow>(`/conditions`, body);
         // Refresh list to reflect server state and close the modal
@@ -1186,6 +1195,14 @@ const RFQTab = ({
                 placeholder="https://..., https://..."
                 value={similarMarketsText}
                 onChange={(e) => setSimilarMarketsText(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Group (optional)</label>
+              <Input
+                placeholder="Group name (finds or creates a condition group)"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
               />
             </div>
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
