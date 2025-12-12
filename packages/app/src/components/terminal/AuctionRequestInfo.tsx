@@ -355,12 +355,11 @@ const AuctionRequestInfo: React.FC<Props> = ({
     }
   }, [predictedOutcomes]);
 
-  const { data: lastParlay, refetch: refetchLastTrade } = useLastTradeForIntent(
-    {
-      maker: taker || uiTx?.position?.owner,
+  const { data: lastPosition, refetch: refetchLastTrade } =
+    useLastTradeForIntent({
+      predictor: taker || uiTx?.position?.owner,
       outcomesSignature: outcomesSignature,
-    }
-  );
+    });
 
   // Trigger refetch on mount (row expand) and when a bid is submitted
   useEffect(() => {
@@ -373,17 +372,23 @@ const AuctionRequestInfo: React.FC<Props> = ({
 
   const lastTrade = useMemo(() => {
     try {
-      if (!lastParlay) return null;
-      const makerWei = BigInt(String(lastParlay?.makerCollateral ?? '0'));
-      const takerWei = BigInt(String(lastParlay?.takerCollateral ?? '0'));
-      const takerEth = Number(formatEther(takerWei));
-      const totalEth = Number(formatEther(makerWei + takerWei));
+      if (!lastPosition) return null;
+      const predictorWei = BigInt(
+        String(lastPosition?.predictorCollateral ?? '0')
+      );
+      const counterpartyWei = BigInt(
+        String(lastPosition?.counterpartyCollateral ?? '0')
+      );
+      const counterpartyEth = Number(formatEther(counterpartyWei));
+      const totalEth = Number(formatEther(predictorWei + counterpartyWei));
       const pct =
-        Number.isFinite(takerEth) && Number.isFinite(totalEth) && totalEth > 0
-          ? Math.round((takerEth / totalEth) * 100)
+        Number.isFinite(counterpartyEth) &&
+        Number.isFinite(totalEth) &&
+        totalEth > 0
+          ? Math.round((counterpartyEth / totalEth) * 100)
           : undefined;
       return {
-        takerStr: takerEth.toLocaleString(undefined, {
+        takerStr: counterpartyEth.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         }),
@@ -391,24 +396,24 @@ const AuctionRequestInfo: React.FC<Props> = ({
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         }),
-        takerNum: takerEth,
+        takerNum: counterpartyEth,
         totalNum: totalEth,
         pct,
       } as const;
     } catch {
       return null;
     }
-  }, [lastParlay]);
+  }, [lastPosition]);
 
   const lastTradeTimeAgo = useMemo(() => {
     try {
-      const ms = lastParlay ? Number(lastParlay.mintedAt) * 1000 : 0;
+      const ms = lastPosition ? Number(lastPosition.mintedAt) * 1000 : 0;
       if (!Number.isFinite(ms) || ms <= 0) return null;
       return formatDistanceToNowStrict(new Date(ms), { addSuffix: true });
     } catch {
       return null;
     }
-  }, [lastParlay, now]);
+  }, [lastPosition, now]);
 
   const maxDurationLabel = useMemo(() => {
     try {

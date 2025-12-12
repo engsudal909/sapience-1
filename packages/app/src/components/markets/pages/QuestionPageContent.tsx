@@ -175,7 +175,7 @@ export default function QuestionPageContent({
     }
   }, [forecasts, conditionId]);
 
-  // Transform parlay data for scatter plot
+  // Transform position data for scatter plot
   // x = time (unix timestamp), y = prediction probability (0-100), wager = amount wagered
   const scatterData = useMemo((): PredictionData[] => {
     // If no real positions, return empty array
@@ -184,10 +184,10 @@ export default function QuestionPageContent({
     }
 
     const realData = positions
-      .map((parlay) => {
+      .map((position) => {
         try {
-          // Find the prediction for the current conditionId in this parlay
-          const currentConditionOutcome = parlay.predictedOutcomes.find(
+          // Find the prediction for the current conditionId in this position
+          const currentConditionOutcome = position.predictions.find(
             (outcome) =>
               outcome.conditionId.toLowerCase() === conditionId.toLowerCase()
           );
@@ -196,46 +196,46 @@ export default function QuestionPageContent({
             return null;
           }
 
-          // Get other conditions in the parlay (for combined predictions)
-          const otherOutcomes = parlay.predictedOutcomes.filter(
+          // Get other conditions in the position (for combined predictions)
+          const otherOutcomes = position.predictions.filter(
             (outcome) =>
               outcome.conditionId.toLowerCase() !== conditionId.toLowerCase()
           );
 
           // Calculate individual collateral amounts
-          let makerCollateral = 0;
-          let takerCollateral = 0;
+          let predictorCollateral = 0;
+          let counterpartyCollateral = 0;
           try {
-            makerCollateral = parlay.makerCollateral
-              ? parseFloat(formatEther(BigInt(parlay.makerCollateral)))
+            predictorCollateral = position.predictorCollateral
+              ? parseFloat(formatEther(BigInt(position.predictorCollateral)))
               : 0;
-            takerCollateral = parlay.takerCollateral
-              ? parseFloat(formatEther(BigInt(parlay.takerCollateral)))
+            counterpartyCollateral = position.counterpartyCollateral
+              ? parseFloat(formatEther(BigInt(position.counterpartyCollateral)))
               : 0;
           } catch {
             // Fallback: try to derive from totalCollateral if individual amounts not available
             try {
-              const totalCollateralWei = BigInt(parlay.totalCollateral || '0');
+              const totalCollateralWei = BigInt(
+                position.totalCollateral || '0'
+              );
               const totalCollateral = parseFloat(
                 formatEther(totalCollateralWei)
               );
               // If individual amounts not available, split evenly (fallback)
-              makerCollateral = totalCollateral / 2;
-              takerCollateral = totalCollateral / 2;
+              predictorCollateral = totalCollateral / 2;
+              counterpartyCollateral = totalCollateral / 2;
             } catch {
-              makerCollateral = 0;
-              takerCollateral = 0;
+              predictorCollateral = 0;
+              counterpartyCollateral = 0;
             }
           }
 
           // Calculate total wager (for sizing)
-          const wager = makerCollateral + takerCollateral;
+          const wager = predictorCollateral + counterpartyCollateral;
 
-          // predictedOutcomes represents the taker's predictions
-          // So if taker predicts YES (prediction = true), maker predicts NO (opposite)
-          // If taker predicts NO (prediction = false), maker predicts YES (opposite)
-          const takerPrediction = currentConditionOutcome.prediction;
-          const makerPrediction = !takerPrediction; // Maker has opposite prediction
+          // predictions represents the predictor's predictions
+          // Counterparty takes the opposite side on each market
+          const predictorPrediction = currentConditionOutcome.outcomeYes;
 
           // Build combined predictions array if there are other conditions
           const combinedPredictions: CombinedPrediction[] | undefined =
@@ -245,28 +245,28 @@ export default function QuestionPageContent({
                     outcome.condition?.shortName ||
                     outcome.condition?.question ||
                     outcome.conditionId,
-                  prediction: outcome.prediction,
+                  prediction: outcome.outcomeYes,
                   categorySlug: outcome.condition?.category?.slug,
                 }))
               : undefined;
 
           // Convert mintedAt (seconds) to milliseconds
-          const timestamp = parlay.mintedAt * 1000;
+          const timestamp = position.mintedAt * 1000;
           const date = new Date(timestamp);
 
           // Calculate implied probability of YES from wager amounts
-          // Always compute based on taker's bet:
-          // - If taker bets YES: probability of YES = takerCollateral / totalWager
-          // - If taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
+          // Always compute based on predictor vs counterparty wager:
+          // - If predictor bets YES: probability of YES = predictorCollateral / totalWager
+          // - If predictor bets NO: probability of YES = counterpartyCollateral / totalWager
           let predictionPercent = 50; // Default fallback
-          const totalWager = makerCollateral + takerCollateral;
+          const totalWager = predictorCollateral + counterpartyCollateral;
           if (totalWager > 0) {
-            if (takerPrediction) {
-              // Taker bets YES: probability of YES = takerCollateral / totalWager
-              predictionPercent = (takerCollateral / totalWager) * 100;
+            if (predictorPrediction) {
+              // Predictor bets YES: probability of YES = predictorCollateral / totalWager
+              predictionPercent = (predictorCollateral / totalWager) * 100;
             } else {
-              // Taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
-              predictionPercent = (makerCollateral / totalWager) * 100;
+              // Predictor bets NO: probability of YES = counterpartyCollateral / totalWager
+              predictionPercent = (counterpartyCollateral / totalWager) * 100;
             }
             // Clamp to 0-100 range
             predictionPercent = Math.max(0, Math.min(100, predictionPercent));
@@ -276,17 +276,17 @@ export default function QuestionPageContent({
             x: timestamp,
             y: predictionPercent,
             wager,
-            maker: parlay.maker,
-            taker: parlay.taker,
-            makerPrediction,
-            makerCollateral,
-            takerCollateral,
+            predictor: position.predictor,
+            counterparty: position.counterparty,
+            predictorPrediction,
+            predictorCollateral,
+            counterpartyCollateral,
             time: date.toLocaleString(),
             combinedPredictions,
-            combinedWithYes: takerPrediction, // Combined predictions are tied to taker's prediction
+            combinedWithYes: predictorPrediction,
           };
         } catch (error) {
-          console.error('Error processing parlay:', error);
+          console.error('Error processing position:', error);
           return null;
         }
       })

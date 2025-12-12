@@ -574,26 +574,26 @@ class PredictionMarketIndexer implements IIndexer {
           `[PredictionMarketIndexer] Event already exists tx=${uniqueEventKey.transactionHash} block=${uniqueEventKey.blockNumber} logIndex=${uniqueEventKey.logIndex}`
         );
 
-        // For reindexing: still check if parlay needs to be created (might be missing due to old bug)
-        const existingParlay = await prisma.parlay.findFirst({
+        // For reindexing: still check if position needs to be created (might be missing due to old bug)
+        const existingPosition = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
-            makerNftTokenId: eventData.makerNftTokenId,
-            takerNftTokenId: eventData.takerNftTokenId,
+            predictorNftTokenId: eventData.makerNftTokenId,
+            counterpartyNftTokenId: eventData.takerNftTokenId,
           },
         });
 
-        if (existingParlay) {
+        if (existingPosition) {
           console.log(
-            `[PredictionMarketIndexer] Parlay already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+            `[PredictionMarketIndexer] Position already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
           );
           return;
         } else {
           console.log(
-            `[PredictionMarketIndexer] Event exists but parlay missing - creating parlay for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+            `[PredictionMarketIndexer] Event exists but position missing - creating position for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
           );
-          // Continue to parlay creation logic below
+          // Continue to position creation logic below
         }
       } else {
         // Store new event in database
@@ -621,7 +621,6 @@ class PredictionMarketIndexer implements IIndexer {
         conditionId: marketId,
         prediction,
       }));
-
       // Compute endsAt from known conditions (optional)
       let endsAt: number | null = null;
       try {
@@ -643,29 +642,40 @@ class PredictionMarketIndexer implements IIndexer {
         );
       }
 
-      // Create Parlay
-      await prisma.parlay.create({
+      const predictionResolver =
+        this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
+      const predictionLegsData = predictedOutcomes.map((outcome) => ({
+        conditionId: outcome.conditionId,
+        resolver: predictionResolver,
+        outcomeYes: outcome.prediction,
+        chainId: this.chainId,
+      }));
+
+      // Create Position with normalized predictions
+      await prisma.position.create({
         data: {
           chainId: this.chainId,
           marketAddress: log.address.toLowerCase(),
-          maker: eventData.maker.toLowerCase(),
-          taker: eventData.taker.toLowerCase(),
-          makerNftTokenId: eventData.makerNftTokenId,
-          takerNftTokenId: eventData.takerNftTokenId,
+          predictor: eventData.maker.toLowerCase(),
+          counterparty: eventData.taker.toLowerCase(),
+          predictorNftTokenId: eventData.makerNftTokenId,
+          counterpartyNftTokenId: eventData.takerNftTokenId,
           totalCollateral: eventData.totalCollateral,
-          makerCollateral: eventData.makerCollateral,
-          takerCollateral: eventData.takerCollateral,
+          predictorCollateral: eventData.makerCollateral,
+          counterpartyCollateral: eventData.takerCollateral,
           refCode: eventData.refCode,
           status: 'active',
-          makerWon: null,
+          predictorWon: null,
           mintedAt: Number(block.timestamp),
           settledAt: null,
           endsAt: endsAt ?? null,
-          predictedOutcomes: predictedOutcomes as unknown as object,
+          predictions: {
+            create: predictionLegsData,
+          },
         },
       });
 
-      // Update open interest for all conditions in this parlay
+      // Update open interest for all conditions in this position
       const conditionIds = predictedOutcomes.map((o) => o.conditionId);
       const collateralStr = eventData.totalCollateral;
       for (const conditionId of conditionIds) {
@@ -743,37 +753,37 @@ class PredictionMarketIndexer implements IIndexer {
         },
       });
 
-      // Update Parlay status
+      // Update Position status
       try {
-        const parlay = await prisma.parlay.findFirst({
+        const position = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             OR: [
-              { makerNftTokenId: eventData.makerNftTokenId },
-              { takerNftTokenId: eventData.takerNftTokenId },
+              { predictorNftTokenId: eventData.makerNftTokenId },
+              { counterpartyNftTokenId: eventData.takerNftTokenId },
             ],
           },
         });
-        if (parlay) {
-          await prisma.parlay.update({
-            where: { id: parlay.id },
+        if (position) {
+          await prisma.position.update({
+            where: { id: position.id },
             data: {
               status: 'settled',
-              makerWon: eventData.makerWon,
+              predictorWon: eventData.makerWon,
               settledAt: Number(block.timestamp),
             },
           });
         }
       } catch (e) {
         console.warn(
-          '[PredictionMarketIndexer] Failed updating Parlay on burn:',
+          '[PredictionMarketIndexer] Failed updating Position on burn:',
           e
         );
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed PredictionBurned: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}, winner: ${eventData.makerWon ? 'maker' : 'taker'}`
+        `[PredictionMarketIndexer] Processed PredictionBurned: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}, winner: ${eventData.makerWon ? 'predictor' : 'counterparty'}`
       );
     } catch (error) {
       console.error(
@@ -839,31 +849,31 @@ class PredictionMarketIndexer implements IIndexer {
         },
       });
 
-      // Update Parlay status
+      // Update Position status
       try {
-        const parlay = await prisma.parlay.findFirst({
+        const position = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             OR: [
-              { makerNftTokenId: eventData.makerNftTokenId },
-              { takerNftTokenId: eventData.takerNftTokenId },
+              { predictorNftTokenId: eventData.makerNftTokenId },
+              { counterpartyNftTokenId: eventData.takerNftTokenId },
             ],
           },
         });
-        if (parlay) {
-          await prisma.parlay.update({
-            where: { id: parlay.id },
+        if (position) {
+          await prisma.position.update({
+            where: { id: position.id },
             data: {
               status: 'consolidated',
-              makerWon: true,
+              predictorWon: true,
               settledAt: Number(block.timestamp),
             },
           });
         }
       } catch (e) {
         console.warn(
-          '[PredictionMarketIndexer] Failed updating Parlay on consolidate:',
+          '[PredictionMarketIndexer] Failed updating Position on consolidate:',
           e
         );
       }
@@ -890,11 +900,11 @@ class PredictionMarketIndexer implements IIndexer {
 
       const eventData = {
         eventType: 'OrderPlaced',
-        maker: decoded.args.maker,
+        predictor: decoded.args.maker,
         orderId: decoded.args.orderId.toString(),
         resolver: decoded.args.resolver,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         refCode: decoded.args.refCode,
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
@@ -947,6 +957,14 @@ class PredictionMarketIndexer implements IIndexer {
         prediction,
       }));
 
+      const predictionResolver = eventData.resolver.toLowerCase();
+      const predictionLegsData = predictedOutcomes.map((outcome) => ({
+        conditionId: outcome.conditionId,
+        resolver: predictionResolver,
+        outcomeYes: outcome.prediction,
+        chainId: this.chainId,
+      }));
+
       try {
         await prisma.limitOrder.upsert({
           where: {
@@ -960,25 +978,30 @@ class PredictionMarketIndexer implements IIndexer {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             orderId: eventData.orderId,
-            maker: eventData.maker.toLowerCase(),
+            predictor: eventData.predictor.toLowerCase(),
             resolver: eventData.resolver.toLowerCase(),
-            makerCollateral: eventData.makerCollateral,
-            takerCollateral: eventData.takerCollateral,
+            predictorCollateral: eventData.predictorCollateral,
+            counterpartyCollateral: eventData.counterpartyCollateral,
             refCode: eventData.refCode,
             status: 'pending',
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictedOutcomes: predictedOutcomes as unknown as object,
+            predictions: {
+              create: predictionLegsData,
+            },
           },
           update: {
-            maker: eventData.maker.toLowerCase(),
+            predictor: eventData.predictor.toLowerCase(),
             resolver: eventData.resolver.toLowerCase(),
-            makerCollateral: eventData.makerCollateral,
-            takerCollateral: eventData.takerCollateral,
+            predictorCollateral: eventData.predictorCollateral,
+            counterpartyCollateral: eventData.counterpartyCollateral,
             refCode: eventData.refCode,
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictedOutcomes: predictedOutcomes as unknown as object,
+            predictions: {
+              deleteMany: {},
+              create: predictionLegsData,
+            },
           },
         });
       } catch (orderError) {
@@ -989,7 +1012,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderPlaced: orderId=${eventData.orderId}, maker=${eventData.maker}`
+        `[PredictionMarketIndexer] Processed OrderPlaced: orderId=${eventData.orderId}, predictor=${eventData.predictor}`
       );
     } catch (error) {
       console.error(
@@ -1011,10 +1034,10 @@ class PredictionMarketIndexer implements IIndexer {
       const eventData = {
         eventType: 'OrderFilled',
         orderId: decoded.args.orderId.toString(),
-        maker: decoded.args.maker,
-        taker: decoded.args.taker,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictor: decoded.args.maker,
+        counterparty: decoded.args.taker,
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         refCode: decoded.args.refCode,
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
@@ -1070,7 +1093,7 @@ class PredictionMarketIndexer implements IIndexer {
             where: { id: order.id },
             data: {
               status: 'filled',
-              taker: eventData.taker.toLowerCase(),
+              counterparty: eventData.counterparty.toLowerCase(),
               filledAt: Number(block.timestamp),
               filledTxHash: log.transactionHash || '',
             },
@@ -1088,7 +1111,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderFilled: orderId=${eventData.orderId}, maker=${eventData.maker}, taker=${eventData.taker}`
+        `[PredictionMarketIndexer] Processed OrderFilled: orderId=${eventData.orderId}, predictor=${eventData.predictor}, counterparty=${eventData.counterparty}`
       );
     } catch (error) {
       console.error(
@@ -1110,9 +1133,9 @@ class PredictionMarketIndexer implements IIndexer {
       const eventData = {
         eventType: 'OrderCancelled',
         orderId: decoded.args.orderId.toString(),
-        maker: decoded.args.maker,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictor: decoded.args.maker,
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
         logIndex: log.logIndex,
@@ -1183,7 +1206,7 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderCancelled: orderId=${eventData.orderId}, maker=${eventData.maker}`
+        `[PredictionMarketIndexer] Processed OrderCancelled: orderId=${eventData.orderId}, predictor=${eventData.predictor}`
       );
     } catch (error) {
       console.error(
