@@ -668,7 +668,7 @@ function ChildConditionRow({
 
   return (
     <TableRow
-      className={`border-b bg-brand-white/7 hover:bg-transparent ${
+      className={`border-b bg-muted/30 hover:bg-muted/30 ${
         isLast ? 'border-brand-white/20' : 'border-brand-white/10'
       }`}
     >

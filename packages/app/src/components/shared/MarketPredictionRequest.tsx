@@ -87,7 +87,7 @@ const MarketPredictionRequestInner: React.FC<MarketPredictionRequestProps> = ({
   });
   const [requestedPrediction, setRequestedPrediction] = React.useState<
     number | null
-  >(null);
+  >(() => (prefetchedProbability != null ? prefetchedProbability : null));
   const [isRequesting, setIsRequesting] = React.useState<boolean>(false);
   const [lastTakerWagerWei, setLastTakerWagerWei] = React.useState<
     string | null
