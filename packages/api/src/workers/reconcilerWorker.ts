@@ -4,14 +4,12 @@ import { initializeFixtures } from '../fixtures';
 
 import { createResilientProcess } from '../utils/utils';
 
-
 import { PositionReconciler } from './reconcilers/position/positionReconciler';
 
 async function runReconcilerWorker(intervalSeconds: number) {
   await initializeDataSource();
   await initializeFixtures();
 
- 
   const positionReconciler = PositionReconciler.getInstance();
 
   while (true) {

@@ -5,8 +5,9 @@ export const POSITION_RECONCILE_CONFIG = {
     process.env.POSITION_RECONCILE_LOOKBACK_SECONDS || '60'
   ),
   enableWatermark:
-    (process.env.POSITION_RECONCILE_ENABLE_WATERMARK || 'true').toLowerCase() ===
-    'true',
+    (
+      process.env.POSITION_RECONCILE_ENABLE_WATERMARK || 'true'
+    ).toLowerCase() === 'true',
   logPrefix: '[POSITION_RECONCILER]',
   fallbackBlockLookback: Number(
     process.env.POSITION_RECONCILE_FALLBACK_BLOCKS || '5000'

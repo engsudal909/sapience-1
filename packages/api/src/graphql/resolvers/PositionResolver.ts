@@ -141,13 +141,12 @@ export class PositionResolver {
       const map = new Map<number, PredictionType[]>();
       for (const p of predictions) {
         if (!p.positionId) continue;
-        const condition =
-          p.condition && {
-            id: p.condition.id,
-            question: p.condition.question ?? null,
-            shortName: p.condition.shortName ?? null,
-            endTime: p.condition.endTime ?? null,
-          };
+        const condition = p.condition && {
+          id: p.condition.id,
+          question: p.condition.question ?? null,
+          shortName: p.condition.shortName ?? null,
+          endTime: p.condition.endTime ?? null,
+        };
         const entry: PredictionType = {
           conditionId: p.conditionId,
           resolver: p.resolver,
@@ -398,13 +397,12 @@ export class PositionResolver {
     const map = new Map<number, PredictionType[]>();
     for (const p of predictionMap) {
       if (!p.positionId) continue;
-      const condition =
-        p.condition && {
-          id: p.condition.id,
-          question: p.condition.question ?? null,
-          shortName: p.condition.shortName ?? null,
-          endTime: p.condition.endTime ?? null,
-        };
+      const condition = p.condition && {
+        id: p.condition.id,
+        question: p.condition.question ?? null,
+        shortName: p.condition.shortName ?? null,
+        endTime: p.condition.endTime ?? null,
+      };
       const entry: PredictionType = {
         conditionId: p.conditionId,
         resolver: p.resolver,

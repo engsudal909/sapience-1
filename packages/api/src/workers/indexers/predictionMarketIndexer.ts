@@ -957,6 +957,14 @@ class PredictionMarketIndexer implements IIndexer {
         prediction,
       }));
 
+      const predictionResolver = eventData.resolver.toLowerCase();
+      const predictionLegsData = predictedOutcomes.map((outcome) => ({
+        conditionId: outcome.conditionId,
+        resolver: predictionResolver,
+        outcomeYes: outcome.prediction,
+        chainId: this.chainId,
+      }));
+
       try {
         await prisma.limitOrder.upsert({
           where: {
