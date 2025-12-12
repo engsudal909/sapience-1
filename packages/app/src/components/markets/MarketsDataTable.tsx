@@ -209,10 +209,12 @@ function ForecastCell({
   condition,
   prefetchedProbability,
   onPrediction,
+  skipViewportCheck,
 }: {
   condition: ConditionType;
   prefetchedProbability?: number | null;
   onPrediction?: (p: number) => void;
+  skipViewportCheck?: boolean;
 }) {
   const { endTime, settled, resolvedToYes } = condition;
 
@@ -227,6 +229,7 @@ function ForecastCell({
         conditionId={condition.id}
         prefetchedProbability={prefetchedProbability}
         onPrediction={onPrediction}
+        skipViewportCheck={skipViewportCheck}
       />
     );
   }
@@ -286,24 +289,12 @@ function GroupForecastCell({
 
   if (spread.kind === 'none') {
     return (
-      <span
-        className="text-muted-foreground"
-        style={{ animation: 'subtle-pulse 3s ease-in-out infinite' }}
-      >
-        <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
-        Requesting...
-      </span>
+      <span className="text-muted-foreground/60 animate-pulse">Requesting...</span>
     );
   }
   if (spread.kind === 'single') {
     return (
-      <span
-        className="text-muted-foreground"
-        style={{ animation: 'subtle-pulse 3s ease-in-out infinite' }}
-      >
-        <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
-        Requesting...
-      </span>
+      <span className="text-muted-foreground/60 animate-pulse">Requesting...</span>
     );
   }
 
@@ -639,11 +630,11 @@ function ChildConditionRow({
 
   return (
     <TableRow
-      className={`border-b bg-brand-white/7 hover:bg-brand-white/10 ${
+      className={`border-b bg-brand-white/7 hover:bg-transparent ${
         isLast ? 'border-brand-white/20' : 'border-brand-white/10'
       }`}
     >
-      <TableCell className="py-2 pl-8 max-w-[180px] md:max-w-none border-l-2 border-brand-white/20">
+      <TableCell className="py-2 pl-4 max-w-[180px] md:max-w-none">
         <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
           <MarketBadge
             label={displayQ}
@@ -665,6 +656,7 @@ function ChildConditionRow({
             condition={conditionType}
             prefetchedProbability={predictionMap[condition.id]}
             onPrediction={(p) => onPrediction(condition.id, p)}
+            skipViewportCheck
           />
         </div>
       </TableCell>
@@ -707,19 +699,62 @@ export default function MarketsDataTable({
     new Set()
   );
 
-  // Prediction probabilities map for forecast computation
+  // Prediction probabilities map for forecast computation.
+  // Quotes can arrive rapidly; avoid re-rendering the entire table on every tick.
+  // We keep a live ref (updated on every quote) and a throttled/committed state
+  // (used for rendering and derived computations like group spread).
+  const livePredictionMapRef = React.useRef<Record<string, number>>({});
   const [predictionMap, setPredictionMap] = React.useState<
     Record<string, number>
   >({});
+  const commitTimerRef = React.useRef<number | null>(null);
+
+  const schedulePredictionCommit = React.useCallback(() => {
+    if (commitTimerRef.current != null) return;
+    commitTimerRef.current = window.setTimeout(() => {
+      commitTimerRef.current = null;
+      setPredictionMap((prev) => {
+        let next: Record<string, number> | null = null;
+        const live = livePredictionMapRef.current;
+
+        for (const [id, prob] of Object.entries(live)) {
+          const prevProb = prev[id];
+          // Always commit the first value so the UI can leave "Requesting..."
+          if (prevProb == null) {
+            next = next ?? { ...prev };
+            next[id] = prob;
+            continue;
+          }
+          // Only commit when the displayed integer percent changes
+          // to avoid jitter from tiny quote deltas.
+          const prevPct = Math.round(prevProb * 100);
+          const nextPct = Math.round(prob * 100);
+          if (prevPct !== nextPct) {
+            next = next ?? { ...prev };
+            next[id] = prob;
+          }
+        }
+
+        return next ?? prev;
+      });
+    }, 250);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (commitTimerRef.current != null) {
+        window.clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handlePrediction = React.useCallback(
     (conditionId: string, probability: number) => {
-      setPredictionMap((prev) => {
-        if (prev[conditionId] === probability) return prev;
-        return { ...prev, [conditionId]: probability };
-      });
+      livePredictionMapRef.current[conditionId] = probability;
+      schedulePredictionCommit();
     },
-    []
+    [schedulePredictionCommit]
   );
 
   const handleToggleExpand = React.useCallback((groupId: number) => {
