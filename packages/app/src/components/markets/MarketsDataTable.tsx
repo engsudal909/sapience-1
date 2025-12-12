@@ -18,12 +18,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from '@tanstack/react-table';
-import {
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-  Minus,
-} from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatEther } from 'viem';
 import {
@@ -255,14 +250,26 @@ function ForecastCell({
   );
 }
 
-// Group forecast cell - shows the condition with highest estimate
+// Group forecast cell - shows the spread and triggers prediction requests for conditions
 function GroupForecastCell({
   conditions,
-  predictionMap,
+  predictionMapRef,
+  onPrediction,
 }: {
   conditions: ConditionGroupConditionType[];
-  predictionMap: Record<string, number>;
+  predictionMapRef: React.RefObject<Record<string, number>>;
+  onPrediction: (conditionId: string, p: number) => void;
 }) {
+  // Use state to force re-render when predictions arrive
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+
+  // Re-render periodically to pick up new predictions from the ref
+  React.useEffect(() => {
+    const interval = setInterval(forceUpdate, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  const predictionMap = predictionMapRef.current;
   const spread = React.useMemo(() => {
     let minBest = Infinity;
     let maxBest = -Infinity;
@@ -287,18 +294,44 @@ function GroupForecastCell({
     };
   }, [conditions, predictionMap]);
 
-  if (spread.kind === 'none') {
-    return (
-      <span className="text-muted-foreground/60 animate-pulse">Requesting...</span>
-    );
-  }
-  if (spread.kind === 'single') {
-    return (
-      <span className="text-muted-foreground/60 animate-pulse">Requesting...</span>
-    );
-  }
+  // Determine which conditions still need prediction requests
+  const pendingConditionIds = React.useMemo(() => {
+    return conditions
+      .filter((c) => predictionMap[c.id] == null)
+      .map((c) => c.id);
+  }, [conditions, predictionMap]);
 
-  return <span className="font-mono text-ethena">{spread.pct}% spread</span>;
+  return (
+    <>
+      {/* Hidden request drivers - one per condition needing a prediction.
+          These have a measurable size so IntersectionObserver fires when the
+          group row scrolls into view. */}
+      {pendingConditionIds.length > 0 && (
+        <div
+          aria-hidden
+          className="absolute w-px h-px overflow-hidden opacity-0 pointer-events-none"
+        >
+          {pendingConditionIds.map((id) => (
+            <MarketPredictionRequest
+              key={`group-driver-${id}`}
+              conditionId={id}
+              suppressLoadingPlaceholder
+              inline={false}
+              className="block w-px h-px"
+              onPrediction={(p) => onPrediction(id, p)}
+            />
+          ))}
+        </div>
+      )}
+      {spread.kind === 'none' || spread.kind === 'single' ? (
+        <span className="text-muted-foreground/60 animate-pulse">
+          Requesting...
+        </span>
+      ) : (
+        <span className="font-mono text-ethena">{spread.pct}% spread</span>
+      )}
+    </>
+  );
 }
 
 // Predict buttons cell component
@@ -403,9 +436,11 @@ function getRowEndTime(row: TopLevelRow): number {
 }
 
 // Create columns for the TopLevelRow type
+// Uses refs instead of direct state to keep column definitions stable across
+// prediction updates, preventing remounts/flashes.
 function createColumns(
-  predictionMap: Record<string, number>,
-  expandedGroupIds: Set<number>,
+  predictionMapRef: React.RefObject<Record<string, number>>,
+  expandedGroupIdsRef: React.RefObject<Set<number>>,
   onToggleExpand: (groupId: number) => void,
   onPrediction: (conditionId: string, p: number) => void
 ): ColumnDef<TopLevelRow>[] {
@@ -471,10 +506,11 @@ function createColumns(
         const data = row.original;
         if (data.kind === 'group') {
           return (
-            <div className="text-sm whitespace-nowrap text-right">
+            <div className="text-sm whitespace-nowrap text-right relative">
               <GroupForecastCell
                 conditions={data.conditions}
-                predictionMap={predictionMap}
+                predictionMapRef={predictionMapRef}
+                onPrediction={onPrediction}
               />
             </div>
           );
@@ -483,7 +519,9 @@ function createColumns(
           <div className="text-sm whitespace-nowrap text-right">
             <ForecastCell
               condition={data.condition}
-              prefetchedProbability={predictionMap[data.condition.id]}
+              prefetchedProbability={
+                predictionMapRef.current[data.condition.id]
+              }
               onPrediction={(p) => onPrediction(data.condition.id, p)}
             />
           </div>
@@ -583,7 +621,7 @@ function createColumns(
       cell: ({ row }) => {
         const data = row.original;
         if (data.kind === 'group') {
-          const isExpanded = expandedGroupIds.has(data.groupId);
+          const isExpanded = expandedGroupIdsRef.current.has(data.groupId);
           return (
             <div className="w-full max-w-[320px] ml-auto font-mono">
               <Button
@@ -698,6 +736,9 @@ export default function MarketsDataTable({
   const [expandedGroupIds, setExpandedGroupIds] = React.useState<Set<number>>(
     new Set()
   );
+  // Ref for expand state so column defs can access it without recreating columns
+  const expandedGroupIdsRef = React.useRef<Set<number>>(expandedGroupIds);
+  expandedGroupIdsRef.current = expandedGroupIds;
 
   // Prediction probabilities map for forecast computation.
   // Quotes can arrive rapidly; avoid re-rendering the entire table on every tick.
@@ -707,6 +748,9 @@ export default function MarketsDataTable({
   const [predictionMap, setPredictionMap] = React.useState<
     Record<string, number>
   >({});
+  // Ref for prediction map so column defs can access it without recreating columns
+  const predictionMapRef = React.useRef<Record<string, number>>(predictionMap);
+  predictionMapRef.current = predictionMap;
   const commitTimerRef = React.useRef<number | null>(null);
 
   const schedulePredictionCommit = React.useCallback(() => {
@@ -857,16 +901,17 @@ export default function MarketsDataTable({
     setDisplayCount(BATCH_SIZE);
   }, [conditionGroups, ungroupedConditions, filters]);
 
-  // Create columns with current state
+  // Create columns using refs so column definitions stay stable across prediction
+  // updates (preventing cell remounts and visual flashing).
   const columns = React.useMemo(
     () =>
       createColumns(
-        predictionMap,
-        expandedGroupIds,
+        predictionMapRef,
+        expandedGroupIdsRef,
         handleToggleExpand,
         handlePrediction
       ),
-    [predictionMap, expandedGroupIds, handleToggleExpand, handlePrediction]
+    [handleToggleExpand, handlePrediction]
   );
 
   const table = useReactTable({
@@ -912,43 +957,8 @@ export default function MarketsDataTable({
     };
   }, [hasMore, allRows.length]);
 
-  // Collect all condition IDs for prefetching predictions
-  const allConditionIds = React.useMemo(() => {
-    const ids: string[] = [];
-    for (const group of conditionGroups) {
-      for (const c of group.conditions) {
-        ids.push(c.id);
-      }
-    }
-    for (const c of ungroupedConditions) {
-      ids.push(c.id);
-    }
-    return ids;
-  }, [conditionGroups, ungroupedConditions]);
-
-  // Conditions needing prefetch (not yet in predictionMap)
-  const pendingConditionIds = React.useMemo(() => {
-    return allConditionIds.filter((id) => predictionMap[id] == null);
-  }, [allConditionIds, predictionMap]);
-
   return (
     <div className="space-y-4">
-      {/* Prefetch predictions for all conditions offscreen */}
-      <div
-        aria-hidden
-        className="fixed top-0 left-0 w-px h-px overflow-hidden opacity-0 pointer-events-none"
-      >
-        {pendingConditionIds.map((id) => (
-          <MarketPredictionRequest
-            key={`prefetch-${id}`}
-            conditionId={id}
-            suppressLoadingPlaceholder
-            skipViewportCheck
-            onPrediction={(prob) => handlePrediction(id, prob)}
-          />
-        ))}
-      </div>
-
       <TableFilters
         filters={filters}
         onFiltersChange={onFiltersChange}

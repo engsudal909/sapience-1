@@ -21,6 +21,9 @@ const FADE_VARIANTS = {
   visible: { opacity: 1 },
 } as const;
 
+const FADE_TRANSITION_FAST = { duration: 0.2, ease: 'easeOut' } as const;
+const FADE_TRANSITION_SLOW = { duration: 0.22, ease: 'easeOut' } as const;
+
 export interface MarketPredictionRequestProps {
   conditionId?: string;
   outcomes?: PredictedOutcomeInputStub[];
@@ -341,7 +344,7 @@ const MarketPredictionRequestInner: React.FC<MarketPredictionRequestProps> = ({
               initial="hidden"
               animate="visible"
               exit="hidden"
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={FADE_TRANSITION_FAST}
             >
               Requesting...
             </motion.span>
@@ -355,7 +358,7 @@ const MarketPredictionRequestInner: React.FC<MarketPredictionRequestProps> = ({
               initial="hidden"
               animate="visible"
               exit="hidden"
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={FADE_TRANSITION_FAST}
             >
               Request
             </motion.button>
@@ -369,7 +372,7 @@ const MarketPredictionRequestInner: React.FC<MarketPredictionRequestProps> = ({
             initial="hidden"
             animate="visible"
             exit="hidden"
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            transition={FADE_TRANSITION_SLOW}
           >
             <PercentChance
               probability={requestedPrediction}
