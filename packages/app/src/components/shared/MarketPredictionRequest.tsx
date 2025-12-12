@@ -16,6 +16,14 @@ import PercentChance from '~/components/shared/PercentChance';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 // Use one as the default wager for prediction requests
 
+const FADE_VARIANTS = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+} as const;
+
+const FADE_TRANSITION_FAST = { duration: 0.2, ease: 'easeOut' } as const;
+const FADE_TRANSITION_SLOW = { duration: 0.22, ease: 'easeOut' } as const;
+
 export interface MarketPredictionRequestProps {
   conditionId?: string;
   outcomes?: PredictedOutcomeInputStub[];
@@ -28,7 +36,39 @@ export interface MarketPredictionRequestProps {
   skipViewportCheck?: boolean;
 }
 
-const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
+// Custom comparator for React.memo: ignore onPrediction identity changes
+// (parent often passes inline lambdas that change every render).
+function arePropsEqual(
+  prev: MarketPredictionRequestProps,
+  next: MarketPredictionRequestProps
+): boolean {
+  // Compare primitive / stable props
+  if (prev.conditionId !== next.conditionId) return false;
+  if (prev.prefetchedProbability !== next.prefetchedProbability) return false;
+  if (prev.inline !== next.inline) return false;
+  if (prev.eager !== next.eager) return false;
+  if (prev.suppressLoadingPlaceholder !== next.suppressLoadingPlaceholder)
+    return false;
+  if (prev.skipViewportCheck !== next.skipViewportCheck) return false;
+  if (prev.className !== next.className) return false;
+
+  // Lightweight outcomes comparison (length + marketIds)
+  const pO = prev.outcomes;
+  const nO = next.outcomes;
+  if (pO !== nO) {
+    if (!pO || !nO) return false;
+    if (pO.length !== nO.length) return false;
+    for (let i = 0; i < pO.length; i++) {
+      if (pO[i].marketId !== nO[i].marketId) return false;
+      if (pO[i].prediction !== nO[i].prediction) return false;
+    }
+  }
+
+  // Intentionally ignore onPrediction identity
+  return true;
+}
+
+const MarketPredictionRequestInner: React.FC<MarketPredictionRequestProps> = ({
   conditionId,
   outcomes,
   onPrediction,
@@ -39,9 +79,15 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
   prefetchedProbability = null,
   skipViewportCheck = false,
 }) => {
+  // Store onPrediction in a ref so we can call the latest version without
+  // depending on its identity (avoids rerenders when parent passes new lambdas).
+  const onPredictionRef = React.useRef(onPrediction);
+  React.useLayoutEffect(() => {
+    onPredictionRef.current = onPrediction;
+  });
   const [requestedPrediction, setRequestedPrediction] = React.useState<
     number | null
-  >(null);
+  >(() => (prefetchedProbability != null ? prefetchedProbability : null));
   const [isRequesting, setIsRequesting] = React.useState<boolean>(false);
   const [lastTakerWagerWei, setLastTakerWagerWei] = React.useState<
     string | null
@@ -147,14 +193,14 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
       const prob = denom > 0n ? Number(taker) / Number(denom) : 0.5;
       const clamped = Math.max(0, Math.min(0.99, prob));
       setRequestedPrediction(clamped);
-      if (typeof onPrediction === 'function') onPrediction(clamped);
+      onPredictionRef.current?.(clamped);
     } catch {
       setRequestedPrediction(0.5);
-      if (typeof onPrediction === 'function') onPrediction(0.5);
+      onPredictionRef.current?.(0.5);
     } finally {
       setIsRequesting(false);
     }
-  }, [bids, isRequesting, lastTakerWagerWei, onPrediction]);
+  }, [bids, isRequesting, lastTakerWagerWei]);
 
   // Fallback: if no bids arrive within a reasonable time window, stop requesting
   React.useEffect(() => {
@@ -293,16 +339,13 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
           suppressLoadingPlaceholder ? null : isRequesting ? (
             <motion.span
               key="requesting"
-              className="text-muted-foreground"
-              style={{
-                animation: 'subtle-pulse 3s ease-in-out infinite',
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="text-muted-foreground/60 animate-pulse"
+              variants={FADE_VARIANTS}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={FADE_TRANSITION_FAST}
             >
-              <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
               Requesting...
             </motion.span>
           ) : (
@@ -311,40 +354,43 @@ const MarketPredictionRequest: React.FC<MarketPredictionRequestProps> = ({
               type="button"
               onClick={handleRequestPrediction}
               className="text-foreground underline decoration-1 decoration-foreground/60 underline-offset-4 transition-colors hover:decoration-foreground/80 cursor-pointer"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              variants={FADE_VARIANTS}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={FADE_TRANSITION_FAST}
             >
               Request
             </motion.button>
           )
         ) : (
           <motion.span
-            key={`prediction-${requestedPrediction}`}
+            // Keep a stable key so we don't re-mount (and "flash") on every tick.
+            key="prediction"
             className="inline-flex"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            variants={FADE_VARIANTS}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            transition={FADE_TRANSITION_SLOW}
           >
-            <motion.span
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-            >
-              <PercentChance
-                probability={requestedPrediction}
-                showLabel={true}
-                label="chance"
-                className="font-mono text-ethena"
-              />
-            </motion.span>
+            <PercentChance
+              probability={requestedPrediction}
+              showLabel={true}
+              label="chance"
+              className="font-mono text-ethena"
+            />
           </motion.span>
         )}
       </AnimatePresence>
     </div>
   );
 };
+
+// Memoize to prevent rerenders when only unrelated table rows update.
+const MarketPredictionRequest = React.memo(
+  MarketPredictionRequestInner,
+  arePropsEqual
+);
 
 export default MarketPredictionRequest;

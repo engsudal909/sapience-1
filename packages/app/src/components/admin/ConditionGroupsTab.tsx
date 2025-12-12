@@ -38,6 +38,8 @@ import type { ConditionGroupType } from '~/hooks/graphql/useConditionGroups';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
+const CATEGORY_NONE_VALUE = '__none__';
+
 // Simple progress component
 const Progress = ({
   value,
@@ -104,8 +106,9 @@ const ConditionGroupsTab = ({
   const {
     data: conditionGroups,
     isLoading,
+    error: conditionGroupsError,
     refetch,
-  } = useConditionGroups({ take: 500 });
+  } = useConditionGroups({ take: 500, includeEmptyGroups: true });
 
   // Get all conditions for the manage conditions dialog
   const { data: allConditions } = useConditions({
@@ -669,19 +672,26 @@ const ConditionGroupsTab = ({
               />
             </div>
             {categories && categories.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category (optional)</label>
-              <Select value={categorySlug} onValueChange={setCategorySlug}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  {categories?.map((c) => (
-                    <SelectItem key={c.slug} value={c.slug}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Category (optional)
+                </label>
+                <Select
+                  value={categorySlug || CATEGORY_NONE_VALUE}
+                  onValueChange={(value) => {
+                    setCategorySlug(value === CATEGORY_NONE_VALUE ? '' : value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CATEGORY_NONE_VALUE}>None</SelectItem>
+                    {categories?.map((c) => (
+                      <SelectItem key={c.slug} value={c.slug}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -822,6 +832,11 @@ const ConditionGroupsTab = ({
 
       <div>
         <DataTable columns={columns} data={rows} />
+        {conditionGroupsError ? (
+          <p className="text-sm text-red-500 mt-2">
+            Failed to load condition groups: {conditionGroupsError.message}
+          </p>
+        ) : null}
         {isLoading ? (
           <p className="text-sm text-muted-foreground mt-2">Loading...</p>
         ) : null}
@@ -831,4 +846,3 @@ const ConditionGroupsTab = ({
 };
 
 export default ConditionGroupsTab;
-
