@@ -683,7 +683,9 @@ export default function PositionsTable({
               Predictions
             </div>
             <div className="flex flex-col xl:flex-row xl:items-center gap-2">
-              {row.original.addressRole === 'counterparty' && <CounterpartyBadge />}
+              {row.original.addressRole === 'counterparty' && (
+                <CounterpartyBadge />
+              )}
               <StackedPredictions
                 legs={row.original.legs}
                 className="max-w-full xl:max-w-[320px]"

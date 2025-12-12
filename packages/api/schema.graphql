@@ -34,6 +34,14 @@ type AggregateCondition {
   _sum: ConditionSumAggregate
 }
 
+type AggregateConditionGroup {
+  _avg: ConditionGroupAvgAggregate
+  _count: ConditionGroupCountAggregate
+  _max: ConditionGroupMaxAggregate
+  _min: ConditionGroupMinAggregate
+  _sum: ConditionGroupSumAggregate
+}
+
 type AggregateUser {
   _avg: UserAvgAggregate
   _count: UserCountAggregate
@@ -52,15 +60,17 @@ type Attestation {
   attester: String!
   blockNumber: Int!
   comment: String
+  condition: String
   createdAt: DateTimeISO!
   data: String!
   decodedDataJson: String!
   id: Int!
-  marketAddress: String!
-  marketId: String!
+  marketAddress: String
+  marketId: String
   prediction: String!
-  questionId: String!
+  questionId: String
   recipient: String!
+  resolver: String
   schemaId: String!
   time: Int!
   transactionHash: String!
@@ -84,6 +94,7 @@ type AttestationCountAggregate {
   attester: Int!
   blockNumber: Int!
   comment: Int!
+  condition: Int!
   createdAt: Int!
   data: Int!
   decodedDataJson: Int!
@@ -93,6 +104,7 @@ type AttestationCountAggregate {
   prediction: Int!
   questionId: Int!
   recipient: Int!
+  resolver: Int!
   schemaId: Int!
   time: Int!
   transactionHash: Int!
@@ -103,6 +115,7 @@ input AttestationCountOrderByAggregateInput {
   attester: SortOrder
   blockNumber: SortOrder
   comment: SortOrder
+  condition: SortOrder
   createdAt: SortOrder
   data: SortOrder
   decodedDataJson: SortOrder
@@ -112,6 +125,7 @@ input AttestationCountOrderByAggregateInput {
   prediction: SortOrder
   questionId: SortOrder
   recipient: SortOrder
+  resolver: SortOrder
   schemaId: SortOrder
   time: SortOrder
   transactionHash: SortOrder
@@ -127,15 +141,17 @@ type AttestationGroupBy {
   attester: String!
   blockNumber: Int!
   comment: String
+  condition: String
   createdAt: DateTimeISO!
   data: String!
   decodedDataJson: String!
   id: Int!
-  marketAddress: String!
-  marketId: String!
+  marketAddress: String
+  marketId: String
   prediction: String!
-  questionId: String!
+  questionId: String
   recipient: String!
+  resolver: String
   schemaId: String!
   time: Int!
   transactionHash: String!
@@ -146,6 +162,7 @@ type AttestationMaxAggregate {
   attester: String
   blockNumber: Int
   comment: String
+  condition: String
   createdAt: DateTimeISO
   data: String
   decodedDataJson: String
@@ -155,6 +172,7 @@ type AttestationMaxAggregate {
   prediction: String
   questionId: String
   recipient: String
+  resolver: String
   schemaId: String
   time: Int
   transactionHash: String
@@ -165,6 +183,7 @@ input AttestationMaxOrderByAggregateInput {
   attester: SortOrder
   blockNumber: SortOrder
   comment: SortOrder
+  condition: SortOrder
   createdAt: SortOrder
   data: SortOrder
   decodedDataJson: SortOrder
@@ -174,6 +193,7 @@ input AttestationMaxOrderByAggregateInput {
   prediction: SortOrder
   questionId: SortOrder
   recipient: SortOrder
+  resolver: SortOrder
   schemaId: SortOrder
   time: SortOrder
   transactionHash: SortOrder
@@ -184,6 +204,7 @@ type AttestationMinAggregate {
   attester: String
   blockNumber: Int
   comment: String
+  condition: String
   createdAt: DateTimeISO
   data: String
   decodedDataJson: String
@@ -193,6 +214,7 @@ type AttestationMinAggregate {
   prediction: String
   questionId: String
   recipient: String
+  resolver: String
   schemaId: String
   time: Int
   transactionHash: String
@@ -203,6 +225,7 @@ input AttestationMinOrderByAggregateInput {
   attester: SortOrder
   blockNumber: SortOrder
   comment: SortOrder
+  condition: SortOrder
   createdAt: SortOrder
   data: SortOrder
   decodedDataJson: SortOrder
@@ -212,6 +235,7 @@ input AttestationMinOrderByAggregateInput {
   prediction: SortOrder
   questionId: SortOrder
   recipient: SortOrder
+  resolver: SortOrder
   schemaId: SortOrder
   time: SortOrder
   transactionHash: SortOrder
@@ -227,15 +251,17 @@ input AttestationOrderByWithAggregationInput {
   attester: SortOrder
   blockNumber: SortOrder
   comment: SortOrderInput
+  condition: SortOrderInput
   createdAt: SortOrder
   data: SortOrder
   decodedDataJson: SortOrder
   id: SortOrder
-  marketAddress: SortOrder
-  marketId: SortOrder
+  marketAddress: SortOrderInput
+  marketId: SortOrderInput
   prediction: SortOrder
-  questionId: SortOrder
+  questionId: SortOrderInput
   recipient: SortOrder
+  resolver: SortOrderInput
   schemaId: SortOrder
   time: SortOrder
   transactionHash: SortOrder
@@ -247,15 +273,17 @@ input AttestationOrderByWithRelationInput {
   attester: SortOrder
   blockNumber: SortOrder
   comment: SortOrderInput
+  condition: SortOrderInput
   createdAt: SortOrder
   data: SortOrder
   decodedDataJson: SortOrder
   id: SortOrder
-  marketAddress: SortOrder
-  marketId: SortOrder
+  marketAddress: SortOrderInput
+  marketId: SortOrderInput
   prediction: SortOrder
-  questionId: SortOrder
+  questionId: SortOrderInput
   recipient: SortOrder
+  resolver: SortOrderInput
   schemaId: SortOrder
   time: SortOrder
   transactionHash: SortOrder
@@ -271,6 +299,7 @@ enum AttestationScalarFieldEnum {
   attester
   blockNumber
   comment
+  condition
   createdAt
   data
   decodedDataJson
@@ -280,6 +309,7 @@ enum AttestationScalarFieldEnum {
   prediction
   questionId
   recipient
+  resolver
   schemaId
   time
   transactionHash
@@ -293,15 +323,17 @@ input AttestationScalarWhereWithAggregatesInput {
   attester: StringWithAggregatesFilter
   blockNumber: IntWithAggregatesFilter
   comment: StringNullableWithAggregatesFilter
+  condition: StringNullableWithAggregatesFilter
   createdAt: DateTimeWithAggregatesFilter
   data: StringWithAggregatesFilter
   decodedDataJson: StringWithAggregatesFilter
   id: IntWithAggregatesFilter
-  marketAddress: StringWithAggregatesFilter
-  marketId: StringWithAggregatesFilter
+  marketAddress: StringNullableWithAggregatesFilter
+  marketId: StringNullableWithAggregatesFilter
   prediction: StringWithAggregatesFilter
-  questionId: StringWithAggregatesFilter
+  questionId: StringNullableWithAggregatesFilter
   recipient: StringWithAggregatesFilter
+  resolver: StringNullableWithAggregatesFilter
   schemaId: StringWithAggregatesFilter
   time: IntWithAggregatesFilter
   transactionHash: StringWithAggregatesFilter
@@ -316,12 +348,13 @@ type AttestationScore {
   errorSquared: Float
   id: Int!
   madeAt: Int!
-  marketAddress: String!
-  marketId: String!
+  marketAddress: String
+  marketId: String
   outcome: Int
   probabilityD18: String
   probabilityFloat: Float
   questionId: String
+  resolver: String
   scoredAt: DateTimeISO
   used: Boolean!
 }
@@ -339,12 +372,13 @@ input AttestationScoreOrderByWithRelationInput {
   errorSquared: SortOrderInput
   id: SortOrder
   madeAt: SortOrder
-  marketAddress: SortOrder
-  marketId: SortOrder
+  marketAddress: SortOrderInput
+  marketId: SortOrderInput
   outcome: SortOrderInput
   probabilityD18: SortOrderInput
   probabilityFloat: SortOrderInput
   questionId: SortOrderInput
+  resolver: SortOrderInput
   scoredAt: SortOrderInput
   used: SortOrder
 }
@@ -360,12 +394,13 @@ input AttestationScoreWhereInput {
   errorSquared: FloatNullableFilter
   id: IntFilter
   madeAt: IntFilter
-  marketAddress: StringFilter
-  marketId: StringFilter
+  marketAddress: StringNullableFilter
+  marketId: StringNullableFilter
   outcome: IntNullableFilter
   probabilityD18: StringNullableFilter
   probabilityFloat: FloatNullableFilter
   questionId: StringNullableFilter
+  resolver: StringNullableFilter
   scoredAt: DateTimeNullableFilter
   used: BoolFilter
 }
@@ -390,15 +425,17 @@ input AttestationWhereInput {
   attester: StringFilter
   blockNumber: IntFilter
   comment: StringNullableFilter
+  condition: StringNullableFilter
   createdAt: DateTimeFilter
   data: StringFilter
   decodedDataJson: StringFilter
   id: IntFilter
-  marketAddress: StringFilter
-  marketId: StringFilter
+  marketAddress: StringNullableFilter
+  marketId: StringNullableFilter
   prediction: StringFilter
-  questionId: StringFilter
+  questionId: StringNullableFilter
   recipient: StringFilter
+  resolver: StringNullableFilter
   schemaId: StringFilter
   time: IntFilter
   transactionHash: StringFilter
@@ -413,15 +450,17 @@ input AttestationWhereUniqueInput {
   attester: StringFilter
   blockNumber: IntFilter
   comment: StringNullableFilter
+  condition: StringNullableFilter
   createdAt: DateTimeFilter
   data: StringFilter
   decodedDataJson: StringFilter
   id: Int
-  marketAddress: StringFilter
-  marketId: StringFilter
+  marketAddress: StringNullableFilter
+  marketId: StringNullableFilter
   prediction: StringFilter
-  questionId: StringFilter
+  questionId: StringNullableFilter
   recipient: StringFilter
+  resolver: StringNullableFilter
   schemaId: StringFilter
   time: IntFilter
   transactionHash: StringFilter
@@ -431,6 +470,11 @@ input AttestationWhereUniqueInput {
 input BoolFilter {
   equals: Boolean
   not: NestedBoolFilter
+}
+
+input BoolNullableFilter {
+  equals: Boolean
+  not: NestedBoolNullableFilter
 }
 
 input BoolWithAggregatesFilter {
@@ -461,6 +505,7 @@ input CategoryAvgOrderByAggregateInput {
 
 type CategoryCount {
   condition(where: ConditionWhereInput): Int!
+  condition_group(where: ConditionGroupWhereInput): Int!
 }
 
 type CategoryCountAggregate {
@@ -594,6 +639,7 @@ input CategoryWhereUniqueInput {
 }
 
 type Condition {
+  _count: ConditionCount
   assertionId: String
   assertionTimestamp: Int
   category(where: CategoryWhereInput): Category
@@ -608,6 +654,7 @@ type Condition {
   endTime: Int!
   id: String!
   openInterest: String!
+  predictions(cursor: PredictionWhereUniqueInput, distinct: [PredictionScalarFieldEnum!], orderBy: [PredictionOrderByWithRelationInput!], skip: Int, take: Int, where: PredictionWhereInput): [Prediction!]!
   public: Boolean!
   question: String!
   resolvedToYes: Boolean!
@@ -635,6 +682,10 @@ input ConditionAvgOrderByAggregateInput {
   displayOrder: SortOrder
   endTime: SortOrder
   settledAt: SortOrder
+}
+
+type ConditionCount {
+  predictions(where: PredictionWhereInput): Int!
 }
 
 type ConditionCountAggregate {
@@ -1011,6 +1062,7 @@ input ConditionOrderByWithRelationInput {
   endTime: SortOrder
   id: SortOrder
   openInterest: SortOrder
+  predictions: PredictionOrderByRelationAggregateInput
   public: SortOrder
   question: SortOrder
   resolvedToYes: SortOrder
@@ -1018,6 +1070,11 @@ input ConditionOrderByWithRelationInput {
   settledAt: SortOrderInput
   shortName: SortOrderInput
   similarMarkets: SortOrder
+}
+
+input ConditionRelationFilter {
+  is: ConditionWhereInput
+  isNot: ConditionWhereInput
 }
 
 enum ConditionScalarFieldEnum {
@@ -1112,6 +1169,7 @@ input ConditionWhereInput {
   endTime: IntFilter
   id: StringFilter
   openInterest: StringFilter
+  predictions: PredictionListRelationFilter
   public: BoolFilter
   question: StringFilter
   resolvedToYes: BoolFilter
@@ -1139,6 +1197,7 @@ input ConditionWhereUniqueInput {
   endTime: IntFilter
   id: String
   openInterest: StringFilter
+  predictions: PredictionListRelationFilter
   public: BoolFilter
   question: StringFilter
   resolvedToYes: BoolFilter
@@ -1187,6 +1246,20 @@ input DateTimeWithAggregatesFilter {
   lte: DateTimeISO
   not: NestedDateTimeWithAggregatesFilter
   notIn: [DateTimeISO!]
+}
+
+input EnumLimitOrderStatusFilter {
+  equals: LimitOrderStatus
+  in: [LimitOrderStatus!]
+  not: NestedEnumLimitOrderStatusFilter
+  notIn: [LimitOrderStatus!]
+}
+
+input EnumPositionStatusFilter {
+  equals: PositionStatus
+  in: [PositionStatus!]
+  not: NestedEnumPositionStatusFilter
+  notIn: [PositionStatus!]
 }
 
 input FloatNullableFilter {
@@ -1263,9 +1336,99 @@ input IntWithAggregatesFilter {
   notIn: [Int!]
 }
 
+type LimitOrder {
+  _count: LimitOrderCount
+  cancelledAt: Int
+  cancelledTxHash: String
+  chainId: Int!
+  counterparty: String
+  counterpartyCollateral: String!
+  createdAt: DateTimeISO!
+  filledAt: Int
+  filledTxHash: String
+  id: Int!
+  marketAddress: String!
+  orderId: String!
+  placedAt: Int!
+  placedTxHash: String!
+  predictions(cursor: PredictionWhereUniqueInput, distinct: [PredictionScalarFieldEnum!], orderBy: [PredictionOrderByWithRelationInput!], skip: Int, take: Int, where: PredictionWhereInput): [Prediction!]!
+  predictor: String!
+  predictorCollateral: String!
+  refCode: String
+  resolver: String!
+  status: LimitOrderStatus!
+}
+
+type LimitOrderCount {
+  predictions(where: PredictionWhereInput): Int!
+}
+
+input LimitOrderNullableRelationFilter {
+  is: LimitOrderWhereInput
+  isNot: LimitOrderWhereInput
+}
+
+input LimitOrderOrderByWithRelationInput {
+  cancelledAt: SortOrderInput
+  cancelledTxHash: SortOrderInput
+  chainId: SortOrder
+  counterparty: SortOrderInput
+  counterpartyCollateral: SortOrder
+  createdAt: SortOrder
+  filledAt: SortOrderInput
+  filledTxHash: SortOrderInput
+  id: SortOrder
+  marketAddress: SortOrder
+  orderId: SortOrder
+  placedAt: SortOrder
+  placedTxHash: SortOrder
+  predictions: PredictionOrderByRelationAggregateInput
+  predictor: SortOrder
+  predictorCollateral: SortOrder
+  refCode: SortOrderInput
+  resolver: SortOrder
+  status: SortOrder
+}
+
+enum LimitOrderStatus {
+  cancelled
+  filled
+  pending
+}
+
+input LimitOrderWhereInput {
+  AND: [LimitOrderWhereInput!]
+  NOT: [LimitOrderWhereInput!]
+  OR: [LimitOrderWhereInput!]
+  cancelledAt: IntNullableFilter
+  cancelledTxHash: StringNullableFilter
+  chainId: IntFilter
+  counterparty: StringNullableFilter
+  counterpartyCollateral: StringFilter
+  createdAt: DateTimeFilter
+  filledAt: IntNullableFilter
+  filledTxHash: StringNullableFilter
+  id: IntFilter
+  marketAddress: StringFilter
+  orderId: StringFilter
+  placedAt: IntFilter
+  placedTxHash: StringFilter
+  predictions: PredictionListRelationFilter
+  predictor: StringFilter
+  predictorCollateral: StringFilter
+  refCode: StringNullableFilter
+  resolver: StringFilter
+  status: EnumLimitOrderStatusFilter
+}
+
 input NestedBoolFilter {
   equals: Boolean
   not: NestedBoolFilter
+}
+
+input NestedBoolNullableFilter {
+  equals: Boolean
+  not: NestedBoolNullableFilter
 }
 
 input NestedBoolWithAggregatesFilter {
@@ -1310,6 +1473,20 @@ input NestedDateTimeWithAggregatesFilter {
   lte: DateTimeISO
   not: NestedDateTimeWithAggregatesFilter
   notIn: [DateTimeISO!]
+}
+
+input NestedEnumLimitOrderStatusFilter {
+  equals: LimitOrderStatus
+  in: [LimitOrderStatus!]
+  not: NestedEnumLimitOrderStatusFilter
+  notIn: [LimitOrderStatus!]
+}
+
+input NestedEnumPositionStatusFilter {
+  equals: PositionStatus
+  in: [PositionStatus!]
+  not: NestedEnumPositionStatusFilter
+  notIn: [PositionStatus!]
 }
 
 input NestedFloatFilter {
@@ -1455,26 +1632,6 @@ enum NullsOrder {
   last
 }
 
-type PositionType {
-  chainId: Int!
-  endsAt: Int
-  id: Int!
-  predictor: String!
-  predictorCollateral: String
-  predictorNftTokenId: String!
-  predictorWon: Boolean
-  marketAddress: String!
-  mintedAt: Int!
-  predictions: [PredictionType!]!
-  refCode: String
-  settledAt: Int
-  status: String!
-  counterparty: String!
-  counterpartyCollateral: String
-  counterpartyNftTokenId: String!
-  totalCollateral: String!
-}
-
 type PnLType {
   collateralAddress: String
   collateralDecimals: Int
@@ -1489,12 +1646,209 @@ type PnLType {
   totalWithdrawals: String!
 }
 
+"""Position model to store on-chain prediction positions"""
+type Position {
+  _count: PositionCount
+  chainId: Int!
+  counterparty: String!
+  counterpartyCollateral: String
+  counterpartyNftTokenId: String!
+  createdAt: DateTimeISO!
+  endsAt: Int
+  id: Int!
+  marketAddress: String!
+  mintedAt: Int!
+  predictions(cursor: PredictionWhereUniqueInput, distinct: [PredictionScalarFieldEnum!], orderBy: [PredictionOrderByWithRelationInput!], skip: Int, take: Int, where: PredictionWhereInput): [Prediction!]!
+  predictor: String!
+  predictorCollateral: String
+  predictorNftTokenId: String!
+
+  """
+  True when the predictor's submitted outcomes were correct (previously makerWon)
+  """
+  predictorWon: Boolean
+  refCode: String
+  settledAt: Int
+  status: PositionStatus!
+  totalCollateral: String!
+}
+
+type PositionCount {
+  predictions(where: PredictionWhereInput): Int!
+}
+
+input PositionNullableRelationFilter {
+  is: PositionWhereInput
+  isNot: PositionWhereInput
+}
+
+input PositionOrderByWithRelationInput {
+  chainId: SortOrder
+  counterparty: SortOrder
+  counterpartyCollateral: SortOrderInput
+  counterpartyNftTokenId: SortOrder
+  createdAt: SortOrder
+  endsAt: SortOrderInput
+  id: SortOrder
+  marketAddress: SortOrder
+  mintedAt: SortOrder
+  predictions: PredictionOrderByRelationAggregateInput
+  predictor: SortOrder
+  predictorCollateral: SortOrderInput
+  predictorNftTokenId: SortOrder
+  predictorWon: SortOrderInput
+  refCode: SortOrderInput
+  settledAt: SortOrderInput
+  status: SortOrder
+  totalCollateral: SortOrder
+}
+
+enum PositionStatus {
+  active
+  consolidated
+  settled
+}
+
+type PositionType {
+  chainId: Int!
+  counterparty: String!
+  counterpartyCollateral: String
+  counterpartyNftTokenId: String!
+  endsAt: Int
+  id: Int!
+  marketAddress: String!
+  mintedAt: Int!
+  predictions: [PredictionType!]!
+  predictor: String!
+  predictorCollateral: String
+  predictorNftTokenId: String!
+  predictorWon: Boolean
+  refCode: String
+  settledAt: Int
+  status: String!
+  totalCollateral: String!
+}
+
+input PositionWhereInput {
+  AND: [PositionWhereInput!]
+  NOT: [PositionWhereInput!]
+  OR: [PositionWhereInput!]
+  chainId: IntFilter
+  counterparty: StringFilter
+  counterpartyCollateral: StringNullableFilter
+  counterpartyNftTokenId: StringFilter
+  createdAt: DateTimeFilter
+  endsAt: IntNullableFilter
+  id: IntFilter
+  marketAddress: StringFilter
+  mintedAt: IntFilter
+  predictions: PredictionListRelationFilter
+  predictor: StringFilter
+  predictorCollateral: StringNullableFilter
+  predictorNftTokenId: StringFilter
+  predictorWon: BoolNullableFilter
+  refCode: StringNullableFilter
+  settledAt: IntNullableFilter
+  status: EnumPositionStatusFilter
+  totalCollateral: StringFilter
+}
+
+type Prediction {
+  chainId: Int
+  condition: Condition!
+  conditionId: String!
+  createdAt: DateTimeISO!
+  id: Int!
+  limitOrder(where: LimitOrderWhereInput): LimitOrder
+  limitOrderId: Int
+  outcomeYes: Boolean!
+  position(where: PositionWhereInput): Position
+  positionId: Int
+  resolver: String!
+}
+
+input PredictionListRelationFilter {
+  every: PredictionWhereInput
+  none: PredictionWhereInput
+  some: PredictionWhereInput
+}
+
+input PredictionOrderByRelationAggregateInput {
+  _count: SortOrder
+}
+
+input PredictionOrderByWithRelationInput {
+  chainId: SortOrderInput
+  condition: ConditionOrderByWithRelationInput
+  conditionId: SortOrder
+  createdAt: SortOrder
+  id: SortOrder
+  limitOrder: LimitOrderOrderByWithRelationInput
+  limitOrderId: SortOrderInput
+  outcomeYes: SortOrder
+  position: PositionOrderByWithRelationInput
+  positionId: SortOrderInput
+  resolver: SortOrder
+}
+
+input PredictionPositionIdConditionIdResolverCompoundUniqueInput {
+  conditionId: String!
+  positionId: Int!
+  resolver: String!
+}
+
+enum PredictionScalarFieldEnum {
+  chainId
+  conditionId
+  createdAt
+  id
+  limitOrderId
+  outcomeYes
+  positionId
+  resolver
+}
+
 type PredictionType {
   chainId: Int
   condition: ConditionSummary
   conditionId: String!
   outcomeYes: Boolean!
   resolver: String!
+}
+
+input PredictionWhereInput {
+  AND: [PredictionWhereInput!]
+  NOT: [PredictionWhereInput!]
+  OR: [PredictionWhereInput!]
+  chainId: IntNullableFilter
+  condition: ConditionRelationFilter
+  conditionId: StringFilter
+  createdAt: DateTimeFilter
+  id: IntFilter
+  limitOrder: LimitOrderNullableRelationFilter
+  limitOrderId: IntNullableFilter
+  outcomeYes: BoolFilter
+  position: PositionNullableRelationFilter
+  positionId: IntNullableFilter
+  resolver: StringFilter
+}
+
+input PredictionWhereUniqueInput {
+  AND: [PredictionWhereInput!]
+  NOT: [PredictionWhereInput!]
+  OR: [PredictionWhereInput!]
+  chainId: IntNullableFilter
+  condition: ConditionRelationFilter
+  conditionId: StringFilter
+  createdAt: DateTimeFilter
+  id: Int
+  limitOrder: LimitOrderNullableRelationFilter
+  limitOrderId: IntNullableFilter
+  outcomeYes: BoolFilter
+  position: PositionNullableRelationFilter
+  positionId: IntNullableFilter
+  positionId_conditionId_resolver: PredictionPositionIdConditionIdResolverCompoundUniqueInput
+  resolver: StringFilter
 }
 
 type ProfitRankType {
@@ -1509,6 +1863,7 @@ type Query {
   aggregateAttestation(cursor: AttestationWhereUniqueInput, orderBy: [AttestationOrderByWithRelationInput!], skip: Int, take: Int, where: AttestationWhereInput): AggregateAttestation!
   aggregateCategory(cursor: CategoryWhereUniqueInput, orderBy: [CategoryOrderByWithRelationInput!], skip: Int, take: Int, where: CategoryWhereInput): AggregateCategory!
   aggregateCondition(cursor: ConditionWhereUniqueInput, orderBy: [ConditionOrderByWithRelationInput!], skip: Int, take: Int, where: ConditionWhereInput): AggregateCondition!
+  aggregateConditionGroup(cursor: ConditionGroupWhereUniqueInput, orderBy: [ConditionGroupOrderByWithRelationInput!], skip: Int, take: Int, where: ConditionGroupWhereInput): AggregateConditionGroup!
   aggregateUser(cursor: UserWhereUniqueInput, orderBy: [UserOrderByWithRelationInput!], skip: Int, take: Int, where: UserWhereInput): AggregateUser!
   allTimeProfitLeaderboard: [AggregatedProfitEntryType!]!
   attestation(where: AttestationWhereUniqueInput!): Attestation
@@ -1533,18 +1888,20 @@ type Query {
   getAttestation(where: AttestationWhereUniqueInput!): Attestation
   getCategory(where: CategoryWhereUniqueInput!): Category
   getCondition(where: ConditionWhereUniqueInput!): Condition
+  getConditionGroup(where: ConditionGroupWhereUniqueInput!): ConditionGroup
   getLeaderboard(chainId: Int!, marketAddress: String!): [PnLType!]!
   getUser(where: UserWhereUniqueInput!): User
   groupByAttestation(by: [AttestationScalarFieldEnum!]!, having: AttestationScalarWhereWithAggregatesInput, orderBy: [AttestationOrderByWithAggregationInput!], skip: Int, take: Int, where: AttestationWhereInput): [AttestationGroupBy!]!
   groupByCategory(by: [CategoryScalarFieldEnum!]!, having: CategoryScalarWhereWithAggregatesInput, orderBy: [CategoryOrderByWithAggregationInput!], skip: Int, take: Int, where: CategoryWhereInput): [CategoryGroupBy!]!
   groupByCondition(by: [ConditionScalarFieldEnum!]!, having: ConditionScalarWhereWithAggregatesInput, orderBy: [ConditionOrderByWithAggregationInput!], skip: Int, take: Int, where: ConditionWhereInput): [ConditionGroupBy!]!
+  groupByConditionGroup(by: [ConditionGroupScalarFieldEnum!]!, having: ConditionGroupScalarWhereWithAggregatesInput, orderBy: [ConditionGroupOrderByWithAggregationInput!], skip: Int, take: Int, where: ConditionGroupWhereInput): [ConditionGroupGroupBy!]!
   groupByUser(by: [UserScalarFieldEnum!]!, having: UserScalarWhereWithAggregatesInput, orderBy: [UserOrderByWithAggregationInput!], skip: Int, take: Int, where: UserWhereInput): [UserGroupBy!]!
+  positions(address: String!, chainId: Int, orderBy: String, orderDirection: String, skip: Int! = 0, take: Int! = 50): [PositionType!]!
   positionsByConditionId(chainId: Int, conditionId: String!, skip: Int! = 0, take: Int! = 100): [PositionType!]!
+  positionsCount(address: String!, chainId: Int): Int!
   profitRankByAddress(owner: String!): ProfitRankType!
   topForecasters(limit: Int! = 10): [ForecasterScoreType!]!
   user(where: UserWhereUniqueInput!): User
-  positions(address: String!, chainId: Int, orderBy: String, orderDirection: String, skip: Int! = 0, take: Int! = 50): [PositionType!]!
-  positionsCount(address: String!, chainId: Int): Int!
   users(cursor: UserWhereUniqueInput, distinct: [UserScalarFieldEnum!], orderBy: [UserOrderByWithRelationInput!], skip: Int, take: Int, where: UserWhereInput): [User!]!
 }
 
