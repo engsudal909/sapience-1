@@ -2,15 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import type { Parlay } from './useUserParlays';
 
-// Note: GraphQL query name matches API schema (parlaysByConditionId)
+// Note: GraphQL query name matches API schema (positionsByConditionId)
 const POSITIONS_BY_CONDITION_ID_QUERY = /* GraphQL */ `
-  query ParlaysByConditionId(
+  query PositionsByConditionId(
     $conditionId: String!
     $take: Int
     $skip: Int
     $chainId: Int
   ) {
-    parlaysByConditionId(
+    positionsByConditionId(
       conditionId: $conditionId
       take: $take
       skip: $skip
@@ -32,9 +32,9 @@ const POSITIONS_BY_CONDITION_ID_QUERY = /* GraphQL */ `
       mintedAt
       settledAt
       endsAt
-      predictedOutcomes {
+      predictions {
         conditionId
-        prediction
+        outcomeYes
         condition {
           id
           question
@@ -71,7 +71,7 @@ export function usePositionsByConditionId(params: {
     queryFn: async () => {
       if (!conditionId) return [];
 
-      const resp = await graphqlRequest<{ parlaysByConditionId: Parlay[] }>(
+      const resp = await graphqlRequest<{ positionsByConditionId: Parlay[] }>(
         POSITIONS_BY_CONDITION_ID_QUERY,
         {
           conditionId,
@@ -80,13 +80,13 @@ export function usePositionsByConditionId(params: {
           chainId: chainId ?? null,
         }
       );
-      const base = resp?.parlaysByConditionId ?? [];
+      const base = resp?.positionsByConditionId ?? [];
 
       // Collect unique condition IDs to fetch shortNames, descriptions, and categories in a secondary query
       const conditionIds = Array.from(
         new Set(
           base.flatMap((p) =>
-            (p.predictedOutcomes || []).map((o) => o.conditionId)
+            (p.predictions || []).map((o) => o.conditionId)
           )
         )
       );
@@ -121,10 +121,10 @@ export function usePositionsByConditionId(params: {
         (condResp?.conditions || []).map((c) => [c.id, c])
       );
 
-      // Enrich predictedOutcomes.condition with shortName, description, category if available
+      // Enrich predictions.condition with shortName, description, category if available
       return base.map((p) => ({
         ...p,
-        predictedOutcomes: (p.predictedOutcomes || []).map((o) => {
+        predictions: (p.predictions || []).map((o) => {
           const condData = conditionDataMap.get(o.conditionId);
           if (!condData) return o;
           return {

@@ -93,12 +93,12 @@ export default function ShareAfterRedirect({ address }: { address: Address }) {
         if (anchor === 'positions' && entity) {
           // Encode all legs with question and prediction choice
           const position = entity as Parlay;
-          const legs = (position?.predictedOutcomes || [])
+          const legs = (position?.predictions || [])
             .map((o) => {
               const question =
                 (o?.condition?.shortName as string) ||
                 (o?.condition?.question as string);
-              const choice = o?.prediction ? 'Yes' : 'No';
+              const choice = o?.outcomeYes ? 'Yes' : 'No';
               return question ? `${question}|${choice}` : null;
             })
             .filter(Boolean);

@@ -187,7 +187,7 @@ export default function QuestionPageContent({
       .map((position) => {
         try {
           // Find the prediction for the current conditionId in this position
-          const currentConditionOutcome = position.predictedOutcomes.find(
+          const currentConditionOutcome = position.predictions.find(
             (outcome) =>
               outcome.conditionId.toLowerCase() === conditionId.toLowerCase()
           );
@@ -197,7 +197,7 @@ export default function QuestionPageContent({
           }
 
           // Get other conditions in the position (for combined predictions)
-          const otherOutcomes = position.predictedOutcomes.filter(
+          const otherOutcomes = position.predictions.filter(
             (outcome) =>
               outcome.conditionId.toLowerCase() !== conditionId.toLowerCase()
           );
@@ -233,9 +233,9 @@ export default function QuestionPageContent({
           // Calculate total wager (for sizing)
           const wager = predictorCollateral + counterpartyCollateral;
 
-          // predictedOutcomes represents the predictor's predictions
+          // predictions represents the predictor's predictions
           // Counterparty takes the opposite side on each market
-          const predictorPrediction = currentConditionOutcome.prediction;
+          const predictorPrediction = currentConditionOutcome.outcomeYes;
           const counterpartyPrediction = !predictorPrediction;
 
           // Build combined predictions array if there are other conditions
@@ -246,7 +246,7 @@ export default function QuestionPageContent({
                     outcome.condition?.shortName ||
                     outcome.condition?.question ||
                     outcome.conditionId,
-                  prediction: outcome.prediction,
+                  prediction: outcome.outcomeYes,
                   categorySlug: outcome.condition?.category?.slug,
                 }))
               : undefined;

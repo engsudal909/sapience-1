@@ -3,7 +3,7 @@ import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 type PredictedOutcome = {
   conditionId: string;
-  prediction: boolean;
+  outcomeYes: boolean;
   condition?: {
     id: string;
     question?: string | null;
@@ -33,11 +33,11 @@ export type Parlay = {
   mintedAt: number;
   settledAt?: number | null;
   endsAt?: number | null;
-  predictedOutcomes: PredictedOutcome[];
+  predictions: PredictedOutcome[];
 };
 
 const USER_PARLAYS_QUERY = /* GraphQL */ `
-  query UserParlays(
+  query UserPositions(
     $address: String!
     $take: Int
     $skip: Int
@@ -45,7 +45,7 @@ const USER_PARLAYS_QUERY = /* GraphQL */ `
     $orderDirection: String
     $chainId: Int
   ) {
-    userParlays(
+    positions(
       address: $address
       take: $take
       skip: $skip
@@ -69,9 +69,9 @@ const USER_PARLAYS_QUERY = /* GraphQL */ `
       mintedAt
       settledAt
       endsAt
-      predictedOutcomes {
+      predictions {
         conditionId
-        prediction
+        outcomeYes
         condition {
           id
           question
@@ -85,22 +85,22 @@ const USER_PARLAYS_QUERY = /* GraphQL */ `
 export function useUserParlaysCount(address?: string, chainId?: number) {
   const enabled = Boolean(address);
   const { data } = useQuery({
-    queryKey: ['userParlaysCount', address, chainId],
+    queryKey: ['positionsCount', address, chainId],
     enabled,
     staleTime: 60_000, // 1 minute
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: async () => {
-      const resp = await graphqlRequest<{ userParlaysCount: number }>(
+      const resp = await graphqlRequest<{ positionsCount: number }>(
         /* GraphQL */ `
-          query UserParlaysCount($address: String!, $chainId: Int) {
-            userParlaysCount(address: $address, chainId: $chainId)
+          query PositionsCount($address: String!, $chainId: Int) {
+            positionsCount(address: $address, chainId: $chainId)
           }
         `,
         { address, chainId: chainId ?? null }
       );
-      return resp?.userParlaysCount ?? 0;
+      return resp?.positionsCount ?? 0;
     },
   });
   return data ?? 0;
@@ -125,7 +125,7 @@ export function useUserParlays(params: {
   const enabled = Boolean(address);
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: [
-      'userParlays',
+      'positions',
       address,
       take,
       skip,
@@ -139,7 +139,7 @@ export function useUserParlays(params: {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: async () => {
-      const resp = await graphqlRequest<{ userParlays: Parlay[] }>(
+      const resp = await graphqlRequest<{ positions: Parlay[] }>(
         USER_PARLAYS_QUERY,
         {
           address,
@@ -150,13 +150,13 @@ export function useUserParlays(params: {
           chainId: chainId ?? null,
         }
       );
-      const base = resp?.userParlays ?? [];
+      const base = resp?.positions ?? [];
 
       // Collect unique condition IDs to fetch shortNames in a secondary query
       const conditionIds = Array.from(
         new Set(
           base.flatMap((p) =>
-            (p.predictedOutcomes || []).map((o) => o.conditionId)
+            (p.predictions || []).map((o) => o.conditionId)
           )
         )
       );
@@ -191,10 +191,10 @@ export function useUserParlays(params: {
         (condResp?.conditions || []).map((c) => [c.id, c])
       );
 
-      // Enrich predictedOutcomes.condition with shortName, description, category if available
+      // Enrich predictions.condition with shortName, description, category if available
       return base.map((p) => ({
         ...p,
-        predictedOutcomes: (p.predictedOutcomes || []).map((o) => {
+        predictions: (p.predictions || []).map((o) => {
           const condData = conditionDataMap.get(o.conditionId);
           if (!condData) return o;
           return {

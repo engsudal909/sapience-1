@@ -118,7 +118,7 @@ export default function PositionsTable({
       setClaimingTokenId(null);
       const addr = String(account || '').toLowerCase();
       queryClient
-        .invalidateQueries({ queryKey: ['userParlays', addr] })
+        .invalidateQueries({ queryKey: ['positions', addr] })
         .catch(() => {});
     },
   });
@@ -219,10 +219,10 @@ export default function PositionsTable({
   );
   const rows: UIPosition[] = React.useMemo(() => {
     const positionRows = (data || []).map((p: any) => {
-      const legs: UILeg[] = (p.predictedOutcomes || []).map((o: any) => ({
+      const legs: UILeg[] = (p.predictions || []).map((o: any) => ({
         question:
           o?.condition?.shortName || o?.condition?.question || o.conditionId,
-        choice: o.prediction ? ('Yes' as const) : ('No' as const),
+        choice: o.outcomeYes ? ('Yes' as const) : ('No' as const),
         conditionId: o?.conditionId,
         categorySlug: o?.condition?.category?.slug ?? null,
         endTime: o?.condition?.endTime ?? null,
@@ -232,7 +232,7 @@ export default function PositionsTable({
         p.endsAt ||
         Math.max(
           0,
-          ...(p.predictedOutcomes || []).map(
+          ...(p.predictions || []).map(
             (o: any) => o?.condition?.endTime || 0
           )
         );
