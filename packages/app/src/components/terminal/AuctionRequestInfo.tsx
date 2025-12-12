@@ -355,12 +355,11 @@ const AuctionRequestInfo: React.FC<Props> = ({
     }
   }, [predictedOutcomes]);
 
-  const { data: lastPosition, refetch: refetchLastTrade } = useLastTradeForIntent(
-    {
+  const { data: lastPosition, refetch: refetchLastTrade } =
+    useLastTradeForIntent({
       predictor: taker || uiTx?.position?.owner,
       outcomesSignature: outcomesSignature,
-    }
-  );
+    });
 
   // Trigger refetch on mount (row expand) and when a bid is submitted
   useEffect(() => {
@@ -374,7 +373,9 @@ const AuctionRequestInfo: React.FC<Props> = ({
   const lastTrade = useMemo(() => {
     try {
       if (!lastPosition) return null;
-      const predictorWei = BigInt(String(lastPosition?.predictorCollateral ?? '0'));
+      const predictorWei = BigInt(
+        String(lastPosition?.predictorCollateral ?? '0')
+      );
       const counterpartyWei = BigInt(
         String(lastPosition?.counterpartyCollateral ?? '0')
       );

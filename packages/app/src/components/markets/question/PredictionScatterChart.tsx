@@ -192,8 +192,7 @@ export function PredictionScatterChart({
                 timeZoneName: 'short',
               });
               // Check if this is a forecast (has attester but no predictor/counterparty)
-              const isForecast =
-                'attester' in point && !('predictor' in point);
+              const isForecast = 'attester' in point && !('predictor' in point);
 
               const {
                 predictor,

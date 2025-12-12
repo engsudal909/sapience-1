@@ -155,9 +155,7 @@ export function useUserParlays(params: {
       // Collect unique condition IDs to fetch shortNames in a secondary query
       const conditionIds = Array.from(
         new Set(
-          base.flatMap((p) =>
-            (p.predictions || []).map((o) => o.conditionId)
-          )
+          base.flatMap((p) => (p.predictions || []).map((o) => o.conditionId))
         )
       );
 

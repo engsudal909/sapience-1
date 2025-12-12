@@ -133,10 +133,10 @@ export default function PositionsTable({
     tokenIdToClaim?: bigint;
     createdAt: number; // ms
     totalPayoutWei: bigint; // total payout if won
-  predictorCollateralWei?: bigint; // user's wager if they are predictor
-  counterpartyCollateralWei?: bigint; // user's wager if they are counterparty
+    predictorCollateralWei?: bigint; // user's wager if they are predictor
+    counterpartyCollateralWei?: bigint; // user's wager if they are counterparty
     userPnL: string; // pnl for settled positions
-  addressRole: 'predictor' | 'counterparty' | 'unknown';
+    addressRole: 'predictor' | 'counterparty' | 'unknown';
     counterpartyAddress?: Address | null;
     chainId: number;
     marketAddress: Address;
@@ -232,9 +232,7 @@ export default function PositionsTable({
         p.endsAt ||
         Math.max(
           0,
-          ...(p.predictions || []).map(
-            (o: any) => o?.condition?.endTime || 0
-          )
+          ...(p.predictions || []).map((o: any) => o?.condition?.endTime || 0)
         );
       const userIsPredictor =
         typeof p.predictor === 'string' && p.predictor.toLowerCase() === viewer;
@@ -305,7 +303,9 @@ export default function PositionsTable({
       // Choose wager based on the profile address' role
       const viewerPredictorCollateralWei = (() => {
         try {
-          return p.predictorCollateral ? BigInt(p.predictorCollateral) : undefined;
+          return p.predictorCollateral
+            ? BigInt(p.predictorCollateral)
+            : undefined;
         } catch {
           return undefined;
         }

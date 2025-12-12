@@ -210,14 +210,14 @@ export default function QuestionPageContent({
               ? parseFloat(formatEther(BigInt(position.predictorCollateral)))
               : 0;
             counterpartyCollateral = position.counterpartyCollateral
-              ? parseFloat(
-                  formatEther(BigInt(position.counterpartyCollateral))
-                )
+              ? parseFloat(formatEther(BigInt(position.counterpartyCollateral)))
               : 0;
           } catch {
             // Fallback: try to derive from totalCollateral if individual amounts not available
             try {
-              const totalCollateralWei = BigInt(position.totalCollateral || '0');
+              const totalCollateralWei = BigInt(
+                position.totalCollateral || '0'
+              );
               const totalCollateral = parseFloat(
                 formatEther(totalCollateralWei)
               );
@@ -236,7 +236,6 @@ export default function QuestionPageContent({
           // predictions represents the predictor's predictions
           // Counterparty takes the opposite side on each market
           const predictorPrediction = currentConditionOutcome.outcomeYes;
-          const counterpartyPrediction = !predictorPrediction;
 
           // Build combined predictions array if there are other conditions
           const combinedPredictions: CombinedPrediction[] | undefined =

@@ -85,9 +85,7 @@ export function usePositionsByConditionId(params: {
       // Collect unique condition IDs to fetch shortNames, descriptions, and categories in a secondary query
       const conditionIds = Array.from(
         new Set(
-          base.flatMap((p) =>
-            (p.predictions || []).map((o) => o.conditionId)
-          )
+          base.flatMap((p) => (p.predictions || []).map((o) => o.conditionId))
         )
       );
 
