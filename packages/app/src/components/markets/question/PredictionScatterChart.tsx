@@ -191,18 +191,18 @@ export function PredictionScatterChart({
                 second: '2-digit',
                 timeZoneName: 'short',
               });
-              // Check if this is a forecast (has attester but no maker/taker)
-              const isForecast = 'attester' in point && !('maker' in point);
+              // Check if this is a forecast (has attester but no predictor/counterparty)
+              const isForecast = 'attester' in point && !('predictor' in point);
 
               const {
-                maker,
-                taker,
-                makerPrediction,
+                predictor,
+                counterparty,
+                predictorPrediction,
                 combinedPredictions,
                 combinedWithYes,
               } = point as PredictionData;
-              const yesAddress = makerPrediction ? maker : taker;
-              const noAddress = makerPrediction ? taker : maker;
+              const yesAddress = predictorPrediction ? predictor : counterparty;
+              const noAddress = predictorPrediction ? counterparty : predictor;
               const getCategoryColor = (slug?: string) =>
                 getCategoryStyle(slug).color;
 
@@ -472,12 +472,10 @@ export function PredictionScatterChart({
                 const rayLength = lineWidth * 0.6; // Ray height proportional to line width
                 const gradientId = `bracket-ray-gradient-${payload.x}`;
                 const lineGradientId = `bracket-line-gradient-${payload.x}`;
-                // Determine ray direction based on taker's prediction:
-                // - Taker bets YES (takerPrediction: true) → ray DOWN (toward 100%)
-                // - Taker bets NO (takerPrediction: false) → ray UP (toward 0%)
-                // takerPrediction = !makerPrediction
-                const takerPrediction = !payload.makerPrediction;
-                const rayUp = takerPrediction === false;
+                // Determine ray direction based on predictor's prediction:
+                // - Predictor bets YES → ray DOWN (toward 100%)
+                // - Predictor bets NO → ray UP (toward 0%)
+                const rayUp = payload.predictorPrediction === false;
                 return (
                   <g
                     className="bracket-combined"

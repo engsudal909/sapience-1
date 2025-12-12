@@ -27,17 +27,17 @@ import type { Abi } from 'abitype';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { formatDistanceToNow } from 'date-fns';
-// Minimal ABI for PredictionMarketLZResolver.getPredictionResolution(bytes)
-const LZ_RESOLVER_MIN_ABI = [
+// Minimal ABI for PredictionMarketUmaResolver.resolvePrediction(bytes)
+const UMA_RESOLVER_MIN_ABI = [
   {
     type: 'function',
-    name: 'getPredictionResolution',
+    name: 'resolvePrediction',
     stateMutability: 'view',
     inputs: [{ name: 'encodedPredictedOutcomes', type: 'bytes' }],
     outputs: [
-      { name: 'isResolved', type: 'bool' },
+      { name: 'isValid', type: 'bool' },
       { name: 'error', type: 'uint8' },
-      { name: 'parlaySuccess', type: 'bool' },
+      { name: 'predictorWon', type: 'bool' },
     ],
   },
 ] as const;
@@ -118,7 +118,7 @@ export default function PositionsTable({
       setClaimingTokenId(null);
       const addr = String(account || '').toLowerCase();
       queryClient
-        .invalidateQueries({ queryKey: ['userParlays', addr] })
+        .invalidateQueries({ queryKey: ['positions', addr] })
         .catch(() => {});
     },
   });
@@ -133,10 +133,10 @@ export default function PositionsTable({
     tokenIdToClaim?: bigint;
     createdAt: number; // ms
     totalPayoutWei: bigint; // total payout if won
-    makerCollateralWei?: bigint; // user's wager if they are maker
-    takerCollateralWei?: bigint; // user's wager if they are taker
+    predictorCollateralWei?: bigint; // user's wager if they are predictor
+    counterpartyCollateralWei?: bigint; // user's wager if they are counterparty
     userPnL: string; // pnl for settled positions
-    addressRole: 'maker' | 'taker' | 'unknown';
+    addressRole: 'predictor' | 'counterparty' | 'unknown';
     counterpartyAddress?: Address | null;
     chainId: number;
     marketAddress: Address;
@@ -219,10 +219,10 @@ export default function PositionsTable({
   );
   const rows: UIPosition[] = React.useMemo(() => {
     const positionRows = (data || []).map((p: any) => {
-      const legs: UILeg[] = (p.predictedOutcomes || []).map((o: any) => ({
+      const legs: UILeg[] = (p.predictions || []).map((o: any) => ({
         question:
           o?.condition?.shortName || o?.condition?.question || o.conditionId,
-        choice: o.prediction ? ('Yes' as const) : ('No' as const),
+        choice: o.outcomeYes ? ('Yes' as const) : ('No' as const),
         conditionId: o?.conditionId,
         categorySlug: o?.condition?.category?.slug ?? null,
         endTime: o?.condition?.endTime ?? null,
@@ -232,58 +232,57 @@ export default function PositionsTable({
         p.endsAt ||
         Math.max(
           0,
-          ...(p.predictedOutcomes || []).map(
-            (o: any) => o?.condition?.endTime || 0
-          )
+          ...(p.predictions || []).map((o: any) => o?.condition?.endTime || 0)
         );
-      const userIsMaker =
-        typeof p.maker === 'string' && p.maker.toLowerCase() === viewer;
-      const userIsTaker =
-        typeof p.taker === 'string' && p.taker.toLowerCase() === viewer;
+      const userIsPredictor =
+        typeof p.predictor === 'string' && p.predictor.toLowerCase() === viewer;
+      const userIsCounterparty =
+        typeof p.counterparty === 'string' &&
+        p.counterparty.toLowerCase() === viewer;
       const isActive = p.status === 'active';
       const userWon =
         !isActive &&
-        ((userIsMaker && p.makerWon === true) ||
-          (userIsTaker && p.makerWon === false));
+        ((userIsPredictor && p.predictorWon === true) ||
+          (userIsCounterparty && p.predictorWon === false));
       const status: UIPosition['status'] = isActive
         ? 'active'
         : userWon
           ? 'won'
           : 'lost';
       const tokenIdToClaim = userWon
-        ? userIsMaker
-          ? BigInt(p.makerNftTokenId)
-          : BigInt(p.takerNftTokenId)
+        ? userIsPredictor
+          ? BigInt(p.predictorNftTokenId)
+          : BigInt(p.counterpartyNftTokenId)
         : undefined;
 
       // Calculate PnL for settled positions
       let userPnL = '0';
       if (
         !isActive &&
-        p.makerCollateral &&
-        p.takerCollateral &&
+        p.predictorCollateral &&
+        p.counterpartyCollateral &&
         p.totalCollateral
       ) {
         try {
-          const makerCollateral = BigInt(p.makerCollateral);
-          const takerCollateral = BigInt(p.takerCollateral);
+          const predictorCollateral = BigInt(p.predictorCollateral);
+          const counterpartyCollateral = BigInt(p.counterpartyCollateral);
           const totalCollateral = BigInt(p.totalCollateral);
 
-          if (userIsMaker) {
-            if (p.makerWon) {
-              // Maker won: profit = totalCollateral - makerCollateral
-              userPnL = (totalCollateral - makerCollateral).toString();
+          if (userIsPredictor) {
+            if (p.predictorWon) {
+              // Predictor won: profit = totalCollateral - predictorCollateral
+              userPnL = (totalCollateral - predictorCollateral).toString();
             } else {
-              // Maker lost: loss = -makerCollateral
-              userPnL = (-makerCollateral).toString();
+              // Predictor lost: loss = -predictorCollateral
+              userPnL = (-predictorCollateral).toString();
             }
-          } else if (userIsTaker) {
-            if (!p.makerWon) {
-              // Taker won: profit = totalCollateral - takerCollateral
-              userPnL = (totalCollateral - takerCollateral).toString();
+          } else if (userIsCounterparty) {
+            if (!p.predictorWon) {
+              // Counterparty won: profit = totalCollateral - counterpartyCollateral
+              userPnL = (totalCollateral - counterpartyCollateral).toString();
             } else {
-              // Taker lost: loss = -takerCollateral
-              userPnL = (-takerCollateral).toString();
+              // Counterparty lost: loss = -counterpartyCollateral
+              userPnL = (-counterpartyCollateral).toString();
             }
           }
         } catch (e) {
@@ -292,26 +291,30 @@ export default function PositionsTable({
       }
 
       // Choose positionId based on the profile address' role
-      const positionId = userIsMaker
-        ? Number(p.makerNftTokenId)
-        : userIsTaker
-          ? Number(p.takerNftTokenId)
-          : p.makerNftTokenId
-            ? Number(p.makerNftTokenId)
+      const positionId = userIsPredictor
+        ? Number(p.predictorNftTokenId)
+        : userIsCounterparty
+          ? Number(p.counterpartyNftTokenId)
+          : p.predictorNftTokenId
+            ? Number(p.predictorNftTokenId)
             : p.id;
       // Create unique row key combining position ID and role
-      const uniqueRowKey = `${p.id}-${userIsMaker ? 'maker' : userIsTaker ? 'taker' : 'unknown'}`;
+      const uniqueRowKey = `${p.id}-${userIsPredictor ? 'predictor' : userIsCounterparty ? 'counterparty' : 'unknown'}`;
       // Choose wager based on the profile address' role
-      const viewerMakerCollateralWei = (() => {
+      const viewerPredictorCollateralWei = (() => {
         try {
-          return p.makerCollateral ? BigInt(p.makerCollateral) : undefined;
+          return p.predictorCollateral
+            ? BigInt(p.predictorCollateral)
+            : undefined;
         } catch {
           return undefined;
         }
       })();
-      const viewerTakerCollateralWei = (() => {
+      const viewerCounterpartyCollateralWei = (() => {
         try {
-          return p.takerCollateral ? BigInt(p.takerCollateral) : undefined;
+          return p.counterpartyCollateral
+            ? BigInt(p.counterpartyCollateral)
+            : undefined;
         } catch {
           return undefined;
         }
@@ -332,19 +335,19 @@ export default function PositionsTable({
             return 0n;
           }
         })(),
-        makerCollateralWei: viewerMakerCollateralWei,
-        takerCollateralWei: viewerTakerCollateralWei,
+        predictorCollateralWei: viewerPredictorCollateralWei,
+        counterpartyCollateralWei: viewerCounterpartyCollateralWei,
         userPnL,
-        addressRole: userIsMaker
-          ? ('maker' as const)
-          : userIsTaker
-            ? ('taker' as const)
+        addressRole: userIsPredictor
+          ? ('predictor' as const)
+          : userIsCounterparty
+            ? ('counterparty' as const)
             : ('unknown' as const),
         counterpartyAddress:
-          (userIsMaker
-            ? (p.taker as Address | undefined)
-            : userIsTaker
-              ? (p.maker as Address | undefined)
+          (userIsPredictor
+            ? (p.counterparty as Address | undefined)
+            : userIsCounterparty
+              ? (p.predictor as Address | undefined)
               : undefined) ?? null,
         chainId: Number(p.chainId || DEFAULT_CHAIN_ID),
         marketAddress: p.marketAddress as Address,
@@ -417,8 +420,8 @@ export default function PositionsTable({
     return rowsNeedingResolution.map((r) => ({
       rowKey: r.positionId,
       tokenId:
-        r.addressRole === 'maker'
-          ? BigInt(r.positionId) // positionId chosen from maker/taker id earlier
+        r.addressRole === 'predictor'
+          ? BigInt(r.positionId) // positionId chosen from predictor/counterparty id earlier
           : BigInt(r.positionId),
       // Note: positionId was set to the viewer-relevant NFT id earlier
       marketAddress: r.marketAddress,
@@ -493,7 +496,7 @@ export default function PositionsTable({
     query: { enabled: !isLoading && getPredictionReads.length > 0 },
   });
 
-  // Phase 3: resolver.getPredictionResolution(encodedPredictedOutcomes)
+  // Phase 3: resolver.resolvePrediction(encodedPredictedOutcomes)
   const resolverReads = React.useMemo(() => {
     const calls: any[] = [];
     const preds = predictionDatas?.data || [];
@@ -512,13 +515,13 @@ export default function PositionsTable({
 
         calls.push({
           address: resolver,
-          abi: LZ_RESOLVER_MIN_ABI as unknown as Abi,
-          functionName: 'getPredictionResolution',
+          abi: UMA_RESOLVER_MIN_ABI as unknown as Abi,
+          functionName: 'resolvePrediction',
           args: [encoded],
           chainId: base.chainId,
         });
       } catch {
-        // ignore errors
+        // ignore mis-shaped result
       }
     });
 
@@ -532,7 +535,6 @@ export default function PositionsTable({
   // Build a map from rowKey -> ChainResolutionState
   const rowKeyToResolution = React.useMemo(() => {
     const map = new Map<number, ChainResolutionState>();
-
     // default: if we attempted ownerOf but do not own, consider 'claimed'
     viewerTokenInfo.forEach((info, idx) => {
       const ownerItem = activeOwners?.data?.[idx];
@@ -550,33 +552,24 @@ export default function PositionsTable({
       const resItem = res[i];
       if (!base || !resItem) continue;
       const rowKey = base.rowKey;
-
       if (resItem.status !== 'success') {
         // couldn't resolve yet → awaiting
-        if (!map.has(rowKey)) {
-          map.set(rowKey, { state: 'awaiting' });
-        }
+        if (!map.has(rowKey)) map.set(rowKey, { state: 'awaiting' });
         continue;
       }
       try {
-        const tuple = resItem.result as any;
-        // LZResolver returns: [isResolved, error, parlaySuccess]
-        const isResolved = Boolean(tuple?.[0]);
-        const parlaySuccess = Boolean(tuple?.[2]);
-
-        // parlaySuccess means maker won
-        const makerWon = parlaySuccess;
-
-        if (!isResolved) {
+        const tuple = resItem.result as any; // [isValid, error, predictorWon]
+        const isValid = Boolean(tuple?.[0]);
+        const predictorWon = Boolean(tuple?.[2]);
+        if (!isValid) {
           map.set(rowKey, { state: 'awaiting' });
           continue;
         }
         // Determine if viewer is winner
         const row = rows.find((r) => r.positionId === rowKey);
         if (!row) continue;
-        const viewerIsMaker = row.addressRole === 'maker';
-        const viewerWon = viewerIsMaker ? makerWon : !makerWon;
-
+        const viewerIsPredictor = row.addressRole === 'predictor';
+        const viewerWon = viewerIsPredictor ? predictorWon : !predictorWon;
         map.set(
           rowKey,
           viewerWon
@@ -584,9 +577,7 @@ export default function PositionsTable({
             : { state: 'lost' }
         );
       } catch {
-        if (!map.has(rowKey)) {
-          map.set(rowKey, { state: 'awaiting' });
-        }
+        if (!map.has(rowKey)) map.set(rowKey, { state: 'awaiting' });
       }
     }
 
@@ -595,7 +586,7 @@ export default function PositionsTable({
     viewerTokenInfo,
     activeOwners?.data,
     resolverResults?.data,
-    ownedRowEntries,
+    predictionDatas?.data,
     rows,
     viewer,
   ]);
@@ -692,7 +683,9 @@ export default function PositionsTable({
               Predictions
             </div>
             <div className="flex flex-col xl:flex-row xl:items-center gap-2">
-              {row.original.addressRole === 'taker' && <CounterpartyBadge />}
+              {row.original.addressRole === 'counterparty' && (
+                <CounterpartyBadge />
+              )}
               <StackedPredictions
                 legs={row.original.legs}
                 className="max-w-full xl:max-w-[320px]"
@@ -741,11 +734,13 @@ export default function PositionsTable({
         accessorFn: (row) => {
           // Show the viewer's contributed collateral as the wager
           const viewerWagerWei =
-            row.addressRole === 'maker'
-              ? (row.makerCollateralWei ?? 0n)
-              : row.addressRole === 'taker'
-                ? (row.takerCollateralWei ?? 0n)
-                : (row.makerCollateralWei ?? row.takerCollateralWei ?? 0n);
+            row.addressRole === 'predictor'
+              ? (row.predictorCollateralWei ?? 0n)
+              : row.addressRole === 'counterparty'
+                ? (row.counterpartyCollateralWei ?? 0n)
+                : (row.predictorCollateralWei ??
+                  row.counterpartyCollateralWei ??
+                  0n);
           return Number(formatEther(viewerWagerWei));
         },
         size: 180,
@@ -778,12 +773,12 @@ export default function PositionsTable({
         cell: ({ row }) => {
           const symbol = collateralSymbol;
           const viewerWagerWei =
-            row.original.addressRole === 'maker'
-              ? (row.original.makerCollateralWei ?? 0n)
-              : row.original.addressRole === 'taker'
-                ? (row.original.takerCollateralWei ?? 0n)
-                : (row.original.makerCollateralWei ??
-                  row.original.takerCollateralWei ??
+            row.original.addressRole === 'predictor'
+              ? (row.original.predictorCollateralWei ?? 0n)
+              : row.original.addressRole === 'counterparty'
+                ? (row.original.counterpartyCollateralWei ?? 0n)
+                : (row.original.predictorCollateralWei ??
+                  row.original.counterpartyCollateralWei ??
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
 
@@ -928,12 +923,12 @@ export default function PositionsTable({
           }
 
           const viewerWagerWei =
-            row.original.addressRole === 'maker'
-              ? (row.original.makerCollateralWei ?? 0n)
-              : row.original.addressRole === 'taker'
-                ? (row.original.takerCollateralWei ?? 0n)
-                : (row.original.makerCollateralWei ??
-                  row.original.takerCollateralWei ??
+            row.original.addressRole === 'predictor'
+              ? (row.original.predictorCollateralWei ?? 0n)
+              : row.original.addressRole === 'counterparty'
+                ? (row.original.counterpartyCollateralWei ?? 0n)
+                : (row.original.predictorCollateralWei ??
+                  row.original.counterpartyCollateralWei ??
                   0n);
           const viewerWager = Number(formatEther(viewerWagerWei));
 
@@ -1274,8 +1269,8 @@ export default function PositionsTable({
           }))}
           wager={Number(
             formatEther(
-              selectedPosition.makerCollateralWei ??
-                selectedPosition.takerCollateralWei ??
+              selectedPosition.predictorCollateralWei ??
+                selectedPosition.counterpartyCollateralWei ??
                 0n
             )
           )}
@@ -1284,7 +1279,9 @@ export default function PositionsTable({
           owner={String(account)}
           imagePath="/og/position"
           extraParams={
-            selectedPosition.addressRole === 'taker' ? { anti: '1' } : undefined
+            selectedPosition.addressRole === 'counterparty'
+              ? { anti: '1' }
+              : undefined
           }
           open={openSharePositionId !== null}
           onOpenChange={(next) => {

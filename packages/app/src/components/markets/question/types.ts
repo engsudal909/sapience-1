@@ -10,11 +10,11 @@ export type PredictionData = {
   x: number;
   y: number;
   wager: number;
-  maker: string;
-  taker: string;
-  makerPrediction: boolean; // true = maker predicts YES, false = maker predicts NO
-  makerCollateral: number; // Maker's wager amount
-  takerCollateral: number; // Taker's wager amount
+  predictor: string;
+  counterparty: string;
+  predictorPrediction: boolean; // true = predictor (maker) predicts YES, false = NO
+  predictorCollateral: number; // Predictor's wager amount
+  counterpartyCollateral: number; // Counterparty's wager amount
   time: string;
   combinedPredictions?: CombinedPrediction[];
   combinedWithYes?: boolean; // true = combined predictions are tied to YES outcome
