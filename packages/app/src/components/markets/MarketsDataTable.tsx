@@ -21,7 +21,6 @@ import {
 import {
   ChevronUp,
   ChevronDown,
-  ChevronRight,
   Loader2,
   Minus,
 } from 'lucide-react';
@@ -261,60 +260,54 @@ function GroupForecastCell({
   conditions: ConditionGroupConditionType[];
   predictionMap: Record<string, number>;
 }) {
-  // Find the condition/option with the highest "best" estimate
-  // For each condition: best = max(probabilityYes, 1 - probabilityYes)
-  const bestOption = React.useMemo(() => {
-    let best: {
-      condition: ConditionGroupConditionType;
-      probability: number;
-      isYes: boolean;
-    } | null = null;
+  const spread = React.useMemo(() => {
+    let minBest = Infinity;
+    let maxBest = -Infinity;
+    let count = 0;
 
     for (const c of conditions) {
       const probYes = predictionMap[c.id];
       if (probYes == null) continue;
-
-      const probNo = 1 - probYes;
-      const isYes = probYes >= probNo;
-      const bestProb = isYes ? probYes : probNo;
-
-      if (!best || bestProb > best.probability) {
-        best = { condition: c, probability: bestProb, isYes };
-      }
+      const best = Math.max(probYes, 1 - probYes);
+      minBest = Math.min(minBest, best);
+      maxBest = Math.max(maxBest, best);
+      count += 1;
     }
-    return best;
+
+    if (!count) return { kind: 'none' as const };
+    if (count < 2 || !isFinite(minBest) || !isFinite(maxBest)) {
+      return { kind: 'single' as const };
+    }
+    return {
+      kind: 'spread' as const,
+      pct: Math.round((maxBest - minBest) * 100),
+    };
   }, [conditions, predictionMap]);
 
-  if (!bestOption) {
-    // No predictions available yet
-    return <span className="text-muted-foreground">Requesting...</span>;
+  if (spread.kind === 'none') {
+    return (
+      <span
+        className="text-muted-foreground"
+        style={{ animation: 'subtle-pulse 3s ease-in-out infinite' }}
+      >
+        <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
+        Requesting...
+      </span>
+    );
+  }
+  if (spread.kind === 'single') {
+    return (
+      <span
+        className="text-muted-foreground"
+        style={{ animation: 'subtle-pulse 3s ease-in-out infinite' }}
+      >
+        <style>{`@keyframes subtle-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.45; } }`}</style>
+        Requesting...
+      </span>
+    );
   }
 
-  const displayName =
-    bestOption.condition.shortName || bestOption.condition.question;
-  const percent = Math.round(bestOption.probability * 100);
-
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span
-        className="text-foreground truncate max-w-[120px]"
-        title={displayName}
-      >
-        {displayName}
-      </span>
-      <Badge
-        variant="outline"
-        className={`px-1.5 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono ${
-          bestOption.isYes
-            ? 'border-yes/40 bg-yes/10 text-yes'
-            : 'border-no/40 bg-no/10 text-no'
-        }`}
-      >
-        {bestOption.isYes ? 'YES' : 'NO'}
-      </Badge>
-      <span className="font-mono text-ethena">{percent}%</span>
-    </div>
-  );
+  return <span className="font-mono text-ethena">{spread.pct}% spread</span>;
 }
 
 // Predict buttons cell component
@@ -437,26 +430,21 @@ function createColumns(
         if (data.kind === 'group') {
           const categorySlug = data.category?.slug;
           const color = getCategoryColor(categorySlug);
-          const isExpanded = expandedGroupIds.has(data.groupId);
           return (
             <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
-              <ChevronRight
-                className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${
-                  isExpanded ? 'rotate-90' : ''
-                }`}
-              />
               <MarketBadge
                 label={data.name}
                 size={24}
                 color={color}
                 categorySlug={categorySlug}
               />
-              <span className="text-sm font-medium text-foreground truncate">
+              <button
+                type="button"
+                onClick={() => onToggleExpand(data.groupId)}
+                className="block max-w-full min-w-0 p-0 m-0 bg-transparent border-0 text-sm font-mono text-brand-white transition-colors break-words whitespace-nowrap underline decoration-dotted decoration-1 decoration-brand-white/70 underline-offset-4 hover:decoration-brand-white/40 truncate text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
                 {data.name}
-              </span>
-              <Badge variant="secondary" className="text-xs shrink-0">
-                {data.conditions.length}
-              </Badge>
+              </button>
             </div>
           );
         }
@@ -606,14 +594,17 @@ function createColumns(
         if (data.kind === 'group') {
           const isExpanded = expandedGroupIds.has(data.groupId);
           return (
-            <div className="flex justify-center">
+            <div className="w-full max-w-[320px] ml-auto font-mono">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onToggleExpand(data.groupId)}
-                className="text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand(data.groupId);
+                }}
+                className="w-full h-8 text-sm uppercase"
               >
-                {isExpanded ? 'Hide' : 'Show'}
+                {isExpanded ? 'HIDE' : 'SHOW'}
               </Button>
             </div>
           );
@@ -631,10 +622,12 @@ function ChildConditionRow({
   condition,
   predictionMap,
   onPrediction,
+  isLast = false,
 }: {
   condition: ConditionGroupConditionType;
   predictionMap: Record<string, number>;
   onPrediction: (conditionId: string, p: number) => void;
+  isLast?: boolean;
 }) {
   const conditionType = groupConditionToConditionType(condition);
   const categorySlug = condition.category?.slug;
@@ -645,12 +638,16 @@ function ChildConditionRow({
   const formattedValue = etherValue.toFixed(2);
 
   return (
-    <TableRow className="border-b border-brand-white/10 hover:bg-brand-white/5 bg-brand-white/[0.02]">
-      <TableCell className="py-2 pl-12 max-w-[180px] md:max-w-none">
+    <TableRow
+      className={`border-b bg-brand-white/7 hover:bg-brand-white/10 ${
+        isLast ? 'border-brand-white/20' : 'border-brand-white/10'
+      }`}
+    >
+      <TableCell className="py-2 pl-8 max-w-[180px] md:max-w-none border-l-2 border-brand-white/20">
         <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
           <MarketBadge
             label={displayQ}
-            size={20}
+            size={24}
             color={color}
             categorySlug={categorySlug}
           />
@@ -983,14 +980,7 @@ export default function MarketsDataTable({
                   <React.Fragment key={row.id}>
                     <TableRow
                       data-state={row.getIsSelected() && 'selected'}
-                      className={`border-b border-brand-white/20 hover:bg-transparent ${
-                        isGroupRow ? 'cursor-pointer' : ''
-                      }`}
-                      onClick={
-                        isGroupRow
-                          ? () => handleToggleExpand(data.groupId)
-                          : undefined
-                      }
+                      className="border-b border-brand-white/20 hover:bg-transparent"
                     >
                       {row.getVisibleCells().map((cell) => {
                         const colId = cell.column.id;
@@ -1019,12 +1009,13 @@ export default function MarketsDataTable({
                     </TableRow>
                     {/* Render child rows when group is expanded */}
                     {isExpanded &&
-                      data.conditions.map((condition) => (
+                      data.conditions.map((condition, idx) => (
                         <ChildConditionRow
                           key={`child-${condition.id}`}
                           condition={condition}
                           predictionMap={predictionMap}
                           onPrediction={handlePrediction}
+                          isLast={idx === data.conditions.length - 1}
                         />
                       ))}
                   </React.Fragment>
