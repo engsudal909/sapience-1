@@ -96,9 +96,9 @@ The auction service uses these environment variables:
 
 ## Bot Example
 
-The bot example has been updated to use `FOIL_AUCTION_BASE` environment variable instead of `FOIL_API_BASE`:
+The bot example has been updated to use `FOIL_RELAYER_BASE` environment variable instead of `FOIL_API_BASE`:
 
 ```bash
-FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/relayer run bot
+FOIL_RELAYER_BASE=http://localhost:3002 pnpm --filter @sapience/relayer run bot
 ```
 

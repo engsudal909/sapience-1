@@ -155,7 +155,7 @@ The relayer-ws service can be scaled horizontally, but note:
 ### Manual Testing with Bot Example
 
 ```bash
-FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/relayer run bot
+FOIL_RELAYER_BASE=http://localhost:3002 pnpm --filter @sapience/relayer run bot
 ```
 
 ### Integration Testing

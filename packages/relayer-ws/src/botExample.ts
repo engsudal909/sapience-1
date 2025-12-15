@@ -8,13 +8,13 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-const API_BASE = process.env.FOIL_AUCTION_BASE || 'http://localhost:3002';
+const API_BASE = process.env.FOIL_RELAYER_BASE || 'http://localhost:3002';
 const WS_URL =
   API_BASE.replace('https://', 'wss://')
     .replace('http://', 'ws://')
     .replace(/\/$/, '') + '/auction';
 
-console.log('[BOT] Env FOIL_AUCTION_BASE =', process.env.FOIL_AUCTION_BASE);
+console.log('[BOT] Env FOIL_RELAYER_BASE =', process.env.FOIL_RELAYER_BASE);
 console.log('[BOT] Connecting to', WS_URL);
 const ws = new WebSocket(WS_URL);
 
