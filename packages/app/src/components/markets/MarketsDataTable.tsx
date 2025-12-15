@@ -10,17 +10,13 @@ import {
   TableRow,
 } from '@sapience/sdk/ui/components/ui/table';
 import { Button } from '@sapience/sdk/ui/components/ui/button';
-import type {
-  ColumnDef,
-  SortingState,
-  ColumnFiltersState,
-} from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
+  type ColumnDef,
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown, Loader2, Minus } from 'lucide-react';
 import { format } from 'date-fns';
@@ -44,9 +40,58 @@ import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { getDeterministicCategoryColor } from '~/lib/theme/categoryPalette';
 import type { ConditionType } from '~/hooks/graphql/useConditions';
+import type {
+  ConditionGroupType,
+  ConditionGroupConditionType,
+} from '~/hooks/graphql/useConditionGroups';
+
+// Union type for top-level table rows
+type TopLevelRow =
+  | {
+      kind: 'group';
+      id: string; // Unique row ID for React key
+      groupId: number;
+      name: string;
+      category?: { id: number; name: string; slug: string } | null;
+      conditions: ConditionGroupConditionType[];
+      // Computed aggregates
+      openInterestWei: bigint;
+      maxEndTime: number;
+    }
+  | {
+      kind: 'condition';
+      id: string;
+      condition: ConditionType;
+    };
+
+// Helper to convert group condition to ConditionType for reuse of existing cells
+function groupConditionToConditionType(
+  gc: ConditionGroupConditionType
+): ConditionType {
+  return {
+    id: gc.id,
+    createdAt: gc.createdAt,
+    question: gc.question,
+    shortName: gc.shortName,
+    endTime: gc.endTime,
+    public: gc.public,
+    claimStatement: gc.claimStatement,
+    description: gc.description,
+    similarMarkets: gc.similarMarkets,
+    chainId: gc.chainId,
+    category: gc.category,
+    openInterest: gc.openInterest,
+    settled: gc.settled,
+    resolvedToYes: gc.resolvedToYes,
+    assertionId: gc.assertionId,
+    assertionTimestamp: gc.assertionTimestamp,
+    conditionGroupId: gc.conditionGroupId,
+  };
+}
 
 interface MarketsDataTableProps {
-  conditions: ConditionType[];
+  conditionGroups: ConditionGroupType[];
+  ungroupedConditions: ConditionType[];
   isLoading?: boolean;
 
   searchTerm: string;
@@ -155,7 +200,17 @@ function useIsPastEndTime(endTime?: number | null) {
 }
 
 // Forecast cell that shows prediction request or resolution status
-function ForecastCell({ condition }: { condition: ConditionType }) {
+function ForecastCell({
+  condition,
+  prefetchedProbability,
+  onPrediction,
+  skipViewportCheck,
+}: {
+  condition: ConditionType;
+  prefetchedProbability?: number | null;
+  onPrediction?: (p: number) => void;
+  skipViewportCheck?: boolean;
+}) {
   const { endTime, settled, resolvedToYes } = condition;
 
   // Check if past end time synchronously (no state needed)
@@ -164,7 +219,14 @@ function ForecastCell({ condition }: { condition: ConditionType }) {
 
   // If not past end time, show the regular prediction request
   if (!isPastEnd) {
-    return <MarketPredictionRequest conditionId={condition.id} />;
+    return (
+      <MarketPredictionRequest
+        conditionId={condition.id}
+        prefetchedProbability={prefetchedProbability}
+        onPrediction={onPrediction}
+        skipViewportCheck={skipViewportCheck}
+      />
+    );
   }
 
   // Past end time - show resolution status from GraphQL API
@@ -185,6 +247,90 @@ function ForecastCell({ condition }: { condition: ConditionType }) {
     >
       RESOLVED {resolvedToYes ? 'YES' : 'NO'}
     </Badge>
+  );
+}
+
+// Group forecast cell - shows the spread and triggers prediction requests for conditions
+function GroupForecastCell({
+  conditions,
+  predictionMapRef,
+  onPrediction,
+}: {
+  conditions: ConditionGroupConditionType[];
+  predictionMapRef: React.RefObject<Record<string, number>>;
+  onPrediction: (conditionId: string, p: number) => void;
+}) {
+  // Use state to force re-render when predictions arrive
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+
+  // Re-render periodically to pick up new predictions from the ref
+  React.useEffect(() => {
+    const interval = setInterval(forceUpdate, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  const predictionMap = predictionMapRef.current;
+  const spread = React.useMemo(() => {
+    let minBest = Infinity;
+    let maxBest = -Infinity;
+    let count = 0;
+
+    for (const c of conditions) {
+      const probYes = predictionMap[c.id];
+      if (probYes == null) continue;
+      const best = Math.max(probYes, 1 - probYes);
+      minBest = Math.min(minBest, best);
+      maxBest = Math.max(maxBest, best);
+      count += 1;
+    }
+
+    if (!count) return { kind: 'none' as const };
+    if (count < 2 || !isFinite(minBest) || !isFinite(maxBest)) {
+      return { kind: 'single' as const };
+    }
+    return {
+      kind: 'spread' as const,
+      pct: Math.round((maxBest - minBest) * 100),
+    };
+  }, [conditions, predictionMap]);
+
+  // Determine which conditions still need prediction requests
+  const pendingConditionIds = React.useMemo(() => {
+    return conditions
+      .filter((c) => predictionMap[c.id] == null)
+      .map((c) => c.id);
+  }, [conditions, predictionMap]);
+
+  return (
+    <>
+      {/* Hidden request drivers - one per condition needing a prediction.
+          These have a measurable size so IntersectionObserver fires when the
+          group row scrolls into view. */}
+      {pendingConditionIds.length > 0 && (
+        <div
+          aria-hidden
+          className="absolute w-px h-px overflow-hidden opacity-0 pointer-events-none"
+        >
+          {pendingConditionIds.map((id) => (
+            <MarketPredictionRequest
+              key={`group-driver-${id}`}
+              conditionId={id}
+              suppressLoadingPlaceholder
+              inline={false}
+              className="block w-px h-px"
+              onPrediction={(p) => onPrediction(id, p)}
+            />
+          ))}
+        </div>
+      )}
+      {spread.kind === 'none' || spread.kind === 'single' ? (
+        <span className="text-muted-foreground/60 animate-pulse">
+          Requesting...
+        </span>
+      ) : (
+        <span className="font-mono text-ethena">{spread.pct}% spread</span>
+      )}
+    </>
   );
 }
 
@@ -273,19 +419,260 @@ function PredictCell({ condition }: { condition: ConditionType }) {
   );
 }
 
-const columns: ColumnDef<ConditionType>[] = [
-  {
-    accessorKey: 'question',
-    header: () => <span>Question</span>,
-    enableSorting: false,
-    size: 280,
-    maxSize: 400,
-    cell: ({ row }) => {
-      const condition = row.original;
-      const categorySlug = condition.category?.slug;
-      const color = getCategoryColor(categorySlug);
-      const displayQ = condition.shortName || condition.question;
-      return (
+// Helper to get open interest value for a row (works for both types)
+function getRowOpenInterest(row: TopLevelRow): bigint {
+  if (row.kind === 'group') {
+    return row.openInterestWei;
+  }
+  return BigInt(row.condition.openInterest || '0');
+}
+
+// Helper to get end time for a row
+function getRowEndTime(row: TopLevelRow): number {
+  if (row.kind === 'group') {
+    return row.maxEndTime;
+  }
+  return row.condition.endTime ?? 0;
+}
+
+// Create columns for the TopLevelRow type
+// Uses refs instead of direct state to keep column definitions stable across
+// prediction updates, preventing remounts/flashes.
+function createColumns(
+  predictionMapRef: React.RefObject<Record<string, number>>,
+  expandedGroupIdsRef: React.RefObject<Set<number>>,
+  onToggleExpand: (groupId: number) => void,
+  onPrediction: (conditionId: string, p: number) => void
+): ColumnDef<TopLevelRow>[] {
+  return [
+    {
+      accessorKey: 'question',
+      header: () => <span>Question</span>,
+      enableSorting: false,
+      size: 280,
+      maxSize: 400,
+      cell: ({ row }) => {
+        const data = row.original;
+        if (data.kind === 'group') {
+          const categorySlug = data.category?.slug;
+          const color = getCategoryColor(categorySlug);
+          return (
+            <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
+              <MarketBadge
+                label={data.name}
+                size={24}
+                color={color}
+                categorySlug={categorySlug}
+              />
+              <button
+                type="button"
+                onClick={() => onToggleExpand(data.groupId)}
+                className="block max-w-full min-w-0 p-0 m-0 bg-transparent border-0 text-sm font-mono text-brand-white transition-colors break-words whitespace-nowrap underline decoration-dotted decoration-1 decoration-brand-white/70 underline-offset-4 hover:decoration-brand-white/40 truncate text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                {data.name}
+              </button>
+            </div>
+          );
+        }
+        // Standalone condition
+        const condition = data.condition;
+        const categorySlug = condition.category?.slug;
+        const color = getCategoryColor(categorySlug);
+        const displayQ = condition.shortName || condition.question;
+        return (
+          <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
+            <MarketBadge
+              label={displayQ}
+              size={24}
+              color={color}
+              categorySlug={categorySlug}
+            />
+            <ConditionTitleLink
+              conditionId={condition.id}
+              title={displayQ}
+              clampLines={1}
+              className="text-sm min-w-0"
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: 'forecast',
+      header: () => (
+        <span className="block text-right whitespace-nowrap">Forecast</span>
+      ),
+      cell: ({ row }) => {
+        const data = row.original;
+        if (data.kind === 'group') {
+          return (
+            <div className="text-sm whitespace-nowrap text-right relative">
+              <GroupForecastCell
+                conditions={data.conditions}
+                predictionMapRef={predictionMapRef}
+                onPrediction={onPrediction}
+              />
+            </div>
+          );
+        }
+        return (
+          <div className="text-sm whitespace-nowrap text-right">
+            <ForecastCell
+              condition={data.condition}
+              prefetchedProbability={
+                predictionMapRef.current[data.condition.id]
+              }
+              onPrediction={(p) => onPrediction(data.condition.id, p)}
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: 'openInterest',
+      accessorFn: (row) => getRowOpenInterest(row).toString(),
+      header: ({ column }) => {
+        const sorted = column.getIsSorted();
+        return (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(sorted === 'asc')}
+              className="-mr-4 px-0 gap-1 hover:bg-transparent whitespace-nowrap"
+            >
+              Open Interest
+              {sorted === 'asc' ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : sorted === 'desc' ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <span className="flex flex-col -my-2">
+                  <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </span>
+              )}
+            </Button>
+          </div>
+        );
+      },
+      cell: ({ row }) => {
+        const openInterestWei = getRowOpenInterest(row.original);
+        const etherValue = parseFloat(formatEther(openInterestWei));
+        const formattedValue = etherValue.toFixed(2);
+
+        return (
+          <div className="text-sm whitespace-nowrap text-right">
+            <span className="tabular-nums text-foreground">
+              {formattedValue}
+            </span>
+            <span className="ml-1 text-foreground">USDe</span>
+          </div>
+        );
+      },
+      sortingFn: (rowA, rowB) => {
+        const a = getRowOpenInterest(rowA.original);
+        const b = getRowOpenInterest(rowB.original);
+        return a < b ? -1 : a > b ? 1 : 0;
+      },
+    },
+    {
+      id: 'endTime',
+      accessorFn: (row) => getRowEndTime(row),
+      header: ({ column }) => {
+        const sorted = column.getIsSorted();
+        return (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(sorted === 'asc')}
+              className="-mr-4 px-0 gap-1 hover:bg-transparent whitespace-nowrap"
+            >
+              Ends
+              {sorted === 'asc' ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : sorted === 'desc' ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <span className="flex flex-col -my-2">
+                  <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </span>
+              )}
+            </Button>
+          </div>
+        );
+      },
+      cell: ({ row }) => {
+        const endTime = getRowEndTime(row.original);
+        if (!endTime) return <span className="text-muted-foreground">—</span>;
+        return <CountdownCell endTime={endTime} />;
+      },
+      sortingFn: (rowA, rowB) => {
+        const a = getRowEndTime(rowA.original);
+        const b = getRowEndTime(rowB.original);
+        return a - b;
+      },
+    },
+    {
+      id: 'predict',
+      header: () => (
+        <span className="block text-center">Select Predictions</span>
+      ),
+      cell: ({ row }) => {
+        const data = row.original;
+        if (data.kind === 'group') {
+          const isExpanded = expandedGroupIdsRef.current.has(data.groupId);
+          return (
+            <div className="w-full max-w-[320px] ml-auto font-mono">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand(data.groupId);
+                }}
+                className="w-full h-8 text-sm uppercase"
+              >
+                {isExpanded ? 'HIDE' : 'SHOW'}
+              </Button>
+            </div>
+          );
+        }
+        return <PredictCell condition={data.condition} />;
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+  ];
+}
+
+// Child row component for expanded group conditions
+function ChildConditionRow({
+  condition,
+  predictionMap,
+  onPrediction,
+  isLast = false,
+}: {
+  condition: ConditionGroupConditionType;
+  predictionMap: Record<string, number>;
+  onPrediction: (conditionId: string, p: number) => void;
+  isLast?: boolean;
+}) {
+  const conditionType = groupConditionToConditionType(condition);
+  const categorySlug = condition.category?.slug;
+  const color = getCategoryColor(categorySlug);
+  const displayQ = condition.shortName || condition.question;
+  const openInterestWei = BigInt(condition.openInterest || '0');
+  const etherValue = parseFloat(formatEther(openInterestWei));
+  const formattedValue = etherValue.toFixed(2);
+
+  return (
+    <TableRow
+      className={`border-b bg-muted/30 hover:bg-muted/30 ${
+        isLast ? 'border-brand-white/20' : 'border-brand-white/10'
+      }`}
+    >
+      <TableCell className="py-2 pl-4 max-w-[180px] md:max-w-none">
         <div className="flex items-center gap-3 max-w-[180px] md:max-w-none min-w-0">
           <MarketBadge
             label={displayQ}
@@ -300,121 +687,40 @@ const columns: ColumnDef<ConditionType>[] = [
             className="text-sm min-w-0"
           />
         </div>
-      );
-    },
-  },
-  {
-    id: 'forecast',
-    header: () => (
-      <span className="block text-right whitespace-nowrap">Forecast</span>
-    ),
-    cell: ({ row }) => {
-      const condition = row.original;
-      return (
+      </TableCell>
+      <TableCell className="py-2 text-right">
         <div className="text-sm whitespace-nowrap">
-          <ForecastCell condition={condition} />
+          <ForecastCell
+            condition={conditionType}
+            prefetchedProbability={predictionMap[condition.id]}
+            onPrediction={(p) => onPrediction(condition.id, p)}
+            skipViewportCheck
+          />
         </div>
-      );
-    },
-  },
-  {
-    id: 'openInterest',
-    accessorFn: (row) => row.openInterest || '0',
-    header: ({ column }) => {
-      const sorted = column.getIsSorted();
-      return (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(sorted === 'asc')}
-            className="-mr-4 px-0 gap-1 hover:bg-transparent whitespace-nowrap"
-          >
-            Open Interest
-            {sorted === 'asc' ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : sorted === 'desc' ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <span className="flex flex-col -my-2">
-                <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
-                <ChevronDown className="h-3 w-3 opacity-50" />
-              </span>
-            )}
-          </Button>
-        </div>
-      );
-    },
-    cell: ({ row }) => {
-      const condition = row.original;
-      const openInterest = condition.openInterest || '0';
-
-      // Convert from wei to ether using viem's formatEther, then format with 5 significant figures
-      const etherValue = parseFloat(formatEther(BigInt(openInterest)));
-      const formattedValue = etherValue.toFixed(2);
-
-      return (
+      </TableCell>
+      <TableCell className="py-2 text-right">
         <div className="text-sm whitespace-nowrap text-right">
           <span className="tabular-nums text-foreground">{formattedValue}</span>
           <span className="ml-1 text-foreground">USDe</span>
         </div>
-      );
-    },
-    sortingFn: (rowA, rowB) => {
-      const a = BigInt(rowA.original.openInterest || '0');
-      const b = BigInt(rowB.original.openInterest || '0');
-      return a < b ? -1 : a > b ? 1 : 0;
-    },
-  },
-  {
-    accessorKey: 'endTime',
-    header: ({ column }) => {
-      const sorted = column.getIsSorted();
-      return (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(sorted === 'asc')}
-            className="-mr-4 px-0 gap-1 hover:bg-transparent whitespace-nowrap"
-          >
-            Ends
-            {sorted === 'asc' ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : sorted === 'desc' ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <span className="flex flex-col -my-2">
-                <ChevronUp className="h-3 w-3 -mb-2 opacity-50" />
-                <ChevronDown className="h-3 w-3 opacity-50" />
-              </span>
-            )}
-          </Button>
-        </div>
-      );
-    },
-    cell: ({ row }) => {
-      const endTime = row.original.endTime;
-      if (!endTime) return <span className="text-muted-foreground">—</span>;
-      return <CountdownCell endTime={endTime} />;
-    },
-    sortingFn: (rowA, rowB) => {
-      const a = rowA.original.endTime ?? 0;
-      const b = rowB.original.endTime ?? 0;
-      return a - b;
-    },
-  },
-  {
-    id: 'predict',
-    header: () => <span className="block text-center">Select Predictions</span>,
-    cell: ({ row }) => {
-      return <PredictCell condition={row.original} />;
-    },
-    enableSorting: false,
-    enableHiding: false,
-  },
-];
+      </TableCell>
+      <TableCell className="py-2 text-right">
+        {condition.endTime ? (
+          <CountdownCell endTime={condition.endTime} />
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="py-2 pr-4">
+        <PredictCell condition={conditionType} />
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function MarketsDataTable({
-  conditions,
+  conditionGroups,
+  ungroupedConditions,
   isLoading,
   searchTerm,
   onSearchChange,
@@ -425,15 +731,166 @@ export default function MarketsDataTable({
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: 'openInterest', desc: true },
   ]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+
+  // Expand/collapse state for groups
+  const [expandedGroupIds, setExpandedGroupIds] = React.useState<Set<number>>(
+    new Set()
   );
+  // Ref for expand state so column defs can access it without recreating columns
+  const expandedGroupIdsRef = React.useRef<Set<number>>(expandedGroupIds);
+  expandedGroupIdsRef.current = expandedGroupIds;
+
+  // Prediction probabilities map for forecast computation.
+  // Quotes can arrive rapidly; avoid re-rendering the entire table on every tick.
+  // We keep a live ref (updated on every quote) and a throttled/committed state
+  // (used for rendering and derived computations like group spread).
+  const livePredictionMapRef = React.useRef<Record<string, number>>({});
+  const [predictionMap, setPredictionMap] = React.useState<
+    Record<string, number>
+  >({});
+  // Ref for prediction map so column defs can access it without recreating columns
+  const predictionMapRef = React.useRef<Record<string, number>>(predictionMap);
+  predictionMapRef.current = predictionMap;
+  const commitTimerRef = React.useRef<number | null>(null);
+
+  const schedulePredictionCommit = React.useCallback(() => {
+    if (commitTimerRef.current != null) return;
+    commitTimerRef.current = window.setTimeout(() => {
+      commitTimerRef.current = null;
+      setPredictionMap((prev) => {
+        let next: Record<string, number> | null = null;
+        const live = livePredictionMapRef.current;
+
+        for (const [id, prob] of Object.entries(live)) {
+          const prevProb = prev[id];
+          // Always commit the first value so the UI can leave "Requesting..."
+          if (prevProb == null) {
+            next = next ?? { ...prev };
+            next[id] = prob;
+            continue;
+          }
+          // Only commit when the displayed integer percent changes
+          // to avoid jitter from tiny quote deltas.
+          const prevPct = Math.round(prevProb * 100);
+          const nextPct = Math.round(prob * 100);
+          if (prevPct !== nextPct) {
+            next = next ?? { ...prev };
+            next[id] = prob;
+          }
+        }
+
+        return next ?? prev;
+      });
+    }, 250);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (commitTimerRef.current != null) {
+        window.clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePrediction = React.useCallback(
+    (conditionId: string, probability: number) => {
+      livePredictionMapRef.current[conditionId] = probability;
+      schedulePredictionCommit();
+    },
+    [schedulePredictionCommit]
+  );
+
+  const handleToggleExpand = React.useCallback((groupId: number) => {
+    setExpandedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }, []);
 
   const filterBounds = React.useMemo(() => {
     const openInterestBounds: [number, number] = [0, 100000];
     const timeToResolutionBounds: [number, number] = [-1000, 1000];
     return { openInterestBounds, timeToResolutionBounds };
   }, []);
+
+  // Build the top-level row model
+  const topLevelRows = React.useMemo((): TopLevelRow[] => {
+    const rows: TopLevelRow[] = [];
+
+    // Add groups
+    for (const group of conditionGroups) {
+      if (group.conditions.length === 0) continue;
+
+      // Compute aggregates
+      let openInterestWei = 0n;
+      let maxEndTime = 0;
+      for (const c of group.conditions) {
+        openInterestWei += BigInt(c.openInterest || '0');
+        if (c.endTime > maxEndTime) {
+          maxEndTime = c.endTime;
+        }
+      }
+
+      rows.push({
+        kind: 'group',
+        id: `group-${group.id}`,
+        groupId: group.id,
+        name: group.name,
+        category: group.category,
+        conditions: group.conditions,
+        openInterestWei,
+        maxEndTime,
+      });
+    }
+
+    // Add ungrouped conditions
+    for (const condition of ungroupedConditions) {
+      rows.push({
+        kind: 'condition',
+        id: `condition-${condition.id}`,
+        condition,
+      });
+    }
+
+    return rows;
+  }, [conditionGroups, ungroupedConditions]);
+
+  // Apply client-side filters (open interest range, time to resolution)
+  const filteredRows = React.useMemo(() => {
+    const [minOI, maxOI] = filters.openInterestRange;
+    const [minDays, maxDays] = filters.timeToResolutionRange;
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    return topLevelRows.filter((row) => {
+      // Open interest filter (in USDe, so convert from wei)
+      const oiWei = getRowOpenInterest(row);
+      const oiUsde = parseFloat(formatEther(oiWei));
+      if (oiUsde < minOI || oiUsde > maxOI) {
+        return false;
+      }
+
+      // Time to resolution filter (in days)
+      const endTime = getRowEndTime(row);
+      if (endTime) {
+        const daysFromNow = (endTime - nowSec) / 86400;
+        // Only apply if not at extreme bounds
+        if (minDays > -1000 && daysFromNow < minDays) {
+          return false;
+        }
+        if (maxDays < 1000 && daysFromNow > maxDays) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [topLevelRows, filters.openInterestRange, filters.timeToResolutionRange]);
 
   // Infinite scroll state
   const BATCH_SIZE = 20;
@@ -442,23 +899,34 @@ export default function MarketsDataTable({
 
   React.useEffect(() => {
     setDisplayCount(BATCH_SIZE);
-  }, [conditions]);
+  }, [conditionGroups, ungroupedConditions, filters]);
+
+  // Create columns using refs so column definitions stay stable across prediction
+  // updates (preventing cell remounts and visual flashing).
+  const columns = React.useMemo(
+    () =>
+      createColumns(
+        predictionMapRef,
+        expandedGroupIdsRef,
+        handleToggleExpand,
+        handlePrediction
+      ),
+    [handleToggleExpand, handlePrediction]
+  );
 
   const table = useReactTable({
-    data: conditions,
+    data: filteredRows,
     columns,
     state: {
       sorting,
-      columnFilters,
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    getRowId: (row) => row.id,
   });
 
-  // Get all sorted/filtered rows and slice for display
+  // Get all sorted rows and slice for display
   const allRows = table.getRowModel().rows;
   const displayedRows = allRows.slice(0, displayCount);
   const hasMore = displayCount < allRows.length;
@@ -547,38 +1015,57 @@ export default function MarketsDataTable({
                 </TableCell>
               </TableRow>
             ) : displayedRows.length ? (
-              displayedRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  className="border-b border-brand-white/20 hover:bg-transparent"
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const colId = cell.column.id;
-                    let className = 'py-2';
-                    if (colId === 'question') {
-                      className = 'py-2 pl-4 max-w-[180px] md:max-w-none';
-                    } else if (
-                      colId === 'forecast' ||
-                      colId === 'openInterest'
-                    ) {
-                      className = 'py-2 text-right';
-                    } else if (colId === 'endTime') {
-                      className = 'py-2 text-right';
-                    } else if (colId === 'predict') {
-                      className = 'py-2 pr-4';
-                    }
-                    return (
-                      <TableCell key={cell.id} className={className}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))
+              displayedRows.map((row) => {
+                const data = row.original;
+                const isGroupRow = data.kind === 'group';
+                const isExpanded =
+                  isGroupRow && expandedGroupIds.has(data.groupId);
+
+                return (
+                  <React.Fragment key={row.id}>
+                    <TableRow
+                      data-state={row.getIsSelected() && 'selected'}
+                      className="border-b border-brand-white/20 hover:bg-transparent"
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const colId = cell.column.id;
+                        let className = 'py-2';
+                        if (colId === 'question') {
+                          className = 'py-2 pl-4 max-w-[180px] md:max-w-none';
+                        } else if (
+                          colId === 'forecast' ||
+                          colId === 'openInterest'
+                        ) {
+                          className = 'py-2 text-right';
+                        } else if (colId === 'endTime') {
+                          className = 'py-2 text-right';
+                        } else if (colId === 'predict') {
+                          className = 'py-2 pr-4';
+                        }
+                        return (
+                          <TableCell key={cell.id} className={className}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                    {/* Render child rows when group is expanded */}
+                    {isExpanded &&
+                      data.conditions.map((condition, idx) => (
+                        <ChildConditionRow
+                          key={`child-${condition.id}`}
+                          condition={condition}
+                          predictionMap={predictionMap}
+                          onPrediction={handlePrediction}
+                          isLast={idx === data.conditions.length - 1}
+                        />
+                      ))}
+                  </React.Fragment>
+                );
+              })
             ) : (
               <TableRow className="hover:bg-transparent">
                 <TableCell

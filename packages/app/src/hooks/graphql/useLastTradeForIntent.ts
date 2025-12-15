@@ -3,33 +3,33 @@ import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
 export type LastParlayForIntent = {
   mintedAt: number;
-  maker: string;
-  taker: string;
-  makerCollateral?: string | null;
-  takerCollateral?: string | null;
+  predictor: string;
+  counterparty: string;
+  predictorCollateral?: string | null;
+  counterpartyCollateral?: string | null;
   totalCollateral: string;
 };
 
 export function useLastTradeForIntent(params: {
-  maker?: string | null;
+  predictor?: string | null;
   outcomesSignature?: string | null; // normalized JSON string
   take?: number;
 }) {
-  const maker = (params.maker || '')?.toLowerCase?.() || '';
+  const predictor = (params.predictor || '')?.toLowerCase?.() || '';
   const outcomesSignature = params.outcomesSignature || '';
   const take = params.take ?? 200;
-  const enabled = Boolean(maker && outcomesSignature);
-  const key = ['lastTrade', 'maker', maker, outcomesSignature] as const;
+  const enabled = Boolean(predictor && outcomesSignature);
+  const key = ['lastTrade', 'predictor', predictor, outcomesSignature] as const;
 
   const { data, isFetching, refetch } = useQuery<{
-    userParlays: Array<{
+    positions: Array<{
       mintedAt: number;
-      maker: string;
-      taker: string;
-      makerCollateral?: string | null;
-      takerCollateral?: string | null;
+      predictor: string;
+      counterparty: string;
+      predictorCollateral?: string | null;
+      counterpartyCollateral?: string | null;
       totalCollateral: string;
-      predictedOutcomes: Array<{ conditionId: string; prediction: boolean }>;
+      predictions: Array<{ conditionId: string; outcomeYes: boolean }>;
     }>;
   }>({
     queryKey: key,
@@ -39,35 +39,35 @@ export function useLastTradeForIntent(params: {
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const QUERY = /* GraphQL */ `
-        query UserParlaysForLastTrade($address: String!, $take: Int) {
-          userParlays(address: $address, take: $take) {
+        query PositionsForLastTrade($address: String!, $take: Int) {
+          positions(address: $address, take: $take) {
             mintedAt
-            maker
-            taker
-            makerCollateral
-            takerCollateral
+            predictor
+            counterparty
+            predictorCollateral
+            counterpartyCollateral
             totalCollateral
-            predictedOutcomes {
+            predictions {
               conditionId
-              prediction
+              outcomeYes
             }
           }
         }
       `;
-      return await graphqlRequest(QUERY, { address: maker, take });
+      return await graphqlRequest(QUERY, { address: predictor, take });
     },
     select: (resp) => {
-      const list = resp?.userParlays || [];
-      // Normalize each parlay outcomes and compare to signature
+      const list = resp?.positions || [];
+      // Normalize each position predictions and compare to signature
       const target = outcomesSignature;
       const normalize = (
-        arr: Array<{ conditionId: string; prediction: boolean }>
+        arr: Array<{ conditionId: string; outcomeYes: boolean }>
       ) =>
         JSON.stringify(
           (arr || [])
             .map((o) => ({
               conditionId: String(o.conditionId).toLowerCase(),
-              prediction: !!o.prediction,
+              prediction: !!o.outcomeYes,
             }))
             .sort((a, b) =>
               a.conditionId === b.conditionId
@@ -76,7 +76,7 @@ export function useLastTradeForIntent(params: {
             )
         );
       const match =
-        list.find((p) => normalize(p.predictedOutcomes) === target) || null;
+        list.find((p) => normalize(p.predictions) === target) || null;
       return { last: match } as { last: LastParlayForIntent | null } as any;
     },
   });

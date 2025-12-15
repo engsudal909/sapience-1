@@ -15,6 +15,7 @@ import { parseUnits } from 'viem';
 import { useAccount, useReadContract } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { predictionMarketAbi } from '@sapience/sdk';
+import { COLLATERAL_SYMBOLS, CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { WagerInput } from '~/components/markets/forms';
 import BidDisplay from '~/components/markets/forms/shared/BidDisplay';
@@ -22,11 +23,9 @@ import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
-import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
 import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
@@ -83,6 +82,13 @@ export default function PositionForm({
   const [lastQuoteRequestMs, setLastQuoteRequestMs] = useState<number | null>(
     null
   );
+  // Keep the last estimate visible even if subsequent bids arrive as pending/failed
+  // so the UI doesn't flicker back to a disabled "waiting" state.
+  const [stickyEstimateBid, setStickyEstimateBid] = useState<QuoteBid | null>(
+    null
+  );
+  // State for managing bid clearing when wager/selections change (for animations)
+  const [validBids, setValidBids] = useState<QuoteBid[]>(bids);
 
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
@@ -110,6 +116,9 @@ export default function PositionForm({
     control: methods.control,
     name: 'wagerAmount',
   });
+  const prevWagerAmountRef = useRef<string>(parlayWagerAmount || '');
+  // Track the request configuration to ignore stale bids
+  const currentRequestKeyRef = useRef<string | null>(null);
 
   // Apply rainbow hover effect only for wagers over 1k
   const isRainbowHoverEnabled = useMemo(() => {
@@ -130,34 +139,83 @@ export default function PositionForm({
     }
   }, [parlayWagerAmount, collateralDecimals]);
 
-  // Filter bids: only show bids with successful simulation as valid best bids
+  // Create a stable key from selections to detect changes (for animation clearing)
+  const selectionsKey = useMemo(() => {
+    return selections
+      .map((s) => `${s.conditionId}:${s.prediction}`)
+      .sort()
+      .join('|');
+  }, [selections]);
+  const prevSelectionsKeyRef = useRef<string>(selectionsKey);
+
+  // Clear bids when wager amount changes (for animations)
+  useEffect(() => {
+    if (prevWagerAmountRef.current !== (parlayWagerAmount || '')) {
+      setValidBids([]);
+      setStickyEstimateBid(null);
+      setLastQuoteRequestMs(null); // Reset cooldown when wager changes
+      currentRequestKeyRef.current = null; // Ignore incoming bids for old configuration
+      prevWagerAmountRef.current = parlayWagerAmount || '';
+    }
+  }, [parlayWagerAmount]);
+
+  // Clear bids when selections change (prediction flipped, added, or removed) (for animations)
+  useEffect(() => {
+    if (prevSelectionsKeyRef.current !== selectionsKey) {
+      setValidBids([]);
+      setStickyEstimateBid(null);
+      setLastQuoteRequestMs(null); // Reset cooldown when selections change
+      currentRequestKeyRef.current = null; // Ignore incoming bids for old configuration
+      prevSelectionsKeyRef.current = selectionsKey;
+    }
+  }, [selectionsKey]);
+
+  // Update valid bids when new bids come in (for animations)
+  // Only accept bids if they match the current request configuration
+  useEffect(() => {
+    const currentRequestKey = `${selectionsKey}:${parlayWagerAmount || ''}`;
+    // If we have a request key set, only accept bids that match it
+    // If request key is null, it means selections/wager changed, so ignore all incoming bids
+    if (currentRequestKeyRef.current === null) {
+      // Configuration changed, ignore incoming bids
+      return;
+    }
+    // Only accept bids if they match the current request
+    if (currentRequestKeyRef.current === currentRequestKey) {
+      setValidBids(bids);
+    }
+  }, [bids, selectionsKey, parlayWagerAmount]);
+
+  // Filter bids: only show bids marked as valid as best bids
   const { bestBid, estimateBid } = useMemo(() => {
-    if (!bids || bids.length === 0) return { bestBid: null, estimateBid: null };
+    if (!validBids || validBids.length === 0)
+      return { bestBid: null, estimateBid: null };
 
     // Get non-expired bids
-    const nonExpiredBids = bids.filter(
+    const nonExpiredBids = validBids.filter(
       (bid) => bid.makerDeadline * 1000 > nowMs
     );
     if (nonExpiredBids.length === 0)
       return { bestBid: null, estimateBid: null };
 
-    // Only bids with successful simulation are valid for submission
-    const validBids = nonExpiredBids.filter(
-      (bid) => bid.simulationStatus === 'success'
+    // Only bids marked as valid are valid for submission
+    const validFilteredBids = nonExpiredBids.filter(
+      (bid) => bid.validationStatus === 'valid'
     );
 
-    // Check if we have only one bid that failed simulation - show as estimate
-    // (If it's pending, we wait; if it's failed and only one, show estimate)
+    // If we have no valid bids and exactly one invalid bid, show it as an estimate.
+    // This matches the "single failing bid shows ESTIMATE" behavior.
     const failedBids = nonExpiredBids.filter(
-      (bid) => bid.simulationStatus === 'failed'
+      (bid) => bid.validationStatus === 'invalid'
     );
-    const onlyFailedBid =
-      validBids.length === 0 && failedBids.length === 1 ? failedBids[0] : null;
+    const estimateFromFailed =
+      validFilteredBids.length === 0 && failedBids.length === 1
+        ? failedBids[0]
+        : null;
 
-    if (validBids.length === 0) {
-      return { bestBid: null, estimateBid: onlyFailedBid };
+    if (validFilteredBids.length === 0) {
+      return { bestBid: null, estimateBid: estimateFromFailed };
     }
-
     const makerWagerStr = parlayWagerAmount || '0';
     let makerWager: bigint;
     try {
@@ -166,10 +224,10 @@ export default function PositionForm({
       makerWager = 0n;
     }
 
-    const best = validBids.reduce((best, current) => {
+    const best = validFilteredBids.reduce((acc, current) => {
       const bestPayout = (() => {
         try {
-          return makerWager + BigInt(best.makerWager);
+          return makerWager + BigInt(acc.makerWager);
         } catch {
           return 0n;
         }
@@ -182,11 +240,26 @@ export default function PositionForm({
         }
       })();
 
-      return currentPayout > bestPayout ? current : best;
+      return currentPayout > bestPayout ? current : acc;
     });
 
     return { bestBid: best, estimateBid: null };
-  }, [bids, parlayWagerAmount, nowMs]);
+  }, [validBids, parlayWagerAmount, nowMs]);
+
+  // Make estimate "sticky" so it doesn't disappear while we're still waiting for a success bid.
+  useEffect(() => {
+    if (bestBid) {
+      setStickyEstimateBid(null);
+      return;
+    }
+    if (estimateBid) {
+      setStickyEstimateBid(estimateBid);
+      return;
+    }
+    // Clear the sticky estimate when there are no non-expired bids left.
+    const hasAnyNonExpired = bids.some((b) => b.makerDeadline * 1000 > nowMs);
+    if (!hasAnyNonExpired) setStickyEstimateBid(null);
+  }, [bestBid, estimateBid, bids, nowMs]);
 
   // Cooldown duration for showing loader after requesting bids (15 seconds)
   const QUOTE_COOLDOWN_MS = 15000;
@@ -241,6 +314,8 @@ export default function PositionForm({
 
         requestQuotes(params, options);
         setLastQuoteRequestMs(Date.now());
+        // Set the request key to match incoming bids to this configuration
+        currentRequestKeyRef.current = `${selectionsKey}:${parlayWagerAmount || ''}`;
       } catch {
         // ignore formatting errors
       }
@@ -263,8 +338,8 @@ export default function PositionForm({
     if (!hasConnectedWallet) {
       try {
         connectOrCreateWallet();
-      } catch (error) {
-        console.error('connectOrCreateWallet failed', error);
+      } catch (err) {
+        console.error('connectOrCreateWallet failed', err);
       }
       return;
     }
@@ -431,25 +506,27 @@ export default function PositionForm({
             />
             <BidDisplay
               bestBid={bestBid}
-              estimateBid={recentlyRequested ? estimateBid : null}
+              estimateBid={stickyEstimateBid}
               wagerAmount={parlayWagerAmount || '0'}
               collateralSymbol={collateralSymbol}
               collateralDecimals={collateralDecimals}
               nowMs={nowMs}
-              isWaitingForBids={recentlyRequested && !bestBid}
-              showRequestBidsButton={showNoBidsHint && !estimateBid}
+              isWaitingForBids={
+                recentlyRequested && !bestBid && !stickyEstimateBid
+              }
+              showRequestBidsButton={showNoBidsHint}
               onRequestBids={handleRequestBids}
               isSubmitting={isSubmitting}
               onSubmit={onSubmit}
               isSubmitDisabled={isPermitLoading || isRestricted}
               enableRainbowHover={isRainbowHoverEnabled}
               onLimitOrderClick={() => setIsLimitDialogOpen(true)}
-              showNoBidsHint={showNoBidsHint && !estimateBid}
+              showNoBidsHint={showNoBidsHint}
               hintVisible={hintVisible}
               hintMounted={hintMounted}
               disclaimerVisible={disclaimerVisible}
               disclaimerMounted={disclaimerMounted}
-              allBids={bids}
+              allBids={validBids}
               takerWagerWei={takerWagerWei}
               takerAddress={selectedTakerAddress}
               showAddPredictionsHint={selections.length === 1}

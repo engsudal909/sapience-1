@@ -8,13 +8,13 @@ import type { AuctionBidData } from '~/components/shared/AuctionBidsChart';
  * The main difference is that QuoteBid doesn't include receivedAtMs,
  * so we estimate it based on the makerDeadline (assuming ~30s bid lifetime).
  *
- * Bids with simulationStatus === 'failed' are filtered out from the chart.
+ * Bids with validationStatus === 'invalid' are filtered out from the chart.
  */
 export function quoteBidsToAuctionBids(bids: QuoteBid[]): AuctionBidData[] {
   const nowMs = Date.now();
 
-  // Filter out failed simulation bids - they shouldn't appear in the chart
-  const validBids = bids.filter((bid) => bid.simulationStatus !== 'failed');
+  // Filter out invalid bids - they shouldn't appear in the chart
+  const validBids = bids.filter((bid) => bid.validationStatus !== 'invalid');
 
   return validBids.map((bid) => {
     // Estimate receivedAtMs: assume bids are typically valid for ~30 seconds

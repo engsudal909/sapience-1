@@ -141,28 +141,26 @@ export function PredictionsTable({ data, isLoading }: PredictionsTableProps) {
         ),
         cell: ({ row }) => {
           // Calculate implied probability from wager amounts
-          // Always compute based on taker's bet:
-          // - If taker bets YES: probability of YES = takerCollateral / totalWager
-          // - If taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
+          // Always compute based on predictor vs counterparty wager:
+          // - If predictor bets YES: probability of YES = predictorCollateral / totalWager
+          // - If predictor bets NO: probability of YES = counterpartyCollateral / totalWager
           const {
-            makerCollateral,
-            takerCollateral,
-            makerPrediction,
+            predictorCollateral,
+            counterpartyCollateral,
+            predictorPrediction,
             combinedPredictions,
             combinedWithYes,
           } = row.original;
-          const totalWager = makerCollateral + takerCollateral;
+          const totalWager = predictorCollateral + counterpartyCollateral;
           let impliedPercent = 50; // Default fallback
 
           if (totalWager > 0) {
-            // takerPrediction = !makerPrediction
-            const takerPrediction = !makerPrediction;
-            if (takerPrediction) {
-              // Taker bets YES: probability of YES = takerCollateral / totalWager
-              impliedPercent = (takerCollateral / totalWager) * 100;
+            if (predictorPrediction) {
+              // Predictor bets YES
+              impliedPercent = (predictorCollateral / totalWager) * 100;
             } else {
-              // Taker bets NO: probability of YES = makerCollateral / totalWager (maker bets YES)
-              impliedPercent = (makerCollateral / totalWager) * 100;
+              // Predictor bets NO: counterparty is on YES
+              impliedPercent = (counterpartyCollateral / totalWager) * 100;
             }
             impliedPercent = Math.max(0, Math.min(100, impliedPercent));
           }
@@ -192,11 +190,11 @@ export function PredictionsTable({ data, isLoading }: PredictionsTableProps) {
           </div>
         ),
         cell: ({ row }) => {
-          const { maker, taker, makerPrediction } = row.original;
-          // makerPrediction is derived from taker's prediction (opposite)
-          // If maker predicts YES, taker predicts NO, so YES address = maker
-          // If maker predicts NO, taker predicts YES, so YES address = taker
-          const yesAddress = makerPrediction ? maker : taker;
+          const { predictor, counterparty, predictorPrediction } = row.original;
+          // predictorPrediction is the submitted forecast; counterparty takes the opposite side
+          // If predictor predicts YES, YES address = predictor
+          // If predictor predicts NO, YES address = counterparty
+          const yesAddress = predictorPrediction ? predictor : counterparty;
           return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <EnsAvatar address={yesAddress} width={16} height={16} />
@@ -220,11 +218,11 @@ export function PredictionsTable({ data, isLoading }: PredictionsTableProps) {
           </div>
         ),
         cell: ({ row }) => {
-          const { maker, taker, makerPrediction } = row.original;
-          // makerPrediction is derived from taker's prediction (opposite)
-          // If maker predicts YES, taker predicts NO, so NO address = taker
-          // If maker predicts NO, taker predicts YES, so NO address = maker
-          const noAddress = makerPrediction ? taker : maker;
+          const { predictor, counterparty, predictorPrediction } = row.original;
+          // predictorPrediction is the submitted forecast; counterparty takes the opposite side
+          // If predictor predicts YES, NO address = counterparty
+          // If predictor predicts NO, NO address = predictor
+          const noAddress = predictorPrediction ? counterparty : predictor;
           return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <EnsAvatar address={noAddress} width={16} height={16} />

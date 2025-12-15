@@ -19,7 +19,9 @@ model Category {
   name         String         @unique(map: "UQ_23c05c292c439d77b0de816b500") @db.VarChar
   slug         String         @unique(map: "UQ_cb73208f151aa71cdd78f662d70") @db.VarChar
   /// @TypeGraphQL.field(name: "conditions")
-  condition    Condition[]
+  condition       Condition[]
+  /// @TypeGraphQL.field(name: "conditionGroups")
+  condition_group ConditionGroup[]
 
   @@index([slug], map: "IDX_cb73208f151aa71cdd78f662d7")
   @@map("category")
@@ -167,69 +169,121 @@ model ChatMessage {
 }
 
 model Condition {
-  id             String    @id @db.VarChar
-  createdAt      DateTime  @default(now()) @db.Timestamp(6)
-  question       String    @db.VarChar
-  shortName      String?   @db.VarChar
-  categoryId     Int?
-  category       Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  endTime        Int
-  public         Boolean   @default(true)
-  claimStatement String    @db.VarChar
-  description    String    @db.Text
-  similarMarkets String[]  @default([])
-  chainId        Int       @default(42161)
-  openInterest   String    @default("0") @db.VarChar
+  id               String          @id @db.VarChar
+  createdAt        DateTime        @default(now()) @db.Timestamp(6)
+  question         String          @db.VarChar
+  shortName        String?         @db.VarChar
+  categoryId       Int?
+  category         Category?       @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  endTime          Int
+  public           Boolean         @default(true)
+  claimStatement   String          @db.VarChar
+  description      String          @db.Text
+  similarMarkets   String[]        @default([])
+  chainId          Int             @default(42161)
+  openInterest     String          @default("0") @db.VarChar
   
   // Resolution status
-  settled        Boolean   @default(false)
-  resolvedToYes  Boolean   @default(false)
-  settledAt      Int?
-  assertionId    String?   @db.VarChar
+  settled          Boolean         @default(false)
+  resolvedToYes    Boolean         @default(false)
+  settledAt        Int?
+  assertionId      String?         @db.VarChar
   assertionTimestamp Int?
+
+  // Condition group relationship
+  conditionGroupId Int?
+  conditionGroup   ConditionGroup? @relation(fields: [conditionGroupId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  displayOrder     Int?            // Order within group, null when not in a group
+
+  // Normalized predictions
+  predictions    Prediction[]
 
   @@index([categoryId])
   @@index([endTime])
+  @@index([conditionGroupId])
   @@map("condition")
 }
 
-/// Parlay model to store on-chain prediction parlays
-model Parlay {
+model ConditionGroup {
+  id         Int         @id @default(autoincrement())
+  createdAt  DateTime    @default(now()) @db.Timestamp(6)
+  name       String      @unique @db.VarChar
+  categoryId Int?
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// @TypeGraphQL.field(name: "conditions")
+  condition  Condition[]
+
+  @@index([categoryId])
+  @@map("condition_group")
+}
+
+model Prediction {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+
+  // The market condition being predicted
+  conditionId String
+  condition   Condition @relation(fields: [conditionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Exactly one of these should be set; enforced in application logic
+  positionId   Int?
+  position     Position?   @relation(fields: [positionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  limitOrderId Int?
+  limitOrder   LimitOrder?  @relation(fields: [limitOrderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Conceptual prediction data
+  resolver   String  @db.VarChar
+  outcomeYes Boolean
+
+  // Optional derived / debugging / traceability fields
+  chainId Int?
+
+  @@index([conditionId], map: "IDX_prediction_condition")
+  @@index([resolver], map: "IDX_prediction_resolver")
+  @@index([positionId], map: "IDX_prediction_position")
+  @@index([limitOrderId], map: "IDX_prediction_limit_order")
+  @@unique([positionId, conditionId, resolver], map: "UQ_prediction_position_condition_resolver")
+  @@map("prediction")
+}
+
+/// Position model to store on-chain prediction positions
+model Position {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now()) @db.Timestamp(6)
 
   // On-chain identifiers
   chainId          Int
   marketAddress    String    @db.VarChar
-  maker            String    @db.VarChar
-  taker            String    @db.VarChar
-  makerNftTokenId  String    @db.VarChar
-  takerNftTokenId  String    @db.VarChar
+  predictor        String    @db.VarChar
+  counterparty     String    @db.VarChar
+  predictorNftTokenId  String    @db.VarChar
+  counterpartyNftTokenId  String    @db.VarChar
   totalCollateral  String    @db.VarChar
-  makerCollateral  String?   @db.VarChar
-  takerCollateral  String?   @db.VarChar
+  predictorCollateral  String?   @db.VarChar
+  counterpartyCollateral  String?   @db.VarChar
   refCode          String?   @db.VarChar
 
   // Status
-  status           ParlayStatus @default(active)
-  makerWon         Boolean?
+  status           PositionStatus @default(active)
+  /// True when the predictor's submitted outcomes were correct (previously makerWon)
+  predictorWon     Boolean?
   mintedAt         Int
   settledAt        Int?
 
   // Derived for UI convenience
   endsAt           Int?
 
-  // Raw predicted outcomes as emitted/encoded on-chain
-  // Example JSON: [{ conditionId: "0x...", prediction: true }]
-  predictedOutcomes Json      @db.Json
+  // Normalized predictions
+  predictions   Prediction[]
 
-  @@index([maker], map: "IDX_parlay_maker")
-  @@index([taker], map: "IDX_parlay_taker")
-  @@index([chainId, marketAddress], map: "IDX_parlay_chain_market")
-  @@map("parlay")
+  @@index([predictor], map: "IDX_position_predictor")
+  @@index([counterparty], map: "IDX_position_counterparty")
+  @@index([chainId, marketAddress], map: "IDX_position_chain_market")
+  @@map("position")
 }
 
-enum ParlayStatus {
+enum PositionStatus {
   active
   settled
   consolidated
@@ -244,12 +298,12 @@ model LimitOrder {
   chainId           Int
   marketAddress     String    @db.VarChar
   orderId           String    @db.VarChar
-  maker             String    @db.VarChar
+  predictor         String    @db.VarChar
   resolver          String    @db.VarChar
   
   // Order details
-  makerCollateral   String    @db.VarChar
-  takerCollateral   String    @db.VarChar
+  predictorCollateral   String    @db.VarChar
+  counterpartyCollateral   String    @db.VarChar
   refCode           String?   @db.VarChar
   
   // Status and lifecycle
@@ -261,17 +315,18 @@ model LimitOrder {
   cancelledAt       Int?
   
   // Set when order is filled
-  taker             String?   @db.VarChar
+  counterparty             String?   @db.VarChar
   
   // Transaction hashes for traceability
   placedTxHash      String    @db.VarChar
   filledTxHash      String?   @db.VarChar
   cancelledTxHash   String?   @db.VarChar
   
-  predictedOutcomes Json      @db.Json
+  // Normalized predictions
+  predictions    Prediction[]
   
   @@unique([chainId, marketAddress, orderId], map: "UQ_limit_order_chain_market_id")
-  @@index([maker], map: "IDX_limit_order_maker")
+  @@index([predictor], map: "IDX_limit_order_predictor")
   @@index([chainId, status], map: "IDX_limit_order_chain_status")
   @@index([status], map: "IDX_limit_order_status")
   @@map("limit_order")

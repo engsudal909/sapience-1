@@ -5,7 +5,7 @@ import {
   ProfitRankType,
 } from '../types/AggregatedProfitTypes';
 import { TtlCache } from '../../utils/ttlCache';
-import { calculateParlayPnL } from '../../helpers/parlayPnL';
+import { calculatePositionPnL } from '../../helpers/positionPnL';
 
 const DEFAULT_DECIMALS = 18;
 
@@ -21,22 +21,22 @@ export class PnLResolver {
 
   @Query(() => [PnLType])
   @Directive('@cacheControl(maxAge: 60)')
-  async getParlayLeaderboard(
+  async getLeaderboard(
     @Arg('chainId', () => Int) chainId: number,
     @Arg('marketAddress', () => String) marketAddress: string
   ): Promise<PnLType[]> {
-    // Get parlay PnL directly from calculation
-    const parlayPnL = await calculateParlayPnL(chainId, marketAddress);
+    // Get position PnL directly from calculation
+    const positionPnL = await calculatePositionPnL(chainId, marketAddress);
 
-    return parlayPnL.map((r) => ({
-      marketId: 0, // parlays don't have marketId, use 0 as placeholder
+    return positionPnL.map((r) => ({
+      marketId: 0, // positions don't have marketId, use 0 as placeholder
       owner: r.owner,
       totalDeposits: '0',
       totalWithdrawals: '0',
       openPositionsPnL: '0',
       totalPnL: r.totalPnL,
       positions: [],
-      positionCount: r.parlayCount,
+      positionCount: r.positionCount,
       collateralDecimals: DEFAULT_DECIMALS,
     }));
   }
@@ -48,11 +48,11 @@ export class PnLResolver {
     const existing = PnLResolver.leaderboardCache.get(cacheKey);
     if (existing) return existing;
 
-    const parlayPnL = await calculateParlayPnL();
+    const positionPnL = await calculatePositionPnL();
 
     const aggregated = new Map<string, number>();
 
-    for (const r of parlayPnL) {
+    for (const r of positionPnL) {
       const owner = r.owner.toLowerCase();
       const divisor = Math.pow(10, DEFAULT_DECIMALS);
       const val = parseFloat(r.totalPnL) / divisor;
