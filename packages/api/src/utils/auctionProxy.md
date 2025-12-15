@@ -6,19 +6,19 @@ The API service includes a built-in reverse proxy for the auction WebSocket serv
 
 ### Environment Variables
 
-- `AUCTION_SERVICE_URL`: URL of the auction service (default: `http://localhost:3002`)
+- `RELAYER_SERVICE_URL`: URL of the relayer WebSocket service (default: `http://localhost:3002`)
 - `ENABLE_AUCTION_PROXY`: Enable/disable the proxy (default: `true`, set to `false` to disable)
 
 ### Example
 
 ```bash
 # Development (default)
-AUCTION_SERVICE_URL=http://localhost:3002
+RELAYER_SERVICE_URL=http://localhost:3002
 
 # Production
-AUCTION_SERVICE_URL=http://relayer-ws:3002
+RELAYER_SERVICE_URL=http://relayer-ws:3002
 # or
-AUCTION_SERVICE_URL=https://relayer-ws.example.com
+RELAYER_SERVICE_URL=https://relayer-ws.example.com
 ```
 
 ## How It Works

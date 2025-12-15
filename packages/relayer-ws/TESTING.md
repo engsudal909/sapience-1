@@ -108,7 +108,7 @@ Closing connection in 2 seconds...
 
 ### Proxy Not Working
 - Check that `ENABLE_AUCTION_PROXY` is not set to `false`
-- Verify `AUCTION_SERVICE_URL` is set correctly (default: `http://localhost:3002`)
+- Verify `RELAYER_SERVICE_URL` is set correctly (default: `http://localhost:3002`)
 - Check API service logs for proxy errors
 
 ### No Response

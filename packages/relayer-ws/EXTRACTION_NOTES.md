@@ -28,7 +28,7 @@ The auction WebSocket service has been successfully extracted from `packages/api
 ### Development
 ```bash
 # From repo root
-pnpm dev:auction
+pnpm dev:relayer
 
 # Or from relayer package
 pnpm --filter @sapience/relayer run dev

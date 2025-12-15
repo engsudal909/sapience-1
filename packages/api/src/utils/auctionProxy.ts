@@ -5,11 +5,11 @@ import type { Request, Response } from 'express';
 import type { Socket } from 'net';
 
 /**
- * Get the auction service URL from environment or default to localhost
+ * Get the relayer service URL from environment or default to localhost.
  */
 function getAuctionServiceUrl(): string {
   const url =
-    process.env.AUCTION_SERVICE_URL ||
+    process.env.RELAYER_SERVICE_URL ||
     (config.isDev ? 'http://localhost:3002' : 'http://localhost:3002');
   return url.replace(/\/$/, ''); // Remove trailing slash
 }
