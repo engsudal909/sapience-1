@@ -43,7 +43,5 @@ services:
     repo: https://github.com/sapiencexyz/sapience
     branch: main
     envVars:
-      - key: PORT
-        value: "3002"
       - key: ENABLE_AUCTION_WS
         value: "true"
