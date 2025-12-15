@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, useContext } from 'react';
 import type { useTransactionReceipt } from 'wagmi';
 import {
   useWriteContract,
@@ -18,6 +18,7 @@ import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
 import { getPublicClientForChainId } from '~/lib/utils/util';
+import { CreatePositionContext } from '~/lib/context/CreatePositionContext';
 
 // Ethereal chain configuration
 const CHAIN_ID_ETHEREAL = 5064014;
@@ -36,6 +37,13 @@ interface ShareIntentOg {
 interface ShareIntentPartial {
   positionId?: string | number;
   og?: ShareIntentOg;
+  betslip?: {
+    legs: Array<{ question: string; choice: 'Yes' | 'No' }>;
+    wager: string;
+    payout?: string;
+    symbol: string;
+    lastNftId?: string; // Last NFT ID before this parlay was submitted
+  };
   // Additional optional hints can be added over time
 }
 
@@ -48,6 +56,12 @@ interface useSapienceWriteContractProps {
   successMessage?: string;
   fallbackErrorMessage?: string;
   redirectProfileAnchor?: 'positions' | 'forecasts';
+  /**
+   * Specifies which page to redirect to after successful transaction.
+   * Defaults to 'profile' if redirectProfileAnchor is provided, otherwise no redirect.
+   * When set to 'markets', redirects to '/markets' and clears the betslip.
+   */
+  redirectPage?: 'profile' | 'markets';
   /**
    * Optional share intent hints. When provided, a durable record will be written
    * to sessionStorage as soon as a tx hash is known (or immediately if not available),
@@ -64,6 +78,7 @@ export function useSapienceWriteContract({
   successMessage,
   fallbackErrorMessage = 'Transaction failed',
   redirectProfileAnchor,
+  redirectPage = 'profile',
   shareIntent,
 }: useSapienceWriteContractProps) {
   const { data: client } = useConnectorClient();
@@ -77,6 +92,8 @@ export function useSapienceWriteContract({
   const router = useRouter();
   const didRedirectRef = useRef(false);
   const didShowSuccessToastRef = useRef(false);
+  // Get betslip context - may be undefined if not within provider
+  const createPositionContext = useContext(CreatePositionContext);
   const embeddedWallet = useMemo(() => {
     const match = wallets?.find(
       (wallet: any) => wallet?.walletClientType === 'privy'
@@ -141,7 +158,11 @@ export function useSapienceWriteContract({
     (maybeHash?: string) => {
       try {
         if (typeof window === 'undefined') return;
-        if (!redirectProfileAnchor) return;
+        // Write intent if redirecting to profile (with anchor) or to markets
+        const shouldWriteForProfile =
+          redirectPage === 'profile' && redirectProfileAnchor;
+        const shouldWriteForMarkets = redirectPage === 'markets';
+        if (!shouldWriteForProfile && !shouldWriteForMarkets) return;
         if (shareIntent === undefined) return; // only write when caller explicitly opts-in
 
         const connectedAddress = (
@@ -153,9 +174,13 @@ export function useSapienceWriteContract({
           .toLowerCase();
         if (!connectedAddress) return;
 
+        // Determine anchor: use redirectProfileAnchor for profile, 'positions' for markets
+        const anchor =
+          redirectPage === 'markets' ? 'positions' : redirectProfileAnchor;
+
         const intent = {
           address: connectedAddress,
-          anchor: redirectProfileAnchor,
+          anchor: anchor,
           clientTimestamp: Date.now(),
           txHash: maybeHash || undefined,
           // Spread all shareIntent properties to allow custom data
@@ -171,7 +196,7 @@ export function useSapienceWriteContract({
         console.error(e);
       }
     },
-    [redirectProfileAnchor, shareIntent, wagmiAddress, wallets]
+    [redirectPage, redirectProfileAnchor, shareIntent, wagmiAddress, wallets]
   );
 
   // Helper to detect if this is a withdrawal operation that should trigger unwrapping
@@ -232,23 +257,47 @@ export function useSapienceWriteContract({
     [getUserWUSDEBalance, createUnwrapTransaction]
   );
 
-  const maybeRedirectToProfile = useCallback(() => {
-    if (!redirectProfileAnchor) return; // Opt-in only
+  const maybeRedirect = useCallback(() => {
+    // Determine if we should redirect
+    const shouldRedirectToProfile =
+      redirectPage === 'profile' && redirectProfileAnchor;
+    const shouldRedirectToMarkets = redirectPage === 'markets';
+
+    if (!shouldRedirectToProfile && !shouldRedirectToMarkets) return;
     if (didRedirectRef.current) return; // Guard against double navigation
     if (typeof window === 'undefined') return; // SSR safety
 
     try {
-      const connectedAddress = wagmiAddress || (wallets?.[0] as any)?.address;
-      if (!connectedAddress) return; // No address available yet
-      const addressLower = String(connectedAddress).toLowerCase();
       didRedirectRef.current = true;
-      const redirectUrl = `/profile/${addressLower}#${redirectProfileAnchor}`;
-      router.push(redirectUrl);
+
+      if (shouldRedirectToMarkets) {
+        // Note: betslip clearing is now done AFTER shareIntent is written
+        // This ensures betslip data is available for image generation
+        router.push(`/${redirectPage}`);
+        // Clear betslip after redirect (shareIntent already written)
+        if (createPositionContext) {
+          createPositionContext.clearPositionForm();
+          createPositionContext.clearSelections();
+        }
+      } else if (shouldRedirectToProfile) {
+        const connectedAddress = wagmiAddress || (wallets?.[0] as any)?.address;
+        if (!connectedAddress) return; // No address available yet
+        const addressLower = String(connectedAddress).toLowerCase();
+        const redirectUrl = `/${redirectPage}/${addressLower}#${redirectProfileAnchor}`;
+        router.push(redirectUrl);
+      }
     } catch (e) {
       console.error(e);
       // noop on navigation errors
     }
-  }, [redirectProfileAnchor, wallets, wagmiAddress, router]);
+  }, [
+    redirectPage,
+    redirectProfileAnchor,
+    wallets,
+    wagmiAddress,
+    router,
+    createPositionContext,
+  ]);
 
   // Common success handler
   const handleTransactionSuccess = useCallback(
@@ -262,7 +311,7 @@ export function useSapienceWriteContract({
         onSuccess?.(undefined as any);
       }
 
-      maybeRedirectToProfile();
+      maybeRedirect();
 
       try {
         toast({
@@ -282,7 +331,7 @@ export function useSapienceWriteContract({
       onTxHash,
       setTxHash,
       onSuccess,
-      maybeRedirectToProfile,
+      maybeRedirect,
       toast,
       successMessage,
     ]
@@ -378,7 +427,6 @@ export function useSapienceWriteContract({
               calls: [unwrapTx],
               experimental_fallback: true,
             });
-            console.log('Auto-unwrap completed successfully');
           }
         } catch (error) {
           console.error('Auto-unwrap failed:', error);
@@ -755,7 +803,7 @@ export function useSapienceWriteContract({
               // Persist share intent before redirect
               writeShareIntent(transactionHash);
               // Redirect as soon as a tx hash is known
-              maybeRedirectToProfile();
+              maybeRedirect();
               // Show success toast after navigation so it appears on profile
               try {
                 toast({
@@ -764,8 +812,8 @@ export function useSapienceWriteContract({
                   duration: 5000,
                 });
                 didShowSuccessToastRef.current = true;
-              } catch (e) {
-                console.error(e);
+              } catch (_e) {
+                // Error showing success toast
               }
               onTxHash?.(transactionHash);
               setTxHash(transactionHash);
@@ -774,7 +822,7 @@ export function useSapienceWriteContract({
               // No tx hash available from aggregator; consider operation successful.
               // Redirect before showing success toast
               writeShareIntent(undefined);
-              maybeRedirectToProfile();
+              maybeRedirect();
               toast({
                 title: successTitle,
                 description: formatSuccessDescription(successMessage),
@@ -793,7 +841,7 @@ export function useSapienceWriteContract({
               // Persist share intent before redirect
               writeShareIntent(transactionHash);
               // Redirect as soon as a tx hash is known
-              maybeRedirectToProfile();
+              maybeRedirect();
               // Show success toast after navigation so it appears on profile
               try {
                 toast({
@@ -813,7 +861,7 @@ export function useSapienceWriteContract({
             // Fallback path without aggregator id.
             // Redirect before showing success toast
             writeShareIntent(undefined);
-            maybeRedirectToProfile();
+            maybeRedirect();
             toast({
               title: successTitle,
               description: formatSuccessDescription(successMessage),
@@ -828,7 +876,7 @@ export function useSapienceWriteContract({
           // `wallet_getCallsStatus` unsupported or failed; assume success since `sendCalls` resolved.
           // Redirect before showing success toast
           writeShareIntent(undefined);
-          maybeRedirectToProfile();
+          maybeRedirect();
           toast({
             title: successTitle,
             description: formatSuccessDescription(successMessage),
@@ -861,11 +909,15 @@ export function useSapienceWriteContract({
       onTxHash,
       isEmbeddedWallet,
       user,
-      maybeRedirectToProfile,
+      maybeRedirect,
       writeShareIntent,
       shouldAutoUnwrap,
       executeAutoUnwrap,
       ensureEmbeddedAuth,
+      redirectPage,
+      shareIntent,
+      onSuccess,
+      successMessage,
     ]
   );
 
