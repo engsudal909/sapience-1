@@ -13,6 +13,10 @@ services:
     autoDeploy: true
     repo: https://github.com/sapiencexyz/sapience
     branch: main
+    buildFilter:
+      paths:
+        - packages/api/**
+        - packages/sdk/**
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -27,6 +31,10 @@ services:
     startCommand: pnpm --filter @sapience/api start:worker
     autoDeploy: true
     branch: main
+    buildFilter:
+      paths:
+        - packages/api/**
+        - packages/sdk/**
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -42,6 +50,9 @@ services:
     autoDeploy: true
     repo: https://github.com/sapiencexyz/sapience
     branch: main
+    buildFilter:
+      paths:
+        - packages/auction-ws/**
     envVars:
       - key: ENABLE_AUCTION_WS
         value: "true"
