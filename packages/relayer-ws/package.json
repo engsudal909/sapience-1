@@ -14,7 +14,9 @@
     "format": "prettier --write src",
     "bot": "tsx src/botExample.ts",
     "test:proxy": "node test-proxy.js",
-    "test:proxy:direct": "node test-proxy.js --direct"
+    "test:proxy:direct": "node test-proxy.js --direct",
+    "load-test": "tsx load-test.ts",
+    "load-test:help": "tsx load-test.ts --help"
   },
   "dependencies": {
     "@sapience/sdk": "workspace:*",
