@@ -11,6 +11,8 @@ const PORT = parseInt(config.PORT, 10);
 initSentry();
 
 const startServer = async () => {
+  let serverStartTime: number;
+
   const httpServer = createServer(async (req, res) => {
     // Expose metrics endpoint
     if (req.url === '/metrics' && req.method === 'GET') {
@@ -28,8 +30,12 @@ const startServer = async () => {
 
     // Health check endpoint
     if (req.url === '/health' && req.method === 'GET') {
+      const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok' }));
+      res.end(JSON.stringify({ 
+        status: 'ok',
+        uptime: uptimeSeconds
+      }));
       return;
     }
 
@@ -69,6 +75,7 @@ const startServer = async () => {
   );
 
   httpServer.listen(PORT, () => {
+    serverStartTime = Date.now();
     console.log(`Relayer service is running on port ${PORT}`);
     console.log(`Metrics endpoint: http://localhost:${PORT}/metrics`);
     console.log(`Health check endpoint: http://localhost:${PORT}/health`);
