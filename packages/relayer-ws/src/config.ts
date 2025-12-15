@@ -1,4 +1,4 @@
-import { cleanEnv, str, bool } from 'envalid';
+import { cleanEnv, str, bool, num } from 'envalid';
 import { config as dotEnvConfig } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
@@ -21,6 +21,9 @@ export const config = cleanEnv(process.env, {
   }),
   PORT: str({ default: '3002' }),
   ENABLE_AUCTION_WS: bool({ default: true }),
+  SENTRY_DSN: str({ default: '' }),
+  RATE_LIMIT_WINDOW_MS: num({ default: 10_000 }),
+  RATE_LIMIT_MAX_MESSAGES: num({ default: 100 }),
 });
 
 export const isProd = config.NODE_ENV === 'production';

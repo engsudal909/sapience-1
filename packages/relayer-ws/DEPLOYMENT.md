@@ -64,7 +64,7 @@ Set these in your deployment platform:
 
 ### Render.com (Recommended)
 
-If deploying to Render, no reverse proxy setup is needed. Render handles routing internally. The service is configured in `render.yaml` and will be accessible at its own URL (e.g., `https://relayer-ws.onrender.com`).
+If deploying to Render, no reverse proxy setup is needed. Render handles routing internally. The service is configured in `render.yaml` and will be accessible at its own URL (e.g., `https://relayer.sapience.xyz`).
 
 ### Self-Hosted Setup
 

@@ -5,6 +5,7 @@ import { getProviderForChain } from './utils/getProviderForChain';
 import { addBid, getBids, upsertAuction, getAuction } from './registry';
 import { basicValidateBid } from './sim';
 import { verifyMakerBidStrict } from './helpers';
+import { config } from './config';
 import {
   PREDICTION_MARKET_ADDRESS_ARB1,
   PREDICTION_MARKET_CHAIN_ID_ARB1,
@@ -119,8 +120,8 @@ function broadcastToAuctionSubscribers(
   return recipients;
 }
 
-const RATE_LIMIT_WINDOW_MS = 10_000;
-const RATE_LIMIT_MAX_MESSAGES = 100;
+const RATE_LIMIT_WINDOW_MS = config.RATE_LIMIT_WINDOW_MS;
+const RATE_LIMIT_MAX_MESSAGES = config.RATE_LIMIT_MAX_MESSAGES;
 
 export function createAuctionWebSocketServer() {
   const wss = new WebSocketServer({ noServer: true });
