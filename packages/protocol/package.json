@@ -16,9 +16,9 @@
     "simulate-deploy:base": "cannon build deployments/tomls/cannonfile.base.blobs.toml --chain-id 8453 --dry-run --impersonate-all"
   },
   "devDependencies": {
-    "@layerzerolabs/lz-evm-messagelib-v2": "3.0.123",
-    "@layerzerolabs/lz-evm-v1-0.7": "3.0.123",
-    "@layerzerolabs/test-devtools-evm-foundry": "6.0.3",
+    "@layerzerolabs/lz-evm-messagelib-v2": "3.0.151",
+    "@layerzerolabs/lz-evm-v1-0.7": "3.0.151",
+    "@layerzerolabs/test-devtools-evm-foundry": "8.0.1",
     "@layerzerolabs/toolbox-foundry": "0.1.13",
     "@types/chai": "4.3.19",
     "@types/mocha": "10.0.8",
@@ -33,8 +33,8 @@
     "typescript": "5.8.3"
   },
   "dependencies": {
-    "@layerzerolabs/lz-evm-protocol-v2": "3.0.123",
-    "@layerzerolabs/oapp-evm": "0.3.2",
+    "@layerzerolabs/lz-evm-protocol-v2": "3.0.151",
+    "@layerzerolabs/oapp-evm": "0.4.1",
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
     "@synthetixio/core-contracts": "3.6.4",
