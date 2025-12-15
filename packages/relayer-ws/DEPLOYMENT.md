@@ -122,7 +122,30 @@ httpServer.on('request', (req, res) => {
 
 - **Sentry**: Error tracking is configured (production only)
 - **Logs**: Check service logs for WebSocket connection issues
-- **Metrics**: Consider adding connection count, message rate metrics
+- **Prometheus Metrics**: The service exposes metrics at `/metrics` endpoint
+  - Active connections count
+  - Messages sent/received by type
+  - Rate limit hits
+  - Auction and bid operations
+  - Error counts by type
+  - Message processing duration
+  - Subscription counts
+
+### Metrics Endpoint
+
+The service exposes Prometheus-compatible metrics at `http://localhost:${PORT}/metrics` (or your production URL).
+
+Example metrics:
+- `relayer_ws_connections_active` - Current active WebSocket connections
+- `relayer_ws_messages_received_total` - Total messages received by type
+- `relayer_ws_messages_sent_total` - Total messages sent by type
+- `relayer_ws_auctions_started_total` - Total auctions started
+- `relayer_ws_bids_submitted_total` - Total bids submitted with status labels
+- `relayer_ws_rate_limit_hits_total` - Total rate limit violations
+- `relayer_ws_errors_total` - Total errors by type and message type
+- `relayer_ws_message_processing_duration_seconds` - Processing time histogram
+
+You can scrape these metrics with Prometheus or view them directly in your browser.
 
 ## Scaling
 
