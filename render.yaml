@@ -41,18 +41,18 @@ services:
           name: database
           property: connectionString
 
-  - name: auction-ws
+  - name: relayer-ws
     type: web
     env: node
     plan: standard
     buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
-    startCommand: pnpm --filter @sapience/auction start
+    startCommand: pnpm --filter @sapience/relayer start
     autoDeploy: true
     repo: https://github.com/sapiencexyz/sapience
     branch: main
     buildFilter:
       paths:
-        - packages/auction-ws/**
+        - packages/relayer-ws/**
     envVars:
       - key: ENABLE_AUCTION_WS
         value: "true"

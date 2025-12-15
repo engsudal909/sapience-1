@@ -372,58 +372,6 @@ importers:
         specifier: 8.21.0
         version: 8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
 
-  packages/auction-ws:
-    dependencies:
-      '@sapience/sdk':
-        specifier: workspace:*
-        version: link:../sdk
-      '@sentry/node':
-        specifier: 8.49.0
-        version: 8.49.0
-      dotenv:
-        specifier: 16.4.5
-        version: 16.4.5
-      envalid:
-        specifier: 8.1.1
-        version: 8.1.1
-      viem:
-        specifier: 2.21.49
-        version: 2.21.49(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
-      ws:
-        specifier: 8.18.3
-        version: 8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-    devDependencies:
-      '@eslint/js':
-        specifier: 9.18.0
-        version: 9.18.0
-      '@types/node':
-        specifier: 20.17.10
-        version: 20.17.10
-      '@types/ws':
-        specifier: 8.18.1
-        version: 8.18.1
-      '@typescript-eslint/eslint-plugin':
-        specifier: 7.18.0
-        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: 7.18.0
-        version: 7.18.0(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3)
-      eslint:
-        specifier: 9.15.0
-        version: 9.15.0(jiti@2.6.1)
-      prettier:
-        specifier: 3.3.3
-        version: 3.3.3
-      tsx:
-        specifier: 4.19.2
-        version: 4.19.2
-      typescript:
-        specifier: 5.8.3
-        version: 5.8.3
-      typescript-eslint:
-        specifier: 8.21.0
-        version: 8.21.0(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3)
-
   packages/docs:
     dependencies:
       lottie-react:
@@ -521,6 +469,58 @@ importers:
       typescript:
         specifier: 5.8.3
         version: 5.8.3
+
+  packages/relayer-ws:
+    dependencies:
+      '@sapience/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@sentry/node':
+        specifier: 8.49.0
+        version: 8.49.0
+      dotenv:
+        specifier: 16.4.5
+        version: 16.4.5
+      envalid:
+        specifier: 8.1.1
+        version: 8.1.1
+      viem:
+        specifier: 2.21.49
+        version: 2.21.49(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
+      ws:
+        specifier: 8.18.3
+        version: 8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    devDependencies:
+      '@eslint/js':
+        specifier: 9.18.0
+        version: 9.18.0
+      '@types/node':
+        specifier: 20.17.10
+        version: 20.17.10
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
+      '@typescript-eslint/eslint-plugin':
+        specifier: 7.18.0
+        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: 7.18.0
+        version: 7.18.0(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3)
+      eslint:
+        specifier: 9.15.0
+        version: 9.15.0(jiti@2.6.1)
+      prettier:
+        specifier: 3.3.3
+        version: 3.3.3
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      typescript-eslint:
+        specifier: 8.21.0
+        version: 8.21.0(eslint@9.15.0(jiti@2.6.1))(typescript@5.8.3)
 
   packages/sdk:
     dependencies:
@@ -37850,10 +37850,10 @@ snapshots:
   ox@0.6.7(typescript@5.8.3)(zod@3.23.6):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
-      '@noble/curves': 1.8.1
-      '@noble/hashes': 1.7.1
-      '@scure/bip32': 1.6.2
-      '@scure/bip39': 1.5.4
+      '@noble/curves': 1.9.7
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
       abitype: 1.0.8(typescript@5.8.3)(zod@3.23.6)
       eventemitter3: 5.0.1
     optionalDependencies:

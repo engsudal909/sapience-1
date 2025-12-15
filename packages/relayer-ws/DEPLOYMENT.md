@@ -2,7 +2,7 @@
 
 ## Overview
 
-The auction-ws service is a standalone WebSocket server that handles auction and bid matching for the prediction market system. It runs independently from the main API service.
+The relayer-ws service is a standalone WebSocket server that handles auction and bid matching for the prediction market system. It runs independently from the main API service.
 
 ## Local Development
 
@@ -18,7 +18,7 @@ The auction-ws service is a standalone WebSocket server that handles auction and
 pnpm dev:auction
 
 # Or from package directory
-pnpm --filter @sapience/auction run dev
+pnpm --filter @sapience/relayer run dev
 ```
 
 The service will start on `http://localhost:3002` with WebSocket endpoint at `ws://localhost:3002/auction`.
@@ -42,12 +42,12 @@ The service will start on `http://localhost:3002` with WebSocket endpoint at `ws
 The service is configured in `render.yaml` as a web service:
 
 ```yaml
-- name: auction-ws
+- name: relayer-ws
   type: web
   env: node
   plan: standard
   buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
-  startCommand: pnpm --filter @sapience/auction start
+  startCommand: pnpm --filter @sapience/relayer start
 ```
 
 ### Environment Variables for Production
@@ -64,11 +64,11 @@ Set these in your deployment platform:
 
 ### Render.com (Recommended)
 
-If deploying to Render, no reverse proxy setup is needed. Render handles routing internally. The service is configured in `render.yaml` and will be accessible at its own URL (e.g., `https://auction-ws.onrender.com`).
+If deploying to Render, no reverse proxy setup is needed. Render handles routing internally. The service is configured in `render.yaml` and will be accessible at its own URL (e.g., `https://relayer-ws.onrender.com`).
 
 ### Self-Hosted Setup
 
-If self-hosting, set up a reverse proxy to route `/auction` requests to the auction-ws service. Example nginx configuration:
+If self-hosting, set up a reverse proxy to route `/auction` requests to the relayer-ws service. Example nginx configuration:
 
 ```nginx
 location /auction {
@@ -87,19 +87,19 @@ location /auction {
 
 ### Alternative: Update Frontend Configuration
 
-Alternatively, update the frontend to point directly to the auction-ws service:
+Alternatively, update the frontend to point directly to the relayer-ws service:
 
 1. Update `packages/sapience/src/lib/ws.ts`:
    ```typescript
    export function toAuctionWsUrl(baseHttpUrl: string | null | undefined): string | null {
-     // Return auction-ws service URL directly
+     // Return relayer-ws service URL directly
      return process.env.NEXT_PUBLIC_AUCTION_WS_URL || 'ws://localhost:3002/auction';
    }
    ```
 
 2. Set environment variable:
    ```
-   NEXT_PUBLIC_AUCTION_WS_URL=wss://auction-ws.example.com/auction
+   NEXT_PUBLIC_AUCTION_WS_URL=wss://relayer-ws.example.com/auction
    ```
 
 ## Health Checks
@@ -126,7 +126,7 @@ httpServer.on('request', (req, res) => {
 
 ## Scaling
 
-The auction-ws service can be scaled horizontally, but note:
+The relayer-ws service can be scaled horizontally, but note:
 - Auction state is in-memory (not shared between instances)
 - Each instance maintains its own auction registry
 - For production, consider:
@@ -155,7 +155,7 @@ The auction-ws service can be scaled horizontally, but note:
 ### Manual Testing with Bot Example
 
 ```bash
-FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/auction run bot
+FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/relayer run bot
 ```
 
 ### Integration Testing

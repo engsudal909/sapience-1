@@ -14,8 +14,8 @@ pnpm --filter @sapience/sdk install --prod=false
 # Ensure @sapience/api dependencies (including dev) are installed
 pnpm --filter @sapience/api install --prod=false
 
-# Ensure @sapience/auction dependencies (including dev) are installed
-pnpm --filter @sapience/auction install --prod=false
+# Ensure @sapience/relayer dependencies (including dev) are installed
+pnpm --filter @sapience/relayer install --prod=false
 
 # Build the SDK library
 pnpm --filter @sapience/sdk run build:lib

@@ -11,7 +11,7 @@ The Auction WebSocket API enables real-time communication between takers and mak
 pnpm dev:auction
 
 # Production
-pnpm --filter @sapience/auction-ws start
+pnpm --filter @sapience/relayer start
 ```
 
 ## API Documentation
@@ -248,10 +248,10 @@ All errors are returned in the `bid.ack` message with descriptive error codes. T
 
 ```bash
 # Development
-pnpm --filter @sapience/auction run dev
+pnpm --filter @sapience/relayer run dev
 
 # Production
-pnpm --filter @sapience/auction run start
+pnpm --filter @sapience/relayer run start
 ```
 
 ## Environment Variables

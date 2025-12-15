@@ -2,13 +2,13 @@
 
 ## Quick Test Commands
 
-### Test via Proxy (API -> Auction)
+### Test via Proxy (API -> Relayer)
 ```bash
 # From repo root
-pnpm --filter @sapience/auction run test:proxy
+pnpm --filter @sapience/relayer run test:proxy
 
 # Or directly
-node packages/auction-ws/test-proxy.js
+node packages/relayer-ws/test-proxy.js
 ```
 
 This tests the reverse proxy setup where:
@@ -18,10 +18,10 @@ This tests the reverse proxy setup where:
 ### Test Direct Connection (Auction Service Only)
 ```bash
 # From repo root
-pnpm --filter @sapience/auction run test:proxy:direct
+pnpm --filter @sapience/relayer run test:proxy:direct
 
 # Or directly
-node packages/auction-ws/test-proxy.js --direct
+node packages/relayer-ws/test-proxy.js --direct
 ```
 
 This tests direct connection to the auction service:

@@ -16,9 +16,9 @@ The API service includes a built-in reverse proxy for the auction WebSocket serv
 AUCTION_SERVICE_URL=http://localhost:3002
 
 # Production
-AUCTION_SERVICE_URL=http://auction-ws:3002
+AUCTION_SERVICE_URL=http://relayer-ws:3002
 # or
-AUCTION_SERVICE_URL=https://auction-ws.example.com
+AUCTION_SERVICE_URL=https://relayer-ws.example.com
 ```
 
 ## How It Works

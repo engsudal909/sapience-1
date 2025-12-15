@@ -3,9 +3,9 @@
 ## ✅ Completed Tasks
 
 ### 1. Package Extraction
-- ✅ Created new standalone package at `packages/auction-ws/`
-- ✅ Package name: `@sapience/auction` (workspace package)
-- ✅ Moved all auction code from `packages/api/src/auction/` to `packages/auction-ws/src/`
+- ✅ Created new standalone package at `packages/relayer-ws/`
+- ✅ Package name: `@sapience/relayer` (workspace package)
+- ✅ Moved all auction code from `packages/api/src/auction/` to `packages/relayer-ws/src/`
 - ✅ Extracted shared dependencies:
   - `getProviderForChain` utility for blockchain RPC
   - Constants (prediction market addresses)
@@ -13,7 +13,7 @@
   - Config management
 
 ### 2. Standalone Server
-- ✅ Created `packages/auction-ws/src/server.ts` as standalone entry point
+- ✅ Created `packages/relayer-ws/src/server.ts` as standalone entry point
 - ✅ Service runs on port 3002 (configurable via `PORT` env var)
 - ✅ WebSocket endpoint: `ws://localhost:3002/auction`
 
@@ -24,7 +24,7 @@
 - ✅ Updated `packages/api/AGENTS.md` documentation
 
 ### 4. Deployment Configuration
-- ✅ Updated `render.yaml` with new `auction-ws` service
+- ✅ Updated `render.yaml` with new `relayer-ws` service
 - ✅ Updated `render-build-sdk.sh` to include auction dependencies
 - ✅ Service configured for Render.com deployment
 
@@ -43,7 +43,7 @@
 ## 📁 Package Structure
 
 ```
-packages/auction-ws/
+packages/relayer-ws/
 ├── src/
 │   ├── server.ts          # Standalone server entry point
 │   ├── ws.ts              # WebSocket server implementation
@@ -75,12 +75,12 @@ packages/auction-ws/
 pnpm dev:auction
 
 # Or directly
-pnpm --filter @sapience/auction run dev
+pnpm --filter @sapience/relayer run dev
 ```
 
 ### Production
 ```bash
-pnpm --filter @sapience/auction run start
+pnpm --filter @sapience/relayer run start
 ```
 
 ## 🔧 Configuration

@@ -2,13 +2,13 @@
 
 ## Summary
 
-The auction WebSocket service has been successfully extracted from `packages/api` into a standalone package at `packages/auction-ws`. The service is now independent and can be deployed separately.
+The auction WebSocket service has been successfully extracted from `packages/api` into a standalone package at `packages/relayer-ws`. The service is now independent and can be deployed separately.
 
 ## What Changed
 
 ### New Package Structure
-- **Location**: `packages/auction-ws/`
-- **Package Name**: `@sapience/auction-ws`
+- **Location**: `packages/relayer-ws/`
+- **Package Name**: `@sapience/relayer`
 - **Port**: Defaults to `3002` (configurable via `PORT` env var)
 - **Endpoint**: WebSocket at `ws://localhost:3002/auction`
 
@@ -18,10 +18,10 @@ The auction WebSocket service has been successfully extracted from `packages/api
   - **Note**: You can safely delete `packages/api/src/auction/` folder after verifying the extraction works
 
 ### Dependencies Extracted
-- `getProviderForChain` utility moved to `packages/auction/src/utils/getProviderForChain.ts`
-- Constants moved to `packages/auction/src/constants.ts`
-- Sentry integration moved to `packages/auction/src/instrument.ts`
-- Config moved to `packages/auction/src/config.ts`
+- `getProviderForChain` utility moved to `packages/relayer-ws/src/utils/getProviderForChain.ts`
+- Constants moved to `packages/relayer-ws/src/constants.ts`
+- Sentry integration moved to `packages/relayer-ws/src/instrument.ts`
+- Config moved to `packages/relayer-ws/src/config.ts`
 
 ## Running the Service
 
@@ -30,13 +30,13 @@ The auction WebSocket service has been successfully extracted from `packages/api
 # From repo root
 pnpm dev:auction
 
-# Or from auction package
-pnpm --filter @sapience/auction run dev
+# Or from relayer package
+pnpm --filter @sapience/relayer run dev
 ```
 
 ### Production
 ```bash
-pnpm --filter @sapience/auction run start
+pnpm --filter @sapience/relayer run start
 ```
 
 ## Frontend Integration
@@ -66,7 +66,7 @@ The auction service uses these environment variables:
 
 ## Testing
 
-1. Start the auction service:
+1. Start the relayer-ws service:
    ```bash
    pnpm dev:auction
    ```
@@ -74,7 +74,7 @@ The auction service uses these environment variables:
 2. Test WebSocket connection:
    ```bash
    # In another terminal
-   pnpm --filter @sapience/auction run bot
+   pnpm --filter @sapience/relayer run bot
    ```
 
 3. Verify the service is running:
@@ -90,7 +90,7 @@ The auction service uses these environment variables:
 
 2. **Set up reverse proxy** (if using Option 1) to route `/auction` to the new service
 
-3. **Update deployment configuration** (e.g., `render.yaml`) to include the auction service
+3. **Update deployment configuration** (e.g., `render.yaml`) to include the relayer-ws service
 
 4. **Update documentation** to reflect the new service architecture
 
@@ -99,6 +99,6 @@ The auction service uses these environment variables:
 The bot example has been updated to use `FOIL_AUCTION_BASE` environment variable instead of `FOIL_API_BASE`:
 
 ```bash
-FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/auction run bot
+FOIL_AUCTION_BASE=http://localhost:3002 pnpm --filter @sapience/relayer run bot
 ```
 
