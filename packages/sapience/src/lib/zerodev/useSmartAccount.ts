@@ -44,7 +44,7 @@ let createKernelAccountClient: any;
 let createZeroDevPaymasterClient: any;
 let signerToEcdsaValidator: any;
 let getEntryPoint: any;
-let KERNEL_V3_3: any;
+let KERNEL_V2_4: any;
 
 // Dynamic import to check for ZeroDev availability
 async function checkZeroDevAvailability(): Promise<boolean> {
@@ -58,8 +58,8 @@ async function checkZeroDevAvailability(): Promise<boolean> {
     createZeroDevPaymasterClient = sdk.createZeroDevPaymasterClient;
     getEntryPoint = constants.getEntryPoint;
     signerToEcdsaValidator = ecdsa.signerToEcdsaValidator;
-    // KERNEL_V3_3 is available from constants for EntryPoint v0.7
-    KERNEL_V3_3 = constants.KERNEL_V3_3;
+    // KERNEL_V2_4 for EntryPoint v0.6 (more widely supported)
+    KERNEL_V2_4 = constants.KERNEL_V2_4;
 
     return true;
   } catch {
@@ -67,8 +67,13 @@ async function checkZeroDevAvailability(): Promise<boolean> {
   }
 }
 
-// Session storage key
-const ZERODEV_SESSION_KEY = 'sapience.zerodev.session';
+// Session storage key prefix - sessions are stored per chain
+const ZERODEV_SESSION_KEY_PREFIX = 'sapience.zerodev.session';
+
+// Get storage key for a specific chain
+function getSessionStorageKey(chainId: number): string {
+  return `${ZERODEV_SESSION_KEY_PREFIX}.${chainId}`;
+}
 
 interface StoredZeroDevSession {
   smartAccountAddress: Address;
@@ -171,21 +176,25 @@ export function useSmartAccount(): UseSmartAccountResult {
     });
   }, []);
 
-  // Load existing session from storage
-  const loadSession = useCallback((): StoredZeroDevSession | null => {
-    if (!address || !chainId) return null;
+  // Load existing session from storage for a specific chain
+  // If no chainId provided, loads session for the current chain
+  const loadSession = useCallback((forChainId?: number): StoredZeroDevSession | null => {
+    if (!address) return null;
+    const targetChainId = forChainId ?? chainId;
+    if (!targetChainId) return null;
+
     try {
-      const raw = localStorage.getItem(ZERODEV_SESSION_KEY);
+      const storageKey = getSessionStorageKey(targetChainId);
+      const raw = localStorage.getItem(storageKey);
       if (!raw) return null;
       const session: StoredZeroDevSession = JSON.parse(raw);
 
-      // Validate session belongs to current wallet and chain
+      // Validate session belongs to current wallet and hasn't expired
       if (
-        session.chainId !== chainId ||
         session.ownerAddress.toLowerCase() !== address.toLowerCase() ||
         session.expiresAt <= Date.now()
       ) {
-        localStorage.removeItem(ZERODEV_SESSION_KEY);
+        localStorage.removeItem(storageKey);
         return null;
       }
       return session;
@@ -193,6 +202,12 @@ export function useSmartAccount(): UseSmartAccountResult {
       return null;
     }
   }, [address, chainId]);
+
+  // Check if there's a valid Arbitrum session (for forecasting)
+  const arbitrumSession = useMemo(() => {
+    if (!address) return null;
+    return loadSession(42161); // Arbitrum chain ID
+  }, [address, loadSession]);
 
   // Initialize/restore session on mount
   useEffect(() => {
@@ -248,34 +263,33 @@ export function useSmartAccount(): UseSmartAccountResult {
           transport: http(chain.rpcUrls.default.http[0]),
         });
 
-        // Get the entrypoint for v0.7
-        const entryPoint = getEntryPoint('0.7');
+        // Get the entrypoint for v0.6 (more widely supported on Arbitrum)
+        const entryPoint = getEntryPoint('0.6');
         console.log('entryPoint', JSON.stringify(entryPoint, null, 2));
 
-        // Ensure KERNEL_V3_3 is available (should be set during checkZeroDevAvailability)
-        if (!KERNEL_V3_3) {
-          console.log('KERNEL_V3_3 ERROR', JSON.stringify(KERNEL_V3_3, null, 2));
+        // Ensure KERNEL_V2_4 is available (should be set during checkZeroDevAvailability)
+        if (!KERNEL_V2_4) {
+          console.log('KERNEL_V2_4 ERROR', JSON.stringify(KERNEL_V2_4, null, 2));
           throw new Error(
-            'KERNEL_V3_3 constant not available. ZeroDev SDK may not be properly initialized.'
+            'KERNEL_V2_4 constant not available. ZeroDev SDK may not be properly initialized.'
           );
         }
-        console.log('KERNEL_V3_3', JSON.stringify(KERNEL_V3_3, null, 2));
+        console.log('KERNEL_V2_4', JSON.stringify(KERNEL_V2_4, null, 2));
         // Create ECDSA validator from the wallet
         const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
           signer: walletClient,
           entryPoint,
-          kernelVersion: KERNEL_V3_3,
+          kernelVersion: KERNEL_V2_4,
         });
 
         // Create Kernel account
-        // KernelVersion must be >= 0.3.0 for EntryPoint v0.7
-        // Use KERNEL_V3_3 constant from ZeroDev SDK (value: "0.3.3")
+        // KernelVersion 0.2.4 for EntryPoint v0.6
         const kernelAccount = await createKernelAccount(publicClient, {
           plugins: {
             sudo: ecdsaValidator,
           },
           entryPoint,
-          kernelVersion: KERNEL_V3_3,
+          kernelVersion: KERNEL_V2_4,
         });
 
         // Create kernel account client
@@ -305,14 +319,15 @@ export function useSmartAccount(): UseSmartAccountResult {
         const clampedHours = Math.min(durationHours, maxDurationHours);
         const expiresAt = Date.now() + clampedHours * 60 * 60 * 1000;
 
-        // Store session
+        // Store session with chain-specific key
         const sessionData: StoredZeroDevSession = {
           smartAccountAddress: kernelAccount.address,
           expiresAt,
           chainId,
           ownerAddress: address,
         };
-        localStorage.setItem(ZERODEV_SESSION_KEY, JSON.stringify(sessionData));
+        const storageKey = getSessionStorageKey(chainId);
+        localStorage.setItem(storageKey, JSON.stringify(sessionData));
 
         // Update state
         setKernelClient(client);
@@ -335,15 +350,18 @@ export function useSmartAccount(): UseSmartAccountResult {
     [walletClient, address, chain, chainId, isSupported, isZeroDevAvailable]
   );
 
-  // Revoke the current session
+  // Revoke the current session (for current chain)
   const revokeSession = useCallback(() => {
-    localStorage.removeItem(ZERODEV_SESSION_KEY);
+    if (chainId) {
+      const storageKey = getSessionStorageKey(chainId);
+      localStorage.removeItem(storageKey);
+    }
     setKernelClient(null);
     setSmartAccountAddress(null);
     setSessionExpiresAt(null);
     setHasValidSession(false);
     setError(null);
-  }, []);
+  }, [chainId]);
 
   // Get the session client for signing
   const getSessionClient = useCallback(async (): Promise<SmartAccountClient | null> => {
@@ -402,5 +420,8 @@ export function useSmartAccount(): UseSmartAccountResult {
     revokeSession,
     getSessionClient,
     refreshSession,
+    // Arbitrum session info (for forecasting when on other chains)
+    hasArbitrumSession: arbitrumSession !== null,
+    arbitrumSessionExpiresAt: arbitrumSession?.expiresAt ?? null,
   };
 }

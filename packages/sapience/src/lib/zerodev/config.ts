@@ -70,27 +70,31 @@ export function getZeroDevChain(chainId: number): Chain | null {
   }
 }
 
+// Arbitrum paymaster address
+export const ARBITRUM_PAYMASTER_ADDRESS =
+  '0x825Bd3Ad7e1F5274f6D33Aa8cdf9baC869A07118';
+
 /**
  * Get ZeroDev bundler RPC URL for a chain
- * Format: https://rpc.zerodev.app/api/v3/bundler/{projectId}?chainId={chainId}
+ * Format: https://rpc.zerodev.app/api/v3/{projectId}/chain/{chainId}?selfFunded=true
  */
 export function getBundlerRpc(chainId: number): string {
   if (!ZERODEV_PROJECT_ID) {
     console.warn('[ZeroDev] No project ID configured');
     return '';
   }
-  return `https://rpc.zerodev.app/api/v3/bundler/${ZERODEV_PROJECT_ID}?chainId=${chainId}`;
+  return `https://rpc.zerodev.app/api/v3/${ZERODEV_PROJECT_ID}/chain/${chainId}?selfFunded=true`;
 }
 
 /**
  * Get ZeroDev paymaster RPC URL for a chain (for gas sponsorship)
- * Format: https://rpc.zerodev.app/api/v3/paymaster/{projectId}?chainId={chainId}
+ * Uses the same endpoint as bundler - paymaster is configured in the project
  */
 export function getPaymasterRpc(chainId: number): string {
   if (!ZERODEV_PROJECT_ID) {
     return '';
   }
-  return `https://rpc.zerodev.app/api/v3/paymaster/${ZERODEV_PROJECT_ID}?chainId=${chainId}`;
+  return `https://rpc.zerodev.app/api/v3/${ZERODEV_PROJECT_ID}/chain/${chainId}?selfFunded=true`;
 }
 
 /**
@@ -107,5 +111,6 @@ export const SESSION_KEY_DEFAULTS = {
  * Kernel version configuration
  * - EntryPoint v0.6: KernelVersion >= 0.2.2 and <= 0.2.4
  * - EntryPoint v0.7: KernelVersion >= 0.3.0
+ * Using v0.6/v2.4 for broader Arbitrum support
  */
-export const KERNEL_VERSION = '0.3.0';
+export const KERNEL_VERSION = '0.2.4';
