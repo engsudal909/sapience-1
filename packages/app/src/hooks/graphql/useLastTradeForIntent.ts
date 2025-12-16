@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
-export type LastParlayForIntent = {
+type LastParlayForIntent = {
   mintedAt: number;
   predictor: string;
   counterparty: string;

@@ -180,37 +180,6 @@ export const getChainShortName = (id: number): string => {
 };
 
 /**
- * Converts a Uniswap V3 tick index to a price.
- * Formula: price = 1.0001^tick
- * @param tick The tick index.
- * @returns The price corresponding to the tick.
- */
-export function tickToPrice(tick: number | string | undefined | null): number {
-  if (tick === undefined || tick === null) {
-    return 0; // Or handle as appropriate, e.g., throw an error or return NaN
-  }
-  const numericTick = typeof tick === 'string' ? Number(tick) : tick;
-  if (Number.isNaN(numericTick)) {
-    // Use Number.isNaN
-    return 0; // Handle invalid string input
-  }
-  return 1.0001 ** numericTick;
-}
-
-/**
- * Converts settlementSqrtPriceX96 to settlementPriceD18
- * @param settlementSqrtPriceX96 sqrt price in X96 format as bigint
- * @returns bigint price with 18 decimals
- */
-export const sqrtPriceX96ToPriceD18 = (sqrtPriceX96: bigint): bigint => {
-  // 2^192
-  return (
-    (sqrtPriceX96 * sqrtPriceX96 * BigInt('1000000000000000000')) /
-    BigInt('6277101735386680763835789423207666416102355444464034512896')
-  );
-};
-
-/**
  * Converts a D18 forecast value to a percentage (0-100)
  * D18 format: 50% = 50 * 10^18
  * @param d18Value The D18 value as bigint or string
@@ -223,28 +192,8 @@ export const d18ToPercentage = (d18Value: bigint | string): number => {
   return Number(value) / 1e18;
 };
 
-/**
- * Converts a price to sqrtPriceX96 format used by Uniswap V3
- * @param price The price to convert
- * @returns The sqrtPriceX96 value
- */
-export const priceToSqrtPriceX96 = (price: number): bigint => {
-  // Calculate the square root of the price
-  const sqrtPrice = BigInt(Math.floor(Math.sqrt(price) * 10 ** 18)); // 10^18 is the precision of the sqrt price
-
-  // Calculate 2^96 without using bigint exponentiation
-  const Q96 = BigInt('79228162514264337593543950336');
-
-  // Convert to bigint format required by the Uniswap contracts
-  return BigInt(sqrtPrice * Q96) / BigInt(10 ** 18);
-};
-
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
-}
-
-export function bigIntAbs(value: bigint): bigint {
-  return value < BigInt(0) ? -value : value;
 }
 
 export const shortenAddress = (address: string) => {

@@ -4,11 +4,6 @@ export const ADMIN_AUTHENTICATE_MSG =
 export const STARGATE_DEPOSIT_URL =
   'https://stargate.finance/?dstChain=ethereal&dstToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
-// EAS / UMA resolver constants
-export const EAS_ADDRESS_ARBITRUM =
-  '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458';
-export const ARBITRUM_CHAIN_ID = 42161;
-
 // UMA Resolver on Arbitrum (default resolver for conditions)
 export const UMA_RESOLVER_ARBITRUM =
   '0x2cc1311871b9fc7bfcb809c75da4ba25732eafb9';

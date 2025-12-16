@@ -1,6 +1,6 @@
 'use client';
 
-export type ChatAuthor = 'me' | 'server' | 'system';
+type ChatAuthor = 'me' | 'server' | 'system';
 
 export type ChatMessage = {
   id: string;

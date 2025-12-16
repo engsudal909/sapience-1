@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 
-export interface MarketBadgeProps {
+interface MarketBadgeProps {
   label: string;
   size?: number; // px
   className?: string;

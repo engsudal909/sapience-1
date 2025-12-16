@@ -1,8 +1,8 @@
 import { getBlockieSrc } from '~/lib/avatar';
 import { og } from '~/lib/theme/ogPalette';
 
-export const BASE_WIDTH = 1200;
-export const BASE_HEIGHT = 630;
+const BASE_WIDTH = 1200;
+const BASE_HEIGHT = 630;
 export const WIDTH = 2400; // default 2×
 export const HEIGHT = 1260;
 
@@ -128,12 +128,8 @@ export function addThousandsSeparators(numStr: string): string {
   return fracPart ? `${withCommas}.${fracPart}` : withCommas;
 }
 
-export function formatMoney(numStr: string): string {
-  return addThousandsSeparators(numStr);
-}
-
 // Normalize currency symbols used on OG cards. Default to USDe if empty.
-export function normalizeSymbol(symbol?: string | null): string {
+function normalizeSymbol(symbol?: string | null): string {
   const s = (symbol || '').trim();
   if (!s) return 'USDe';
   return s;
@@ -175,26 +171,6 @@ export function Background({
   );
 }
 
-export function Header({
-  logoUrl,
-  scale = 1,
-}: {
-  logoUrl: string;
-  scale?: number;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <img
-        src={logoUrl}
-        alt="Sapience"
-        width={264 * scale}
-        height={59 * scale}
-        style={{ display: 'flex', width: 264 * scale, height: 59 * scale }}
-      />
-    </div>
-  );
-}
-
 export function PredictionsLabel({
   scale = 1,
   count,
@@ -230,7 +206,7 @@ function truncateAddress(addr: string): string {
   return addr.slice(0, 6) + '…' + addr.slice(-4);
 }
 
-export function BottomIdentity({
+function BottomIdentity({
   addr,
   avatarUrl,
   scale = 1,
@@ -312,7 +288,7 @@ export function BottomIdentity({
   );
 }
 
-export function StatsRow({
+function StatsRow({
   wager,
   payout,
   potentialReturn,
@@ -562,7 +538,7 @@ export function Footer({
 }
 
 // Liquidity share card stats row
-export function LiquidityStatsRow({
+function LiquidityStatsRow({
   lowPrice,
   highPrice,
   symbol: _symbol,
@@ -749,7 +725,7 @@ export function LiquidityFooter({
 }
 
 // Forecast share card stats row
-export function ForecastStatsRow({
+function ForecastStatsRow({
   resolution,
   horizon,
   odds,
@@ -922,52 +898,6 @@ export function contentContainerStyle(scale = 1): React.CSSProperties {
   } as const;
 }
 
-// Typography primitives
-export function H1({
-  children,
-  scale = 1,
-}: {
-  children: React.ReactNode;
-  scale?: number;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        fontSize: 44 * scale,
-        lineHeight: `${56 * scale}px`,
-        fontWeight: 700,
-        letterSpacing: -0.16 * scale,
-        opacity: 0.98,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function SmallLabel({
-  children,
-  scale = 1,
-}: {
-  children: React.ReactNode;
-  scale?: number;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        fontSize: 18 * scale,
-        letterSpacing: 1 * scale,
-        textTransform: 'uppercase',
-        opacity: 0.64,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 // SectionLabel matches the small caps section headings used on OG cards, scaled.
 export function SectionLabel({
   children,
@@ -993,7 +923,7 @@ export function SectionLabel({
   );
 }
 
-export function FooterLabel({
+function FooterLabel({
   children,
   scale = 1,
 }: {
@@ -1164,133 +1094,6 @@ export function Pill({
   return <div style={computePillStyle(scale, tone)}>{text}</div>;
 }
 
-export function StatCard({
-  label,
-  value,
-  symbol,
-  hint,
-}: {
-  label: string;
-  value: string;
-  symbol?: string | null;
-  hint?: string | null;
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        padding: 18,
-        borderRadius: 18,
-        background: 'rgba(11,16,33,0.045)',
-        border: '1px solid rgba(11,16,33,0.09)',
-      }}
-    >
-      <SmallLabel>{label}</SmallLabel>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <div
-          style={{
-            fontSize: 84,
-            lineHeight: 1,
-            fontWeight: 800,
-            letterSpacing: -1.2,
-          }}
-        >
-          {value}
-        </div>
-        {symbol ? (
-          <div style={{ fontSize: 30, opacity: 0.9, fontWeight: 650 }}>
-            {symbol}
-          </div>
-        ) : null}
-      </div>
-      {hint ? (
-        <div style={{ display: 'flex', fontSize: 18, opacity: 0.7 }}>
-          {hint}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-// Shared right column for wager -> to win, no background.
-export function WagerToWin({
-  wager,
-  payout,
-  symbol,
-  scale = 1,
-}: {
-  wager?: string | null;
-  payout?: string | null;
-  symbol?: string | null;
-  scale?: number;
-}) {
-  const hasWager = Boolean(wager);
-  const hasPayout = Boolean(payout);
-  if (!hasWager && !hasPayout) return null;
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12 * scale,
-        width: 420 * scale,
-      }}
-    >
-      {hasWager ? (
-        <div
-          style={{
-            display: 'flex',
-            fontSize: 24 * scale,
-            opacity: 0.9,
-            fontFamily:
-              'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-          }}
-        >
-          Wagered {wager} {symbol} to win
-        </div>
-      ) : null}
-      {hasPayout ? (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 12 * scale,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <div
-            style={{
-              fontSize: 68 * scale,
-              lineHeight: 1,
-              fontWeight: 700,
-              letterSpacing: -0.8 * scale,
-              fontFamily:
-                'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            }}
-          >
-            {payout}
-          </div>
-          {symbol ? (
-            <div
-              style={{
-                fontSize: 26 * scale,
-                opacity: 0.9,
-                fontWeight: 600,
-                fontFamily:
-                  'IBMPlexMono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-              }}
-            >
-              {symbol}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function computePotentialReturn(
   wager: string,
   payout: string
@@ -1303,13 +1106,6 @@ export function computePotentialReturn(
   const profit = p;
   if (profit <= 0) return null;
   return addThousandsSeparators(profit.toFixed(profit < 1 ? 4 : 2));
-}
-
-export function buildCacheHeaders(searchParams: URLSearchParams): HeadersInit {
-  if (searchParams.has('cb')) {
-    return { 'cache-control': 'public, max-age=31536000, immutable' };
-  }
-  return { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=60' };
 }
 
 export { og };

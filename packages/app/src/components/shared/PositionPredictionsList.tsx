@@ -8,7 +8,7 @@ import {
 } from '@sapience/sdk/ui/components/ui/popover';
 import * as React from 'react';
 
-export interface PositionPrediction {
+interface PositionPrediction {
   shortName?: string | null;
   question?: string | null;
   conditionId?: string | null;

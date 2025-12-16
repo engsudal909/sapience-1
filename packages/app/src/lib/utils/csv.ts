@@ -1,6 +1,6 @@
 'use client';
 
-export type CsvParseResult = {
+type CsvParseResult = {
   headers: string[];
   rows: string[][];
   errors: string[];

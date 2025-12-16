@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
-export type ConditionById = {
+type ConditionById = {
   id: string;
   shortName?: string | null;
   question?: string | null;
