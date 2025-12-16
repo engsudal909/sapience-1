@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 
-import "../../src/predictionMarket/resolvers/PredictionMarketPythBenchmarkResolver.sol";
+import "../../src/predictionMarket/resolvers/PredictionMarketPythResolver.sol";
 import "../../src/predictionMarket/interfaces/IPredictionMarketResolver.sol";
 import "../../src/predictionMarket/resolvers/pyth/IPyth.sol";
 import "../../src/predictionMarket/resolvers/pyth/PythStructs.sol";
@@ -62,8 +62,8 @@ contract MockPyth is IPyth {
     }
 }
 
-contract PredictionMarketPythBenchmarkResolverTest is Test {
-    PredictionMarketPythBenchmarkResolver resolver;
+contract PredictionMarketPythResolverTest is Test {
+    PredictionMarketPythResolver resolver;
     MockPyth mockPyth;
 
     uint256 constant MAX_MARKETS = 10;
@@ -73,10 +73,13 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         mockPyth = new MockPyth();
         mockPyth.setFee(0);
 
-        PredictionMarketPythBenchmarkResolver.Settings memory settings = PredictionMarketPythBenchmarkResolver
-            .Settings({maxPredictionMarkets: MAX_MARKETS, pyth: IPyth(address(mockPyth)), publishTimeWindowSeconds: 0});
+        PredictionMarketPythResolver.Settings memory settings = PredictionMarketPythResolver.Settings({
+            maxPredictionMarkets: MAX_MARKETS,
+            pyth: IPyth(address(mockPyth)),
+            publishTimeWindowSeconds: 0
+        });
 
-        resolver = new PredictionMarketPythBenchmarkResolver(settings);
+        resolver = new PredictionMarketPythResolver(settings);
     }
 
     function _encodeOutcome(
@@ -87,9 +90,9 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         bool overWinsOnTie,
         bool prediction
     ) internal pure returns (bytes memory) {
-        PredictionMarketPythBenchmarkResolver.BinaryOptionOutcome[]
-            memory outcomes = new PredictionMarketPythBenchmarkResolver.BinaryOptionOutcome[](1);
-        outcomes[0] = PredictionMarketPythBenchmarkResolver.BinaryOptionOutcome({
+        PredictionMarketPythResolver.BinaryOptionOutcome[]
+            memory outcomes = new PredictionMarketPythResolver.BinaryOptionOutcome[](1);
+        outcomes[0] = PredictionMarketPythResolver.BinaryOptionOutcome({
             priceId: priceId,
             endTime: endTime,
             strikePrice: strikePrice,
@@ -165,8 +168,13 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         vm.warp(endTime);
 
         bytes[] memory updateData = _updateData(priceId, 150, expo, endTime);
-        PredictionMarketPythBenchmarkResolver.BinaryOptionMarket memory market = PredictionMarketPythBenchmarkResolver
-            .BinaryOptionMarket({priceId: priceId, endTime: endTime, strikePrice: strike, strikeExpo: expo, overWinsOnTie: true});
+        PredictionMarketPythResolver.BinaryOptionMarket memory market = PredictionMarketPythResolver.BinaryOptionMarket({
+            priceId: priceId,
+            endTime: endTime,
+            strikePrice: strike,
+            strikeExpo: expo,
+            overWinsOnTie: true
+        });
 
         (, bool resolvedToOver) = resolver.settleMarket(market, updateData);
         assertTrue(resolvedToOver);
@@ -200,8 +208,13 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         vm.warp(endTime);
 
         bytes[] memory updateData = _updateData(priceId, 150, expo, endTime);
-        PredictionMarketPythBenchmarkResolver.BinaryOptionMarket memory market = PredictionMarketPythBenchmarkResolver
-            .BinaryOptionMarket({priceId: priceId, endTime: endTime, strikePrice: 100, strikeExpo: expo, overWinsOnTie: true});
+        PredictionMarketPythResolver.BinaryOptionMarket memory market = PredictionMarketPythResolver.BinaryOptionMarket({
+            priceId: priceId,
+            endTime: endTime,
+            strikePrice: 100,
+            strikeExpo: expo,
+            overWinsOnTie: true
+        });
 
         (bytes32 marketId, ) = resolver.settleMarket(market, updateData);
 
@@ -224,8 +237,13 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         vm.warp(endTime);
 
         bytes[] memory updateData = _updateData(priceId, strike, expo, endTime); // price == strike
-        PredictionMarketPythBenchmarkResolver.BinaryOptionMarket memory market = PredictionMarketPythBenchmarkResolver
-            .BinaryOptionMarket({priceId: priceId, endTime: endTime, strikePrice: strike, strikeExpo: expo, overWinsOnTie: true});
+        PredictionMarketPythResolver.BinaryOptionMarket memory market = PredictionMarketPythResolver.BinaryOptionMarket({
+            priceId: priceId,
+            endTime: endTime,
+            strikePrice: strike,
+            strikeExpo: expo,
+            overWinsOnTie: true
+        });
 
         (, bool resolvedToOver) = resolver.settleMarket(market, updateData);
         assertTrue(resolvedToOver);
@@ -245,8 +263,13 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         vm.warp(endTime);
 
         bytes[] memory updateData = _updateData(priceId, strike, expo, endTime); // price == strike
-        PredictionMarketPythBenchmarkResolver.BinaryOptionMarket memory market = PredictionMarketPythBenchmarkResolver
-            .BinaryOptionMarket({priceId: priceId, endTime: endTime, strikePrice: strike, strikeExpo: expo, overWinsOnTie: false});
+        PredictionMarketPythResolver.BinaryOptionMarket memory market = PredictionMarketPythResolver.BinaryOptionMarket({
+            priceId: priceId,
+            endTime: endTime,
+            strikePrice: strike,
+            strikeExpo: expo,
+            overWinsOnTie: false
+        });
 
         (, bool resolvedToOver) = resolver.settleMarket(market, updateData);
         assertFalse(resolvedToOver);
@@ -264,12 +287,17 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
         vm.warp(endTime);
 
         bytes[] memory updateData = _updateData(priceId, 150, -8, endTime);
-        PredictionMarketPythBenchmarkResolver.BinaryOptionMarket memory market = PredictionMarketPythBenchmarkResolver
-            .BinaryOptionMarket({priceId: priceId, endTime: endTime, strikePrice: 100, strikeExpo: -6, overWinsOnTie: true});
+        PredictionMarketPythResolver.BinaryOptionMarket memory market = PredictionMarketPythResolver.BinaryOptionMarket({
+            priceId: priceId,
+            endTime: endTime,
+            strikePrice: 100,
+            strikeExpo: -6,
+            overWinsOnTie: true
+        });
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                PredictionMarketPythBenchmarkResolver.StrikeExpoMismatch.selector,
+                PredictionMarketPythResolver.StrikeExpoMismatch.selector,
                 int32(-6),
                 int32(-8)
             )
@@ -286,8 +314,13 @@ contract PredictionMarketPythBenchmarkResolverTest is Test {
 
         // publishTime doesn't match endTime, and window=0 => should revert
         bytes[] memory updateData = _updateData(priceId, 150, expo, endTime + 1);
-        PredictionMarketPythBenchmarkResolver.BinaryOptionMarket memory market = PredictionMarketPythBenchmarkResolver
-            .BinaryOptionMarket({priceId: priceId, endTime: endTime, strikePrice: 100, strikeExpo: expo, overWinsOnTie: true});
+        PredictionMarketPythResolver.BinaryOptionMarket memory market = PredictionMarketPythResolver.BinaryOptionMarket({
+            priceId: priceId,
+            endTime: endTime,
+            strikePrice: 100,
+            strikeExpo: expo,
+            overWinsOnTie: true
+        });
 
         vm.expectRevert(MockPyth.PriceFeedNotFoundWithinRange.selector);
         resolver.settleMarket(market, updateData);

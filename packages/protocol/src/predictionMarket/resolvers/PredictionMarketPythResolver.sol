@@ -7,14 +7,11 @@ import {IPredictionMarketResolver} from "../interfaces/IPredictionMarketResolver
 import {IPyth} from "./pyth/IPyth.sol";
 import {PythStructs} from "./pyth/PythStructs.sol";
 
-/// @title PredictionMarketPythBenchmarkResolver
-/// @notice Resolver for binary options settled using Pyth Benchmarks (historical pull-oracle verification).
+/// @title PredictionMarketPythResolver
+/// @notice Resolver for binary options settled using Pyth pull-oracle updates (historical verification).
 /// @dev `getPredictionResolution` is view-only, so settlement is performed via an explicit `settleMarket` tx
-///      that verifies the benchmark update on-chain and stores the result.
-contract PredictionMarketPythBenchmarkResolver is
-    IPredictionMarketResolver,
-    ReentrancyGuard
-{
+///      that verifies the update on-chain and stores the result.
+contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGuard {
     // ============ Custom Errors ============
     error MustHaveAtLeastOneMarket();
     error TooManyMarkets();
@@ -46,7 +43,7 @@ contract PredictionMarketPythBenchmarkResolver is
     struct Settings {
         uint256 maxPredictionMarkets;
         IPyth pyth;
-        /// @notice Allowed window for benchmark publishTime: [endTime, endTime + publishTimeWindowSeconds].
+        /// @notice Allowed window for publishTime: [endTime, endTime + publishTimeWindowSeconds].
         /// @dev Default 0 enforces exact timestamp. Increase if the chain/feed timestamps are not exactly aligned.
         uint64 publishTimeWindowSeconds;
     }
@@ -184,7 +181,12 @@ contract PredictionMarketPythBenchmarkResolver is
     function settleMarket(
         BinaryOptionMarket calldata market,
         bytes[] calldata updateData
-    ) external payable nonReentrant returns (bytes32 marketId, bool resolvedToOver) {
+    )
+        external
+        payable
+        nonReentrant
+        returns (bytes32 marketId, bool resolvedToOver)
+    {
         if (market.priceId == bytes32(0)) revert InvalidMarketData();
         if (market.strikePrice <= 0) revert InvalidMarketData();
         if (block.timestamp < market.endTime) revert MarketNotEnded();
@@ -201,7 +203,7 @@ contract PredictionMarketPythBenchmarkResolver is
             if (maxPublishTime < market.endTime) revert InvalidMarketData();
         }
 
-        // Verify the benchmark update on-chain
+        // Verify the update on-chain
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = market.priceId;
 
