@@ -5,6 +5,7 @@
  * This script performs load testing on the relayer-ws service by:
  * - Creating multiple concurrent WebSocket connections
  * - Sending messages at a specified rate
+ * - Testing signed and unsigned messages for all message types
  * - Tracking connection success/failure
  * - Measuring latency and throughput
  * 
@@ -18,6 +19,24 @@
 
 import WebSocket from 'ws';
 import { parseArgs } from 'util';
+import { privateKeyToAccount, signMessage } from 'viem/accounts';
+import { generatePrivateKey } from 'viem/accounts';
+import {
+  createAuctionStartSiweMessage,
+  buildMakerBidTypedData,
+  signMakerBid,
+  extractSiweDomainAndUri,
+} from '@sapience/sdk';
+import {
+  PREDICTION_MARKET_ADDRESS_ARB1,
+  PREDICTION_MARKET_CHAIN_ID_ARB1,
+} from './src/constants';
+import type {
+  AuctionRequestPayload,
+  BidPayload,
+  ClientToServerMessage,
+  BotToServerMessage,
+} from './src/types';
 
 const args = parseArgs({
   options: {
@@ -58,6 +77,9 @@ interface ConnectionStats {
   errors: number;
   latencies: number[];
   lastMessageTime?: number;
+  signedMessages: number;
+  unsignedMessages: number;
+  invalidSignatures: number;
 }
 
 const stats: Map<number, ConnectionStats> = new Map();
@@ -66,18 +88,238 @@ let totalConnections = 0;
 let successfulConnections = 0;
 let failedConnections = 0;
 
-function createTestPayload(connectionId: number, messageId: number) {
+// Generate test accounts for signing
+const takerPrivateKey = generatePrivateKey();
+const makerPrivateKey = generatePrivateKey();
+const wrongPrivateKey = generatePrivateKey(); // For invalid signatures
+
+const takerAccount = privateKeyToAccount(takerPrivateKey);
+const makerAccount = privateKeyToAccount(makerPrivateKey);
+const wrongAccount = privateKeyToAccount(wrongPrivateKey);
+
+// Extract domain and URI from WebSocket URL
+const { domain, uri } = extractSiweDomainAndUri(WS_URL);
+
+type MessageType = 'auction.start' | 'bid.submit' | 'auction.subscribe' | 'auction.unsubscribe';
+type SignatureType = 'signed' | 'unsigned' | 'wrong_signature';
+
+async function createAuctionStartMessage(
+  connectionId: number,
+  messageId: number,
+  sigType: SignatureType
+): Promise<ClientToServerMessage> {
+  const taker = takerAccount.address;
+  const payload: AuctionRequestPayload = {
+    taker,
+    wager: '1000000000000000000', // 1 ETH
+    resolver: '0x0000000000000000000000000000000000000000',
+    predictedOutcomes: ['0xdeadbeef'],
+    takerNonce: messageId,
+    chainId: 42161,
+  };
+
+  if (sigType === 'unsigned') {
+    return {
+      type: 'auction.start',
+      payload,
+    };
+  }
+
+  const takerSignedAt = new Date().toISOString();
+  const signingPayload = {
+    wager: payload.wager,
+    predictedOutcomes: payload.predictedOutcomes,
+    resolver: payload.resolver,
+    taker: payload.taker,
+    takerNonce: payload.takerNonce,
+    chainId: payload.chainId,
+  };
+
+  const message = createAuctionStartSiweMessage(
+    signingPayload,
+    domain,
+    uri,
+    takerSignedAt
+  );
+
+  let signature: `0x${string}`;
+  if (sigType === 'signed') {
+    signature = await takerAccount.signMessage({ message });
+  } else {
+    // Wrong signature - sign with wrong account
+    signature = await wrongAccount.signMessage({ message });
+  }
+
   return {
     type: 'auction.start',
     payload: {
-      taker: `0x${connectionId.toString(16).padStart(40, '0')}`,
-      wager: '1000000000000000000', // 1 ETH
-      resolver: '0x0000000000000000000000000000000000000000',
-      predictedOutcomes: ['0xdeadbeef'],
-      takerNonce: messageId,
-      chainId: 42161,
+      ...payload,
+      takerSignature: signature,
+      takerSignedAt,
     },
   };
+}
+
+async function createBidSubmitMessage(
+  auctionId: string,
+  messageId: number,
+  sigType: SignatureType
+): Promise<BotToServerMessage> {
+  const maker = makerAccount.address;
+  const auction: AuctionRequestPayload = {
+    taker: takerAccount.address,
+    wager: '1000000000000000000',
+    resolver: '0x0000000000000000000000000000000000000000',
+    predictedOutcomes: ['0xdeadbeef'],
+    takerNonce: 0,
+    chainId: 42161,
+  };
+
+  const payload: BidPayload = {
+    auctionId,
+    maker,
+    makerWager: '1000000000000000000',
+    makerDeadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+    makerNonce: messageId,
+    makerSignature: '0x', // Placeholder
+  };
+
+  if (sigType === 'unsigned') {
+    return {
+      type: 'bid.submit',
+      payload: {
+        ...payload,
+        makerSignature: '0x', // Empty signature
+      },
+    };
+  }
+
+  const typedData = buildMakerBidTypedData({
+    auction: {
+      wager: BigInt(auction.wager),
+      predictedOutcomes: auction.predictedOutcomes as `0x${string}`[],
+      resolver: auction.resolver as `0x${string}`,
+      taker: auction.taker as `0x${string}`,
+    },
+    makerWager: BigInt(payload.makerWager),
+    makerDeadline: payload.makerDeadline,
+    chainId: PREDICTION_MARKET_CHAIN_ID_ARB1,
+    verifyingContract: PREDICTION_MARKET_ADDRESS_ARB1,
+    maker: maker as `0x${string}`,
+    makerNonce: BigInt(payload.makerNonce),
+  });
+
+  let signature: `0x${string}`;
+  if (sigType === 'signed') {
+    signature = await signMakerBid({
+      privateKey: makerPrivateKey,
+      ...typedData,
+    });
+  } else {
+    // Wrong signature - sign with wrong account
+    signature = await signMakerBid({
+      privateKey: wrongPrivateKey,
+      ...typedData,
+    });
+  }
+
+  return {
+    type: 'bid.submit',
+    payload: {
+      ...payload,
+      makerSignature: signature,
+    },
+  };
+}
+
+function createSubscribeMessage(auctionId: string): ClientToServerMessage {
+  return {
+    type: 'auction.subscribe',
+    payload: { auctionId },
+  };
+}
+
+function createUnsubscribeMessage(auctionId: string): ClientToServerMessage {
+  return {
+    type: 'auction.unsubscribe',
+    payload: { auctionId },
+  };
+}
+
+// Message type distribution for testing
+const MESSAGE_TYPES: Array<{ type: MessageType; weight: number }> = [
+  { type: 'auction.start', weight: 0.3 },
+  { type: 'bid.submit', weight: 0.3 },
+  { type: 'auction.subscribe', weight: 0.2 },
+  { type: 'auction.unsubscribe', weight: 0.2 },
+];
+
+// Signature type distribution
+const SIG_TYPES: Array<{ type: SignatureType; weight: number }> = [
+  { type: 'signed', weight: 0.4 },
+  { type: 'unsigned', weight: 0.4 },
+  { type: 'wrong_signature', weight: 0.2 },
+];
+
+function selectMessageType(): MessageType {
+  const rand = Math.random();
+  let cumulative = 0;
+  for (const item of MESSAGE_TYPES) {
+    cumulative += item.weight;
+    if (rand <= cumulative) {
+      return item.type;
+    }
+  }
+  return MESSAGE_TYPES[0].type;
+}
+
+function selectSignatureType(): SignatureType {
+  const rand = Math.random();
+  let cumulative = 0;
+  for (const item of SIG_TYPES) {
+    cumulative += item.weight;
+    if (rand <= cumulative) {
+      return item.type;
+    }
+  }
+  return SIG_TYPES[0].type;
+}
+
+async function createTestMessage(
+  connectionId: number,
+  messageId: number,
+  auctionIds: string[]
+): Promise<ClientToServerMessage | BotToServerMessage | null> {
+  const msgType = selectMessageType();
+  const sigType = selectSignatureType();
+
+  // For subscribe/unsubscribe, we don't need signatures
+  if (msgType === 'auction.subscribe') {
+    const auctionId = auctionIds.length > 0 
+      ? auctionIds[Math.floor(Math.random() * auctionIds.length)]
+      : `test-auction-${connectionId}`;
+    return createSubscribeMessage(auctionId);
+  }
+
+  if (msgType === 'auction.unsubscribe') {
+    const auctionId = auctionIds.length > 0 
+      ? auctionIds[Math.floor(Math.random() * auctionIds.length)]
+      : `test-auction-${connectionId}`;
+    return createUnsubscribeMessage(auctionId);
+  }
+
+  if (msgType === 'auction.start') {
+    return await createAuctionStartMessage(connectionId, messageId, sigType);
+  }
+
+  if (msgType === 'bid.submit') {
+    const auctionId = auctionIds.length > 0 
+      ? auctionIds[Math.floor(Math.random() * auctionIds.length)]
+      : `test-auction-${connectionId}`;
+    return await createBidSubmitMessage(auctionId, messageId, sigType);
+  }
+
+  return null;
 }
 
 function createConnection(id: number): Promise<void> {
@@ -88,12 +330,16 @@ function createConnection(id: number): Promise<void> {
       messagesReceived: 0,
       errors: 0,
       latencies: [],
+      signedMessages: 0,
+      unsignedMessages: 0,
+      invalidSignatures: 0,
     };
     stats.set(id, connectionStats);
 
     let ws: WebSocket | null = null;
     let messageInterval: NodeJS.Timeout | null = null;
     let messageId = 0;
+    const auctionIds: string[] = []; // Track auction IDs for subscribe/unsubscribe/bid
 
     const cleanup = () => {
       if (messageInterval) {
@@ -109,18 +355,48 @@ function createConnection(id: number): Promise<void> {
       }
     };
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         return;
       }
 
-      const payload = createTestPayload(id, messageId++);
+      const msg = await createTestMessage(id, messageId++, auctionIds);
+      if (!msg) {
+        return;
+      }
+
+      // Track signature type
+      if ('payload' in msg && 'takerSignature' in msg.payload) {
+        const payload = msg.payload as AuctionRequestPayload;
+        if (payload.takerSignature) {
+          // Check if it's a wrong signature by verifying the address
+          if (payload.taker.toLowerCase() !== takerAccount.address.toLowerCase()) {
+            connectionStats.invalidSignatures++;
+          } else {
+            connectionStats.signedMessages++;
+          }
+        } else {
+          connectionStats.unsignedMessages++;
+        }
+      } else if ('payload' in msg && 'makerSignature' in msg.payload) {
+        const payload = msg.payload as BidPayload;
+        if (payload.makerSignature && payload.makerSignature !== '0x') {
+          // For bid signatures, we can't easily verify here, so we'll track based on the message
+          connectionStats.signedMessages++;
+        } else {
+          connectionStats.unsignedMessages++;
+        }
+      } else {
+        // subscribe/unsubscribe messages
+        connectionStats.unsignedMessages++;
+      }
+
       const sendTime = Date.now();
       connectionStats.lastMessageTime = sendTime;
       connectionStats.messagesSent++;
 
       try {
-        ws.send(JSON.stringify(payload));
+        ws.send(JSON.stringify(msg));
       } catch (err) {
         connectionStats.errors++;
         console.error(`[Connection ${id}] Error sending message:`, err);
@@ -137,9 +413,17 @@ function createConnection(id: number): Promise<void> {
       // Send messages at the specified rate
       const intervalMs = RATE > 0 ? 1000 / RATE : 0;
       if (intervalMs > 0) {
-        messageInterval = setInterval(sendMessage, intervalMs);
+        messageInterval = setInterval(() => {
+          sendMessage().catch((err) => {
+            connectionStats.errors++;
+            console.error(`[Connection ${id}] Error in sendMessage:`, err);
+          });
+        }, intervalMs);
         // Send first message immediately
-        sendMessage();
+        sendMessage().catch((err) => {
+          connectionStats.errors++;
+          console.error(`[Connection ${id}] Error in sendMessage:`, err);
+        });
       }
 
       resolve();
@@ -161,7 +445,21 @@ function createConnection(id: number): Promise<void> {
       try {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'auction.ack') {
-          // Message acknowledged
+          // Track auction IDs from successful starts
+          if (msg.payload?.auctionId) {
+            const auctionId = msg.payload.auctionId;
+            if (!auctionIds.includes(auctionId)) {
+              auctionIds.push(auctionId);
+            }
+          }
+        } else if (msg.type === 'auction.started') {
+          // Track auction IDs from broadcasts
+          if (msg.payload?.auctionId) {
+            const auctionId = msg.payload.auctionId;
+            if (!auctionIds.includes(auctionId)) {
+              auctionIds.push(auctionId);
+            }
+          }
         }
       } catch {
         // Ignore parse errors
@@ -251,6 +549,18 @@ function printResults() {
     (sum, s) => sum + s.errors,
     0
   );
+  const totalSigned = Array.from(stats.values()).reduce(
+    (sum, s) => sum + s.signedMessages,
+    0
+  );
+  const totalUnsigned = Array.from(stats.values()).reduce(
+    (sum, s) => sum + s.unsignedMessages,
+    0
+  );
+  const totalInvalidSigs = Array.from(stats.values()).reduce(
+    (sum, s) => sum + s.invalidSignatures,
+    0
+  );
 
   const allLatencies = Array.from(stats.values())
     .flatMap(s => s.latencies)
@@ -285,6 +595,10 @@ function printResults() {
   console.log(`Messages Received: ${totalMessagesReceived} (${receivedPerSec.toFixed(2)} msg/sec)`);
   console.log(`Errors: ${totalErrors}`);
   console.log(`Success Rate: ${totalMessagesReceived > 0 ? ((totalMessagesReceived / totalMessagesSent) * 100).toFixed(2) : 0}%`);
+  console.log('\nMessage Signature Statistics:');
+  console.log(`  Signed Messages: ${totalSigned}`);
+  console.log(`  Unsigned Messages: ${totalUnsigned}`);
+  console.log(`  Invalid Signatures: ${totalInvalidSigs}`);
   console.log('\nLatency Statistics:');
   console.log(`  Average: ${avgLatency.toFixed(2)}ms`);
   console.log(`  P50: ${p50Latency.toFixed(2)}ms`);
