@@ -202,12 +202,24 @@ export class PositionResolver {
     if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
       const direction = orderDirection === 'asc' ? 'ASC' : 'DESC';
 
-      // Build additional WHERE conditions for status and endsAtGte
-      const statusCondition = status ? `AND status = '${status}'` : '';
-      const endsAtCondition =
-        endsAtGte !== undefined && endsAtGte !== null
-          ? `AND "endsAt" >= ${endsAtGte}`
-          : '';
+      const validStatuses = ['active', 'settled', 'consolidated'] as const;
+      const sanitizedStatus =
+        status && validStatuses.includes(status) ? status : null;
+      const statusCondition = sanitizedStatus
+        ? `AND status = '${sanitizedStatus}'`
+        : '';
+
+  
+      const sanitizedEndsAtGte =
+        endsAtGte !== undefined &&
+        endsAtGte !== null &&
+        Number.isInteger(endsAtGte)
+          ? endsAtGte
+          : null;
+      const endsAtCondition = sanitizedEndsAtGte
+        ? `AND "endsAt" >= ${sanitizedEndsAtGte}`
+        : '';
+
       const extraConditions = `${statusCondition} ${endsAtCondition}`;
 
       if (orderBy === 'wager') {
