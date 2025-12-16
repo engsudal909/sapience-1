@@ -111,7 +111,7 @@ export function PredictionScatterChart({
   return (
     <>
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 20, right: 24, bottom: 5, left: -10 }}>
+        <ScatterChart margin={{ top: 10, right: 16, bottom: 5, left: -10 }}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="hsl(var(--brand-white) / 0.1)"
@@ -260,7 +260,7 @@ export function PredictionScatterChart({
                         {!isForecast &&
                           combinedPredictions &&
                           combinedPredictions.length > 0 &&
-                          `${combinedWithYes === false ? '>' : '<'}`}
+                          `${combinedWithYes === false ? '<' : '>'}`}
                         {Math.round(point.y)}% chance
                       </span>
                     </div>
@@ -472,10 +472,10 @@ export function PredictionScatterChart({
                 const rayLength = lineWidth * 0.6; // Ray height proportional to line width
                 const gradientId = `bracket-ray-gradient-${payload.x}`;
                 const lineGradientId = `bracket-line-gradient-${payload.x}`;
-                // Determine ray direction based on predictor's prediction:
-                // - Predictor bets YES → ray DOWN (toward 100%)
-                // - Predictor bets NO → ray UP (toward 0%)
-                const rayUp = payload.predictorPrediction === false;
+                // Determine ray direction based on the combo "bound" meaning:
+                // - Predictor bets YES on this question => displayed value is a LOWER bound on P(YES) => ray UP (chance could be greater)
+                // - Predictor bets NO on this question  => displayed value is an UPPER bound on P(YES) => ray DOWN (chance could be lesser)
+                const rayUp = payload.predictorPrediction === true;
                 return (
                   <g
                     className="bracket-combined"

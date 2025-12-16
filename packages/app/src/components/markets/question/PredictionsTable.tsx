@@ -169,7 +169,7 @@ export function PredictionsTable({ data, isLoading }: PredictionsTableProps) {
             <span className="font-mono text-ethena whitespace-nowrap">
               {combinedPredictions &&
                 combinedPredictions.length > 0 &&
-                `${combinedWithYes === false ? '>' : '<'}`}
+                `${combinedWithYes === false ? '<' : '>'}`}
               {Math.round(impliedPercent)}% chance
             </span>
           );
