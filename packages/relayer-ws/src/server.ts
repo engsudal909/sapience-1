@@ -41,6 +41,15 @@ const startServer = async () => {
       return;
     }
 
+    // /auction endpoint only supports WebSocket connections
+    if (req.url?.startsWith('/auction')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        error: 'This endpoint only supports WebSocket connections. Use ws:// or wss:// protocol.'
+      }));
+      return;
+    }
+
     // 404 for other routes
     res.writeHead(404);
     res.end('Not Found');
