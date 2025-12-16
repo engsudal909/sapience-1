@@ -211,13 +211,16 @@ export function createAuctionWebSocketServer() {
     set.delete(ws);
     if (set.size === 0) vaultSubscriptions.delete(key);
   }
-  function vaultUnsubscribeAll(ws: WebSocket) {
+  function vaultUnsubscribeAll(ws: WebSocket): number {
+    let count = 0;
     for (const [k, set] of vaultSubscriptions.entries()) {
       if (set.has(ws)) {
         set.delete(ws);
+        count++;
         if (set.size === 0) vaultSubscriptions.delete(k);
       }
     }
+    return count;
   }
 
   function addVaultObserver(ws: WebSocket) {
@@ -480,7 +483,11 @@ export function createAuctionWebSocketServer() {
             return;
           }
           const key = makeVaultKey(chainId, vaultAddress);
+          const wasNewSubscription = !vaultSubscriptions.get(key)?.has(ws);
           vaultSubscribe(key, ws);
+          if (wasNewSubscription) {
+            subscriptionsActive.inc({ subscription_type: 'vault' });
+          }
           const latest = latestVaultQuoteByKey.get(key);
           if (latest) {
             try {
@@ -528,7 +535,11 @@ export function createAuctionWebSocketServer() {
             ({} as SubscribePayload);
           if (!chainId || !vaultAddress) return;
           const key = makeVaultKey(chainId, vaultAddress);
+          const hadSubscription = vaultSubscriptions.get(key)?.has(ws) ?? false;
           vaultUnsubscribe(key, ws);
+          if (hadSubscription) {
+            subscriptionsActive.dec({ subscription_type: 'vault' });
+          }
           try {
             ws.send(
               JSON.stringify({ type: 'vault_quote.ack', payload: { ok: true } })
@@ -1006,9 +1017,12 @@ export function createAuctionWebSocketServer() {
       unsubscribeFromAllAuctions(ws, auctionSubscriptions);
       subscriptionsActive.dec({ subscription_type: 'auction' });
       // Clean up vault subscriptions and observers for this client
-      vaultUnsubscribeAll(ws);
+      const vaultSubscriptionCount = vaultUnsubscribeAll(ws);
+      // Decrement metric for each vault subscription that was removed
+      for (let i = 0; i < vaultSubscriptionCount; i++) {
+        subscriptionsActive.dec({ subscription_type: 'vault' });
+      }
       removeVaultObserver(ws);
-      subscriptionsActive.dec({ subscription_type: 'vault' });
     });
   });
 
