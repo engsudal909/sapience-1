@@ -431,6 +431,20 @@ export function createAuctionWebSocketServer() {
       // Track message received
       messagesReceived.inc({ type: msgType });
 
+      // Handle ping/pong messages (JSON-level, not WebSocket frames)
+      if (msgType === 'ping') {
+        try {
+          ws.send(JSON.stringify({ type: 'pong' }));
+          messagesSent.inc({ type: 'pong' });
+        } catch (err) {
+          console.error('[Relayer-WS] Failed to send pong response:', err);
+        }
+        // Track processing duration
+        const duration = (Date.now() - startTime) / 1000;
+        messageProcessingDuration.observe({ type: msgType }, duration);
+        return;
+      }
+
       // Handle Vault Quote messages (multiplexed)
       if ((msg as { type?: string })?.type?.startsWith('vault_quote.')) {
         const type = (msg as { type?: string }).type as string;

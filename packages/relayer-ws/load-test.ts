@@ -100,7 +100,7 @@ const wrongAccount = privateKeyToAccount(wrongPrivateKey);
 // Extract domain and URI from WebSocket URL
 const { domain, uri } = extractSiweDomainAndUri(WS_URL);
 
-type MessageType = 'auction.start' | 'bid.submit' | 'auction.subscribe' | 'auction.unsubscribe';
+type MessageType = 'auction.start' | 'bid.submit' | 'auction.subscribe' | 'auction.unsubscribe' | 'ping';
 type SignatureType = 'signed' | 'unsigned' | 'wrong_signature';
 
 async function createAuctionStartMessage(
@@ -246,12 +246,19 @@ function createUnsubscribeMessage(auctionId: string): ClientToServerMessage {
   };
 }
 
+function createPingMessage(): { type: 'ping' } {
+  return {
+    type: 'ping',
+  };
+}
+
 // Message type distribution for testing
 const MESSAGE_TYPES: Array<{ type: MessageType; weight: number }> = [
-  { type: 'auction.start', weight: 0.3 },
-  { type: 'bid.submit', weight: 0.3 },
-  { type: 'auction.subscribe', weight: 0.2 },
-  { type: 'auction.unsubscribe', weight: 0.2 },
+  { type: 'auction.start', weight: 0.25 },
+  { type: 'bid.submit', weight: 0.25 },
+  { type: 'auction.subscribe', weight: 0.15 },
+  { type: 'auction.unsubscribe', weight: 0.15 },
+  { type: 'ping', weight: 0.2 }, // Add ping messages for testing
 ];
 
 // Signature type distribution
@@ -289,7 +296,7 @@ async function createTestMessage(
   connectionId: number,
   messageId: number,
   auctionIds: string[]
-): Promise<ClientToServerMessage | BotToServerMessage | null> {
+): Promise<ClientToServerMessage | BotToServerMessage | { type: 'ping' } | null> {
   const msgType = selectMessageType();
   const sigType = selectSignatureType();
 
@@ -317,6 +324,10 @@ async function createTestMessage(
       ? auctionIds[Math.floor(Math.random() * auctionIds.length)]
       : `test-auction-${connectionId}`;
     return await createBidSubmitMessage(auctionId, messageId, sigType);
+  }
+
+  if (msgType === 'ping') {
+    return createPingMessage();
   }
 
   return null;
@@ -460,6 +471,9 @@ function createConnection(id: number): Promise<void> {
               auctionIds.push(auctionId);
             }
           }
+        } else if (msg.type === 'pong') {
+          // Track successful ping/pong responses
+          // (messagesReceived is already incremented above)
         }
       } catch {
         // Ignore parse errors
