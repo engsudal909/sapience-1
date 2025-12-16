@@ -39,7 +39,7 @@ export function createAuctionProxyMiddleware() {
           proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
         }
       },
-      proxyRes: (proxyRes, req, res) => {
+      proxyRes: (proxyRes, req) => {
         // Log all responses for monitoring
         if (proxyRes.statusCode) {
           if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
