@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {OAppRead} from "@layerzerolabs/oapp-evm/contracts/oapp/OAppRead.sol";
-import {Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import {Origin, MessagingFee, MessagingReceipt} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {ReadCodecV1, EVMCallRequestV1, EVMCallComputeV1} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/ReadCodecV1.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -20,6 +20,7 @@ interface IConditionalTokens {
  * @notice Resolver that uses LayerZero lzRead to query Gnosis ConditionalTokens payout data cross-chain
  * @dev Implements IPredictionMarketResolver and caches binary YES/NO outcomes for conditionIds.
  *      Uses lzRead to fetch payoutDenominator and payoutNumerators from a remote ConditionalTokens contract.
+ *      Sends 3 separate lzRead requests per condition and correlates responses via guid.
  */
 contract PredictionMarketLZConditionalTokensResolver is
     OAppRead,
@@ -33,27 +34,31 @@ contract PredictionMarketLZConditionalTokensResolver is
     error TooManyMarkets();
     error InvalidConditionId();
     error ConditionAlreadySettled();
-    error ConditionNotBinary(bytes32 conditionId, uint256 denom, uint256 noPayout, uint256 yesPayout);
     error RequestAlreadyPending(bytes32 conditionId);
-    error InvalidReadResponse();
     error InsufficientETHForFee(uint256 required, uint256 available);
+    error UnknownGuid(bytes32 guid);
+
+    // ============ Enums ============
+    /// @dev Response types for the 3 lzRead calls
+    enum ResponseType {
+        DENOM,      // payoutDenominator
+        NO_PAYOUT,  // payoutNumerators[0]
+        YES_PAYOUT  // payoutNumerators[1]
+    }
 
     // ============ Constants ============
     /// @dev App command label for lzRead requests
     uint16 private constant APP_CMD_LABEL = 1;
-    
-    /// @dev Request labels for the three view calls
-    uint16 private constant REQ_LABEL_DENOM = 1;
-    uint16 private constant REQ_LABEL_NO_PAYOUT = 2;
-    uint16 private constant REQ_LABEL_YES_PAYOUT = 3;
 
     // ============ Settings ============
     struct Settings {
         uint256 maxPredictionMarkets;
-        uint32 remoteEid;              // LayerZero endpoint ID of the chain with ConditionalTokens
+        uint32 readChannelEid;          // LayerZero read channel endpoint ID (for _lzSend destination)
+        uint32 targetEid;               // LayerZero endpoint ID of the chain with ConditionalTokens
         address conditionalTokens;      // Address of ConditionalTokens contract on remote chain
         uint16 confirmations;           // Block confirmations required for lzRead
-        uint128 lzReceiveGasLimit;      // Gas limit for lzReceive callback
+        uint128 lzReadGasLimit;         // Gas limit for lzRead callback
+        uint32 lzReadResultSize;        // Expected result size in bytes (32 for uint256)
     }
 
     Settings public config;
@@ -63,6 +68,7 @@ contract PredictionMarketLZConditionalTokensResolver is
         bytes32 conditionId;
         bool settled;
         bool resolvedToYes;
+        bool invalid;              // True if non-binary or other invalid state
         uint256 payoutDenominator;
         uint256 noPayout;
         uint256 yesPayout;
@@ -75,33 +81,69 @@ contract PredictionMarketLZConditionalTokensResolver is
         bool prediction;    // true for YES, false for NO
     }
 
+    /// @dev Pending read request info - maps guid to condition + response type
+    struct PendingRead {
+        bytes32 conditionId;
+        ResponseType responseType;
+    }
+
+    /// @dev Partial response data while waiting for all 3 responses
+    struct PartialResponse {
+        bool hasDenom;
+        bool hasNoPayout;
+        bool hasYesPayout;
+        uint256 denom;
+        uint256 noPayout;
+        uint256 yesPayout;
+    }
+
     /// @dev Mapping from conditionId to its cached state
     mapping(bytes32 => ConditionState) public conditions;
     
     /// @dev Track pending resolution requests to prevent duplicates
     mapping(bytes32 => bool) public pendingRequests;
 
+    /// @dev Map guid -> pending read info for response correlation
+    mapping(bytes32 => PendingRead) public pendingReads;
+
+    /// @dev Map conditionId -> partial responses while collecting all 3
+    mapping(bytes32 => PartialResponse) public partialResponses;
+
     // ============ Events ============
     event ResolutionRequested(
         bytes32 indexed conditionId,
         bytes32 indexed refCode,
+        bytes32 guidDenom,
+        bytes32 guidNoPayout,
+        bytes32 guidYesPayout,
         uint256 timestamp
     );
     
     event ConditionResolved(
         bytes32 indexed conditionId,
         bool resolvedToYes,
+        bool invalid,
         uint256 payoutDenominator,
         uint256 noPayout,
         uint256 yesPayout,
         uint256 timestamp
     );
+
+    event ConditionResponseReceived(
+        bytes32 indexed conditionId,
+        bytes32 indexed guid,
+        ResponseType responseType,
+        uint256 value,
+        uint256 timestamp
+    );
     
     event ConfigUpdated(
-        uint32 remoteEid,
+        uint32 readChannelEid,
+        uint32 targetEid,
         address conditionalTokens,
         uint16 confirmations,
-        uint128 lzReceiveGasLimit,
+        uint128 lzReadGasLimit,
+        uint32 lzReadResultSize,
         uint256 maxPredictionMarkets
     );
 
@@ -118,10 +160,12 @@ contract PredictionMarketLZConditionalTokensResolver is
     function setConfig(Settings calldata _config) external onlyOwner {
         config = _config;
         emit ConfigUpdated(
-            _config.remoteEid,
+            _config.readChannelEid,
+            _config.targetEid,
             _config.conditionalTokens,
             _config.confirmations,
-            _config.lzReceiveGasLimit,
+            _config.lzReadGasLimit,
+            _config.lzReadResultSize,
             _config.maxPredictionMarkets
         );
     }
@@ -202,6 +246,12 @@ contract PredictionMarketLZConditionalTokensResolver is
                 continue;
             }
 
+            // If marked invalid (non-binary), treat as unsettled
+            if (condition.invalid) {
+                hasUnsettledConditions = true;
+                continue;
+            }
+
             if (!condition.settled) {
                 // Queried but not settled on remote chain
                 hasUnsettledConditions = true;
@@ -245,7 +295,7 @@ contract PredictionMarketLZConditionalTokensResolver is
      * @notice Request resolution data for a condition via lzRead
      * @param conditionId The ConditionalTokens conditionId to query
      * @param refCode Reference code for tracking
-     * @dev Sends an lzRead request to fetch payoutDenominator and payoutNumerators
+     * @dev Sends 3 separate lzRead requests to fetch payoutDenominator and payoutNumerators
      */
     function requestResolution(
         bytes32 conditionId,
@@ -255,170 +305,215 @@ contract PredictionMarketLZConditionalTokensResolver is
         if (conditions[conditionId].settled) revert ConditionAlreadySettled();
         if (pendingRequests[conditionId]) revert RequestAlreadyPending(conditionId);
         
+        // Quote total fee for all 3 requests
+        MessagingFee memory totalFee = _quoteTotalFee(conditionId);
+        
+        if (msg.value < totalFee.nativeFee) {
+            revert InsufficientETHForFee(totalFee.nativeFee, msg.value);
+        }
+
         // Mark request as pending
         pendingRequests[conditionId] = true;
+
+        // Clear any stale partial responses
+        delete partialResponses[conditionId];
         
-        // Build the lzRead command with 3 view calls
-        bytes memory cmd = _buildReadCommand(conditionId);
+        // Send 3 separate lzRead requests
+        bytes32 guidDenom = _sendReadRequest(conditionId, ResponseType.DENOM);
+        bytes32 guidNoPayout = _sendReadRequest(conditionId, ResponseType.NO_PAYOUT);
+        bytes32 guidYesPayout = _sendReadRequest(conditionId, ResponseType.YES_PAYOUT);
         
-        // Build options for lzReceive gas
-        bytes memory options = OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(config.lzReceiveGasLimit, 0);
-        
-        // Quote the fee
-        MessagingFee memory fee = _quote(config.remoteEid, cmd, options, false);
-        
-        if (msg.value < fee.nativeFee) {
-            revert InsufficientETHForFee(fee.nativeFee, msg.value);
+        // Refund excess ETH
+        uint256 excess = msg.value - totalFee.nativeFee;
+        if (excess > 0) {
+            (bool success, ) = payable(msg.sender).call{value: excess}("");
+            require(success, "Refund failed");
         }
         
-        // Send the lzRead request
-        _lzSend(config.remoteEid, cmd, options, fee, payable(msg.sender));
-        
-        emit ResolutionRequested(conditionId, refCode, block.timestamp);
+        emit ResolutionRequested(conditionId, refCode, guidDenom, guidNoPayout, guidYesPayout, block.timestamp);
     }
 
     /**
-     * @notice Quote the fee for a resolution request
+     * @notice Quote the total fee for a resolution request (all 3 lzRead calls)
      * @param conditionId The conditionId to query
-     * @return fee The MessagingFee required
+     * @return totalFee The total MessagingFee required for all 3 requests
      */
-    function quoteResolution(bytes32 conditionId) external view returns (MessagingFee memory fee) {
-        bytes memory cmd = _buildReadCommand(conditionId);
-        bytes memory options = OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(config.lzReceiveGasLimit, 0);
-        return _quote(config.remoteEid, cmd, options, false);
+    function quoteResolution(bytes32 conditionId) external view returns (MessagingFee memory totalFee) {
+        return _quoteTotalFee(conditionId);
     }
 
     /**
-     * @dev Build the lzRead command to query ConditionalTokens payout data
-     * @param conditionId The condition to query
-     * @return cmd The encoded lzRead command
+     * @dev Quote fee for all 3 lzRead requests
      */
-    function _buildReadCommand(bytes32 conditionId) internal view returns (bytes memory) {
-        EVMCallRequestV1[] memory requests = new EVMCallRequestV1[](3);
+    function _quoteTotalFee(bytes32 conditionId) internal view returns (MessagingFee memory totalFee) {
+        MessagingFee memory feeDenom = _quoteSingleRequest(conditionId, ResponseType.DENOM);
+        MessagingFee memory feeNo = _quoteSingleRequest(conditionId, ResponseType.NO_PAYOUT);
+        MessagingFee memory feeYes = _quoteSingleRequest(conditionId, ResponseType.YES_PAYOUT);
         
-        // Request 1: payoutDenominator(conditionId)
+        totalFee.nativeFee = feeDenom.nativeFee + feeNo.nativeFee + feeYes.nativeFee;
+        totalFee.lzTokenFee = feeDenom.lzTokenFee + feeNo.lzTokenFee + feeYes.lzTokenFee;
+    }
+
+    /**
+     * @dev Quote fee for a single lzRead request
+     */
+    function _quoteSingleRequest(bytes32 conditionId, ResponseType responseType) internal view returns (MessagingFee memory) {
+        bytes memory cmd = _buildSingleReadCommand(conditionId, responseType);
+        bytes memory options = _buildLzReadOptions();
+        return _quote(config.readChannelEid, cmd, options, false);
+    }
+
+    /**
+     * @dev Send a single lzRead request and store guid mapping
+     */
+    function _sendReadRequest(bytes32 conditionId, ResponseType responseType) internal returns (bytes32 guid) {
+        bytes memory cmd = _buildSingleReadCommand(conditionId, responseType);
+        bytes memory options = _buildLzReadOptions();
+        MessagingFee memory fee = _quote(config.readChannelEid, cmd, options, false);
+        
+        MessagingReceipt memory receipt = _lzSend(
+            config.readChannelEid,
+            cmd,
+            options,
+            fee,
+            payable(address(this)) // Refund to contract for multi-send
+        );
+        
+        guid = receipt.guid;
+        
+        // Store mapping for response correlation
+        pendingReads[guid] = PendingRead({
+            conditionId: conditionId,
+            responseType: responseType
+        });
+        
+        return guid;
+    }
+
+    /**
+     * @dev Build lzRead options using addExecutorLzReadOption
+     */
+    function _buildLzReadOptions() internal view returns (bytes memory) {
+        return OptionsBuilder.newOptions()
+            .addExecutorLzReadOption(config.lzReadGasLimit, config.lzReadResultSize, 0);
+    }
+
+    /**
+     * @dev Build a single lzRead command for one view call
+     */
+    function _buildSingleReadCommand(bytes32 conditionId, ResponseType responseType) internal view returns (bytes memory) {
+        EVMCallRequestV1[] memory requests = new EVMCallRequestV1[](1);
+        
+        bytes memory callData;
+        uint16 appRequestLabel;
+        
+        if (responseType == ResponseType.DENOM) {
+            appRequestLabel = 1;
+            callData = abi.encodeWithSelector(
+                IConditionalTokens.payoutDenominator.selector,
+                conditionId
+            );
+        } else if (responseType == ResponseType.NO_PAYOUT) {
+            appRequestLabel = 2;
+            callData = abi.encodeWithSelector(
+                IConditionalTokens.payoutNumerators.selector,
+                conditionId,
+                uint256(0)
+            );
+        } else {
+            appRequestLabel = 3;
+            callData = abi.encodeWithSelector(
+                IConditionalTokens.payoutNumerators.selector,
+                conditionId,
+                uint256(1)
+            );
+        }
+        
         requests[0] = EVMCallRequestV1({
-            appRequestLabel: REQ_LABEL_DENOM,
-            targetEid: config.remoteEid,
+            appRequestLabel: appRequestLabel,
+            targetEid: config.targetEid,
             isBlockNum: false,
             blockNumOrTimestamp: 0, // Latest
             confirmations: config.confirmations,
             to: config.conditionalTokens,
-            callData: abi.encodeWithSelector(
-                IConditionalTokens.payoutDenominator.selector,
-                conditionId
-            )
+            callData: callData
         });
         
-        // Request 2: payoutNumerators(conditionId, 0) - NO payout
-        requests[1] = EVMCallRequestV1({
-            appRequestLabel: REQ_LABEL_NO_PAYOUT,
-            targetEid: config.remoteEid,
-            isBlockNum: false,
-            blockNumOrTimestamp: 0,
-            confirmations: config.confirmations,
-            to: config.conditionalTokens,
-            callData: abi.encodeWithSelector(
-                IConditionalTokens.payoutNumerators.selector,
-                conditionId,
-                uint256(0)
-            )
-        });
-        
-        // Request 3: payoutNumerators(conditionId, 1) - YES payout
-        requests[2] = EVMCallRequestV1({
-            appRequestLabel: REQ_LABEL_YES_PAYOUT,
-            targetEid: config.remoteEid,
-            isBlockNum: false,
-            blockNumOrTimestamp: 0,
-            confirmations: config.confirmations,
-            to: config.conditionalTokens,
-            callData: abi.encodeWithSelector(
-                IConditionalTokens.payoutNumerators.selector,
-                conditionId,
-                uint256(1)
-            )
-        });
-        
-        // No compute needed - we just want the raw responses
-        EVMCallComputeV1 memory compute; // Empty compute (targetEid = 0 means no compute)
+        // No compute - raw response
+        EVMCallComputeV1 memory compute;
         
         return ReadCodecV1.encode(APP_CMD_LABEL, requests, compute);
+    }
+
+    // ============ Override _payNative for Multi-Send ============
+    
+    /**
+     * @dev Override to allow multiple _lzSend calls in one transaction
+     *      Checks contract balance instead of msg.value for subsequent sends
+     */
+    function _payNative(uint256 _nativeFee) internal override returns (uint256 nativeFee) {
+        // For multi-send: check that we have enough balance (from msg.value or prior deposits)
+        if (address(this).balance < _nativeFee) revert InsufficientETHForFee(_nativeFee, address(this).balance);
+        return _nativeFee;
     }
 
     // ============ LayerZero Receive Handler ============
     
     /**
-     * @dev Handle lzRead response containing payout data
-     * @param _message The response payload containing conditionId and payout data
+     * @dev Handle lzRead response - decodes uint256 and correlates via guid
      */
     function _lzReceive(
         Origin calldata, // _origin - unused but required by interface
-        bytes32,
+        bytes32 _guid,
         bytes calldata _message,
         address,
         bytes calldata
     ) internal override {
-        // Decode the response
-        // The response format from lzRead contains the original command and the responses
-        // For simplicity, we expect the response to be ABI-encoded:
-        // (bytes32 conditionId, uint256 denom, uint256 noPayout, uint256 yesPayout)
+        // Look up the pending read by guid
+        PendingRead memory pending = pendingReads[_guid];
+        if (pending.conditionId == bytes32(0)) {
+            revert UnknownGuid(_guid);
+        }
         
-        // Note: The actual lzRead response format depends on whether compute is used.
-        // Without compute, responses come back as raw view call returns.
-        // We need to decode based on our request structure.
+        // Decode the raw uint256 response
+        uint256 value = abi.decode(_message, (uint256));
         
-        (bytes32 conditionId, uint256 denom, uint256 noPayout, uint256 yesPayout) = 
-            _decodeReadResponse(_message);
+        // Store the partial response
+        bytes32 conditionId = pending.conditionId;
+        PartialResponse storage partialResp = partialResponses[conditionId];
         
-        // Clear pending status
-        pendingRequests[conditionId] = false;
+        if (pending.responseType == ResponseType.DENOM) {
+            partialResp.denom = value;
+            partialResp.hasDenom = true;
+        } else if (pending.responseType == ResponseType.NO_PAYOUT) {
+            partialResp.noPayout = value;
+            partialResp.hasNoPayout = true;
+        } else {
+            partialResp.yesPayout = value;
+            partialResp.hasYesPayout = true;
+        }
         
-        // Process the resolution
-        _processResolution(conditionId, denom, noPayout, yesPayout);
+        emit ConditionResponseReceived(conditionId, _guid, pending.responseType, value, block.timestamp);
+        
+        // Clean up the pending read
+        delete pendingReads[_guid];
+        
+        // Check if we have all 3 responses
+        if (partialResp.hasDenom && partialResp.hasNoPayout && partialResp.hasYesPayout) {
+            _finalizeResolution(conditionId, partialResp.denom, partialResp.noPayout, partialResp.yesPayout);
+            
+            // Clean up partial responses
+            delete partialResponses[conditionId];
+            
+            // Clear pending status
+            pendingRequests[conditionId] = false;
+        }
     }
 
     /**
-     * @dev Decode the lzRead response
-     * @param _message The raw response message
-     * @return conditionId The condition that was queried
-     * @return denom The payoutDenominator value
-     * @return noPayout The payoutNumerators[0] value (NO)
-     * @return yesPayout The payoutNumerators[1] value (YES)
+     * @dev Finalize resolution - never reverts, marks invalid state if non-binary
      */
-    function _decodeReadResponse(
-        bytes calldata _message
-    ) internal pure returns (
-        bytes32 conditionId,
-        uint256 denom,
-        uint256 noPayout,
-        uint256 yesPayout
-    ) {
-        // The lzRead response without compute is an array of raw view call return data
-        // We decode each response in order: denom, noPayout, yesPayout
-        // The conditionId must be extracted from the original call data or stored separately
-        
-        // For this implementation, we expect the executor to package the response as:
-        // abi.encode(conditionId, denom, noPayout, yesPayout)
-        // This may require a compute step or custom handling depending on LZ infrastructure
-        
-        // Simple decode assuming aggregated response
-        (conditionId, denom, noPayout, yesPayout) = abi.decode(
-            _message,
-            (bytes32, uint256, uint256, uint256)
-        );
-    }
-
-    /**
-     * @dev Process resolution data and update condition state
-     * @param conditionId The condition being resolved
-     * @param denom The payoutDenominator (0 = unresolved)
-     * @param noPayout The NO payout numerator
-     * @param yesPayout The YES payout numerator
-     */
-    function _processResolution(
+    function _finalizeResolution(
         bytes32 conditionId,
         uint256 denom,
         uint256 noPayout,
@@ -441,25 +536,30 @@ contract PredictionMarketLZConditionalTokensResolver is
         if (denom == 0) {
             // Not resolved yet on the remote chain
             condition.settled = false;
-            emit ConditionResolved(conditionId, false, denom, noPayout, yesPayout, block.timestamp);
+            condition.invalid = false;
+            emit ConditionResolved(conditionId, false, false, denom, noPayout, yesPayout, block.timestamp);
             return;
         }
         
         // Validate strict binary condition
         // For a strict binary: no + yes == denom AND no != yes
         if (noPayout + yesPayout != denom || noPayout == yesPayout) {
-            // Not a strict binary outcome (could be split payout or ambiguous)
-            // We don't settle - leave as invalid state
-            revert ConditionNotBinary(conditionId, denom, noPayout, yesPayout);
+            // Not a strict binary outcome - mark as invalid, don't revert
+            condition.settled = false;
+            condition.invalid = true;
+            emit ConditionResolved(conditionId, false, true, denom, noPayout, yesPayout, block.timestamp);
+            return;
         }
         
-        // Determine outcome: YES if yesPayout > 0
+        // Valid binary outcome
         condition.settled = true;
+        condition.invalid = false;
         condition.resolvedToYes = yesPayout > 0;
         
         emit ConditionResolved(
             conditionId,
             condition.resolvedToYes,
+            false,
             denom,
             noPayout,
             yesPayout,
@@ -477,6 +577,10 @@ contract PredictionMarketLZConditionalTokensResolver is
         return conditions[conditionId].settled;
     }
 
+    function isConditionInvalid(bytes32 conditionId) external view returns (bool) {
+        return conditions[conditionId].invalid;
+    }
+
     function getConditionResolution(bytes32 conditionId) external view returns (bool resolvedToYes) {
         ConditionState memory condition = conditions[conditionId];
         require(condition.settled, "Condition not settled");
@@ -485,6 +589,10 @@ contract PredictionMarketLZConditionalTokensResolver is
 
     function isPendingRequest(bytes32 conditionId) external view returns (bool) {
         return pendingRequests[conditionId];
+    }
+
+    function getPartialResponse(bytes32 conditionId) external view returns (PartialResponse memory) {
+        return partialResponses[conditionId];
     }
 
     // ============ ETH Management ============
@@ -515,4 +623,3 @@ contract PredictionMarketLZConditionalTokensResolver is
 
     receive() external payable {}
 }
-

@@ -1,0 +1,73 @@
+# Copy to .env.deployments (or source before running) and fill values.
+# This script deploys PredictionMarketLZConditionalTokensResolver on Arbitrum One
+# and exercises lzRead to query payout data from Polygon ConditionalTokens.
+
+# ========== Required: Arbitrum One ==========
+ARB_PRIVATE_KEY=0x...
+ARB_RPC=https://arb1.arbitrum.io/rpc
+ARB_LZ_ENDPOINT=0x1a44076050125825900e736c501f859c50fE728c
+ARB_OWNER=0x...
+
+# ========== LayerZero lzRead Configuration ==========
+# Read channel EID - the LayerZero Read channel endpoint ID
+# For lzRead, this should be the EID of the chain you're reading FROM (Polygon)
+# Both readChannelEid and targetEid should point to Polygon
+READ_CHANNEL_EID=30109
+
+# Target EID - where the ConditionalTokens contract lives (Polygon PoS)
+POLYGON_EID=30109
+
+# ========== Polygon ConditionalTokens ==========
+# Default: Gnosis CTF on Polygon PoS (same as fork test)
+POLYGON_CTF=0x4D97DCd97eC945f40cF65F87097ACe5EA0476045
+
+# ========== Known ConditionIds from Fork Test ==========
+# These are real resolved conditions from Polymarket
+# Condition that resolved to YES: payoutNumerators = [0, 1]
+CONDITION_YES=0x67903aa8fb5c90e936777cebd9c6570cb70dfeb1128008c04f11ae8e162111bc
+
+# Condition that resolved to NO: payoutNumerators = [1, 0]
+CONDITION_NO=0xace50cca5ccad582a0cbe373d62b6c6796dd89202bf47c726a3abb48688ba25e
+
+# ========== Optional Resolver Settings ==========
+# Max prediction markets per parlay
+MAX_PREDICTION_MARKETS=10
+
+# Block confirmations for lzRead
+CONFIRMATIONS=15
+
+# Gas limit for lzRead callback execution
+LZ_READ_GAS=200000
+
+# Expected result size in bytes (uint256 = 32)
+LZ_READ_RESULT_SIZE=32
+
+# ========== Optional: LayerZero Infrastructure (for lzRead) ==========
+# These have defaults but can be overridden if needed
+# ARB_SEND_LIB=0x975bcD720be66659e3EB3C0e4F1866a3020E493A  # SendUln302 on Arbitrum
+# ARB_EXECUTOR=0x31CAe3B7fB82d847621859fb1585353c5720660D  # Executor on Arbitrum
+#
+# IMPORTANT: For lzRead, you MUST use lzRead-specific DVN addresses, not regular messaging DVNs
+# Available lzRead DVNs for Arbitrum → Polygon:
+# ARB_LZREAD_DVN=0x1308151a7ebac14f435d3ad5ff95c34160d539a5  # LayerZero Labs (recommended)
+# ARB_LZREAD_DVN=0x14e570a1684c7ca883b35e1b25d2f7cec98a16cd  # Nethermind
+# ARB_LZREAD_DVN=0x5cff49d69d79d677dd3e5b38e048a0dcb6d86aaf  # Horizen
+# ARB_LZREAD_DVN=0x05ce650134d943c5e336dc7990e84fb4e69fdf29  # BCW Group
+# ARB_LZREAD_DVN=0x8ede21203e062d7d1eaec11c4c72ad04cdc15658  # AltLayer
+# ARB_LZREAD_DVN=0xfdd2e77a6addc1e18862f43297500d2ebfbd94ac  # Nocturnal Labs
+#
+# ========== Troubleshooting ==========
+# If executor fee calculation fails with .U error:
+# 1. Try minimal config (no explicit executor):
+#    Use Arb1-Polygon_setLzReadConfigMinimal.s.sol instead
+# 2. Test fee quoting first:
+#    forge script src/scripts/DeployLzReadConditionalTokens/Arb1-Polygon_testFeeQuote.s.sol --rpc-url $ARB_RPC
+# 3. See TROUBLESHOOTING.md for detailed guidance
+# ULN_CONFIRMATIONS=20
+# REQUIRED_DVN_COUNT=1
+# MAX_MESSAGE_SIZE=10000
+
+# ========== Post-Deploy ==========
+# After deploy script runs, set this to the deployed resolver address
+# RESOLVER=0x...
+

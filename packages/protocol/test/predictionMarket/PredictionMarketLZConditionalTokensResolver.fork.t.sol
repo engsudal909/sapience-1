@@ -151,23 +151,28 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             owner,
             PredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 10,
-                remoteEid: 109, // Polygon EID
+                readChannelEid: 109, // Polygon EID for read channel
+                targetEid: 109,      // Polygon EID for target
                 conditionalTokens: CTF,
                 confirmations: 15,
-                lzReceiveGasLimit: 200_000
+                lzReadGasLimit: 200_000,
+                lzReadResultSize: 32
             })
         );
 
         // Verify config was set correctly
         (
             uint256 maxPredictionMarkets,
-            uint32 remoteEid,
+            uint32 readChannelEid,
+            uint32 targetEid,
             address conditionalTokens,
+            ,
             ,
         ) = resolver.config();
         
         assertEq(maxPredictionMarkets, 10, "Max prediction markets should be 10");
-        assertEq(remoteEid, 109, "Remote EID should be Polygon");
+        assertEq(readChannelEid, 109, "Read channel EID should be Polygon");
+        assertEq(targetEid, 109, "Target EID should be Polygon");
         assertEq(conditionalTokens, CTF, "ConditionalTokens should be CTF");
     }
 
@@ -183,10 +188,12 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 10,
-                remoteEid: 109,
+                readChannelEid: 109,
+                targetEid: 109,
                 conditionalTokens: CTF,
                 confirmations: 15,
-                lzReceiveGasLimit: 200_000
+                lzReadGasLimit: 200_000,
+                lzReadResultSize: 32
             })
         );
 
@@ -196,13 +203,14 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
         uint256 yesPayout = ctf.payoutNumerators(CONDITION_YES, 1);
 
         // Process through resolver
-        resolver.exposed_processResolution(CONDITION_YES, denom, noPayout, yesPayout);
+        resolver.exposed_finalizeResolution(CONDITION_YES, denom, noPayout, yesPayout);
 
         // Verify state
         PredictionMarketLZConditionalTokensResolver.ConditionState memory state =
             resolver.getCondition(CONDITION_YES);
 
         assertTrue(state.settled, "Should be settled");
+        assertFalse(state.invalid, "Should not be invalid");
         assertTrue(state.resolvedToYes, "Should resolve to YES");
         assertEq(state.payoutDenominator, denom, "Denom should match");
         assertEq(state.noPayout, noPayout, "No payout should match");
@@ -232,10 +240,12 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 10,
-                remoteEid: 109,
+                readChannelEid: 109,
+                targetEid: 109,
                 conditionalTokens: CTF,
                 confirmations: 15,
-                lzReceiveGasLimit: 200_000
+                lzReadGasLimit: 200_000,
+                lzReadResultSize: 32
             })
         );
 
@@ -245,13 +255,14 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
         uint256 yesPayout = ctf.payoutNumerators(CONDITION_NO, 1);
 
         // Process through resolver
-        resolver.exposed_processResolution(CONDITION_NO, denom, noPayout, yesPayout);
+        resolver.exposed_finalizeResolution(CONDITION_NO, denom, noPayout, yesPayout);
 
         // Verify state
         PredictionMarketLZConditionalTokensResolver.ConditionState memory state =
             resolver.getCondition(CONDITION_NO);
 
         assertTrue(state.settled, "Should be settled");
+        assertFalse(state.invalid, "Should not be invalid");
         assertFalse(state.resolvedToYes, "Should resolve to NO");
 
         // Verify via getPredictionResolution - predicting NO should succeed
@@ -278,10 +289,12 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 10,
-                remoteEid: 109,
+                readChannelEid: 109,
+                targetEid: 109,
                 conditionalTokens: CTF,
                 confirmations: 15,
-                lzReceiveGasLimit: 200_000
+                lzReadGasLimit: 200_000,
+                lzReadResultSize: 32
             })
         );
 
@@ -291,7 +304,7 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
         uint256 yesPayout = ctf.payoutNumerators(CONDITION_YES, 1);
 
         // Process through resolver
-        resolver.exposed_processResolution(CONDITION_YES, denom, noPayout, yesPayout);
+        resolver.exposed_finalizeResolution(CONDITION_YES, denom, noPayout, yesPayout);
 
         // Predict NO when actual outcome was YES - should fail
         PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
@@ -318,10 +331,12 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 10,
-                remoteEid: 109,
+                readChannelEid: 109,
+                targetEid: 109,
                 conditionalTokens: CTF,
                 confirmations: 15,
-                lzReceiveGasLimit: 200_000
+                lzReadGasLimit: 200_000,
+                lzReadResultSize: 32
             })
         );
 
@@ -330,14 +345,14 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             uint256 denom = ctf.payoutDenominator(CONDITION_YES);
             uint256 noPayout = ctf.payoutNumerators(CONDITION_YES, 0);
             uint256 yesPayout = ctf.payoutNumerators(CONDITION_YES, 1);
-            resolver.exposed_processResolution(CONDITION_YES, denom, noPayout, yesPayout);
+            resolver.exposed_finalizeResolution(CONDITION_YES, denom, noPayout, yesPayout);
         }
 
         {
             uint256 denom = ctf.payoutDenominator(CONDITION_NO);
             uint256 noPayout = ctf.payoutNumerators(CONDITION_NO, 0);
             uint256 yesPayout = ctf.payoutNumerators(CONDITION_NO, 1);
-            resolver.exposed_processResolution(CONDITION_NO, denom, noPayout, yesPayout);
+            resolver.exposed_finalizeResolution(CONDITION_NO, denom, noPayout, yesPayout);
         }
 
         // Create parlay with both conditions - correct predictions
@@ -373,13 +388,12 @@ contract ResolverTestWrapper is PredictionMarketLZConditionalTokensResolver {
         Settings memory _config
     ) PredictionMarketLZConditionalTokensResolver(_endpoint, _owner, _config) {}
 
-    function exposed_processResolution(
+    function exposed_finalizeResolution(
         bytes32 conditionId,
         uint256 denom,
         uint256 noPayout,
         uint256 yesPayout
     ) external {
-        _processResolution(conditionId, denom, noPayout, yesPayout);
+        _finalizeResolution(conditionId, denom, noPayout, yesPayout);
     }
 }
-
