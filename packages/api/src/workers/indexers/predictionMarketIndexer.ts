@@ -10,11 +10,7 @@ import {
   toHex,
 } from 'viem';
 import Sentry from '../../instrument';
-import { IResourcePriceIndexer } from '../../interfaces';
-import type {
-  Resource,
-  transaction_type_enum,
-} from '../../../generated/prisma';
+import { IIndexer } from '../../interfaces';
 
 // TODO: Move all of this code to the existsing event processing pipeline
 const BLOCK_BATCH_SIZE = 100;
@@ -197,7 +193,7 @@ interface MarketSubmittedToUMAEvent {
   resolvedToYes: boolean;
 }
 
-class PredictionMarketIndexer implements IResourcePriceIndexer {
+class PredictionMarketIndexer implements IIndexer {
   public client: PublicClient;
   private isWatching: boolean = false;
   private chainId: number;
@@ -221,8 +217,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
     // Get the resolver address if available
     const pmResolverEntry = lzPMResolver[chainId as keyof typeof lzPMResolver];
-    const umaResolverEntry = lzUmaResolver[chainId as keyof typeof lzUmaResolver];
-    
+    const umaResolverEntry =
+      lzUmaResolver[chainId as keyof typeof lzUmaResolver];
+
     if (pmResolverEntry?.address) {
       this.resolverAddress = pmResolverEntry.address as `0x${string}`;
       console.log(
@@ -237,12 +234,12 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
   }
 
   async indexBlockPriceFromTimestamp(
-    resource: Resource,
+    resourceSlug: string,
     startTimestamp: number,
     endTimestamp?: number
   ): Promise<boolean> {
     try {
-      const addressesInfo = this.resolverAddress 
+      const addressesInfo = this.resolverAddress
         ? `contracts ${this.contractAddress} and resolver ${this.resolverAddress}`
         : `contract ${this.contractAddress}`;
       console.log(
@@ -291,7 +288,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       console.log(
         `[PredictionMarketIndexer] Indexing ${blockNumbers.length} blocks from ${startBlockNumber} to ${endBlockNumber}`
       );
-      return await this.indexBlocks(resource, blockNumbers);
+      return await this.indexBlocks(resourceSlug, blockNumbers);
     } catch (error) {
       console.error(
         '[PredictionMarketIndexer] Error indexing from timestamp:',
@@ -302,7 +299,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     }
   }
 
-  async indexBlocks(resource: Resource, blocks: number[]): Promise<boolean> {
+  async indexBlocks(_resourceSlug: string, blocks: number[]): Promise<boolean> {
     try {
       console.log(
         `[PredictionMarketIndexer] Indexing ${blocks.length} blocks: ${blocks[0]} to ${blocks[blocks.length - 1]}`
@@ -345,7 +342,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         try {
           // Single efficient query for the entire chunk
           // Include both PM contract and resolver address if available
-          const addresses: `0x${string}`[] = [this.contractAddress as `0x${string}`];
+          const addresses: `0x${string}`[] = [
+            this.contractAddress as `0x${string}`,
+          ];
           if (this.resolverAddress) {
             addresses.push(this.resolverAddress as `0x${string}`);
           }
@@ -419,7 +418,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       });
 
       // Get logs for the PredictionMarket contract and resolver (if available)
-      const addresses: `0x${string}`[] = [this.contractAddress as `0x${string}`];
+      const addresses: `0x${string}`[] = [
+        this.contractAddress as `0x${string}`,
+      ];
       if (this.resolverAddress) {
         addresses.push(this.resolverAddress as `0x${string}`);
       }
@@ -460,8 +461,12 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       if (this.resolverAddress) {
         addressesToCheck.push(this.resolverAddress);
       }
-      
-      if (!addressesToCheck.map(a => a.toLowerCase()).includes(log.address.toLowerCase())) {
+
+      if (
+        !addressesToCheck
+          .map((a) => a.toLowerCase())
+          .includes(log.address.toLowerCase())
+      ) {
         console.log(
           `[PredictionMarketIndexer] Skipping log: ${log.address} is not the PredictionMarket or Resolver contract`
         );
@@ -561,7 +566,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: uniqueEventKey.transactionHash,
           blockNumber: uniqueEventKey.blockNumber,
           logIndex: uniqueEventKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -570,53 +574,36 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           `[PredictionMarketIndexer] Event already exists tx=${uniqueEventKey.transactionHash} block=${uniqueEventKey.blockNumber} logIndex=${uniqueEventKey.logIndex}`
         );
 
-        // For reindexing: still check if parlay needs to be created (might be missing due to old bug)
-        const existingParlay = await prisma.parlay.findFirst({
+        // For reindexing: still check if position needs to be created (might be missing due to old bug)
+        const existingPosition = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
-            makerNftTokenId: eventData.makerNftTokenId,
-            takerNftTokenId: eventData.takerNftTokenId,
+            predictorNftTokenId: eventData.makerNftTokenId,
+            counterpartyNftTokenId: eventData.takerNftTokenId,
           },
         });
 
-        if (existingParlay) {
+        if (existingPosition) {
           console.log(
-            `[PredictionMarketIndexer] Parlay already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+            `[PredictionMarketIndexer] Position already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
           );
           return;
         } else {
           console.log(
-            `[PredictionMarketIndexer] Event exists but parlay missing - creating parlay for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+            `[PredictionMarketIndexer] Event exists but position missing - creating position for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
           );
-          // Continue to parlay creation logic below
+          // Continue to position creation logic below
         }
       } else {
         // Store new event in database
-        const eventUpsertResult = await prisma.event.create({
+        await prisma.event.create({
           data: {
             blockNumber: Number(log.blockNumber || 0),
             transactionHash: log.transactionHash || '',
             timestamp: BigInt(block.timestamp),
             logIndex: log.logIndex || 0,
             logData: eventData,
-            marketGroupId: null,
-          },
-        });
-
-        await prisma.transaction.upsert({
-          where: {
-            eventId: eventUpsertResult.id,
-          },
-          create: {
-            eventId: eventUpsertResult.id,
-            type: 'mintParlayNFTs' as transaction_type_enum,
-            collateral: eventData.totalCollateral,
-          },
-          update: {
-            eventId: eventUpsertResult.id,
-            type: 'mintParlayNFTs' as transaction_type_enum,
-            collateral: eventData.totalCollateral,
           },
         });
       }
@@ -634,7 +621,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         conditionId: marketId,
         prediction,
       }));
-
       // Compute endsAt from known conditions (optional)
       let endsAt: number | null = null;
       try {
@@ -656,27 +642,49 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         );
       }
 
-      // Create Parlay
-      await prisma.parlay.create({
+      const predictionResolver =
+        this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
+      const predictionLegsData = predictedOutcomes.map((outcome) => ({
+        conditionId: outcome.conditionId,
+        resolver: predictionResolver,
+        outcomeYes: outcome.prediction,
+        chainId: this.chainId,
+      }));
+
+      // Create Position with normalized predictions
+      await prisma.position.create({
         data: {
           chainId: this.chainId,
           marketAddress: log.address.toLowerCase(),
-          maker: eventData.maker.toLowerCase(),
-          taker: eventData.taker.toLowerCase(),
-          makerNftTokenId: eventData.makerNftTokenId,
-          takerNftTokenId: eventData.takerNftTokenId,
+          predictor: eventData.maker.toLowerCase(),
+          counterparty: eventData.taker.toLowerCase(),
+          predictorNftTokenId: eventData.makerNftTokenId,
+          counterpartyNftTokenId: eventData.takerNftTokenId,
           totalCollateral: eventData.totalCollateral,
-          makerCollateral: eventData.makerCollateral,
-          takerCollateral: eventData.takerCollateral,
+          predictorCollateral: eventData.makerCollateral,
+          counterpartyCollateral: eventData.takerCollateral,
           refCode: eventData.refCode,
           status: 'active',
-          makerWon: null,
+          predictorWon: null,
           mintedAt: Number(block.timestamp),
           settledAt: null,
           endsAt: endsAt ?? null,
-          predictedOutcomes: predictedOutcomes as unknown as object,
+          predictions: {
+            create: predictionLegsData,
+          },
         },
       });
+
+      // Update open interest for all conditions in this position
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+      const collateralStr = eventData.totalCollateral;
+      for (const conditionId of conditionIds) {
+        await prisma.$executeRaw`
+          UPDATE condition 
+          SET "openInterest" = (COALESCE("openInterest"::NUMERIC, 0) + ${collateralStr}::NUMERIC)::TEXT
+          WHERE id = ${conditionId}
+        `;
+      }
 
       console.log(
         `[PredictionMarketIndexer] Processed PredictionMinted: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}`
@@ -725,7 +733,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: burnedKey.transactionHash,
           blockNumber: burnedKey.blockNumber,
           logIndex: burnedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -743,41 +750,40 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
-      // Update Parlay status
+      // Update Position status
       try {
-        const parlay = await prisma.parlay.findFirst({
+        const position = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             OR: [
-              { makerNftTokenId: eventData.makerNftTokenId },
-              { takerNftTokenId: eventData.takerNftTokenId },
+              { predictorNftTokenId: eventData.makerNftTokenId },
+              { counterpartyNftTokenId: eventData.takerNftTokenId },
             ],
           },
         });
-        if (parlay) {
-          await prisma.parlay.update({
-            where: { id: parlay.id },
+        if (position) {
+          await prisma.position.update({
+            where: { id: position.id },
             data: {
               status: 'settled',
-              makerWon: eventData.makerWon,
+              predictorWon: eventData.makerWon,
               settledAt: Number(block.timestamp),
             },
           });
         }
       } catch (e) {
         console.warn(
-          '[PredictionMarketIndexer] Failed updating Parlay on burn:',
+          '[PredictionMarketIndexer] Failed updating Position on burn:',
           e
         );
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed PredictionBurned: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}, winner: ${eventData.makerWon ? 'maker' : 'taker'}`
+        `[PredictionMarketIndexer] Processed PredictionBurned: ${eventData.makerNftTokenId}, ${eventData.takerNftTokenId}, winner: ${eventData.makerWon ? 'predictor' : 'counterparty'}`
       );
     } catch (error) {
       console.error(
@@ -823,7 +829,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: consolidatedKey.transactionHash,
           blockNumber: consolidatedKey.blockNumber,
           logIndex: consolidatedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -841,35 +846,34 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
-      // Update Parlay status
+      // Update Position status
       try {
-        const parlay = await prisma.parlay.findFirst({
+        const position = await prisma.position.findFirst({
           where: {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             OR: [
-              { makerNftTokenId: eventData.makerNftTokenId },
-              { takerNftTokenId: eventData.takerNftTokenId },
+              { predictorNftTokenId: eventData.makerNftTokenId },
+              { counterpartyNftTokenId: eventData.takerNftTokenId },
             ],
           },
         });
-        if (parlay) {
-          await prisma.parlay.update({
-            where: { id: parlay.id },
+        if (position) {
+          await prisma.position.update({
+            where: { id: position.id },
             data: {
               status: 'consolidated',
-              makerWon: true,
+              predictorWon: true,
               settledAt: Number(block.timestamp),
             },
           });
         }
       } catch (e) {
         console.warn(
-          '[PredictionMarketIndexer] Failed updating Parlay on consolidate:',
+          '[PredictionMarketIndexer] Failed updating Position on consolidate:',
           e
         );
       }
@@ -896,11 +900,11 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
       const eventData = {
         eventType: 'OrderPlaced',
-        maker: decoded.args.maker,
+        predictor: decoded.args.maker,
         orderId: decoded.args.orderId.toString(),
         resolver: decoded.args.resolver,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         refCode: decoded.args.refCode,
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
@@ -919,7 +923,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: orderPlacedKey.transactionHash,
           blockNumber: orderPlacedKey.blockNumber,
           logIndex: orderPlacedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -937,7 +940,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -955,6 +957,14 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         prediction,
       }));
 
+      const predictionResolver = eventData.resolver.toLowerCase();
+      const predictionLegsData = predictedOutcomes.map((outcome) => ({
+        conditionId: outcome.conditionId,
+        resolver: predictionResolver,
+        outcomeYes: outcome.prediction,
+        chainId: this.chainId,
+      }));
+
       try {
         await prisma.limitOrder.upsert({
           where: {
@@ -968,25 +978,30 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
             chainId: this.chainId,
             marketAddress: log.address.toLowerCase(),
             orderId: eventData.orderId,
-            maker: eventData.maker.toLowerCase(),
+            predictor: eventData.predictor.toLowerCase(),
             resolver: eventData.resolver.toLowerCase(),
-            makerCollateral: eventData.makerCollateral,
-            takerCollateral: eventData.takerCollateral,
+            predictorCollateral: eventData.predictorCollateral,
+            counterpartyCollateral: eventData.counterpartyCollateral,
             refCode: eventData.refCode,
             status: 'pending',
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictedOutcomes: predictedOutcomes as unknown as object,
+            predictions: {
+              create: predictionLegsData,
+            },
           },
           update: {
-            maker: eventData.maker.toLowerCase(),
+            predictor: eventData.predictor.toLowerCase(),
             resolver: eventData.resolver.toLowerCase(),
-            makerCollateral: eventData.makerCollateral,
-            takerCollateral: eventData.takerCollateral,
+            predictorCollateral: eventData.predictorCollateral,
+            counterpartyCollateral: eventData.counterpartyCollateral,
             refCode: eventData.refCode,
             placedAt: Number(block.timestamp),
             placedTxHash: log.transactionHash || '',
-            predictedOutcomes: predictedOutcomes as unknown as object,
+            predictions: {
+              deleteMany: {},
+              create: predictionLegsData,
+            },
           },
         });
       } catch (orderError) {
@@ -997,7 +1012,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderPlaced: orderId=${eventData.orderId}, maker=${eventData.maker}`
+        `[PredictionMarketIndexer] Processed OrderPlaced: orderId=${eventData.orderId}, predictor=${eventData.predictor}`
       );
     } catch (error) {
       console.error(
@@ -1019,10 +1034,10 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       const eventData = {
         eventType: 'OrderFilled',
         orderId: decoded.args.orderId.toString(),
-        maker: decoded.args.maker,
-        taker: decoded.args.taker,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictor: decoded.args.maker,
+        counterparty: decoded.args.taker,
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         refCode: decoded.args.refCode,
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
@@ -1042,7 +1057,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: orderFilledKey.transactionHash,
           blockNumber: orderFilledKey.blockNumber,
           logIndex: orderFilledKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1060,7 +1074,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1080,7 +1093,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
             where: { id: order.id },
             data: {
               status: 'filled',
-              taker: eventData.taker.toLowerCase(),
+              counterparty: eventData.counterparty.toLowerCase(),
               filledAt: Number(block.timestamp),
               filledTxHash: log.transactionHash || '',
             },
@@ -1098,7 +1111,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderFilled: orderId=${eventData.orderId}, maker=${eventData.maker}, taker=${eventData.taker}`
+        `[PredictionMarketIndexer] Processed OrderFilled: orderId=${eventData.orderId}, predictor=${eventData.predictor}, counterparty=${eventData.counterparty}`
       );
     } catch (error) {
       console.error(
@@ -1120,9 +1133,9 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       const eventData = {
         eventType: 'OrderCancelled',
         orderId: decoded.args.orderId.toString(),
-        maker: decoded.args.maker,
-        makerCollateral: decoded.args.makerCollateral.toString(),
-        takerCollateral: decoded.args.takerCollateral.toString(),
+        predictor: decoded.args.maker,
+        predictorCollateral: decoded.args.makerCollateral.toString(),
+        counterpartyCollateral: decoded.args.takerCollateral.toString(),
         blockNumber: Number(log.blockNumber),
         transactionHash: log.transactionHash,
         logIndex: log.logIndex,
@@ -1140,7 +1153,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: orderCancelledKey.transactionHash,
           blockNumber: orderCancelledKey.blockNumber,
           logIndex: orderCancelledKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1158,7 +1170,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1195,7 +1206,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
       }
 
       console.log(
-        `[PredictionMarketIndexer] Processed OrderCancelled: orderId=${eventData.orderId}, maker=${eventData.maker}`
+        `[PredictionMarketIndexer] Processed OrderCancelled: orderId=${eventData.orderId}, predictor=${eventData.predictor}`
       );
     } catch (error) {
       console.error(
@@ -1237,7 +1248,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: marketResolvedKey.transactionHash,
           blockNumber: marketResolvedKey.blockNumber,
           logIndex: marketResolvedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1255,7 +1265,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1329,7 +1338,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
         transactionHash: log.transactionHash || '',
         blockNumber: Number(log.blockNumber || 0),
         logIndex: log.logIndex || 0,
-        marketGroupId: null,
       } as const;
 
       const existingEvent = await prisma.event.findFirst({
@@ -1337,7 +1345,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           transactionHash: submittedKey.transactionHash,
           blockNumber: submittedKey.blockNumber,
           logIndex: submittedKey.logIndex,
-          marketGroupId: null,
         },
       });
 
@@ -1388,7 +1395,6 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
           timestamp: BigInt(block.timestamp),
           logIndex: log.logIndex || 0,
           logData: eventData,
-          marketGroupId: null,
         },
       });
 
@@ -1404,7 +1410,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
     }
   }
 
-  async watchBlocksForResource(resource: Resource): Promise<void> {
+  async watchBlocksForResource(resourceSlug: string): Promise<void> {
     if (this.isWatching) {
       console.log(
         `[PredictionMarketIndexer:${this.chainId}] Already watching events`
@@ -1437,7 +1443,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
 
     this.isWatching = true;
     console.log(
-      `[PredictionMarketIndexer:${this.chainId}] Starting to watch events for resource: ${resource.slug} on contract ${this.contractAddress}`
+      `[PredictionMarketIndexer:${this.chainId}] Starting to watch events for resource: ${resourceSlug} on contract ${this.contractAddress}`
     );
 
     try {
@@ -1501,7 +1507,7 @@ class PredictionMarketIndexer implements IResourcePriceIndexer {
               console.log(
                 '[PredictionMarketIndexer] Restarting event watcher...'
               );
-              this.watchBlocksForResource(resource).catch(
+              this.watchBlocksForResource(resourceSlug).catch(
                 (restartError: Error) => {
                   console.error(
                     '[PredictionMarketIndexer] Failed to restart:',

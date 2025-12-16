@@ -2,8 +2,6 @@ node_modules
 .env
 **/.turbo
 
-packages/app/
-
 packages/protocol/deployments/outputs/13370
 packages/protocol/deployments/outputs/test
 
@@ -29,3 +27,5 @@ storybook-static
 
 # docker-compose volume data files
 /data/
+
+.playwright-mcp

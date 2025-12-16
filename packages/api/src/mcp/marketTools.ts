@@ -4,7 +4,7 @@ import prisma from '../db';
 
 /**
  * Tool: list_active_markets
- * Returns all markets whose endTimestamp is in the future (i.e. active markets).
+ * Returns all conditions whose endTime is in the future (i.e. active prediction markets).
  */
 export const listActiveMarkets = {
   name: 'list_active_markets',
@@ -25,32 +25,32 @@ export const listActiveMarkets = {
     try {
       const nowSeconds = Math.floor(Date.now() / 1000);
 
-      const markets = await prisma.market.findMany({
+      const conditions = await prisma.condition.findMany({
         where: {
-          endTimestamp: {
+          endTime: {
             gt: nowSeconds,
           },
           public: true,
         },
         include: {
-          market_group: true,
+          category: true,
         },
         orderBy: {
-          endTimestamp: 'asc',
+          endTime: 'asc',
         },
       });
 
-      const formatted = markets.map((m) => ({
-        ...m,
-        startTimestamp:
-          m.startTimestamp !== null && m.startTimestamp !== undefined
-            ? Number(m.startTimestamp)
-            : null,
-        endTimestamp:
-          m.endTimestamp !== null && m.endTimestamp !== undefined
-            ? Number(m.endTimestamp)
-            : null,
-        marketGroupAddress: m.market_group?.address || null,
+      const formatted = conditions.map((c) => ({
+        id: c.id,
+        question: c.question,
+        shortName: c.shortName,
+        endTime: c.endTime,
+        claimStatement: c.claimStatement,
+        description: c.description,
+        chainId: c.chainId,
+        settled: c.settled,
+        resolvedToYes: c.resolvedToYes,
+        category: c.category?.name || null,
       }));
 
       return {

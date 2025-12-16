@@ -2,7 +2,7 @@ import 'dotenv/config';
 import WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { loadSdk } from './sdk.js';
-import { parseEther, decodeAbiParameters, createPublicClient, createWalletClient, erc20Abi, http, getAddress, type Address, type Hex, type Chain } from 'viem';
+import { parseEther, decodeAbiParameters, createPublicClient, createWalletClient, erc20Abi, http, getAddress, defineChain, type Address, type Hex, type Chain } from 'viem';
 import { graphqlRequest } from '@sapience/sdk/queries';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arbitrum, base, optimism, mainnet, polygon } from 'viem/chains';
@@ -49,12 +49,27 @@ function getEnv(name: string, fallback?: string): string {
   return v;
 }
 
-const RELAYER_WS_URL = process.env.RELAYER_WS_URL || 'wss://api.sapience.xyz/auction';
+const RELAYER_WS_URL = process.env.RELAYER_WS_URL || 'wss://relayer.sapience.xyz/auction';
 
-// Default chain is Arbitrum One (42161)
-const CHAIN_ID = Number(process.env.CHAIN_ID || '42161');
+// Ethereal chain definition (trading chain where native token is USDe)
+const CHAIN_ID_ETHEREAL = 5064014;
+const etherealChain = defineChain({
+  id: CHAIN_ID_ETHEREAL,
+  name: 'Ethereal',
+  nativeCurrency: { name: 'USDe', symbol: 'USDe', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.ethereal.trade'] },
+  },
+  blockExplorers: {
+    default: { name: 'Ethereal Explorer', url: 'https://explorer.ethereal.trade' },
+  },
+});
+
+// Default chain is Ethereal (5064014) for trading
+const CHAIN_ID = Number(process.env.CHAIN_ID || String(CHAIN_ID_ETHEREAL));
 
 const chainsById: Record<number, Chain> = {
+  [CHAIN_ID_ETHEREAL]: etherealChain,
   [arbitrum.id]: arbitrum,
   [base.id]: base,
   [optimism.id]: optimism,
@@ -62,7 +77,7 @@ const chainsById: Record<number, Chain> = {
   [polygon.id]: polygon,
 };
 const CHAIN_NAME: string = chainsById[CHAIN_ID]?.name || String(CHAIN_ID);
-const DEFAULT_RPC = chainsById[CHAIN_ID]?.rpcUrls?.public?.http?.[0] || chainsById[CHAIN_ID]?.rpcUrls?.default?.http?.[0];
+const DEFAULT_RPC = chainsById[CHAIN_ID]?.rpcUrls?.default?.http?.[0] || chainsById[CHAIN_ID]?.rpcUrls?.public?.http?.[0];
 const RPC_URL = getEnv('RPC_URL', DEFAULT_RPC);
 const PRIVATE_KEY = (process.env.PRIVATE_KEY || '').trim() || undefined;
 const PRIVATE_KEY_HEX = PRIVATE_KEY
@@ -73,9 +88,12 @@ const sdk = await loadSdk();
 type ContractsMap = typeof import('@sapience/sdk/contracts').contracts;
 type BuildMakerBidTypedData = typeof import('@sapience/sdk/auction/signing').buildMakerBidTypedData;
 type SignMakerBid = typeof import('@sapience/sdk/auction/signing').signMakerBid;
+type PrepareForTrade = typeof import('@sapience/sdk/onchain/trading').prepareForTrade;
+
 const addressBook = sdk.contracts as ContractsMap;
 const buildMakerBidTypedData = sdk.buildMakerBidTypedData as BuildMakerBidTypedData;
 const signMakerBid = sdk.signMakerBid as SignMakerBid;
+const prepareForTrade = sdk.prepareForTrade as PrepareForTrade | undefined;
 
 const VERIFYING_CONTRACT = (process.env.VERIFYING_CONTRACT || (addressBook.predictionMarket as any)[CHAIN_ID]?.address) as Address;
 const COLLATERAL_TOKEN = (process.env.COLLATERAL_TOKEN || (addressBook.collateralToken as any)[CHAIN_ID]?.address) as Address;
@@ -138,18 +156,51 @@ async function getConditionsByIds(ids: string[]): Promise<Map<string, { shortNam
   return out;
 }
 
-async function approveOnInit() {
+/**
+ * Prepare collateral for trading.
+ * 
+ * On Ethereal chain (5064014): Native token is USDe but contracts expect WUSDe.
+ * Uses SDK's prepareForTrade to wrap USDe -> WUSDe and approve.
+ * 
+ * On other chains (Arbitrum, etc.): USDe is already an ERC-20 token, only approval needed.
+ */
+async function prepareCollateral() {
   try {
-    if (!account) {
-      logger.info('Skipping approval: PRIVATE_KEY not set');
+    if (!account || !PRIVATE_KEY_HEX) {
+      logger.info('Skipping collateral preparation: PRIVATE_KEY not set');
       return;
     }
+
     logger.info([
-      '🔐 Ensuring MAX allowance',
-      fmt.bullet(fmt.field('token', fmt.value(formatAddress(COLLATERAL_TOKEN)))),
-      fmt.bullet(fmt.field('spender', fmt.value(formatAddress(VERIFYING_CONTRACT)))),
+      '🔐 Preparing collateral for trading',
       fmt.bullet(fmt.field('chain', fmt.value(`${CHAIN_NAME} (${CHAIN_ID})`))),
+      fmt.bullet(fmt.field('collateral', fmt.value(formatAddress(COLLATERAL_TOKEN)))),
+      fmt.bullet(fmt.field('spender', fmt.value(formatAddress(VERIFYING_CONTRACT)))),
     ].join('\n'));
+
+    // On Ethereal, use prepareForTrade to handle USDe wrapping + approval
+    if (CHAIN_ID === CHAIN_ID_ETHEREAL && prepareForTrade) {
+      logger.info('📦 Using prepareForTrade for Ethereal (wrap USDe -> WUSDe + approve)');
+      
+      const result = await prepareForTrade({
+        privateKey: PRIVATE_KEY_HEX,
+        collateralAmount: BID_AMOUNT,
+        spender: VERIFYING_CONTRACT,
+        rpcUrl: RPC_URL,
+      });
+
+      if (result.wrapTxHash) {
+        logger.success(`Wrapped USDe -> WUSDe: ${result.wrapTxHash}`);
+      }
+      if (result.approvalTxHash) {
+        logger.success(`Approved WUSDe: ${result.approvalTxHash}`);
+      }
+      logger.success(`Ready for trading. WUSDe balance: ${result.wusdBalance}`);
+      return;
+    }
+
+    // For other chains (Arbitrum, etc.), use simple MAX approval
+    logger.info('📝 Using simple approval for ERC-20 collateral');
     const chain = chainsById[CHAIN_ID];
     const publicClient = createPublicClient({ transport: http(RPC_URL), chain });
     const walletClient = createWalletClient({ account, transport: http(RPC_URL), chain });
@@ -177,12 +228,12 @@ async function approveOnInit() {
     await publicClient.waitForTransactionReceipt({ hash });
     logger.success(`Approval tx: ${hash}`);
   } catch (e) {
-    logger.error('Approval step failed:', e);
+    logger.error('Collateral preparation failed:', e);
   }
 }
 
 function start() {
-  void approveOnInit();
+  void prepareCollateral();
 
   const ws = new WebSocket(RELAYER_WS_URL);
 
@@ -327,5 +378,4 @@ function start() {
 }
 
 start();
-
 

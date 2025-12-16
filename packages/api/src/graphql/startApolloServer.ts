@@ -22,69 +22,6 @@ import {
   FindUniqueCategoryOrThrowResolver,
   GroupByCategoryResolver,
 
-  // Market queries
-  AggregateMarketResolver,
-  FindFirstMarketResolver,
-  FindFirstMarketOrThrowResolver,
-  FindManyMarketResolver,
-  FindUniqueMarketResolver,
-  FindUniqueMarketOrThrowResolver,
-  GroupByMarketResolver,
-
-  // MarketGroup queries
-  AggregateMarketGroupResolver,
-  FindFirstMarketGroupResolver,
-  FindFirstMarketGroupOrThrowResolver,
-  FindManyMarketGroupResolver,
-  FindUniqueMarketGroupResolver,
-  FindUniqueMarketGroupOrThrowResolver,
-  GroupByMarketGroupResolver,
-
-  // MarketPrice queries
-  AggregateMarketPriceResolver,
-  FindFirstMarketPriceResolver,
-  FindFirstMarketPriceOrThrowResolver,
-  FindManyMarketPriceResolver,
-  FindUniqueMarketPriceResolver,
-  FindUniqueMarketPriceOrThrowResolver,
-  GroupByMarketPriceResolver,
-
-  // Position queries
-  AggregatePositionResolver,
-  FindFirstPositionResolver,
-  FindFirstPositionOrThrowResolver,
-  FindManyPositionResolver,
-  FindUniquePositionResolver,
-  FindUniquePositionOrThrowResolver,
-  GroupByPositionResolver,
-
-  // Resource queries
-  AggregateResourceResolver,
-  FindFirstResourceResolver,
-  FindFirstResourceOrThrowResolver,
-  FindManyResourceResolver,
-  FindUniqueResourceResolver,
-  FindUniqueResourceOrThrowResolver,
-  GroupByResourceResolver,
-
-  // ResourcePrice queries
-  AggregateResourcePriceResolver,
-  FindFirstResourcePriceResolver,
-  FindFirstResourcePriceOrThrowResolver,
-  FindManyResourcePriceResolver,
-  FindUniqueResourcePriceResolver,
-  FindUniqueResourcePriceOrThrowResolver,
-  GroupByResourcePriceResolver,
-
-  // Transaction queries
-  AggregateTransactionResolver,
-  FindFirstTransactionResolver,
-  FindFirstTransactionOrThrowResolver,
-  FindManyTransactionResolver,
-  FindUniqueTransactionResolver,
-  FindUniqueTransactionOrThrowResolver,
-  GroupByTransactionResolver,
-
   // Attestation queries
   AggregateAttestationResolver,
   FindFirstAttestationResolver,
@@ -103,6 +40,15 @@ import {
   FindUniqueConditionOrThrowResolver,
   GroupByConditionResolver,
 
+  // ConditionGroup queries
+  AggregateConditionGroupResolver,
+  FindFirstConditionGroupResolver,
+  FindFirstConditionGroupOrThrowResolver,
+  FindManyConditionGroupResolver,
+  FindUniqueConditionGroupResolver,
+  FindUniqueConditionGroupOrThrowResolver,
+  GroupByConditionGroupResolver,
+
   // User queries
   AggregateUserResolver,
   FindFirstUserResolver,
@@ -114,13 +60,7 @@ import {
 } from '@generated/type-graphql';
 
 // Import the custom resolvers to keep
-import {
-  CandleResolver,
-  PnLResolver,
-  VolumeResolver,
-  ScoreResolver,
-  ParlayResolver,
-} from './resolvers';
+import { PnLResolver, ScoreResolver, PositionResolver } from './resolvers';
 
 export interface ApolloContext {
   prisma: typeof prisma;
@@ -138,71 +78,6 @@ export const initializeApolloServer = async () => {
     FindUniqueCategoryResolver,
     FindUniqueCategoryOrThrowResolver,
     GroupByCategoryResolver,
-
-    // (removed) CryptoPrices queries
-
-    // Market queries
-    AggregateMarketResolver,
-    FindFirstMarketResolver,
-    FindFirstMarketOrThrowResolver,
-    FindManyMarketResolver,
-    FindUniqueMarketResolver,
-    FindUniqueMarketOrThrowResolver,
-    GroupByMarketResolver,
-
-    // MarketGroup queries
-    AggregateMarketGroupResolver,
-    FindFirstMarketGroupResolver,
-    FindFirstMarketGroupOrThrowResolver,
-    FindManyMarketGroupResolver,
-    FindUniqueMarketGroupResolver,
-    FindUniqueMarketGroupOrThrowResolver,
-    GroupByMarketGroupResolver,
-
-    // MarketPrice queries
-    AggregateMarketPriceResolver,
-    FindFirstMarketPriceResolver,
-    FindFirstMarketPriceOrThrowResolver,
-    FindManyMarketPriceResolver,
-    FindUniqueMarketPriceResolver,
-    FindUniqueMarketPriceOrThrowResolver,
-    GroupByMarketPriceResolver,
-
-    // Position queries
-    AggregatePositionResolver,
-    FindFirstPositionResolver,
-    FindFirstPositionOrThrowResolver,
-    FindManyPositionResolver,
-    FindUniquePositionResolver,
-    FindUniquePositionOrThrowResolver,
-    GroupByPositionResolver,
-
-    // Resource queries
-    AggregateResourceResolver,
-    FindFirstResourceResolver,
-    FindFirstResourceOrThrowResolver,
-    FindManyResourceResolver,
-    FindUniqueResourceResolver,
-    FindUniqueResourceOrThrowResolver,
-    GroupByResourceResolver,
-
-    // ResourcePrice queries
-    AggregateResourcePriceResolver,
-    FindFirstResourcePriceResolver,
-    FindFirstResourcePriceOrThrowResolver,
-    FindManyResourcePriceResolver,
-    FindUniqueResourcePriceResolver,
-    FindUniqueResourcePriceOrThrowResolver,
-    GroupByResourcePriceResolver,
-
-    // Transaction queries
-    AggregateTransactionResolver,
-    FindFirstTransactionResolver,
-    FindFirstTransactionOrThrowResolver,
-    FindManyTransactionResolver,
-    FindUniqueTransactionResolver,
-    FindUniqueTransactionOrThrowResolver,
-    GroupByTransactionResolver,
 
     // Attestation queries
     AggregateAttestationResolver,
@@ -222,6 +97,15 @@ export const initializeApolloServer = async () => {
     FindUniqueConditionOrThrowResolver,
     GroupByConditionResolver,
 
+    // ConditionGroup queries
+    AggregateConditionGroupResolver,
+    FindFirstConditionGroupResolver,
+    FindFirstConditionGroupOrThrowResolver,
+    FindManyConditionGroupResolver,
+    FindUniqueConditionGroupResolver,
+    FindUniqueConditionGroupOrThrowResolver,
+    GroupByConditionGroupResolver,
+
     // User queries
     AggregateUserResolver,
     FindFirstUserResolver,
@@ -235,13 +119,7 @@ export const initializeApolloServer = async () => {
   // Build the GraphQL schema with query resolvers, relation resolvers, and custom resolvers
   const allResolvers = queryResolvers
     .concat(relationResolvers)
-    .concat([
-      CandleResolver,
-      PnLResolver,
-      VolumeResolver,
-      ScoreResolver,
-      ParlayResolver,
-    ]);
+    .concat([PnLResolver, ScoreResolver, PositionResolver]);
   const schema = await buildSchema({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolvers: allResolvers as any,

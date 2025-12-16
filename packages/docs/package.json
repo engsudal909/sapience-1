@@ -1,0 +1,23 @@
+{
+  "name": "docs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vocs dev",
+    "build:vocs": "vocs build",
+    "build:storybook": "cd ../ui && pnpm build-storybook && mkdir -p ../docs/docs/public && cp -r storybook-static ../docs/docs/public/components-storybook",
+    "build": "pnpm build:vocs && pnpm build:storybook",
+    "preview": "vocs preview"
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "vocs": "1.0.16",
+    "lottie-react": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "typescript": "5.9.2"
+  }
+}

@@ -13,79 +13,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model CacheCandle {
-  id                     Int      @id(map: "PK_7cccb7fd4c9f01146f390945d47") @default(autoincrement())
-  createdAt              DateTime @default(now()) @db.Timestamp(6)
-  candleType             String   @db.VarChar
-  interval               Int
-  trailingAvgTime        Int?
-  resourceSlug           String?  @db.VarChar
-  marketIdx              Int?
-  timestamp              Int
-  open                   String   @db.VarChar
-  high                   String   @db.VarChar
-  low                    String   @db.VarChar
-  close                  String   @db.VarChar
-  endTimestamp           Int
-  lastUpdatedTimestamp   Int
-  sumUsed                String?  @db.VarChar
-  sumFeePaid             String?  @db.VarChar
-  trailingStartTimestamp Int?
-  address                String?  @db.VarChar
-  chainId                Int?
-  marketId               Int?
-
-  @@unique([candleType, interval, timestamp, resourceSlug, marketIdx, trailingAvgTime], map: "UQ_60da794228fdbf7a92bc9fe57ad")
-  @@index([chainId], map: "IDX_116e57f9f620b605a2f6194c0b")
-  @@index([resourceSlug], map: "IDX_18b0607b3120ec8c19f4bda502")
-  @@index([address], map: "IDX_2ff6d3f51dade50ce5c1426303")
-  @@index([marketId], map: "IDX_4d21c04139a79adbf94f86405a")
-  @@index([timestamp], map: "IDX_669fbaca35ec75202012edcbed")
-  @@index([trailingAvgTime], map: "IDX_8a3905657db0bc8cac1e561280")
-  @@index([candleType], map: "IDX_b566d110c5729686ad4505a492")
-  @@index([marketIdx], map: "IDX_beb912ef7d1246b726a6653ead")
-  @@index([interval], map: "IDX_f5454dd794058f6ea2a9dd8e5f")
-  @@map("cache_candle")
-}
-
-model CacheParam {
-  id               Int      @id(map: "PK_b54cfc9bf8c8a86647ef9d05bd4") @default(autoincrement())
-  createdAt        DateTime @default(now()) @db.Timestamp(6)
-  paramName        String   @unique(map: "UQ_aed649af408ded722f22e882314") @db.VarChar
-  paramValueNumber Decimal  @db.Decimal(78, 0)
-  paramValueString String?  @db.Text
-
-  @@index([paramName], map: "IDX_aed649af408ded722f22e88231")
-  @@map("cache_param")
-}
-
 model Category {
   id           Int            @id(map: "PK_9c4e4a89e3674fc9f382d733f03") @default(autoincrement())
   createdAt    DateTime       @default(now()) @db.Timestamp(6)
   name         String         @unique(map: "UQ_23c05c292c439d77b0de816b500") @db.VarChar
   slug         String         @unique(map: "UQ_cb73208f151aa71cdd78f662d70") @db.VarChar
-  /// @TypeGraphQL.field(name: "marketGroups")
-  market_group MarketGroup[]
-  /// @TypeGraphQL.field(name: "resources")
-  resource     Resource[]
   /// @TypeGraphQL.field(name: "conditions")
-  condition    Condition[]
+  condition       Condition[]
+  /// @TypeGraphQL.field(name: "conditionGroups")
+  condition_group ConditionGroup[]
 
   @@index([slug], map: "IDX_cb73208f151aa71cdd78f662d7")
   @@map("category")
-}
-
-model CollateralTransfer {
-  id              Int          @id(map: "PK_802f4b29443f8febc65ab112e02") @default(autoincrement())
-  createdAt       DateTime     @default(now()) @db.Timestamp(6)
-  transactionHash String       @unique(map: "UQ_1ebf6f07652ca11d9f4618b64a3") @db.VarChar
-  timestamp       Int
-  owner           String       @db.VarChar
-  collateral      String       @db.VarChar
-  transaction     Transaction?
-
-  @@index([transactionHash], map: "IDX_1ebf6f07652ca11d9f4618b64a")
-  @@map("collateral_transfer")
 }
 
 model Event {
@@ -96,111 +35,19 @@ model Event {
   timestamp       BigInt
   logIndex        Int
   logData         Json          @db.Json
-  marketGroupId   Int?
-  /// @TypeGraphQL.field(name: "marketGroup")
-  market_group    MarketGroup? @relation(fields: [marketGroupId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_be2327bfd127f45a55856b4c9de")
-  transaction     Transaction?
 
-  @@unique([transactionHash, marketGroupId, blockNumber, logIndex], map: "UQ_784b6bb8194a5c7b41a7be2ffa5")
   @@index([timestamp], map: "IDX_2c15918ff289396205521c5f3c")
   @@index([blockNumber], map: "IDX_5430e2d7fe1df2bcada2c12deb")
   @@map("event")
 }
 
-model Market {
-  id                                 Int           @id(map: "PK_247e7fe519fa359ba924d04f289") @default(autoincrement())
-  createdAt                          DateTime      @default(now()) @db.Timestamp(6)
-  marketId                           Int
-  startTimestamp                     Int?
-  endTimestamp                       Int?
-  startingSqrtPriceX96               String?      
-  settlementPriceD18                 Decimal?      @db.Decimal(78, 0)
-  settled                            Boolean?
-  settledAt                          Int?
-  baseAssetMinPriceTick              Int?
-  baseAssetMaxPriceTick              Int?
-  minPriceD18                        Decimal?      @db.Decimal(78, 0)
-  maxPriceD18                        Decimal?      @db.Decimal(78, 0)
-  marketGroupId                      Int?
-  claimStatementYesOrNumeric         String?       @db.VarChar
-  claimStatementNo                   String?       @db.VarChar
-  marketParamsFeerate                Int?
-  marketParamsAssertionliveness      Decimal?      @db.Decimal(78, 0)
-  marketParamsBondcurrency           String?       @db.VarChar
-  marketParamsBondamount             Decimal?      @db.Decimal(78, 0)
-  marketParamsUniswappositionmanager String?       @db.VarChar
-  marketParamsUniswapswaprouter      String?       @db.VarChar
-  marketParamsUniswapquoter          String?       @db.VarChar
-  marketParamsOptimisticoraclev3     String?       @db.VarChar
-  public                             Boolean       @default(true)
-  question                           String?
-  shortName                          String?       @db.VarChar
-  poolAddress                        String?
-  optionName                         String?
-  similarMarkets                     String[]      @default([])
-  /// @TypeGraphQL.field(name: "marketGroup")
-  market_group                       MarketGroup? @relation(fields: [marketGroupId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_02755ce1b56a981eef76c0b59b4")
-  /// @TypeGraphQL.field(name: "positions")
-  position                           Position[]
+model KeyValueStore {
+  key       String   @id @db.VarChar(255)
+  value     String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
 
-  @@unique([marketGroupId, marketId], map: "UQ_0a0e1fcc7164cb26a957c806314")
-  @@index([marketGroupId], map: "IDX_02755ce1b56a981eef76c0b59b")
-  @@index([marketId], map: "IDX_b8cf3f5b97db288fd5252e1cb0")
-  @@map("market")
-}
-
-model MarketGroup {
-  id                                 Int       @id(map: "PK_1e9a2963edfd331d92018e3abac") @default(autoincrement())
-  createdAt                          DateTime  @default(now()) @db.Timestamp(6)
-  address                            String?   @db.VarChar
-  chainId                            Int
-  deployTimestamp                    Int?
-  deployTxnBlockNumber               Int?
-  owner                              String?   @db.VarChar
-  collateralAsset                    String?   @db.VarChar
-  resourceId                         Int?
-  marketParamsFeerate                Int?
-  marketParamsAssertionliveness      Decimal?  @db.Decimal(78, 0)
-  marketParamsBondcurrency           String?   @db.VarChar
-  marketParamsBondamount             Decimal?  @db.Decimal(78, 0)
-  marketParamsUniswappositionmanager String?   @db.VarChar
-  marketParamsUniswapswaprouter      String?   @db.VarChar
-  marketParamsUniswapquoter          String?   @db.VarChar
-  marketParamsOptimisticoraclev3     String?   @db.VarChar
-  isBridged                          Boolean   @default(false)
-  isCumulative                       Boolean   @default(false)
-  categoryId                         Int?
-  question                           String?
-  baseTokenName                      String?   @db.VarChar
-  quoteTokenName                     String?   @db.VarChar
-  collateralDecimals                 Int?
-  collateralSymbol                   String?   @db.VarChar
-  initializationNonce                String?   @db.VarChar
-  factoryAddress                     String?   @db.VarChar
-  minTradeSize                       Decimal?  @db.Decimal(78, 0)
-  rules                              String?
-  /// @TypeGraphQL.field(name: "events")
-  event                              Event[]
-  /// @TypeGraphQL.field(name: "markets")
-  market                             Market[]
-  resource                           Resource? @relation(fields: [resourceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_78409a3738729038b76742291f0")
-  category                           Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_f092ffcae41efef68cdc30bbd89")
-
-  @@unique([address, chainId], map: "UQ_b1a3dbc95ad359ef11bfb72b307")
-  @@index([address], map: "IDX_4840554118be25e79d9f2cd8c1")
-  @@index([chainId], map: "IDX_da0b448860ebff62a08819b65a")
-  @@map("market_group")
-}
-
-model MarketPrice {
-  id          Int          @id(map: "PK_2d0e67fad606926d3f44a79bab5") @default(autoincrement())
-  createdAt   DateTime     @default(now()) @db.Timestamp(6)
-  timestamp   BigInt
-  value       Decimal      @db.Decimal(78, 0)
-  transaction Transaction?
-
-  @@index([timestamp], map: "IDX_a9346cdd1ea1e53a6b87e409ad")
-  @@map("market_price")
+  @@map("key_value_store")
 }
 
 model Migrations {
@@ -211,33 +58,6 @@ model Migrations {
   @@map("migrations")
 }
 
-model Position {
-  id                 Int           @id(map: "PK_b7f483581562b4dc62ae1a5b7e2") @default(autoincrement())
-  createdAt          DateTime      @default(now()) @db.Timestamp(6)
-  positionId         Int
-  owner              String?       @db.VarChar
-  isLP               Boolean
-  highPriceTick      Decimal?      @db.Decimal(78, 0)
-  lowPriceTick       Decimal?      @db.Decimal(78, 0)
-  isSettled          Boolean?
-  lpBaseToken        String?       @db.VarChar
-  lpQuoteToken       String?       @db.VarChar
-  baseToken          String?       @db.VarChar
-  quoteToken         String?       @db.VarChar
-  borrowedBaseToken  String?       @db.VarChar
-  borrowedQuoteToken String?       @db.VarChar
-  collateral         String        @db.VarChar
-  marketId           Int?
-  market             Market?       @relation(fields: [marketId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_0ad1a3735077091c74287ffc7ca")
-  /// @TypeGraphQL.field(name: "transactions")
-  transaction        Transaction[]
-
-  @@unique([positionId, marketId], map: "UQ_40d3e2f973bc69ff8e8d0f89dde")
-  @@index([positionId], map: "IDX_927edd2b828777f0052366195e")
-  @@index([marketId], map: "IDX_position_market_id")
-  @@map("position")
-}
-
 model RenderJob {
   id        Int      @id(map: "PK_a00488019eafb11b27af1aa1a76") @default(autoincrement())
   createdAt DateTime @default(now()) @db.Timestamp(6)
@@ -245,40 +65,6 @@ model RenderJob {
   serviceId String   @db.VarChar
 
   @@map("render_job")
-}
-
-model Resource {
-  id             Int              @id(map: "PK_e2894a5867e06ae2e8889f1173f") @default(autoincrement())
-  createdAt      DateTime         @default(now()) @db.Timestamp(6)
-  name           String           @unique(map: "UQ_c8ed18ff47475e2c4a7bf59daa0") @db.VarChar
-  slug           String           @unique(map: "UQ_82453de75cd894e19c42844e706") @db.VarChar
-  categoryId     Int?
-  /// @TypeGraphQL.field(name: "marketGroups")
-  market_group   MarketGroup[]
-  /// @TypeGraphQL.field(name: "resourcePrices")
-  resource_price ResourcePrice[]
-  category       Category?        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_66faacb332a925bf732256594e5")
-
-  @@index([slug], map: "IDX_82453de75cd894e19c42844e70")
-  @@map("resource")
-}
-
-model ResourcePrice {
-  id          Int       @id(map: "PK_a0c8cbfc0d416996af73cae1e97") @default(autoincrement())
-  createdAt   DateTime  @default(now()) @db.Timestamp(6)
-  blockNumber Int
-  timestamp   Int
-  value       String    @db.VarChar
-  used        String    @db.VarChar
-  feePaid     String    @db.VarChar
-  resourceId  Int?
-  resource    Resource? @relation(fields: [resourceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_187fa56af532560ce204719ea39")
-
-  @@unique([resourceId, timestamp], map: "UQ_80c0fe66c45d0dd8f4e744bb30f")
-  @@index([resourceId], map: "IDX_187fa56af532560ce204719ea3")
-  @@index([blockNumber], map: "IDX_5bbe200849d138539d19b7caa6")
-  @@index([timestamp], map: "IDX_a369700ab879af9ef6061c6dbe")
-  @@map("resource_price")
 }
 
 model Attestation {
@@ -299,9 +85,11 @@ model Attestation {
   decodedDataJson String   @db.VarChar @default("")
 
   // Prediction market schema data
-  marketAddress   String   @db.VarChar
-  marketId        String   @db.VarChar
-  questionId      String   @db.VarChar
+  marketAddress   String?  @db.VarChar
+  marketId        String?  @db.VarChar
+  questionId      String?  @db.VarChar
+  resolver        String?  @db.VarChar
+  condition       String?  @db.Text
   prediction      String   @db.VarChar
   comment         String?  @db.Text
 
@@ -315,6 +103,7 @@ model Attestation {
   @@index([marketAddress], map: "IDX_attestation_market_address")
   @@index([marketId], map: "IDX_attestation_market_id")
   @@index([questionId], map: "IDX_attestation_question_id")
+  @@index([resolver], map: "IDX_attestation_resolver")
   @@map("attestation")
 }
 
@@ -326,9 +115,10 @@ model AttestationScore {
   attestationId    Int         @unique
   attestation      Attestation @relation(fields: [attestationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   attester         String      @db.VarChar
-  marketAddress    String      @db.VarChar
-  marketId         String      @db.VarChar
+  marketAddress    String?     @db.VarChar
+  marketId         String?     @db.VarChar
   questionId       String?     @db.VarChar
+  resolver         String?     @db.VarChar
 
   // Forecast metadata
   madeAt           Int
@@ -365,60 +155,6 @@ model AttesterMarketTwError {
   @@map("attester_market_tw_error")
 }
 
-/// Precomputed realized PnL per (chainId, marketGroupAddress, marketId, owner)
-model OwnerMarketRealizedPnl {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now()) @db.Timestamp(6)
-  chainId   Int
-  address   String   @db.VarChar
-  marketId  Int
-  owner     String   @db.VarChar
-  realizedPnl Decimal @db.Decimal(78, 0)
-  updatedAt DateTime @updatedAt @db.Timestamp(6)
-
-  @@unique([chainId, address, marketId, owner], map: "UQ_owner_market_realized_pnl")
-  @@index([owner], map: "IDX_owner_market_realized_pnl_owner")
-  @@index([chainId, address, marketId], map: "IDX_owner_market_realized_pnl_market")
-  @@map("owner_market_realized_pnl")
-}
-
-model Transaction {
-  id                   Int                   @id(map: "PK_89eadb93a89810556e1cbcd6ab9") @default(autoincrement())
-  createdAt            DateTime              @default(now()) @db.Timestamp(6)
-  tradeRatioD18        String?               @db.VarChar
-  type                 transaction_type_enum
-  baseToken            String?               @db.VarChar
-  quoteToken           String?               @db.VarChar
-  borrowedBaseToken    String?               @db.VarChar
-  borrowedQuoteToken   String?               @db.VarChar
-  collateral           String                @db.VarChar
-  lpBaseDeltaToken     String?               @db.VarChar
-  lpQuoteDeltaToken    String?               @db.VarChar
-  eventId              Int?                  @unique(map: "REL_f8aba9691e84fbd42400be9ce8")
-  positionId           Int?
-  marketPriceId        Int?                  @unique(map: "REL_91ebc2a6a20b2b1ac354cfae98")
-  collateralTransferId Int?                  @unique(map: "REL_23dff7d5a1d6601cf90eb5019a")
-  /// @TypeGraphQL.field(name: "collateralTransfer")
-  collateral_transfer  CollateralTransfer?  @relation(fields: [collateralTransferId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_23dff7d5a1d6601cf90eb5019a3")
-  /// @TypeGraphQL.field(name: "marketPrice")
-  market_price         MarketPrice?         @relation(fields: [marketPriceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_91ebc2a6a20b2b1ac354cfae981")
-  event                Event?                @relation(fields: [eventId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_f8aba9691e84fbd42400be9ce8a")
-  position             Position?             @relation(fields: [positionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_ffeefe4d2253a6af172da38fc49")
-
-  @@map("transaction")
-  @@index([positionId], map: "IDX_transaction_position_id")
-}
-
-enum transaction_type_enum {
-  addLiquidity
-  removeLiquidity
-  long
-  short
-  settledPosition
-  mintParlayNFTs
-  burnParlayNFTs
-}
-
 /// Chat message history for ephemeral chat websocket
 model ChatMessage {
   id        Int      @id @default(autoincrement())
@@ -433,68 +169,121 @@ model ChatMessage {
 }
 
 model Condition {
-  id             String    @id @db.VarChar
-  createdAt      DateTime  @default(now()) @db.Timestamp(6)
-  question       String    @db.VarChar
-  shortName      String?   @db.VarChar
-  categoryId     Int?
-  category       Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  endTime        Int
-  public         Boolean   @default(true)
-  claimStatement String    @db.VarChar
-  description    String    @db.Text
-  similarMarkets String[]  @default([])
-  chainId        Int       @default(42161)
+  id               String          @id @db.VarChar
+  createdAt        DateTime        @default(now()) @db.Timestamp(6)
+  question         String          @db.VarChar
+  shortName        String?         @db.VarChar
+  categoryId       Int?
+  category         Category?       @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  endTime          Int
+  public           Boolean         @default(true)
+  claimStatement   String          @db.VarChar
+  description      String          @db.Text
+  similarMarkets   String[]        @default([])
+  chainId          Int             @default(42161)
+  openInterest     String          @default("0") @db.VarChar
   
   // Resolution status
-  settled        Boolean   @default(false)
-  resolvedToYes  Boolean   @default(false)
-  settledAt      Int?
-  assertionId    String?   @db.VarChar
+  settled          Boolean         @default(false)
+  resolvedToYes    Boolean         @default(false)
+  settledAt        Int?
+  assertionId      String?         @db.VarChar
   assertionTimestamp Int?
+
+  // Condition group relationship
+  conditionGroupId Int?
+  conditionGroup   ConditionGroup? @relation(fields: [conditionGroupId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  displayOrder     Int?            // Order within group, null when not in a group
+
+  // Normalized predictions
+  predictions    Prediction[]
 
   @@index([categoryId])
   @@index([endTime])
+  @@index([conditionGroupId])
   @@map("condition")
 }
 
-/// Parlay model to store on-chain prediction parlays
-model Parlay {
+model ConditionGroup {
+  id         Int         @id @default(autoincrement())
+  createdAt  DateTime    @default(now()) @db.Timestamp(6)
+  name       String      @unique @db.VarChar
+  categoryId Int?
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// @TypeGraphQL.field(name: "conditions")
+  condition  Condition[]
+
+  @@index([categoryId])
+  @@map("condition_group")
+}
+
+model Prediction {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+
+  // The market condition being predicted
+  conditionId String
+  condition   Condition @relation(fields: [conditionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Exactly one of these should be set; enforced in application logic
+  positionId   Int?
+  position     Position?   @relation(fields: [positionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  limitOrderId Int?
+  limitOrder   LimitOrder?  @relation(fields: [limitOrderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Conceptual prediction data
+  resolver   String  @db.VarChar
+  outcomeYes Boolean
+
+  // Optional derived / debugging / traceability fields
+  chainId Int?
+
+  @@index([conditionId], map: "IDX_prediction_condition")
+  @@index([resolver], map: "IDX_prediction_resolver")
+  @@index([positionId], map: "IDX_prediction_position")
+  @@index([limitOrderId], map: "IDX_prediction_limit_order")
+  @@unique([positionId, conditionId, resolver], map: "UQ_prediction_position_condition_resolver")
+  @@map("prediction")
+}
+
+/// Position model to store on-chain prediction positions
+model Position {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now()) @db.Timestamp(6)
 
   // On-chain identifiers
   chainId          Int
   marketAddress    String    @db.VarChar
-  maker            String    @db.VarChar
-  taker            String    @db.VarChar
-  makerNftTokenId  String    @db.VarChar
-  takerNftTokenId  String    @db.VarChar
+  predictor        String    @db.VarChar
+  counterparty     String    @db.VarChar
+  predictorNftTokenId  String    @db.VarChar
+  counterpartyNftTokenId  String    @db.VarChar
   totalCollateral  String    @db.VarChar
-  makerCollateral  String?   @db.VarChar
-  takerCollateral  String?   @db.VarChar
+  predictorCollateral  String?   @db.VarChar
+  counterpartyCollateral  String?   @db.VarChar
   refCode          String?   @db.VarChar
 
   // Status
-  status           ParlayStatus @default(active)
-  makerWon         Boolean?
+  status           PositionStatus @default(active)
+  /// True when the predictor's submitted outcomes were correct (previously makerWon)
+  predictorWon     Boolean?
   mintedAt         Int
   settledAt        Int?
 
   // Derived for UI convenience
   endsAt           Int?
 
-  // Raw predicted outcomes as emitted/encoded on-chain
-  // Example JSON: [{ conditionId: "0x...", prediction: true }]
-  predictedOutcomes Json      @db.Json
+  // Normalized predictions
+  predictions   Prediction[]
 
-  @@index([maker], map: "IDX_parlay_maker")
-  @@index([taker], map: "IDX_parlay_taker")
-  @@index([chainId, marketAddress], map: "IDX_parlay_chain_market")
-  @@map("parlay")
+  @@index([predictor], map: "IDX_position_predictor")
+  @@index([counterparty], map: "IDX_position_counterparty")
+  @@index([chainId, marketAddress], map: "IDX_position_chain_market")
+  @@map("position")
 }
 
-enum ParlayStatus {
+enum PositionStatus {
   active
   settled
   consolidated
@@ -509,12 +298,12 @@ model LimitOrder {
   chainId           Int
   marketAddress     String    @db.VarChar
   orderId           String    @db.VarChar
-  maker             String    @db.VarChar
+  predictor         String    @db.VarChar
   resolver          String    @db.VarChar
   
   // Order details
-  makerCollateral   String    @db.VarChar
-  takerCollateral   String    @db.VarChar
+  predictorCollateral   String    @db.VarChar
+  counterpartyCollateral   String    @db.VarChar
   refCode           String?   @db.VarChar
   
   // Status and lifecycle
@@ -526,17 +315,18 @@ model LimitOrder {
   cancelledAt       Int?
   
   // Set when order is filled
-  taker             String?   @db.VarChar
+  counterparty             String?   @db.VarChar
   
   // Transaction hashes for traceability
   placedTxHash      String    @db.VarChar
   filledTxHash      String?   @db.VarChar
   cancelledTxHash   String?   @db.VarChar
   
-  predictedOutcomes Json      @db.Json
+  // Normalized predictions
+  predictions    Prediction[]
   
   @@unique([chainId, marketAddress, orderId], map: "UQ_limit_order_chain_market_id")
-  @@index([maker], map: "IDX_limit_order_maker")
+  @@index([predictor], map: "IDX_limit_order_predictor")
   @@index([chainId, status], map: "IDX_limit_order_chain_status")
   @@index([status], map: "IDX_limit_order_status")
   @@map("limit_order")
@@ -572,4 +362,3 @@ model User {
   @@index([address], map: "IDX_user_address")
   @@map("app_user")
 }
-

@@ -1,7 +1,6 @@
 import { initializeDataSource } from '../../db';
 import * as Sentry from '@sentry/node';
 import PredictionMarketIndexer from '../indexers/predictionMarketIndexer';
-import { Resource } from '../../../generated/prisma';
 import prisma from '../../db';
 
 export async function reindexPredictionMarket(
@@ -26,12 +25,11 @@ export async function reindexPredictionMarket(
     // Clear existing data if requested
     if (clearExisting) {
       console.log(
-        `[PredictionMarket Reindex] Clearing existing parlay and prediction market event data for chain ${chainId}`
+        `[PredictionMarket Reindex] Clearing existing position and prediction market event data for chain ${chainId}`
       );
 
       const predictionMarketEvents = await prisma.event.findMany({
         where: {
-          marketGroupId: null,
           logData: {
             path: ['eventType'],
             string_contains: 'Prediction',
@@ -43,27 +41,19 @@ export async function reindexPredictionMarket(
       const eventIds = predictionMarketEvents.map((e) => e.id);
 
       if (eventIds.length > 0) {
-        // Delete transactions that reference these events
-        const deletedTransactions = await prisma.transaction.deleteMany({
-          where: {
-            eventId: { in: eventIds },
-          },
-        });
         console.log(
-          `[PredictionMarket Reindex] Deleted ${deletedTransactions.count} transactions referencing prediction market events`
+          `[PredictionMarket Reindex] Found ${eventIds.length} prediction market events to consider`
         );
       }
 
-      // Delete parlays for this chain
-      const deletedParlays = await prisma.parlay.deleteMany({
+      // Delete positions for this chain
+      const deletedPositions = await prisma.position.deleteMany({
         where: { chainId },
       });
 
-      // Delete events that are prediction market related (marketGroupId is null for these events)
+      // Delete events that are prediction market related
       const deletedEvents = await prisma.event.deleteMany({
         where: {
-          marketGroupId: null,
-          // Additional filter to ensure we only delete prediction market events
           logData: {
             path: ['eventType'],
             string_contains: 'Prediction',
@@ -72,19 +62,11 @@ export async function reindexPredictionMarket(
       });
 
       console.log(
-        `[PredictionMarket Reindex] Cleared ${deletedParlays.count} parlays and ${deletedEvents.count} events`
+        `[PredictionMarket Reindex] Cleared ${deletedPositions.count} positions and ${deletedEvents.count} events`
       );
     }
 
-    // Create a dummy resource for the indexer (similar to EAS pattern)
-    const resource = {
-      id: 0,
-      slug: 'prediction-market-events',
-      name: 'Prediction market events',
-      description: 'Prediction market events indexer',
-      createdAt: new Date(),
-      categoryId: 1,
-    } as Resource;
+    const resourceSlug = `prediction-market-events-${chainId}`;
 
     // Create the PredictionMarket indexer for the specified chain
     const indexer = new PredictionMarketIndexer(chainId);
@@ -95,11 +77,11 @@ export async function reindexPredictionMarket(
     const endTime = endTimestamp || Math.floor(Date.now() / 1000);
 
     console.log(
-      `[PredictionMarket Reindex] Starting prediction market reindexing for resource ${resource.name} (${resource.slug}) on chain ${chainId}`
+      `[PredictionMarket Reindex] Starting prediction market reindexing for resource ${resourceSlug} on chain ${chainId}`
     );
 
     const result = await indexer.indexBlockPriceFromTimestamp(
-      resource,
+      resourceSlug,
       startTime,
       endTime
     );
@@ -110,13 +92,12 @@ export async function reindexPredictionMarket(
       );
 
       // Log some statistics
-      const parlayCount = await prisma.parlay.count({
+      const positionCount = await prisma.position.count({
         where: { chainId },
       });
 
       const eventCount = await prisma.event.count({
         where: {
-          marketGroupId: null,
           logData: {
             path: ['eventType'],
             string_contains: 'Prediction',
@@ -125,7 +106,7 @@ export async function reindexPredictionMarket(
       });
 
       console.log(
-        `[PredictionMarket Reindex] Final counts - Parlays: ${parlayCount}, Events: ${eventCount}`
+        `[PredictionMarket Reindex] Final counts - Positions: ${positionCount}, Events: ${eventCount}`
       );
     } else {
       console.error(

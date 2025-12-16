@@ -1,136 +1,33 @@
 import 'reflect-metadata';
 import { initializeDataSource } from '../db';
-import prisma from '../db';
 import { initializeFixtures, INDEXERS } from '../fixtures';
 import { handleJobCommand } from './jobs';
-import { startIndexingAndWatchingMarketGroups as indexMarketsJob } from './jobs/indexMarkets';
 import { createResilientProcess } from '../utils/utils';
-import { Resource } from 'generated/prisma';
 
 async function main() {
   await initializeDataSource();
-  let jobs: Promise<void | (() => void)>[] = [];
-
   await initializeFixtures();
 
-  const marketJobs = await startMarketIndexers();
-  const resourceJobs = await startResourceIndexers();
-
-  jobs = [...marketJobs, ...resourceJobs];
-
-  await Promise.all(jobs);
+  const indexerJobs = await startIndexers();
+  await Promise.all(indexerJobs);
 }
 
-async function startMarketIndexers(): Promise<Promise<void | (() => void)>[]> {
-  const distinctChainIdsResult = await prisma.marketGroup.findMany({
-    select: { chainId: true },
-    distinct: ['chainId'],
-  });
+async function startIndexers(): Promise<Promise<void | (() => void)>[]> {
+  const indexerJobs: Promise<void | (() => void)>[] = [];
 
-  const chainIds: number[] = distinctChainIdsResult.map(
-    (result) => result.chainId
-  );
-
-  const allMarketJobs: Promise<void | (() => void)>[] = chainIds.map(
-    (chainId) =>
-      createResilientProcess(
-        () => indexMarketsJob(chainId),
-        `indexMarketsJob-${chainId}`
-      )()
-  );
-
-  return allMarketJobs;
-}
-
-async function startResourceIndexers(): Promise<
-  Promise<void | (() => void)>[]
-> {
-  const resourceJobs: Promise<void | (() => void)>[] = [];
-  // Watch for new blocks for each resource with an indexer
+  // Watch for new blocks for each indexer
   for (const [resourceSlug, indexer] of Object.entries(INDEXERS)) {
-    let useEmptyResourceForIndexer = false;
-    let resource: Resource | null = null;
-    if (
-      resourceSlug === 'attestation-prediction-market' ||
-      resourceSlug.startsWith('prediction-market-events')
-    ) {
-      useEmptyResourceForIndexer = true;
-    }
-
-    // Find the resource in the database
-    resource = await prisma.resource.findFirst({
-      where: { slug: resourceSlug },
-    });
-
-    if (!resource && useEmptyResourceForIndexer) {
-      let description = resourceSlug;
-      if (resourceSlug === 'attestation-prediction-market') {
-        description = 'Attestation prediction market';
-      } else if (resourceSlug.startsWith('prediction-market-events')) {
-        const chainName = resourceSlug.replace('prediction-market-events-', '');
-        description = `Prediction market events on ${chainName}`;
-      }
-
-      resource = {
-        id: 0,
-        slug: resourceSlug,
-        name: resourceSlug,
-        description,
-        createdAt: new Date(),
-        categoryId: 1,
-      } as Resource;
-    }
-    if (!resource) {
-      console.log(`Resource not found: ${resourceSlug}`);
-      continue;
-    }
-
     if (indexer) {
-      // Then start watching for new blocks
-      resourceJobs.push(
+      indexerJobs.push(
         createResilientProcess(
-          () => indexer.watchBlocksForResource(resource) as Promise<void>,
+          () => indexer.watchBlocksForResource(resourceSlug) as Promise<void>,
           `watchBlocksForResource-${resourceSlug}`
         )()
       );
     }
   }
-  return resourceJobs;
-}
 
-async function runMarketsOnly() {
-  await initializeDataSource();
-  await initializeFixtures();
-
-  const marketJobs = await startMarketIndexers();
-  await Promise.all(marketJobs);
-}
-
-async function runResourcesOnly() {
-  await initializeDataSource();
-  await initializeFixtures();
-
-  const resourceJobs = await startResourceIndexers();
-  await Promise.all(resourceJobs);
-}
-
-// Handle command line arguments
-async function handleWorkerCommands(args: string[]): Promise<boolean> {
-  if (args.length <= 2) return false;
-
-  const command = args[2];
-
-  if (command === 'markets-only') {
-    await runMarketsOnly();
-    return true;
-  }
-
-  if (command === 'resources-only') {
-    await runResourcesOnly();
-    return true;
-  }
-
-  return false;
+  return indexerJobs;
 }
 
 // Immediately try to handle a job command
@@ -138,13 +35,8 @@ async function handleWorkerCommands(args: string[]): Promise<boolean> {
   const handled = await handleJobCommand(process.argv);
   // If a job command was handled, the process will exit within the handler.
 
-  // Check for worker-specific commands
+  // If no job command was handled, proceed with the default main logic
   if (!handled) {
-    const workerHandled = await handleWorkerCommands(process.argv);
-
-    // If no worker command was handled, proceed with the default main logic
-    if (!workerHandled) {
-      main();
-    }
+    main();
   }
 })();

@@ -27,6 +27,10 @@ contract ConfigurePredictionMarketLZResolverUmaSide is Script {
         vm.startBroadcast(vm.envUint("ARB_PRIVATE_KEY"));
         PredictionMarketLZResolverUmaSide resolver = PredictionMarketLZResolverUmaSide(payable(umaSideResolver));
 
+        // eid of other network 
+        (uint32 peerEid, bytes32 peerResolver) = (uint32(pmSideEid), bytes32(uint256(uint160(pmLzResolver))));
+        resolver.setPeer(peerEid, peerResolver);
+
         resolver.setBridgeConfig(
             BridgeTypes.BridgeConfig({
                 remoteEid: pmSideEid,
@@ -35,7 +39,7 @@ contract ConfigurePredictionMarketLZResolverUmaSide is Script {
         );
 
         // Optional tuning via env
-        // resolver.setLzReceiveCost(uint128(vm.envUint("UMA_LZ_RECEIVE_COST")));
+        resolver.setLzReceiveCost(uint128(vm.envUint("UMA_LZ_RECEIVE_COST")));
         // resolver.setGasThresholds(vm.envUint("UMA_GAS_WARN"), vm.envUint("UMA_GAS_CRIT"));
 
         // Optional: allow a specific asserter
