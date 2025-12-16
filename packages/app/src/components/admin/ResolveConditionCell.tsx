@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import { useWallets } from '@privy-io/react-auth';
 import { Loader2 } from 'lucide-react';
 import { erc20Abi, zeroAddress, toHex, keccak256, concatHex } from 'viem';
@@ -8,7 +8,7 @@ import { useReadContract, useWriteContract, useSwitchChain } from 'wagmi';
 import { lzUmaResolver } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 
 type ResolveConditionCellProps = {
   marketId?: `0x${string}`;

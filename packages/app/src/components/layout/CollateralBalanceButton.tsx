@@ -2,8 +2,8 @@
 
 import Image from 'next/image';
 import { useWallets } from '@privy-io/react-auth';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { STARGATE_DEPOSIT_URL } from '~/lib/constants';

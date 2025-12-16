@@ -3,9 +3,9 @@ module.exports = {
     darkMode: ["class"],
     content: [
         "./src/**/*.{js,ts,jsx,tsx,mdx}",
-        "../sdk/ui/components/**/*.{js,ts,jsx,tsx}"
+        "../ui/components/**/*.{js,ts,jsx,tsx}"
     ],
-    presets: [require('../sdk/ui/tailwind-preset.js')],
+    presets: [require('@sapience/ui/tailwind-preset')],
     theme: {
         extend: {
             fontFamily: {

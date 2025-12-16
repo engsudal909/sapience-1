@@ -1,8 +1,8 @@
 'use client';
 
-import { Label } from '@sapience/sdk/ui/components/ui/label';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
-import Slider from '@sapience/sdk/ui/components/ui/slider';
+import { Label } from '@sapience/ui/components/ui/label';
+import { Input } from '@sapience/ui/components/ui/input';
+import Slider from '@sapience/ui/components/ui/slider';
 
 import {
   Command,
@@ -10,18 +10,18 @@ import {
   CommandGroup,
   CommandItem,
   CommandList,
-} from '@sapience/sdk/ui/components/ui/command';
-import { Textarea } from '@sapience/sdk/ui/components/ui/textarea';
-import { Switch } from '@sapience/sdk/ui/components/ui/switch';
+} from '@sapience/ui/components/ui/command';
+import { Textarea } from '@sapience/ui/components/ui/textarea';
+import { Switch } from '@sapience/ui/components/ui/switch';
 import {
   Tabs,
   TabsTrigger,
   TabsContent,
-} from '@sapience/sdk/ui/components/ui/tabs';
-import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
+} from '@sapience/ui/components/ui/tabs';
+import { Card, CardContent } from '@sapience/ui/components/ui/card';
 import { Monitor, Key, Share2, Bot } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { useChat } from '~/lib/context/ChatContext';

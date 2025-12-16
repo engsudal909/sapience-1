@@ -10,7 +10,6 @@
     "abis/**/*",
     "constants/**/*",
     "contracts/**/*",
-    "ui/**/*",
     "queries/**/*",
     "types/**/*",
     "auction/**/*",

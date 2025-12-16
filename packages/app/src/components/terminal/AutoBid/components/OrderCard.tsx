@@ -1,6 +1,6 @@
 import type React from 'react';
 import { Clock, Pause, Pencil, Play } from 'lucide-react';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import type { Order, ConditionSelection } from '../types';
 import {
   YES_BADGE_BASE_CLASSES,

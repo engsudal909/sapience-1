@@ -11,8 +11,8 @@ import {
 } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
 import { ChevronUp, ChevronDown } from 'lucide-react';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Badge } from '@sapience/ui/components/ui/badge';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   Table,
   TableBody,
@@ -20,18 +20,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@sapience/sdk/ui/components/ui/table';
+} from '@sapience/ui/components/ui/table';
 import {
   Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import MarketBadge from '~/components/markets/MarketBadge';

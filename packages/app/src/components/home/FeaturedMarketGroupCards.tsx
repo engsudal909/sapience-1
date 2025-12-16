@@ -8,8 +8,8 @@ import {
   CarouselContent,
   CarouselItem,
   type CarouselApi,
-} from '@sapience/sdk/ui/components/ui/carousel';
-import { useSidebar } from '@sapience/sdk/ui/components/ui/sidebar';
+} from '@sapience/ui/components/ui/carousel';
+import { useSidebar } from '@sapience/ui/components/ui/sidebar';
 import TickerMarketCard from './ticker/TickerMarketCard';
 import { useConditions } from '~/hooks/graphql/useConditions';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';

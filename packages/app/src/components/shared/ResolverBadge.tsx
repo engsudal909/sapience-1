@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import { Copy, Gavel } from 'lucide-react';
 import { useMemo } from 'react';
 import { UMA_RESOLVER_DISPLAY } from '~/lib/constants';

@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Input } from '@sapience/ui/components/ui/input';
 import ToWinLine from '~/components/terminal/ToWinLine';
 import PercentChance from '~/components/shared/PercentChance';
 // removed ChevronsDown icon per design update
@@ -10,7 +10,7 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import { Pencil } from 'lucide-react';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
 import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';

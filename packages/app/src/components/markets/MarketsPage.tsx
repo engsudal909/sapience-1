@@ -1,7 +1,7 @@
 'use client';
 
-import { useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
-import { useIsMobile } from '@sapience/sdk/ui/hooks/use-mobile';
+import { useIsBelow } from '@sapience/ui/hooks/use-mobile';
+import { useIsMobile } from '@sapience/ui/hooks/use-mobile';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useState, useMemo, useCallback } from 'react';

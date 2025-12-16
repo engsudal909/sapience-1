@@ -1,21 +1,21 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@sapience/sdk/ui/components/ui/dialog';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+} from '@sapience/ui/components/ui/dialog';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+} from '@sapience/ui/components/ui/tabs';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { Plus, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';

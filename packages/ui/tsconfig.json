@@ -15,19 +15,11 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"],
-      "@sapience/sdk": ["./index.ts"],
-      "@sapience/sdk/*": ["./*"]
-    },
     "incremental": true,
     "strictNullChecks": true
   },
-  "include": [
-    "index.ts",
-    "queries",
-    "types"
-  ],
-  "exclude": ["node_modules", "dist", "stories", ".storybook", "**/*.test.*", "**/*.spec.*"]
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist", "storybook-static", "**/*.test.*", "**/*.spec.*"]
 }
+
 

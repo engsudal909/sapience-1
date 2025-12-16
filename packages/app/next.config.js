@@ -10,6 +10,7 @@ module.exports = withPWA({
   swcMinify: true,
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
+  transpilePackages: ['@sapience/ui'],
   eslint: {
     dirs: ['src'],
   },

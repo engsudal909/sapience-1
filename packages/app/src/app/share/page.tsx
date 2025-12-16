@@ -1,7 +1,7 @@
 import { brotliDecompressSync, inflateRawSync } from 'zlib';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 
 type SharePageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
