@@ -32,7 +32,7 @@ export interface FilterState {
   selectedCategories: string[]; // array of category slugs
 }
 
-export interface TableFiltersProps {
+interface TableFiltersProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   // Bounds for the filters (computed from data)

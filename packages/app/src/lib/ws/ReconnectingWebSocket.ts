@@ -4,13 +4,13 @@ import * as Sentry from '@sentry/nextjs';
 
 type OutgoingMessage = Record<string, unknown> & { id?: string };
 
-export type AckResolver = {
+type AckResolver = {
   resolve: (value?: unknown) => void;
   reject: (reason?: unknown) => void;
   timeout: number;
 };
 
-export interface ReconnectingWebSocketOptions {
+interface ReconnectingWebSocketOptions {
   maxBackoffMs?: number; // default 30s
   initialBackoffMs?: number; // default 400ms
   heartbeatIntervalMs?: number; // default 25s

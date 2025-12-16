@@ -53,7 +53,7 @@ import ConditionsFilter from '~/components/terminal/filters/ConditionsFilter';
 import type { MultiSelectItem } from '~/components/terminal/filters/MultiSelect';
 import ForecastOddsSlider from '~/components/shared/ForecastOddsSlider';
 
-export type OrderBuilderDialogProps = {
+type OrderBuilderDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingId: string | null;

@@ -69,7 +69,7 @@ export function getDefaultFormPredictionValue(
 /**
  * Creates enhanced position defaults for the position form
  */
-export interface CreatePositionEntryDefaults {
+interface CreatePositionEntryDefaults {
   wagerAmount: string;
   prediction?: boolean;
   formPredictionValue?: string;

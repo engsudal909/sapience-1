@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi';
 import { useMemo } from 'react';
 import { useAuth } from '~/lib/context/AuthContext';
 
-export interface ConnectedWalletState {
+interface ConnectedWalletState {
   ready: boolean;
   connectedWallet:
     | ReturnType<typeof useWallets>['wallets'][number]

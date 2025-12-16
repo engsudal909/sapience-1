@@ -9,7 +9,7 @@ import YesNoPredict from '~/components/markets/forms/inputs/YesNoPredict';
 import { useSubmitPrediction } from '~/hooks/forms/useSubmitPrediction';
 import { MarketGroupClassification } from '~/lib/types';
 
-export interface ConditionForecastFormProps {
+interface ConditionForecastFormProps {
   conditionId: string;
   resolver: string;
   question: string;

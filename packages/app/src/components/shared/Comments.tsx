@@ -16,7 +16,7 @@ import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import MarketBadge from '~/components/markets/MarketBadge';
 import { getFocusAreaMap } from '~/lib/constants/focusAreas';
 
-export enum Answer {
+enum Answer {
   Yes = 'yes',
   No = 'no',
 }

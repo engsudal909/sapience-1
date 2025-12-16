@@ -9,7 +9,7 @@ import {
   formatOrderLabelSnapshot,
 } from '../utils';
 
-export type LogOrderEventFn = (
+type LogOrderEventFn = (
   order: Order,
   action: 'created' | 'updated' | 'deleted' | 'paused' | 'resumed',
   position?: number

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { formatPercentChance } from '~/lib/format/percentChance';
 
-export interface PercentChanceProps {
+interface PercentChanceProps {
   probability: number;
   showLabel?: boolean;
   label?: string;

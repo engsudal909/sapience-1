@@ -1,6 +1,7 @@
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { config } from '../config';
 import http from 'http';
+import https from 'https';
 import type { Request, Response } from 'express';
 import type { Socket } from 'net';
 
@@ -34,6 +35,7 @@ export function createAuctionProxyMiddleware() {
         }
       },
       proxyReq: (proxyReq: http.ClientRequest, req: Request) => {
+        console.log('[Auction Proxy] Proxy request:', req.method, req.url);
         // Preserve original host header for proper routing
         if (req.headers.host) {
           proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
@@ -70,8 +72,13 @@ export async function proxyAuctionWebSocket(
   const url = new URL(request.url || '/auction', target);
 
   return new Promise((resolve) => {
+    console.log('[Auction Proxy] Creating proxy request for:', url.toString());
+
+    // Use https module for HTTPS URLs, http for HTTP
+    const requestModule = url.protocol === 'https:' ? https : http;
+
     // Create proxy request with upgrade header
-    const proxyReq = http.request({
+    const proxyReq = requestModule.request({
       hostname: url.hostname,
       port: parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80),
       path: url.pathname + (url.search || ''),
@@ -82,10 +89,30 @@ export async function proxyAuctionWebSocket(
         connection: 'upgrade',
         upgrade: 'websocket',
       },
+      // For HTTPS, reject unauthorized certificates in production
+      rejectUnauthorized: config.NODE_ENV === 'production',
     });
 
     proxyReq.on('error', (err: Error) => {
-      console.error('[Auction Proxy] WebSocket proxy error:', err.message);
+      console.error(
+        '[Auction Proxy] WebSocket proxy error:',
+        err.message,
+        err.stack
+      );
+      try {
+        socket.destroy();
+      } catch {
+        /* ignore */
+      }
+      resolve(false);
+    });
+
+    // Handle response (non-upgrade) - this shouldn't happen for WebSocket but log it
+    proxyReq.on('response', (res) => {
+      console.warn(
+        `[Auction Proxy] Received non-upgrade response ${res.statusCode} for WebSocket request to ${url.toString()}`
+      );
+      // If we get a regular response instead of upgrade, something went wrong
       try {
         socket.destroy();
       } catch {

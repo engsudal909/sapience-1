@@ -9,7 +9,7 @@
     "build:turbo": "turbo run build",
     "postbuild": "next-sitemap --config next-sitemap.config.js",
     "start": "next start",
-    "lint": "next lint --quiet",
+    "lint": "eslint src --quiet",
     "lint:fix": "eslint src --fix --quiet && pnpm format",
     "type-check": "tsc --noEmit",
     "check:turbo": "npx turbo lint type-check",

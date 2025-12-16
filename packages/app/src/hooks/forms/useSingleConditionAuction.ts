@@ -7,7 +7,7 @@ import { predictionMarketAbi } from '@sapience/sdk';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 
-export interface UseSingleConditionAuctionProps {
+interface UseSingleConditionAuctionProps {
   /** The condition ID to bet on */
   conditionId: string | null;
   /** User's prediction: true = Yes, false = No, null = unselected */
@@ -29,7 +29,7 @@ export interface UseSingleConditionAuctionProps {
   ) => void;
 }
 
-export interface UseSingleConditionAuctionReturn {
+interface UseSingleConditionAuctionReturn {
   /** The best valid bid (highest payout, not expired) */
   bestBid: QuoteBid | null;
   /** Trigger a quote request (optionally force refresh) */

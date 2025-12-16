@@ -11,12 +11,6 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 
-export interface PredictedOutcomeInput {
-  marketGroup: string; // address
-  marketId: number;
-  prediction: boolean;
-}
-
 export interface AuctionParams {
   wager: string; // wei string - taker's wager amount
   resolver: string; // contract address for market validation

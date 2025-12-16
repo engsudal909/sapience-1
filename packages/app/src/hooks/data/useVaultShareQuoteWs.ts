@@ -4,7 +4,7 @@ import { useSettings } from '../../lib/context/SettingsContext';
 import { toAuctionWsUrl } from '../../lib/ws';
 import { getSharedAuctionWsClient } from '../../lib/ws/AuctionWsClient';
 
-export interface VaultShareWsQuotePayload {
+interface VaultShareWsQuotePayload {
   chainId: number;
   vaultAddress: string;
   vaultCollateralPerShare: string; // decimal string
@@ -13,7 +13,7 @@ export interface VaultShareWsQuotePayload {
   signature?: string;
 }
 
-export interface VaultShareWsQuote {
+interface VaultShareWsQuote {
   vaultCollateralPerShare: string; // decimal string
   updatedAtMs: number;
   source: 'ws' | 'fallback';

@@ -1,7 +1,7 @@
 import type React from 'react';
 import { Pencil } from 'lucide-react';
 
-export type AutoBidHeaderProps = {
+type AutoBidHeaderProps = {
   allowanceDisplay: string;
   balanceDisplay: string;
   collateralSymbol: string;
