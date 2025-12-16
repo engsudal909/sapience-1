@@ -21,6 +21,10 @@ import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLoc
 import type { FilterState } from '~/components/markets/TableFilters';
 import { useDebouncedValue } from '~/hooks/useDebouncedValue';
 import ShareAfterMarketsRedirect from '~/components/shared/ShareAfterMarketsRedirect';
+import {
+  CreatePythPositionForm,
+  type CreatePythPositionFormValues,
+} from '@sapience/ui';
 
 // Dynamically import Loader
 const Loader = dynamic(() => import('~/components/shared/Loader'), {
@@ -117,6 +121,11 @@ const MarketsPage = () => {
     setFilters(newFilters);
   }, []);
 
+  const handlePythPick = useCallback((values: CreatePythPositionFormValues) => {
+    // Wire this up to the Pyth prediction flow once ready.
+    void values;
+  }, []);
+
   // Convert categories to the format expected by TableFilters
   const categoryOptions = useMemo(() => {
     return allCategories
@@ -162,6 +171,14 @@ const MarketsPage = () => {
         <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-4 pr-0 lg:pr-4 pb-4 lg:pb-6">
           {/* Featured Parlays section */}
           <ExampleCombos className="mt-4 md:mt-0" />
+
+          <div className="w-full mt-2">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h2 className="sc-heading text-foreground">Predict Prices</h2>
+            </div>
+            <CreatePythPositionForm onPick={handlePythPick} />
+            <hr className="gold-hr mt-6 -mb-2" />
+          </div>
 
           {/* Results area - always table view */}
           <div className="relative w-full max-w-full overflow-x-hidden min-h-[300px]">

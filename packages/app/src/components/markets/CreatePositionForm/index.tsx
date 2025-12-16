@@ -779,7 +779,7 @@ const CreatePositionForm = ({
     return (
       <div className="w-full h-full flex flex-col position-form">
         <div className="hidden lg:flex items-center justify-between mb-1 px-1 pt-1">
-          <h2 className="sc-heading text-foreground">Take a position</h2>
+          <h2 className="sc-heading text-foreground">Your Position</h2>
           <Button
             variant="ghost"
             size="xs"
@@ -836,7 +836,7 @@ const CreatePositionForm = ({
         >
           <div className="flex-1 min-h-0">
             <div className="flex items-center justify-between mb-1 px-1">
-              <h2 className="sc-heading text-foreground">Take a position</h2>
+              <h2 className="sc-heading text-foreground">Your Position</h2>
               {hasTriggeredItems && (
                 <Button
                   variant="ghost"

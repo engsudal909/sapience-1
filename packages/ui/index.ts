@@ -17,4 +17,5 @@ export * from './components/NumberDisplay';
 export * from './components/SlippageTolerance';
 export * from './components/ColoredRadioOption';
 export * from './components/SearchBar';
+export * from './components/CreatePythPositionForm';
 

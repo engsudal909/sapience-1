@@ -548,7 +548,6 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
           </TableBody>
         </Table>
       </div>
-      <hr className="gold-hr mt-6 -mb-2" />
     </div>
   );
 };
