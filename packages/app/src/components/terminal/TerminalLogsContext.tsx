@@ -21,7 +21,7 @@ import { readLogsFromStorage, writeLogsToStorage } from './AutoBid/storage';
 const MAX_LOG_DEDUPE_KEYS = 400;
 const MAX_STORED_LOGS = 200;
 
-export type LogSource = 'autobid' | 'manual';
+type LogSource = 'autobid' | 'manual';
 
 export type PushLogEntryParams = {
   kind: AutoBidLogKind;

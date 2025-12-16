@@ -9,7 +9,7 @@ import {
   Tv,
 } from 'lucide-react';
 
-export interface FocusArea {
+interface FocusArea {
   id: string;
   name: string;
   resources: string[];

@@ -218,7 +218,7 @@ function useFirstActivity(positions: Parlay[] | undefined) {
   }, [positions]);
 }
 
-export type ProfileQuickMetricsProps = {
+type ProfileQuickMetricsProps = {
   address: string;
   forecastsCount: number;
   positions: Parlay[];

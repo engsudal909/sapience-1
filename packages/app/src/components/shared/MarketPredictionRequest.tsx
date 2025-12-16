@@ -24,7 +24,7 @@ const FADE_VARIANTS = {
 const FADE_TRANSITION_FAST = { duration: 0.2, ease: 'easeOut' } as const;
 const FADE_TRANSITION_SLOW = { duration: 0.22, ease: 'easeOut' } as const;
 
-export interface MarketPredictionRequestProps {
+interface MarketPredictionRequestProps {
   conditionId?: string;
   outcomes?: PredictedOutcomeInputStub[];
   onPrediction?: (probability: number) => void;

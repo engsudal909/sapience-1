@@ -6,7 +6,7 @@ import OrderCard from './OrderCard';
 import { cn } from '~/lib/utils/util';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 
-export type OrdersListProps = {
+type OrdersListProps = {
   orders: Order[];
   sortedOrders: Order[];
   collateralSymbol: string;
