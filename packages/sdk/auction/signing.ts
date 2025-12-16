@@ -170,7 +170,7 @@ export function createAuctionStartSiweMessage(
 
 /**
  * Extracts domain and URI from a WebSocket URL for SIWE signing
- * @param wsUrl - WebSocket URL (e.g., 'wss://api.sapience.xyz/auction')
+ * @param wsUrl - WebSocket URL (e.g., 'wss://relayer.sapience.xyz/auction')
  * @returns { domain, uri } for SIWE message
  */
 export function extractSiweDomainAndUri(wsUrl: string): {

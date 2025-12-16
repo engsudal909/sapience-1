@@ -25,7 +25,7 @@ export interface UseSingleConditionAuctionProps {
   /** Request quotes function from useAuctionStart */
   requestQuotes?: (
     params: AuctionParams | null,
-    options?: { forceRefresh?: boolean }
+    options?: { forceRefresh?: boolean; requireSignature?: boolean }
   ) => void;
 }
 
@@ -160,7 +160,9 @@ export function useSingleConditionAuction({
           chainId: chainId,
         };
 
-        requestQuotes(params, options);
+        // For "forecast/preview" quotes we should never prompt a wallet signature.
+        // (Matches `MarketPredictionRequest` behavior.)
+        requestQuotes(params, { requireSignature: false, ...options });
         setLastQuoteRequestMs(Date.now());
       } catch {
         // ignore formatting errors
