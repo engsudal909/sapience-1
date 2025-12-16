@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
-export interface UserProfitRankResult {
+interface UserProfitRankResult {
   totalPnL: number;
   rank: number | null;
   totalParticipants: number;

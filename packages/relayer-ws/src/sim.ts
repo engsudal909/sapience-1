@@ -64,3 +64,4 @@ export function basicValidateBid(
 
   return { ok: true };
 }
+

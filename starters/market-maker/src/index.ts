@@ -49,7 +49,7 @@ function getEnv(name: string, fallback?: string): string {
   return v;
 }
 
-const RELAYER_WS_URL = process.env.RELAYER_WS_URL || 'wss://api.sapience.xyz/auction';
+const RELAYER_WS_URL = process.env.RELAYER_WS_URL || 'wss://relayer.sapience.xyz/auction';
 
 // Ethereal chain definition (trading chain where native token is USDe)
 const CHAIN_ID_ETHEREAL = 5064014;

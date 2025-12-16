@@ -7,12 +7,16 @@ services:
   - name: web-service
     type: web
     env: node
-    plan: pro
+    plan: standard
     buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
     startCommand: pnpm --filter @sapience/api start:service
     autoDeploy: true
     repo: https://github.com/sapiencexyz/sapience
     branch: main
+    buildFilter:
+      paths:
+        - packages/api/**
+        - packages/sdk/**
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -27,8 +31,28 @@ services:
     startCommand: pnpm --filter @sapience/api start:worker
     autoDeploy: true
     branch: main
+    buildFilter:
+      paths:
+        - packages/api/**
+        - packages/sdk/**
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: database
           property: connectionString
+
+  - name: relayer-ws
+    type: web
+    env: node
+    plan: standard
+    buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
+    startCommand: pnpm --filter @sapience/relayer start
+    autoDeploy: true
+    repo: https://github.com/sapiencexyz/sapience
+    branch: main
+    buildFilter:
+      paths:
+        - packages/relayer-ws/**
+    envVars:
+      - key: ENABLE_AUCTION_WS
+        value: "true"

@@ -20,7 +20,7 @@ export interface Pick {
   description?: string | null;
 }
 
-export interface StackedPredictionsProps {
+interface StackedPredictionsProps {
   legs: Pick[];
   /** Show icons stacked before the question (default: true) */
   showIcons?: boolean;

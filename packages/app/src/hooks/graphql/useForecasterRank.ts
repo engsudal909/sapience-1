@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 
-export interface ForecasterRankResult {
+interface ForecasterRankResult {
   accuracyScore: number | null;
   rank: number | null;
   totalForecasters: number;

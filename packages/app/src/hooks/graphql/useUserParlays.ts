@@ -123,7 +123,7 @@ export function useUserParlays(params: {
     chainId,
   } = params;
   const enabled = Boolean(address);
-  const { data, isLoading, isFetching, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: [
       'positions',
       address,
@@ -214,5 +214,6 @@ export function useUserParlays(params: {
     data: data ?? [],
     isLoading: !!enabled && (isLoading || isFetching),
     error,
+    refetch,
   };
 }

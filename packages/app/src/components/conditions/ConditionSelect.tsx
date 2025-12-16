@@ -23,7 +23,7 @@ import {
 } from '~/hooks/graphql/useConditions';
 import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
-export interface ConditionSelectProps {
+interface ConditionSelectProps {
   selectedConditionId?: string | null;
   onSelect: (condition: ConditionType) => void;
   className?: string;

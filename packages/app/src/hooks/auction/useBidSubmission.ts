@@ -45,12 +45,12 @@ export type BidSubmissionResult = {
   makerDeadline?: number;
 };
 
-export interface UseBidSubmissionOptions {
+interface UseBidSubmissionOptions {
   /** Called when signature is rejected by user */
   onSignatureRejected?: (error: Error) => void;
 }
 
-export interface UseBidSubmissionResult {
+interface UseBidSubmissionResult {
   /** Submit a bid with signing and WebSocket transmission */
   submitBid: (params: BidSubmissionParams) => Promise<BidSubmissionResult>;
   /** Whether the wallet is connected */

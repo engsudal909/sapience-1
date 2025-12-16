@@ -12,7 +12,7 @@ import { quoteBidsToAuctionBids } from '~/lib/auction/bidAdapter';
 import AuctionBidsChart from '~/components/shared/AuctionBidsChart';
 import type { QuoteBid } from '~/lib/auction/useAuctionStart';
 
-export interface BidDisplayProps {
+interface BidDisplayProps {
   /** The best valid bid */
   bestBid: QuoteBid | null;
   /** Estimate bid (failed simulation but only bid available) - shown with muted styling */

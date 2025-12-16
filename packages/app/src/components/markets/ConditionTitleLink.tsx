@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 
-export type ConditionTitleLinkProps = {
+type ConditionTitleLinkProps = {
   conditionId?: string;
   title: string;
   className?: string;

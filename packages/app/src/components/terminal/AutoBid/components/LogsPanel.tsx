@@ -4,7 +4,7 @@ import { LOG_SEVERITY_CLASSES } from '../constants';
 import { formatLogDisplayTime } from '../utils';
 import { cn } from '~/lib/utils/util';
 
-export type LogsPanelProps = {
+type LogsPanelProps = {
   logs: AutoBidLogEntry[];
   orderLabelById: Record<string, string>;
 };

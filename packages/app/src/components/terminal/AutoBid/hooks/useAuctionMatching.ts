@@ -31,7 +31,7 @@ type AuctionContext = {
   takerNonce: number;
 };
 
-export type UseAuctionMatchingParams = {
+type UseAuctionMatchingParams = {
   orders: Order[];
   getOrderIndex: (order: Order) => number;
   pushLogEntry: (entry: PushLogEntryParams) => void;
