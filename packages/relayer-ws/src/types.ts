@@ -62,6 +62,10 @@ export type ClientToServerMessage =
   | {
       type: 'auction.subscribe';
       payload: { auctionId: string };
+    }
+  | {
+      type: 'auction.unsubscribe';
+      payload: { auctionId: string };
     };
 
 export type BotToServerMessage = { type: 'bid.submit'; payload: BidPayload };
@@ -69,7 +73,13 @@ export type BotToServerMessage = { type: 'bid.submit'; payload: BidPayload };
 export type ServerToClientMessage =
   | {
       type: 'auction.ack';
-      payload: { auctionId: string; id?: string; error?: string };
+      payload: { 
+        auctionId?: string; 
+        id?: string; 
+        error?: string;
+        subscribed?: boolean;
+        unsubscribed?: boolean;
+      };
     }
   | { type: 'bid.ack'; payload: { error?: string } }
   | {

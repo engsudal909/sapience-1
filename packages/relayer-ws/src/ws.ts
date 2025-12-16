@@ -41,7 +41,9 @@ function isClientMessage(msg: unknown): msg is ClientToServerMessage {
   const msgObj = msg as Record<string, unknown>;
   return (
     typeof msgObj.type === 'string' &&
-    (msgObj.type === 'auction.start' || msgObj.type === 'auction.subscribe')
+    (msgObj.type === 'auction.start' || 
+     msgObj.type === 'auction.subscribe' || 
+     msgObj.type === 'auction.unsubscribe')
   );
 }
 
@@ -82,7 +84,6 @@ function subscribeToAuction(
   auctionSubscriptions.get(auctionId)!.add(ws);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function unsubscribeFromAuction(
   auctionId: string,
   ws: WebSocket,
@@ -761,6 +762,7 @@ export function createAuctionWebSocketServer() {
           const auctionId = (msg.payload as { auctionId?: string })?.auctionId;
           if (typeof auctionId === 'string' && auctionId.length > 0) {
             subscribeToAuction(auctionId, ws, auctionSubscriptions);
+            subscriptionsActive.inc({ subscription_type: 'auction' });
             // Immediately stream current bids if any
             const bids = getBids(auctionId);
             if (bids.length > 0) {
@@ -769,9 +771,43 @@ export function createAuctionWebSocketServer() {
                 payload: { auctionId, bids },
               });
             }
+            send(ws, {
+              type: 'auction.ack',
+              payload: { auctionId, subscribed: true },
+            });
           } else {
             console.warn('[Relayer-WS] subscribe rejected: missing auctionId');
+            send(ws, {
+              type: 'auction.ack',
+              payload: { error: 'missing_auction_id' },
+            });
           }
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
+          return;
+        }
+        if (msg.type === 'auction.unsubscribe') {
+          const auctionId = (msg.payload as { auctionId?: string })?.auctionId;
+          if (typeof auctionId === 'string' && auctionId.length > 0) {
+            unsubscribeFromAuction(auctionId, ws, auctionSubscriptions);
+            subscriptionsActive.dec({ subscription_type: 'auction' });
+            send(ws, {
+              type: 'auction.ack',
+              payload: { auctionId, unsubscribed: true },
+            });
+          } else {
+            console.warn('[Relayer-WS] unsubscribe rejected: missing auctionId');
+            send(ws, {
+              type: 'auction.ack',
+              payload: { error: 'missing_auction_id' },
+            });
+          }
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
           return;
         }
       }
