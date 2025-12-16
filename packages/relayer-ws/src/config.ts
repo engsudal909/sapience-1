@@ -24,6 +24,9 @@ export const config = cleanEnv(process.env, {
   SENTRY_DSN: str({ default: '' }),
   RATE_LIMIT_WINDOW_MS: num({ default: 10_000 }),
   RATE_LIMIT_MAX_MESSAGES: num({ default: 100 }),
+  WS_IDLE_TIMEOUT_MS: num({ default: 300_000 }), // 5 minutes
+  WS_MAX_CONNECTIONS: num({ default: 1000 }),
+  WS_ALLOWED_ORIGINS: str({ default: '' }), // Comma-separated list, empty = allow all
 });
 
 export const isProd = config.NODE_ENV === 'production';

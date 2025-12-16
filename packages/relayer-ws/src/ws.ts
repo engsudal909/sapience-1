@@ -146,6 +146,9 @@ const RATE_LIMIT_MAX_MESSAGES = config.RATE_LIMIT_MAX_MESSAGES;
 
 export function createAuctionWebSocketServer() {
   const wss = new WebSocketServer({ noServer: true });
+  
+  // Track active connections for connection limit
+  let activeConnectionCount = 0;
 
   // Track which clients are subscribed to which auction channels
   const auctionSubscriptions = new Map<string, Set<WebSocket>>();
@@ -297,6 +300,27 @@ export function createAuctionWebSocketServer() {
   // Startup banner removed to reduce verbosity
 
   wss.on('connection', (ws, req: IncomingMessage) => {
+    // Check connection limit
+    if (activeConnectionCount >= config.WS_MAX_CONNECTIONS) {
+      console.warn(
+        `[Relayer-WS] Max connections (${config.WS_MAX_CONNECTIONS}) reached, rejecting new connection`
+      );
+      ws.close(1008, 'connection_limit_exceeded');
+      return;
+    }
+
+    // Origin validation (if configured)
+    if (config.WS_ALLOWED_ORIGINS) {
+      const origin = req.headers.origin;
+      const allowedOrigins = config.WS_ALLOWED_ORIGINS.split(',').map(o => o.trim());
+      if (!origin || !allowedOrigins.includes(origin)) {
+        console.warn(`[Relayer-WS] Origin validation failed: ${origin}`);
+        ws.close(1008, 'origin_not_allowed');
+        return;
+      }
+    }
+
+    activeConnectionCount++;
     // Metrics: Track connection
     activeConnections.inc();
     connectionsTotal.inc();
@@ -305,6 +329,33 @@ export function createAuctionWebSocketServer() {
       req.socket.remoteAddress ||
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       'unknown';
+
+    // Idle timeout setup
+    let idleTimeout: NodeJS.Timeout | null = null;
+
+    const resetIdleTimeout = () => {
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+      }
+      idleTimeout = setTimeout(() => {
+        console.log(`[Relayer-WS] Connection idle timeout from ${ip}`);
+        ws.close(1008, 'idle_timeout');
+      }, config.WS_IDLE_TIMEOUT_MS);
+    };
+
+    // Handle client pings - server automatically responds with pong via ws library
+    // Reset idle timeout on ping/pong to keep connection alive
+    ws.on('ping', () => {
+      resetIdleTimeout();
+      // ws library automatically responds with pong
+    });
+
+    ws.on('pong', () => {
+      resetIdleTimeout();
+    });
+
+    // Start idle timeout
+    resetIdleTimeout();
 
     // Store request context for signature verification
     const hostHeader = (req.headers['host'] as string) || 'unknown';
@@ -319,6 +370,9 @@ export function createAuctionWebSocketServer() {
     let rateResetAt = Date.now() + RATE_LIMIT_WINDOW_MS;
 
     ws.on('message', async (data: RawData) => {
+      // Reset idle timeout on any message
+      resetIdleTimeout();
+
       // basic rate limiting and size guard
       const now = Date.now();
       if (now > rateResetAt) {
@@ -926,6 +980,13 @@ export function createAuctionWebSocketServer() {
     });
 
     ws.on('close', (code, reason) => {
+      // Cleanup timers
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+        idleTimeout = null;
+      }
+
+      activeConnectionCount--;
       // Metrics: Track connection closed
       activeConnections.dec();
       const reasonStr = (() => {

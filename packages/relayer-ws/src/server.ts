@@ -12,8 +12,10 @@ initSentry();
 
 const startServer = async () => {
   let serverStartTime: number;
+  let httpServer: ReturnType<typeof createServer> | null = null;
+  let auctionWss: ReturnType<typeof createAuctionWebSocketServer> | null = null;
 
-  const httpServer = createServer(async (req, res) => {
+  const httpServerInstance = createServer(async (req, res) => {
     // Expose metrics endpoint
     if (req.url === '/metrics' && req.method === 'GET') {
       try {
@@ -46,9 +48,9 @@ const startServer = async () => {
 
   // Create WebSocket server
   const auctionWsEnabled = config.ENABLE_AUCTION_WS;
-  const auctionWss = auctionWsEnabled ? createAuctionWebSocketServer() : null;
+  auctionWss = auctionWsEnabled ? createAuctionWebSocketServer() : null;
 
-  httpServer.on(
+  httpServerInstance.on(
     'upgrade',
     (request: IncomingMessage, socket: Socket, head: Buffer) => {
       try {
@@ -74,6 +76,7 @@ const startServer = async () => {
     }
   );
 
+  httpServer = httpServerInstance;
   httpServer.listen(PORT, () => {
     serverStartTime = Date.now();
     console.log(`Relayer service is running on port ${PORT}`);
@@ -83,6 +86,65 @@ const startServer = async () => {
       console.log(`WebSocket endpoint: ws://localhost:${PORT}/auction`);
     }
   });
+
+  // Graceful shutdown handler
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`\n${signal} received, starting graceful shutdown...`);
+    
+    // Stop accepting new connections
+    if (httpServer) {
+      httpServer.close(() => {
+        console.log('HTTP server closed');
+      });
+    }
+
+    // Close all WebSocket connections
+    if (auctionWss) {
+      const clients = Array.from(auctionWss.clients);
+      console.log(`Closing ${clients.length} WebSocket connections...`);
+      
+      // Close all connections with a reason
+      clients.forEach((ws) => {
+        if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) {
+          ws.close(1001, 'server_shutting_down');
+        }
+      });
+
+      // Wait for connections to close (max 10 seconds)
+      const closePromise = new Promise<void>((resolve) => {
+        if (clients.length === 0) {
+          resolve();
+          return;
+        }
+
+        let closedCount = 0;
+        clients.forEach((ws) => {
+          ws.on('close', () => {
+            closedCount++;
+            if (closedCount === clients.length) {
+              resolve();
+            }
+          });
+        });
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          console.log('Timeout waiting for connections to close');
+          resolve();
+        }, 10000);
+      });
+
+      await closePromise;
+      console.log('All WebSocket connections closed');
+    }
+
+    console.log('Graceful shutdown complete');
+    process.exit(0);
+  };
+
+  // Register signal handlers
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 };
 
 startServer().catch((err) => {
