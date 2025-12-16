@@ -19,6 +19,7 @@ function getAuctionServiceUrl(): string {
  */
 export function createAuctionProxyMiddleware() {
   const target = getAuctionServiceUrl();
+  console.log('[Auction Proxy] Auction service URL:', target);
 
   return createProxyMiddleware({
     target,
@@ -37,6 +38,21 @@ export function createAuctionProxyMiddleware() {
         if (req.headers.host) {
           proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
         }
+      },
+      proxyRes: (proxyRes, req) => {
+        // Log all responses for monitoring
+        if (proxyRes.statusCode) {
+          if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+            console.log(
+              `[Auction Proxy] Successfully proxied ${req.method} ${req.url} -> ${proxyRes.statusCode}`
+            );
+          } else if (proxyRes.statusCode >= 400) {
+            console.warn(
+              `[Auction Proxy] Upstream returned ${proxyRes.statusCode} for ${req.method} ${req.url}`
+            );
+          }
+        }
+        // Ensure status code is forwarded (http-proxy-middleware should do this automatically)
       },
     },
   });
@@ -85,6 +101,16 @@ export async function proxyAuctionWebSocket(
         proxySocket: import('net').Socket,
         proxyHead: Buffer
       ) => {
+        // Log successful WebSocket upgrade
+        if (proxyRes.statusCode === 101) {
+          console.log(
+            `[Auction Proxy] Successfully proxied WebSocket upgrade for ${request.url}`
+          );
+        } else {
+          console.warn(
+            `[Auction Proxy] WebSocket upgrade returned ${proxyRes.statusCode} for ${request.url}`
+          );
+        }
         // Upgrade successful, pipe the connection
         proxySocket.on('error', (err: Error) => {
           console.error('[Auction Proxy] Proxy socket error:', err.message);
