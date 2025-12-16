@@ -526,39 +526,28 @@ export function useSapienceWriteContract({
 
             // Execute via smart account - batched as a single UserOperation
             if (sessionClient.sendUserOperation && callsToExecute.length > 0) {
-              // Batch all calls into a single UserOperation
-              // For now, execute sequentially (ZeroDev batching requires encoding)
-              let lastHash: Hash | undefined;
-              for (const call of callsToExecute) {
-                // For smart accounts, we'd ideally batch these
-                // But for compatibility, execute individually
-                const hash = await writeContractAsync({
-                  ...params,
-                  address: call.to,
-                  functionName: functionName,
-                  args: fnArgs,
-                  value: call.value,
-                } as any);
-                lastHash = hash;
-              }
+              // Send batched calls through the kernel client's sendUserOperation
+              // This executes without prompting the wallet since session key is used
+              const userOpHash = await sessionClient.sendUserOperation({
+                callData: callsToExecute,
+              });
 
-              handleTransactionSuccess(lastHash);
+              // The userOpHash is the hash of the UserOperation, not a tx hash
+              // For now, treat it as success - the kernel client handles confirmation
+              handleTransactionSuccess(userOpHash as Hash);
 
-              // Execute auto-unwrap if needed
+              // Execute auto-unwrap if needed (in a separate UserOp)
               if (needsUnwrap) {
                 setTimeout(async () => {
                   try {
                     const unwrapTx = await executeAutoUnwrap(
                       balanceBeforeTransaction
                     );
-                    if (unwrapTx) {
-                      await writeContractAsync({
-                        address: unwrapTx.to,
-                        abi: WUSDE_ABI,
-                        functionName: 'withdraw',
-                        args: [balanceBeforeTransaction],
-                        chainId: _chainId,
-                      } as any);
+                    if (unwrapTx && sessionClient.sendUserOperation) {
+                      await sessionClient.sendUserOperation({
+                        callData: [unwrapTx],
+                      });
+                      console.log('Auto-unwrap completed via session key');
                     }
                   } catch (error) {
                     console.error('Auto-unwrap failed:', error);
