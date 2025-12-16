@@ -7,10 +7,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+} from '@sapience/ui/components/ui/dialog';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Input } from '@sapience/ui/components/ui/input';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 

@@ -15,7 +15,7 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from '@sapience/sdk/ui/components/ui/hover-card';
+} from '@sapience/ui/components/ui/hover-card';
 import { formatEther } from 'viem';
 import TradePopoverContent from '~/components/shared/TradePopoverContent';
 import ExpiresInLabel from '~/components/shared/ExpiresInLabel';

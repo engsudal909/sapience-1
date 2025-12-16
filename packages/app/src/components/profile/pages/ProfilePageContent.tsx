@@ -8,7 +8,7 @@ import {
   Tabs,
   TabsContent,
   TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
+} from '@sapience/ui/components/ui/tabs';
 import Link from 'next/link';
 import { Telescope, ArrowLeftRightIcon } from 'lucide-react';
 import SegmentedTabsList from '~/components/shared/SegmentedTabsList';

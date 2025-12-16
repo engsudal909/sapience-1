@@ -3,7 +3,7 @@
 import EnsAvatar from '~/components/shared/EnsAvatar';
 
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
-import { cn } from '@sapience/sdk/ui/lib/utils';
+import { cn } from '@sapience/ui/lib/utils';
 
 interface ProfileHeaderProps {
   address: string;

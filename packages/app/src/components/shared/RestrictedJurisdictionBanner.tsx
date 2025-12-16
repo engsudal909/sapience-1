@@ -1,5 +1,5 @@
 import { OctagonMinusIcon } from 'lucide-react';
-import { Alert, AlertDescription } from '@sapience/sdk/ui/components/ui/alert';
+import { Alert, AlertDescription } from '@sapience/ui/components/ui/alert';
 
 type RestrictedJurisdictionBannerProps = {
   show: boolean;

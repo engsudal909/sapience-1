@@ -1,6 +1,6 @@
 'use client';
 import { type UseFormReturn } from 'react-hook-form';
-import { Button } from '@/sapience/ui/index';
+import { Button } from '@sapience/ui';
 
 import PositionForm from './PositionForm';
 import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';

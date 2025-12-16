@@ -1,20 +1,20 @@
 'use client';
 
 import { passiveLiquidityVault } from '@sapience/sdk/contracts';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Card, CardContent } from '@sapience/sdk/ui/components/ui/card';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Card, CardContent } from '@sapience/ui/components/ui/card';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Tabs,
   TabsList,
   TabsContent,
   TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
+} from '@sapience/ui/components/ui/tabs';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import { Vault } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';

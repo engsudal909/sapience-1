@@ -12,7 +12,7 @@ import { encodeFunctionData, parseAbi } from 'viem';
 import { useWallets, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { waitForCallsStatus } from 'viem/actions';
 import { handleViemError } from '~/utils/blockchain/handleViemError';
 import { useChainValidation } from '~/hooks/blockchain/useChainValidation';

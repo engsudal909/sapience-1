@@ -1,10 +1,10 @@
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import { Loader2, ArrowRightIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { isAddress } from 'viem';

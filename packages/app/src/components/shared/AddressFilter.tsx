@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Input } from '@sapience/ui/components/ui/input';
 import { Search, Loader2 } from 'lucide-react';
 import { isAddress } from 'viem';
 import { mainnetClient } from '~/lib/utils/util';

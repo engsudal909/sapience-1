@@ -11,8 +11,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@sapience/sdk/ui/components/ui/table';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+} from '@sapience/ui/components/ui/table';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   flexRender,
   getCoreRowModel,
@@ -47,7 +47,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import EmptyTabState from '~/components/shared/EmptyTabState';
 import StackedPredictions, {
   type Pick,

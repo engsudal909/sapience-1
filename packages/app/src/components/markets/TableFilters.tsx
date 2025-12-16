@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import Slider from '@sapience/sdk/ui/components/ui/slider';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import Slider from '@sapience/ui/components/ui/slider';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import {
   Command,
   CommandEmpty,
@@ -15,10 +15,10 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@sapience/sdk/ui/components/ui/command';
+} from '@sapience/ui/components/ui/command';
 import { ChevronsUpDown, Check, Search } from 'lucide-react';
-import { cn } from '@sapience/sdk/ui/lib/utils';
-import { useIsMobile } from '@sapience/sdk/ui/hooks/use-mobile';
+import { cn } from '@sapience/ui/lib/utils';
+import { useIsMobile } from '@sapience/ui/hooks/use-mobile';
 
 export interface CategoryOption {
   id: number;

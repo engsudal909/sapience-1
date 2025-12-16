@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
+} from '@sapience/ui/components/ui/dialog';
 
 const LOCAL_STORAGE_KEY = 'sapiencePwaInstallDismissed';
 const DISMISSAL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

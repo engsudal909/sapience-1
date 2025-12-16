@@ -1,5 +1,5 @@
-import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { Label } from '@sapience/sdk/ui/components/ui/label';
+import { Input } from '@sapience/ui/components/ui/input';
+import { Label } from '@sapience/ui/components/ui/label';
 import { useMemo, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { z } from 'zod';

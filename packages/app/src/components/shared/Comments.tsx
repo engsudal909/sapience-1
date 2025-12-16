@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import { AddressDisplay } from './AddressDisplay';
 import Loader from './Loader';

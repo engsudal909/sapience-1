@@ -1,23 +1,23 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@sapience/sdk/ui/components/ui/select';
+} from '@sapience/ui/components/ui/select';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@sapience/sdk/ui/components/ui/dialog';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+} from '@sapience/ui/components/ui/dialog';
+import { Badge } from '@sapience/ui/components/ui/badge';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import {

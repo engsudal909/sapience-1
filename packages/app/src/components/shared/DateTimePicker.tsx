@@ -1,16 +1,16 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Calendar } from '@sapience/sdk/ui/components/ui/calendar';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Calendar } from '@sapience/ui/components/ui/calendar';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { cn } from '@sapience/sdk/ui/lib/utils';
+import { cn } from '@sapience/ui/lib/utils';
 
 interface DateTimePickerProps {
   value: number; // Unix timestamp
