@@ -120,7 +120,10 @@ export class PositionResolver {
     @Arg('orderBy', () => String, { nullable: true }) orderBy?: string,
     @Arg('orderDirection', () => String, { nullable: true })
     orderDirection?: string,
-    @Arg('chainId', () => Int, { nullable: true }) chainId?: number
+    @Arg('chainId', () => Int, { nullable: true }) chainId?: number,
+    @Arg('status', () => String, { nullable: true })
+    status?: 'active' | 'settled' | 'consolidated',
+    @Arg('endsAtGte', () => Int, { nullable: true }) endsAtGte?: number
   ): Promise<PositionType[]> {
     const addr = address.toLowerCase();
 
@@ -199,11 +202,19 @@ export class PositionResolver {
     if (orderBy === 'wager' || orderBy === 'toWin' || orderBy === 'pnl') {
       const direction = orderDirection === 'asc' ? 'ASC' : 'DESC';
 
+      // Build additional WHERE conditions for status and endsAtGte
+      const statusCondition = status ? `AND status = '${status}'` : '';
+      const endsAtCondition =
+        endsAtGte !== undefined && endsAtGte !== null
+          ? `AND "endsAt" >= ${endsAtGte}`
+          : '';
+      const extraConditions = `${statusCondition} ${endsAtCondition}`;
+
       if (orderBy === 'wager') {
         if (chainId !== undefined && chainId !== null) {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId}
+            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId} ${Prisma.raw(extraConditions)}
             ORDER BY CASE 
               WHEN LOWER(predictor) = ${addr} THEN CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
               WHEN LOWER(counterparty) = ${addr} THEN CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
@@ -216,7 +227,7 @@ export class PositionResolver {
         } else {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}
+            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) ${Prisma.raw(extraConditions)}
             ORDER BY CASE 
               WHEN LOWER(predictor) = ${addr} THEN CAST(COALESCE("predictorCollateral", '0') AS DECIMAL)
               WHEN LOWER(counterparty) = ${addr} THEN CAST(COALESCE("counterpartyCollateral", '0') AS DECIMAL)
@@ -233,7 +244,7 @@ export class PositionResolver {
         if (chainId !== undefined && chainId !== null) {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId}
+            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId} ${Prisma.raw(extraConditions)}
             ORDER BY CASE 
               WHEN status = 'active' THEN 0
               WHEN LOWER(predictor) = ${addr} THEN
@@ -259,7 +270,7 @@ export class PositionResolver {
         } else {
           const rows = await prisma.$queryRaw<Position[]>`
             SELECT * FROM position
-            WHERE LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}
+            WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) ${Prisma.raw(extraConditions)}
             ORDER BY CASE 
               WHEN status = 'active' THEN 0
               WHEN LOWER(predictor) = ${addr} THEN
@@ -289,7 +300,7 @@ export class PositionResolver {
       if (chainId !== undefined && chainId !== null) {
         const rows = await prisma.$queryRaw<Position[]>`
           SELECT * FROM position
-          WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId}
+          WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) AND "chainId" = ${chainId} ${Prisma.raw(extraConditions)}
           ORDER BY CASE 
             WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
             WHEN status != 'active' THEN
@@ -307,7 +318,7 @@ export class PositionResolver {
       } else {
         const rows = await prisma.$queryRaw<Position[]>`
           SELECT * FROM position
-          WHERE LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}
+          WHERE (LOWER(predictor) = ${addr} OR LOWER(counterparty) = ${addr}) ${Prisma.raw(extraConditions)}
           ORDER BY CASE 
             WHEN status = 'active' THEN CAST("totalCollateral" AS DECIMAL)
             WHEN status != 'active' THEN
@@ -339,6 +350,12 @@ export class PositionResolver {
     if (chainId !== undefined && chainId !== null) {
       where.chainId = chainId;
     }
+    if (status) {
+      where.status = status;
+    }
+    if (endsAtGte !== undefined && endsAtGte !== null) {
+      where.endsAt = { gte: endsAtGte };
+    }
 
     const rows = await prisma.position.findMany({
       where,
@@ -355,7 +372,10 @@ export class PositionResolver {
     @Arg('conditionId', () => String) conditionId: string,
     @Arg('take', () => Int, { defaultValue: 100 }) take: number,
     @Arg('skip', () => Int, { defaultValue: 0 }) skip: number,
-    @Arg('chainId', () => Int, { nullable: true }) chainId?: number
+    @Arg('chainId', () => Int, { nullable: true }) chainId?: number,
+    @Arg('status', () => String, { nullable: true })
+    status?: 'active' | 'settled' | 'consolidated',
+    @Arg('endsAtGte', () => Int, { nullable: true }) endsAtGte?: number
   ): Promise<PositionType[]> {
     const predictionMatches = await prisma.prediction.findMany({
       where: {
@@ -378,13 +398,17 @@ export class PositionResolver {
 
     if (positionIds.length === 0) return [];
 
+    const positionWhere: Prisma.PositionWhereInput = {
+      id: { in: positionIds },
+      ...(chainId !== undefined && chainId !== null ? { chainId } : undefined),
+      ...(status ? { status } : undefined),
+      ...(endsAtGte !== undefined && endsAtGte !== null
+        ? { endsAt: { gte: endsAtGte } }
+        : undefined),
+    };
+
     const rows = await prisma.position.findMany({
-      where: {
-        id: { in: positionIds },
-        ...(chainId !== undefined && chainId !== null
-          ? { chainId }
-          : undefined),
-      },
+      where: positionWhere,
       orderBy: { mintedAt: 'desc' },
       take,
       skip,
