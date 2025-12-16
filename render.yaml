@@ -7,7 +7,7 @@ services:
   - name: web-service
     type: web
     env: node
-    plan: pro
+    plan: standard
     buildCommand: npm install -g pnpm@9 && bash render-build-sdk.sh
     startCommand: pnpm --filter @sapience/api start:service
     autoDeploy: true
