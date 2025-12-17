@@ -27,8 +27,7 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
     // ============ Events ============
     event ConfigInitialized(
         address indexed pythLazer,
-        uint256 maxPredictionMarkets,
-        uint64 publishTimeWindowSeconds
+        uint256 maxPredictionMarkets
     );
 
     event MarketSettled(
@@ -45,14 +44,10 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
     struct Settings {
         uint256 maxPredictionMarkets;
         IPythLazer pythLazer;
-        /// @notice Allowed window for publishTime: [endTime, endTime + publishTimeWindowSeconds].
-        /// @dev Default 0 enforces exact timestamp. Increase if the chain/feed timestamps are not exactly aligned.
-        uint64 publishTimeWindowSeconds;
     }
 
     uint256 public immutable maxPredictionMarkets;
     IPythLazer public immutable pythLazer;
-    uint64 public immutable publishTimeWindowSeconds;
 
     // ============ Binary Option Encoding ============
     struct BinaryOptionMarket {
@@ -87,11 +82,21 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
     function _benchmarkFromVerifiedPayload(
         bytes memory payload,
         uint32 targetFeedId
-    ) internal pure returns (int64 benchmarkPrice, int32 benchmarkExpo, uint64 publishTimeSec) {
+    )
+        internal
+        pure
+        returns (
+            int64 benchmarkPrice,
+            int32 benchmarkExpo,
+            uint64 publishTimeSec,
+            uint64 publishTimeMicros
+        )
+    {
         PythLazerStructs.Update memory u = PythLazerLibBytes
             .parseUpdateFromPayloadBytes(payload);
 
         // Payload header timestamp is microseconds.
+        publishTimeMicros = u.timestamp;
         publishTimeSec = uint64(u.timestamp / 1_000_000);
 
         bool found;
@@ -112,13 +117,8 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
     constructor(Settings memory _config) {
         maxPredictionMarkets = _config.maxPredictionMarkets;
         pythLazer = _config.pythLazer;
-        publishTimeWindowSeconds = _config.publishTimeWindowSeconds;
 
-        emit ConfigInitialized(
-            address(_config.pythLazer),
-            _config.maxPredictionMarkets,
-            _config.publishTimeWindowSeconds
-        );
+        emit ConfigInitialized(address(_config.pythLazer), _config.maxPredictionMarkets);
     }
 
     // ============ Resolver Interface ============
@@ -221,14 +221,9 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
         marketId = getMarketId(market);
         if (settlements[marketId].settled) revert MarketAlreadySettled();
 
-        uint64 minPublishTime = market.endTime;
-        uint64 maxPublishTime = market.endTime;
-        if (publishTimeWindowSeconds != 0) {
-            unchecked {
-                maxPublishTime = market.endTime + publishTimeWindowSeconds;
-            }
-            if (maxPublishTime < market.endTime) revert InvalidMarketData();
-        }
+        // Deterministic second-level settlement: the verified update must be
+        // (1) exactly second-aligned and (2) match the market's endTime exactly.
+        uint64 expectedPublishTimeSec = market.endTime;
 
         // Verify the update on-chain using the Pyth Lazer verifier and parse the verified payload.
         if (updateData.length != 1) revert InvalidMarketData();
@@ -239,19 +234,22 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
         int64 benchmarkPrice;
         int32 benchmarkExpo;
         uint64 publishTimeSec;
+        uint64 publishTimeMicros;
         {
             (bytes memory payload, ) = pythLazer.verifyUpdate{value: fee}(
                 updateData[0]
             );
-            (benchmarkPrice, benchmarkExpo, publishTimeSec) = _benchmarkFromVerifiedPayload(
+            (benchmarkPrice, benchmarkExpo, publishTimeSec, publishTimeMicros) = _benchmarkFromVerifiedPayload(
                 payload,
                 uint32(uint256(market.priceId))
             );
         }
 
-        if (publishTimeSec < minPublishTime || publishTimeSec > maxPublishTime) {
+        // Enforce exact-second alignment: timestamp must be divisible by 1,000,000 (microseconds per second)
+        if (publishTimeMicros % 1_000_000 != 0) {
             revert InvalidMarketData();
         }
+        if (publishTimeSec != expectedPublishTimeSec) revert InvalidMarketData();
 
         // Preferred: avoid rounding by requiring exact exponent match.
         if (benchmarkExpo != market.strikeExpo) {

@@ -105,6 +105,11 @@ contract PythResolverEtherealForkTest is Test {
         PythLazerStructs.Update memory u = PythLazerLibBytes
             .parseUpdateFromPayloadBytes(payload);
 
+        // This fork test expects an update exactly aligned to a 1-second boundary.
+        // If this assertion fails, we need to regenerate UPDATE_BLOB using a timestamp
+        // divisible by 1_000_000 microseconds.
+        assertEq(uint256(u.timestamp) % 1_000_000, 0, "update not second-aligned");
+
         endTime = uint64(u.timestamp / 1_000_000);
 
         (PythLazerStructs.Feed memory feed, bool found) = _findFeed(u, feedId);
@@ -164,8 +169,7 @@ contract PythResolverEtherealForkTest is Test {
         // Deploy resolver configured for Ethereal Lazer verifier.
         PythResolver.Settings memory settings = PythResolver.Settings({
             maxPredictionMarkets: 2,
-            pythLazer: lazer,
-            publishTimeWindowSeconds: 0
+            pythLazer: lazer
         });
         PythResolver resolver = new PythResolver(settings);
 

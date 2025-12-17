@@ -41,8 +41,7 @@ contract PythResolverTest is Test {
 
         PythResolver.Settings memory settings = PythResolver.Settings({
             maxPredictionMarkets: MAX_MARKETS,
-            pythLazer: IPythLazer(address(mockPythLazer)),
-            publishTimeWindowSeconds: 0
+            pythLazer: IPythLazer(address(mockPythLazer))
         });
 
         resolver = new PythResolver(settings);
