@@ -1,5 +1,5 @@
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Badge } from '@sapience/ui/components/ui/badge';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   Table,
   TableBody,
@@ -7,7 +7,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@sapience/sdk/ui/components/ui/table';
+} from '@sapience/ui/components/ui/table';
 import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import {
   flexRender,

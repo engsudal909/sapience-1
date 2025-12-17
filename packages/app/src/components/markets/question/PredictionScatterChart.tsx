@@ -11,18 +11,18 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import {
   Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import dynamic from 'next/dynamic';

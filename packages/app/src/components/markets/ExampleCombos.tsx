@@ -8,12 +8,8 @@ import { predictionMarketAbi } from '@sapience/sdk';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import PercentChance from '~/components/shared/PercentChance';
-import {
-  Table,
-  TableBody,
-  TableCell,
-} from '@sapience/sdk/ui/components/ui/table';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Table, TableBody, TableCell } from '@sapience/ui/components/ui/table';
+import { Button } from '@sapience/ui/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import {
   useConditions,

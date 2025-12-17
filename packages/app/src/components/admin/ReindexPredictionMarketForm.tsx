@@ -1,16 +1,16 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Input } from '@sapience/ui/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@sapience/sdk/ui/components/ui/select';
-import { Checkbox } from '@sapience/sdk/ui/components/ui/checkbox';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+} from '@sapience/ui/components/ui/select';
+import { Checkbox } from '@sapience/ui/components/ui/checkbox';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useAdminApi } from '~/hooks/useAdminApi';

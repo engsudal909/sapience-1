@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import { MessageCircle, X } from 'lucide-react';
 import type React from 'react';
 

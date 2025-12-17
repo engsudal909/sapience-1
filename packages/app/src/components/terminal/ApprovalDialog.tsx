@@ -30,10 +30,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+} from '@sapience/ui/components/ui/dialog';
+import { Input } from '@sapience/ui/components/ui/input';
+import { Button } from '@sapience/ui/components/ui/button';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { useTokenApproval } from '~/hooks/contract/useTokenApproval';
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import { useApprovalDialog } from './ApprovalDialogContext';

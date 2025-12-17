@@ -1,7 +1,5 @@
-import { useEffect } from 'react';
 import type { Abi, Address } from 'viem';
 import { useReadContract } from 'wagmi';
-import { useToast } from '../../../ui/hooks/use-toast';
 
 interface MarketData {
   marketId: bigint;
@@ -45,8 +43,6 @@ interface UseMarketProps {
 }
 
 export function useMarket({ marketAddress, marketId, abi }: UseMarketProps): UseMarketResult {
-  const { toast } = useToast();
-
   const { data, isLoading, isError, error: contractError } = useReadContract({
     address: marketAddress,
     abi,
@@ -55,20 +51,10 @@ export function useMarket({ marketAddress, marketId, abi }: UseMarketProps): Use
     args: [marketId],
   });
 
-  useEffect(() => {
-    if (isError && contractError) {
-      toast({
-        title: 'Error loading market data',
-        description: contractError.message,
-        variant: 'destructive',
-      });
-    }
-  }, [isError, contractError, toast]);
-
   const result = data as [MarketData, MarketGroupParams] | undefined;
   const marketData = result?.[0];
   const marketGroupParams = result?.[1];
 
-  return { marketData, marketGroupParams, isLoading, error: contractError };
+  return { marketData, marketGroupParams, isLoading, error: isError ? contractError : null };
 }
 

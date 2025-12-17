@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useMemo, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Label } from '@sapience/sdk/ui/components/ui/label';
+import { Label } from '@sapience/ui/components/ui/label';
 import { formatUnits } from 'viem';
 import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import { useSingleConditionAuction } from '~/hooks/forms/useSingleConditionAuction';

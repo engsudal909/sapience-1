@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+import { Input } from '@sapience/ui/components/ui/input';
 
 type Props = {
   value: string;

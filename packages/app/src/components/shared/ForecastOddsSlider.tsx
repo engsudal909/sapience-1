@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 
-import { Label } from '@sapience/sdk/ui/components/ui/label';
-import Slider from '@sapience/sdk/ui/components/ui/slider';
+import { Label } from '@sapience/ui/components/ui/label';
+import Slider from '@sapience/ui/components/ui/slider';
 
 import { formatPercentChance } from '~/lib/format/percentChance';
 import { cn } from '~/lib/utils/util';

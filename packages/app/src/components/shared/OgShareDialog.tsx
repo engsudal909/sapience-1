@@ -1,19 +1,19 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@sapience/sdk/ui/components/ui/dialog';
+} from '@sapience/ui/components/ui/dialog';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Copy, Share2, Check } from 'lucide-react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useAccount } from 'wagmi';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import Loader from '~/components/shared/Loader';
 import { useUserParlays, type Parlay } from '~/hooks/graphql/useUserParlays';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';

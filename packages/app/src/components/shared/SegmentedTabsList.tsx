@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { TabsList } from '@sapience/sdk/ui/components/ui/tabs';
-import { cn } from '@sapience/sdk/ui/lib/utils';
+import { TabsList } from '@sapience/ui/components/ui/tabs';
+import { cn } from '@sapience/ui/lib/utils';
 
 interface SegmentedTabsListProps
   extends React.ComponentPropsWithoutRef<typeof TabsList> {

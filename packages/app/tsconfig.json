@@ -19,7 +19,8 @@
       "~/*": ["./*"],
       "@/components/*": ["./components/*"],
       "@/protocol/*": ["../../protocol/*"],      
-      "@/sapience/ui/*": ["../../sdk/ui/*"],
+      "@sapience/ui": ["../../ui/index.ts"],
+      "@sapience/ui/*": ["../../ui/*"],
       "@sapience/sdk": ["../../sdk/index.ts"],
       "@sapience/sdk/*": ["../../sdk/*"]
     },

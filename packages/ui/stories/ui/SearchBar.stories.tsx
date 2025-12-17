@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-webpack5";
+import type React from "react";
 import { useState } from "react";
 import { SearchBar } from "../../components/SearchBar";
 
@@ -29,8 +30,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Interactive wrapper component for stories
-const SearchBarWrapper = (args: Omit<typeof SearchBar, "onChange">) => {
-  const [value, setValue] = useState(args.value || "");
+type SearchBarStoryArgs = Omit<React.ComponentProps<typeof SearchBar>, "onChange">;
+
+const SearchBarWrapper = (args: SearchBarStoryArgs) => {
+  const [value, setValue] = useState(args.value ?? "");
 
   return (
     <div className="w-96">

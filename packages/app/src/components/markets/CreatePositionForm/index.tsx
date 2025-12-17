@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 
 import {
   Drawer,
@@ -8,13 +8,13 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from '@sapience/sdk/ui/components/ui/drawer';
+} from '@sapience/ui/components/ui/drawer';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
-import { useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
+} from '@sapience/ui/components/ui/popover';
+import { useIsBelow } from '@sapience/ui/hooks/use-mobile';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
@@ -31,7 +31,7 @@ import {
   COLLATERAL_SYMBOLS,
   CHAIN_ID_ETHEREAL,
 } from '@sapience/sdk/constants';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import type { Address } from 'viem';
 import { erc20Abi, formatUnits, parseUnits } from 'viem';
 import { useAccount, useReadContracts } from 'wagmi';
