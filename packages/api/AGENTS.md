@@ -37,7 +37,7 @@ Reindex/backfill helpers (`start:reindex-*`, `start:backfill-accuracy`) are CLIs
 - `src/server.ts` – Express/Apollo entrypoint.
 - `src/workers/` – Background job runner, including `worker.ts` (prediction market and EAS indexing).
 - `prisma/` – Schema, migrations, seeds (`prisma/seed.ts`).
-- **Note**: Auction WebSocket service has been extracted to `packages/relayer-ws` (package name: `@sapience/relayer`).
+- **Note**: Auction WebSocket service has been extracted to `packages/relayer` (package name: `@sapience/relayer`).
 - `schema.graphql` – TypeGraphQL schema emitted for reference; do not edit manually.
 - `codegen.ts` – GraphQL Code Generator configuration.
 
