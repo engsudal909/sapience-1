@@ -4,14 +4,16 @@ pragma solidity ^0.8.19;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IPredictionMarketResolver} from "../interfaces/IPredictionMarketResolver.sol";
-import {IPyth} from "./pyth/IPyth.sol";
-import {PythStructs} from "./pyth/PythStructs.sol";
+import {IPythLazer} from "./pythLazer/IPythLazer.sol";
+import {PythLazerLib} from "./pythLazer/PythLazerLib.sol";
+import {PythLazerLibBytes} from "./pythLazer/PythLazerLibBytes.sol";
+import {PythLazerStructs} from "./pythLazer/PythLazerStructs.sol";
 
-/// @title PredictionMarketPythResolver
-/// @notice Resolver for binary options settled using Pyth pull-oracle updates (historical verification).
+/// @title PythResolver
+/// @notice Resolver for binary options settled using Pyth Lazer verified historical updates.
 /// @dev `getPredictionResolution` is view-only, so settlement is performed via an explicit `settleMarket` tx
-///      that verifies the update on-chain and stores the result.
-contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGuard {
+///      that verifies a signed Lazer update on-chain and stores the result.
+contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
     // ============ Custom Errors ============
     error MustHaveAtLeastOneMarket();
     error TooManyMarkets();
@@ -24,7 +26,7 @@ contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGu
 
     // ============ Events ============
     event ConfigInitialized(
-        address indexed pyth,
+        address indexed pythLazer,
         uint256 maxPredictionMarkets,
         uint64 publishTimeWindowSeconds
     );
@@ -42,14 +44,14 @@ contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGu
     // ============ Settings ============
     struct Settings {
         uint256 maxPredictionMarkets;
-        IPyth pyth;
+        IPythLazer pythLazer;
         /// @notice Allowed window for publishTime: [endTime, endTime + publishTimeWindowSeconds].
         /// @dev Default 0 enforces exact timestamp. Increase if the chain/feed timestamps are not exactly aligned.
         uint64 publishTimeWindowSeconds;
     }
 
     uint256 public immutable maxPredictionMarkets;
-    IPyth public immutable pyth;
+    IPythLazer public immutable pythLazer;
     uint64 public immutable publishTimeWindowSeconds;
 
     // ============ Binary Option Encoding ============
@@ -82,13 +84,38 @@ contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGu
 
     mapping(bytes32 => MarketSettlement) public settlements; // marketId => settlement
 
+    function _benchmarkFromVerifiedPayload(
+        bytes memory payload,
+        uint32 targetFeedId
+    ) internal pure returns (int64 benchmarkPrice, int32 benchmarkExpo, uint64 publishTimeSec) {
+        PythLazerStructs.Update memory u = PythLazerLibBytes
+            .parseUpdateFromPayloadBytes(payload);
+
+        // Payload header timestamp is microseconds.
+        publishTimeSec = uint64(u.timestamp / 1_000_000);
+
+        bool found;
+        PythLazerStructs.Feed memory feed;
+        for (uint256 i = 0; i < u.feeds.length; i++) {
+            if (u.feeds[i].feedId == targetFeedId) {
+                feed = u.feeds[i];
+                found = true;
+                break;
+            }
+        }
+        if (!found) revert InvalidMarketData();
+
+        benchmarkPrice = PythLazerLib.getPrice(feed);
+        benchmarkExpo = int32(PythLazerLib.getExponent(feed));
+    }
+
     constructor(Settings memory _config) {
         maxPredictionMarkets = _config.maxPredictionMarkets;
-        pyth = _config.pyth;
+        pythLazer = _config.pythLazer;
         publishTimeWindowSeconds = _config.publishTimeWindowSeconds;
 
         emit ConfigInitialized(
-            address(_config.pyth),
+            address(_config.pythLazer),
             _config.maxPredictionMarkets,
             _config.publishTimeWindowSeconds
         );
@@ -203,36 +230,44 @@ contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGu
             if (maxPublishTime < market.endTime) revert InvalidMarketData();
         }
 
-        // Verify the update on-chain
-        bytes32[] memory ids = new bytes32[](1);
-        ids[0] = market.priceId;
+        // Verify the update on-chain using the Pyth Lazer verifier and parse the verified payload.
+        if (updateData.length != 1) revert InvalidMarketData();
 
-        uint256 fee = pyth.getUpdateFee(updateData);
+        uint256 fee = pythLazer.verification_fee();
         if (msg.value < fee) revert InsufficientUpdateFee(fee, msg.value);
 
-        PythStructs.PriceFeed[] memory feeds = pyth.parsePriceFeedUpdates{
-            value: fee
-        }(updateData, ids, minPublishTime, maxPublishTime);
+        int64 benchmarkPrice;
+        int32 benchmarkExpo;
+        uint64 publishTimeSec;
+        {
+            (bytes memory payload, ) = pythLazer.verifyUpdate{value: fee}(
+                updateData[0]
+            );
+            (benchmarkPrice, benchmarkExpo, publishTimeSec) = _benchmarkFromVerifiedPayload(
+                payload,
+                uint32(uint256(market.priceId))
+            );
+        }
 
-        if (feeds.length == 0 || feeds[0].id != market.priceId) revert InvalidMarketData();
-
-        PythStructs.Price memory p = feeds[0].price;
+        if (publishTimeSec < minPublishTime || publishTimeSec > maxPublishTime) {
+            revert InvalidMarketData();
+        }
 
         // Preferred: avoid rounding by requiring exact exponent match.
-        if (p.expo != market.strikeExpo) {
-            revert StrikeExpoMismatch(market.strikeExpo, p.expo);
+        if (benchmarkExpo != market.strikeExpo) {
+            revert StrikeExpoMismatch(market.strikeExpo, benchmarkExpo);
         }
 
         resolvedToOver = market.overWinsOnTie
-            ? (p.price >= market.strikePrice)
-            : (p.price > market.strikePrice);
+            ? (benchmarkPrice >= market.strikePrice)
+            : (benchmarkPrice > market.strikePrice);
 
         settlements[marketId] = MarketSettlement({
             settled: true,
             resolvedToOver: resolvedToOver,
-            benchmarkPrice: p.price,
-            benchmarkExpo: p.expo,
-            publishTime: p.publishTime
+            benchmarkPrice: benchmarkPrice,
+            benchmarkExpo: benchmarkExpo,
+            publishTime: publishTimeSec
         });
 
         emit MarketSettled(
@@ -240,9 +275,9 @@ contract PredictionMarketPythResolver is IPredictionMarketResolver, ReentrancyGu
             market.priceId,
             market.endTime,
             resolvedToOver,
-            p.price,
-            p.expo,
-            p.publishTime
+            benchmarkPrice,
+            benchmarkExpo,
+            publishTimeSec
         );
 
         // Refund excess ETH (if any)

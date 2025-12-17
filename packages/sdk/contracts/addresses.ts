@@ -56,7 +56,7 @@ export const lzUmaResolver: ChainAddressMap = {
 } as const;
 
 /**
- * PredictionMarketPythResolver
+ * PythResolver
  *
  * NOTE: These are intentionally placeholder addresses so the app can wire the
  * correct resolver selection + encoding. Update them to the real deployed

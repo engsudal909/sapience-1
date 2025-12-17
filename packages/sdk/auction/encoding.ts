@@ -29,7 +29,7 @@ export function encodeUmaPredictedOutcomes(outcomes: UmaPredictedOutcome[]): Hex
 }
 
 // ============================================================================
-// Pyth Resolver Encoding (PredictionMarketPythResolver.BinaryOptionOutcome[])
+// Pyth Resolver Encoding (PythResolver.BinaryOptionOutcome[])
 // ============================================================================
 
 export type PythBinaryOptionMarket = {
@@ -45,10 +45,10 @@ export type PythBinaryOptionOutcome = PythBinaryOptionMarket & {
 };
 
 /**
- * Mirrors `PredictionMarketPythResolver.getMarketId`:
+ * Mirrors `PythResolver.getMarketId`:
  * `keccak256(abi.encode(priceId,endTime,strikePrice,strikeExpo,overWinsOnTie))`.
  *
- * See `PredictionMarketPythResolver.sol` in protocol.
+ * See `PythResolver.sol` in protocol.
  */
 export function getPythMarketId(market: PythBinaryOptionMarket): Hex {
   const encoded = encodeAbiParameters(
