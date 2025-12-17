@@ -115,7 +115,9 @@ interface SessionKeyContextValue extends SessionKeyState {
   /** Get the ZeroDev session client for signing (smart account mode) */
   getZeroDevSessionClient: () => Promise<SmartAccountClient | null>;
   /** Get the ZeroDev session client for a specific chain */
-  getZeroDevSessionClientForChain: (chainId: number) => Promise<SmartAccountClient | null>;
+  getZeroDevSessionClientForChain: (
+    chainId: number
+  ) => Promise<SmartAccountClient | null>;
   /** Sign typed data using the session key (works in both modes) */
   signTypedDataWithSession: (params: {
     domain: TypedDataDomain;
@@ -292,13 +294,16 @@ export const SessionKeyProvider = ({
 
   // Refresh session when wallet/chain changes
   // Optionally accepts a chainId to refresh for a specific chain
-  const refreshSession = useCallback((forChainId?: number) => {
-    if (useZeroDevMode) {
-      smartAccount.refreshSession(forChainId);
-    } else {
-      refreshLocalSession();
-    }
-  }, [useZeroDevMode, smartAccount, refreshLocalSession]);
+  const refreshSession = useCallback(
+    (forChainId?: number) => {
+      if (useZeroDevMode) {
+        smartAccount.refreshSession(forChainId);
+      } else {
+        refreshLocalSession();
+      }
+    },
+    [useZeroDevMode, smartAccount, refreshLocalSession]
+  );
 
   // Load session on mount and when dependencies change
   useEffect(() => {
@@ -504,11 +509,13 @@ export const SessionKeyProvider = ({
     }, [useZeroDevMode, smartAccount]);
 
   // Get ZeroDev session client for a specific chain
-  const getZeroDevSessionClientForChain =
-    useCallback(async (targetChainId: number): Promise<SmartAccountClient | null> => {
+  const getZeroDevSessionClientForChain = useCallback(
+    async (targetChainId: number): Promise<SmartAccountClient | null> => {
       if (!useZeroDevMode) return null;
       return smartAccount.getSessionClientForChain(targetChainId);
-    }, [useZeroDevMode, smartAccount]);
+    },
+    [useZeroDevMode, smartAccount]
+  );
 
   // Sign typed data using the active session (works in both ZeroDev and local modes)
   const signTypedDataWithSession = useCallback(

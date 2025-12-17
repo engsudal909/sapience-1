@@ -174,7 +174,9 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
                 <SessionKeyProvider>
                   <SapienceProvider>
                     <ConnectDialogProvider>
-                      <CreatePositionProvider>{children}</CreatePositionProvider>
+                      <CreatePositionProvider>
+                        {children}
+                      </CreatePositionProvider>
                     </ConnectDialogProvider>
                   </SapienceProvider>
                 </SessionKeyProvider>

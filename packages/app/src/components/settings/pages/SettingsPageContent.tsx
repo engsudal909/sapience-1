@@ -250,13 +250,21 @@ const SettingsPageContent = () => {
       const storageKey = `sapience.zerodev.session.${chainId}`;
       const raw = localStorage.getItem(storageKey);
       if (!raw) {
-        return { hasValidSession: false, expiresAt: null, smartAccountAddress: null };
+        return {
+          hasValidSession: false,
+          expiresAt: null,
+          smartAccountAddress: null,
+        };
       }
       const session = JSON.parse(raw);
       // Check if expired
       if (session.expiresAt <= Date.now()) {
         localStorage.removeItem(storageKey);
-        return { hasValidSession: false, expiresAt: null, smartAccountAddress: null };
+        return {
+          hasValidSession: false,
+          expiresAt: null,
+          smartAccountAddress: null,
+        };
       }
       return {
         hasValidSession: true,
@@ -264,14 +272,19 @@ const SettingsPageContent = () => {
         smartAccountAddress: session.smartAccountAddress,
       };
     } catch {
-      return { hasValidSession: false, expiresAt: null, smartAccountAddress: null };
+      return {
+        hasValidSession: false,
+        expiresAt: null,
+        smartAccountAddress: null,
+      };
     }
   }, []);
 
   // Update local session info when chain changes
   useEffect(() => {
     if (!selectedChain) return;
-    const chainIdStr = selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+    const chainIdStr =
+      selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
     setLocalSessionInfo(readSessionForChain(chainIdStr));
   }, [selectedChain, readSessionForChain]);
 
@@ -303,7 +316,8 @@ const SettingsPageContent = () => {
         setSessionError(result.error || 'Failed to create session');
       } else {
         // Refresh local session info after successful creation
-        const chainIdStr = selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+        const chainIdStr =
+          selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
         setLocalSessionInfo(readSessionForChain(chainIdStr));
       }
     } catch (err) {
@@ -318,7 +332,11 @@ const SettingsPageContent = () => {
     revokeSession();
     setSessionError(null);
     // Clear local session info
-    setLocalSessionInfo({ hasValidSession: false, expiresAt: null, smartAccountAddress: null });
+    setLocalSessionInfo({
+      hasValidSession: false,
+      expiresAt: null,
+      smartAccountAddress: null,
+    });
   }, [revokeSession]);
 
   // Format session expiry for display
@@ -343,7 +361,8 @@ const SettingsPageContent = () => {
   // Refresh local session info when session mode changes
   useEffect(() => {
     if (mounted && selectedChain) {
-      const chainIdStr = selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+      const chainIdStr =
+        selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
       setLocalSessionInfo(readSessionForChain(chainIdStr));
     }
   }, [sessionMode, mounted, selectedChain, readSessionForChain]);
@@ -694,7 +713,7 @@ const SettingsPageContent = () => {
                                 >
                                   {isCreatingSession ? (
                                     <>
-                                      <Loader width={16} height={16} />
+                                      <Loader size={16} />
                                       <span className="ml-2">Creating...</span>
                                     </>
                                   ) : (

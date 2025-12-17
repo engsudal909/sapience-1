@@ -15,12 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
-import {
-  createPublicClient,
-  http,
-  type Address,
-  type Hex,
-} from 'viem';
+import { createPublicClient, http, type Address, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import {
   getBundlerRpc,
@@ -104,10 +99,14 @@ interface SmartAccountState {
 }
 
 interface SmartAccountActions {
-  createSession: (durationHours: number) => Promise<{ success: boolean; error?: string }>;
+  createSession: (
+    durationHours: number
+  ) => Promise<{ success: boolean; error?: string }>;
   revokeSession: () => void;
   getSessionClient: () => Promise<SmartAccountClient | null>;
-  getSessionClientForChain: (targetChainId: number) => Promise<SmartAccountClient | null>;
+  getSessionClientForChain: (
+    targetChainId: number
+  ) => Promise<SmartAccountClient | null>;
   refreshSession: (forChainId?: number) => void;
 }
 
@@ -125,14 +124,22 @@ export interface SmartAccountClient {
 }
 
 // Helper to wrap a kernel client into our SmartAccountClient interface
-function wrapKernelClient(client: any, smartAccountAddress: Address): SmartAccountClient {
-  const sendMethod = client.sendTransactions || client.sendTransaction || client.sendUserOperation;
+function wrapKernelClient(
+  client: any,
+  smartAccountAddress: Address
+): SmartAccountClient {
+  const sendMethod =
+    client.sendTransactions ||
+    client.sendTransaction ||
+    client.sendUserOperation;
 
   return {
     signTypedData: (params) => client.signTypedData(params),
     address: smartAccountAddress,
     sendUserOperation: sendMethod
-      ? (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }): Promise<Hex> => {
+      ? (params: {
+          callData: Array<{ to: Address; data: Hex; value: bigint }>;
+        }): Promise<Hex> => {
           const calls = params.callData;
           if (client.sendTransactions) {
             return client.sendTransactions({
@@ -153,16 +160,19 @@ function wrapKernelClient(client: any, smartAccountAddress: Address): SmartAccou
           if (client.sendUserOperation) {
             return client.sendUserOperation({ callData: calls });
           }
-          return Promise.reject(new Error('No suitable send method available on client'));
+          return Promise.reject(
+            new Error('No suitable send method available on client')
+          );
         }
       : undefined,
   };
 }
 
-export type UseSmartAccountResult = SmartAccountState & SmartAccountActions & {
-  hasArbitrumSession: boolean;
-  arbitrumSessionExpiresAt: number | null;
-};
+export type UseSmartAccountResult = SmartAccountState &
+  SmartAccountActions & {
+    hasArbitrumSession: boolean;
+    arbitrumSessionExpiresAt: number | null;
+  };
 
 export function useSmartAccount(): UseSmartAccountResult {
   const chainId = useChainIdFromLocalStorage();
@@ -171,7 +181,8 @@ export function useSmartAccount(): UseSmartAccountResult {
 
   // State
   const [isZeroDevAvailable, setIsZeroDevAvailable] = useState(false);
-  const [smartAccountAddress, setSmartAccountAddress] = useState<Address | null>(null);
+  const [smartAccountAddress, setSmartAccountAddress] =
+    useState<Address | null>(null);
   const [hasValidSession, setHasValidSession] = useState(false);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -195,30 +206,33 @@ export function useSmartAccount(): UseSmartAccountResult {
   }, []);
 
   // Load session from localStorage for a specific chain
-  const loadSession = useCallback((forChainId?: number): StoredZeroDevSession | null => {
-    if (!address) return null;
-    const targetChainId = forChainId ?? chainId;
-    if (!targetChainId) return null;
+  const loadSession = useCallback(
+    (forChainId?: number): StoredZeroDevSession | null => {
+      if (!address) return null;
+      const targetChainId = forChainId ?? chainId;
+      if (!targetChainId) return null;
 
-    try {
-      const storageKey = getSessionStorageKey(targetChainId);
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return null;
-      const session: StoredZeroDevSession = JSON.parse(raw);
+      try {
+        const storageKey = getSessionStorageKey(targetChainId);
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return null;
+        const session: StoredZeroDevSession = JSON.parse(raw);
 
-      // Validate session belongs to current wallet and hasn't expired
-      if (
-        session.ownerAddress.toLowerCase() !== address.toLowerCase() ||
-        session.expiresAt <= Date.now()
-      ) {
-        localStorage.removeItem(storageKey);
+        // Validate session belongs to current wallet and hasn't expired
+        if (
+          session.ownerAddress.toLowerCase() !== address.toLowerCase() ||
+          session.expiresAt <= Date.now()
+        ) {
+          localStorage.removeItem(storageKey);
+          return null;
+        }
+        return session;
+      } catch {
         return null;
       }
-      return session;
-    } catch {
-      return null;
-    }
-  }, [address, chainId]);
+    },
+    [address, chainId]
+  );
 
   // Check for Arbitrum session
   const arbitrumSession = useMemo(() => {
@@ -227,62 +241,65 @@ export function useSmartAccount(): UseSmartAccountResult {
   }, [address, loadSession]);
 
   // Restore session client from stored session
-  const restoreSessionClient = useCallback(async (
-    session: StoredZeroDevSession,
-    targetChainId: number
-  ): Promise<any> => {
-    if (!isZeroDevAvailable || !walletClient) return null;
+  const restoreSessionClient = useCallback(
+    async (
+      session: StoredZeroDevSession,
+      targetChainId: number
+    ): Promise<any> => {
+      if (!isZeroDevAvailable || !walletClient) return null;
 
-    const targetChain = getZeroDevChain(targetChainId);
-    if (!targetChain) return null;
+      const targetChain = getZeroDevChain(targetChainId);
+      if (!targetChain) return null;
 
-    try {
-      const bundlerRpc = getBundlerRpc(targetChainId);
-      const paymasterRpc = getPaymasterRpc(targetChainId);
-      if (!bundlerRpc) return null;
+      try {
+        const bundlerRpc = getBundlerRpc(targetChainId);
+        const paymasterRpc = getPaymasterRpc(targetChainId);
+        if (!bundlerRpc) return null;
 
-      const publicClient = createPublicClient({
-        chain: targetChain,
-        transport: http(targetChain.rpcUrls.default.http[0]),
-      });
-
-      const entryPoint = getEntryPoint('0.7');
-
-      // Deserialize the permission account
-      const sessionKeyAccount = await deserializePermissionAccount(
-        publicClient,
-        entryPoint,
-        KERNEL_V3_1,
-        session.serializedSession
-      );
-
-      // Create kernel account client with the session key
-      const clientConfig: any = {
-        account: sessionKeyAccount,
-        chain: targetChain,
-        bundlerTransport: http(bundlerRpc),
-        entryPoint,
-      };
-
-      // Add paymaster for gas sponsorship
-      if (paymasterRpc) {
-        const paymasterClient = createZeroDevPaymasterClient({
+        const publicClient = createPublicClient({
           chain: targetChain,
-          transport: http(paymasterRpc),
-          entryPoint,
+          transport: http(targetChain.rpcUrls.default.http[0]),
         });
-        clientConfig.middleware = {
-          sponsorUserOperation: ({ userOperation }: { userOperation: any }) =>
-            paymasterClient.sponsorUserOperation({ userOperation }),
-        };
-      }
 
-      return createKernelAccountClient(clientConfig);
-    } catch (err) {
-      console.error('[ZeroDev] Failed to restore session client:', err);
-      return null;
-    }
-  }, [isZeroDevAvailable, walletClient]);
+        const entryPoint = getEntryPoint('0.7');
+
+        // Deserialize the permission account
+        const sessionKeyAccount = await deserializePermissionAccount(
+          publicClient,
+          entryPoint,
+          KERNEL_V3_1,
+          session.serializedSession
+        );
+
+        // Create kernel account client with the session key
+        const clientConfig: any = {
+          account: sessionKeyAccount,
+          chain: targetChain,
+          bundlerTransport: http(bundlerRpc),
+          entryPoint,
+        };
+
+        // Add paymaster for gas sponsorship
+        if (paymasterRpc) {
+          const paymasterClient = createZeroDevPaymasterClient({
+            chain: targetChain,
+            transport: http(paymasterRpc),
+            entryPoint,
+          });
+          clientConfig.middleware = {
+            sponsorUserOperation: ({ userOperation }: { userOperation: any }) =>
+              paymasterClient.sponsorUserOperation({ userOperation }),
+          };
+        }
+
+        return createKernelAccountClient(clientConfig);
+      } catch (err) {
+        console.error('[ZeroDev] Failed to restore session client:', err);
+        return null;
+      }
+    },
+    [isZeroDevAvailable, walletClient]
+  );
 
   // Initialize/restore session on mount and when chain changes
   useEffect(() => {
@@ -310,7 +327,9 @@ export function useSmartAccount(): UseSmartAccountResult {
 
   // Create a new session with ephemeral key
   const createSession = useCallback(
-    async (durationHours: number): Promise<{ success: boolean; error?: string }> => {
+    async (
+      durationHours: number
+    ): Promise<{ success: boolean; error?: string }> => {
       if (!walletClient || !address || !chain) {
         return { success: false, error: 'Wallet not connected' };
       }
@@ -440,7 +459,8 @@ export function useSmartAccount(): UseSmartAccountResult {
 
         return { success: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to create session';
+        const message =
+          err instanceof Error ? err.message : 'Failed to create session';
         console.error('[ZeroDev] Session creation error:', err);
         setError(message);
         return { success: false, error: message };
@@ -465,60 +485,74 @@ export function useSmartAccount(): UseSmartAccountResult {
   }, [chainId]);
 
   // Get session client for current chain
-  const getSessionClient = useCallback(async (): Promise<SmartAccountClient | null> => {
-    if (sessionClient && hasValidSession && smartAccountAddress) {
-      return wrapKernelClient(sessionClient, smartAccountAddress);
-    }
+  const getSessionClient =
+    useCallback(async (): Promise<SmartAccountClient | null> => {
+      if (sessionClient && hasValidSession && smartAccountAddress) {
+        return wrapKernelClient(sessionClient, smartAccountAddress);
+      }
 
-    // Try to restore from storage
-    const session = loadSession();
-    if (!session) return null;
+      // Try to restore from storage
+      const session = loadSession();
+      if (!session) return null;
 
-    const client = await restoreSessionClient(session, chainId);
-    if (!client) return null;
+      const client = await restoreSessionClient(session, chainId);
+      if (!client) return null;
 
-    setSessionClient(client);
-    return wrapKernelClient(client, session.smartAccountAddress);
-  }, [sessionClient, hasValidSession, smartAccountAddress, loadSession, restoreSessionClient, chainId]);
+      setSessionClient(client);
+      return wrapKernelClient(client, session.smartAccountAddress);
+    }, [
+      sessionClient,
+      hasValidSession,
+      smartAccountAddress,
+      loadSession,
+      restoreSessionClient,
+      chainId,
+    ]);
 
   // Get session client for a specific chain
-  const getSessionClientForChain = useCallback(async (targetChainId: number): Promise<SmartAccountClient | null> => {
-    if (targetChainId === chainId) {
-      return getSessionClient();
-    }
+  const getSessionClientForChain = useCallback(
+    async (targetChainId: number): Promise<SmartAccountClient | null> => {
+      if (targetChainId === chainId) {
+        return getSessionClient();
+      }
 
-    const session = loadSession(targetChainId);
-    if (!session) return null;
+      const session = loadSession(targetChainId);
+      if (!session) return null;
 
-    const client = await restoreSessionClient(session, targetChainId);
-    if (!client) return null;
+      const client = await restoreSessionClient(session, targetChainId);
+      if (!client) return null;
 
-    return wrapKernelClient(client, session.smartAccountAddress);
-  }, [chainId, getSessionClient, loadSession, restoreSessionClient]);
+      return wrapKernelClient(client, session.smartAccountAddress);
+    },
+    [chainId, getSessionClient, loadSession, restoreSessionClient]
+  );
 
   // Refresh session state from storage
-  const refreshSession = useCallback((forChainId?: number) => {
-    const targetChainId = forChainId ?? chainId;
-    const session = loadSession(targetChainId);
+  const refreshSession = useCallback(
+    (forChainId?: number) => {
+      const targetChainId = forChainId ?? chainId;
+      const session = loadSession(targetChainId);
 
-    if (session) {
-      setSmartAccountAddress(session.smartAccountAddress);
-      setSessionExpiresAt(session.expiresAt);
-      setHasValidSession(true);
+      if (session) {
+        setSmartAccountAddress(session.smartAccountAddress);
+        setSessionExpiresAt(session.expiresAt);
+        setHasValidSession(true);
 
-      // Restore client if for current chain
-      if (targetChainId === chainId) {
-        restoreSessionClient(session, targetChainId).then((client) => {
-          if (client) setSessionClient(client);
-        });
+        // Restore client if for current chain
+        if (targetChainId === chainId) {
+          restoreSessionClient(session, targetChainId).then((client) => {
+            if (client) setSessionClient(client);
+          });
+        }
+      } else {
+        setHasValidSession(false);
+        setSessionExpiresAt(null);
+        setSmartAccountAddress(null);
+        setSessionClient(null);
       }
-    } else {
-      setHasValidSession(false);
-      setSessionExpiresAt(null);
-      setSmartAccountAddress(null);
-      setSessionClient(null);
-    }
-  }, [loadSession, chainId, restoreSessionClient]);
+    },
+    [loadSession, chainId, restoreSessionClient]
+  );
 
   // Determine error message
   const displayError = useMemo(() => {

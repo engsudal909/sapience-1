@@ -478,9 +478,10 @@ export function useSapienceWriteContract({
 
         // If using ZeroDev session key, use smart account for batched transactions
         // For Arbitrum (42161), use Arbitrum-specific session check
-        const useSessionForThisChain = _chainId === 42161
-          ? shouldUseArbitrumSessionKey
-          : shouldUseSessionKey;
+        const useSessionForThisChain =
+          _chainId === 42161
+            ? shouldUseArbitrumSessionKey
+            : shouldUseSessionKey;
 
         if (useSessionForThisChain) {
           setIsSubmitting(true);
@@ -495,7 +496,8 @@ export function useSapienceWriteContract({
 
           try {
             // Get session client for the target chain (supports cross-chain sessions)
-            const sessionClient = await getZeroDevSessionClientForChain(_chainId);
+            const sessionClient =
+              await getZeroDevSessionClientForChain(_chainId);
             if (!sessionClient) {
               throw new Error(
                 'Session client not available. Please create a new session.'
@@ -881,14 +883,16 @@ export function useSapienceWriteContract({
 
         // If using ZeroDev session key, batch calls through smart account
         // For Arbitrum (42161), use Arbitrum-specific session check
-        const useSessionForSendCalls = _chainId === 42161
-          ? shouldUseArbitrumSessionKey
-          : shouldUseSessionKey;
+        const useSessionForSendCalls =
+          _chainId === 42161
+            ? shouldUseArbitrumSessionKey
+            : shouldUseSessionKey;
 
         if (useSessionForSendCalls) {
           setIsSubmitting(true);
           try {
-            const sessionClient = await getZeroDevSessionClientForChain(_chainId);
+            const sessionClient =
+              await getZeroDevSessionClientForChain(_chainId);
             if (!sessionClient) {
               throw new Error('Session client not available');
             }
@@ -915,7 +919,7 @@ export function useSapienceWriteContract({
 
             if (lastHash) {
               writeShareIntent(lastHash);
-              maybeRedirectToProfile();
+              maybeRedirect();
               toast({
                 title: successTitle,
                 description: formatSuccessDescription(successMessage),
@@ -925,7 +929,7 @@ export function useSapienceWriteContract({
               setTxHash(lastHash);
             } else {
               writeShareIntent(undefined);
-              maybeRedirectToProfile();
+              maybeRedirect();
               toast({
                 title: successTitle,
                 description: formatSuccessDescription(successMessage),

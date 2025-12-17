@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useConnect } from 'wagmi';
 import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors';
-import { toast } from '@sapience/sdk/ui/hooks/use-toast';
+import { toast } from '@sapience/ui/hooks/use-toast';
 import type { EIP6963ProviderDetail } from './useWalletDiscovery';
 
 /** Identifiers for tracking which wallet is currently connecting */
