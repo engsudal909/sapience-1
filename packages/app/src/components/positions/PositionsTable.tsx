@@ -122,7 +122,14 @@ export default function PositionsTable({
         .catch(() => {});
     },
   });
-  type UILeg = Pick;
+  type UILeg = {
+    question: string;
+    choice: 'Yes' | 'No';
+    conditionId?: string;
+    categorySlug?: string | null;
+    endTime?: number | null;
+    description?: string | null;
+  };
   type UIPosition = {
     uniqueRowKey: string;
     positionId: number;
@@ -606,9 +613,9 @@ export default function PositionsTable({
       {
         id: 'created',
         accessorFn: (row) => row.createdAt,
-        size: 300,
+        size: 150,
         minSize: 0,
-        maxSize: 300,
+        maxSize: 160,
         header: ({ column }) => (
           <Button
             type="button"
@@ -687,8 +694,19 @@ export default function PositionsTable({
                 <CounterpartyBadge />
               )}
               <StackedPredictions
-                legs={row.original.legs}
-                className="max-w-full xl:max-w-[320px]"
+                legs={
+                  row.original.legs.map(
+                    (leg): Pick => ({
+                      question: leg.question,
+                      choice: leg.choice,
+                      conditionId: leg.conditionId,
+                      categorySlug: leg.categorySlug ?? null,
+                      endTime: leg.endTime ?? null,
+                      description: leg.description ?? null,
+                    })
+                  ) ?? []
+                }
+                className="max-w-full flex-1 min-w-0"
               />
             </div>
           </div>
@@ -699,8 +717,8 @@ export default function PositionsTable({
         id: 'counterparty',
         accessorFn: (row) => row.counterpartyAddress ?? null,
         enableSorting: false,
-        size: 220,
-        minSize: 160,
+        size: 240,
+        minSize: 200,
         header: () => <span>Opponent</span>,
         cell: ({ row }) => (
           <div>
@@ -708,17 +726,17 @@ export default function PositionsTable({
               Opponent
             </div>
             {row.original.counterpartyAddress ? (
-              <div className="whitespace-nowrap text-[15px]">
-                <div className="flex items-center gap-2">
+              <div className="whitespace-nowrap text-[15px] min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   <EnsAvatar
                     address={row.original.counterpartyAddress}
-                    className="w-5 h-5 rounded-sm ring-1 ring-border/50"
+                    className="shrink-0 rounded-sm ring-1 ring-border/50"
                     width={20}
                     height={20}
                   />
                   <AddressDisplay
                     address={row.original.counterpartyAddress}
-                    className="text-[15px]"
+                    className="text-[15px] min-w-0"
                   />
                 </div>
               </div>
@@ -1194,7 +1212,7 @@ export default function PositionsTable({
                 <Loader size={12} />
               </div>
             )}
-            <Table className="table-auto">
+            <Table className="w-full table-fixed">
               <TableHeader className="hidden xl:table-header-group text-sm font-medium text-brand-white border-b">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
@@ -1202,7 +1220,21 @@ export default function PositionsTable({
                       <TableHead
                         key={header.id}
                         className={
-                          header.id === 'actions' ? 'text-right' : undefined
+                          [
+                            header.id === 'created'
+                              ? 'xl:w-[150px] whitespace-nowrap'
+                              : '',
+                            header.id === 'conditions' ? 'xl:w-auto' : '',
+                            header.id === 'counterparty' ? 'xl:w-[240px]' : '',
+                            header.id === 'wager' ? 'xl:w-[170px]' : '',
+                            header.id === 'toWin' ? 'xl:w-[170px]' : '',
+                            header.id === 'pnl' ? 'xl:w-[170px]' : '',
+                            header.id === 'actions'
+                              ? 'xl:w-[220px] text-right'
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ') || undefined
                         }
                       >
                         {header.isPlaceholder
@@ -1225,7 +1257,21 @@ export default function PositionsTable({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${cell.column.id === 'actions' ? 'text-left xl:text-right xl:mt-0' : ''}`}
+                        className={`block xl:table-cell px-0 py-0 xl:px-4 xl:py-3 text-brand-white ${
+                          cell.column.id === 'created'
+                            ? 'xl:w-[150px] whitespace-nowrap'
+                            : ''
+                        } ${cell.column.id === 'conditions' ? 'xl:w-auto' : ''} ${
+                          cell.column.id === 'counterparty'
+                            ? 'xl:w-[240px] min-w-0'
+                            : ''
+                        } ${cell.column.id === 'wager' ? 'xl:w-[170px]' : ''} ${
+                          cell.column.id === 'toWin' ? 'xl:w-[170px]' : ''
+                        } ${cell.column.id === 'pnl' ? 'xl:w-[170px]' : ''} ${
+                          cell.column.id === 'actions'
+                            ? 'xl:w-[220px] text-left xl:text-right xl:mt-0'
+                            : ''
+                        }`}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

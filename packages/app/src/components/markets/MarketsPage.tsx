@@ -21,6 +21,11 @@ import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLoc
 import type { FilterState } from '~/components/markets/TableFilters';
 import { useDebouncedValue } from '~/hooks/useDebouncedValue';
 import ShareAfterMarketsRedirect from '~/components/shared/ShareAfterMarketsRedirect';
+import {
+  CreatePythPredictionForm,
+  type CreatePythPredictionFormValues,
+  type PythPrediction,
+} from '@sapience/ui';
 
 // Dynamically import Loader
 const Loader = dynamic(() => import('~/components/shared/Loader'), {
@@ -43,6 +48,8 @@ const MarketsPage = () => {
     timeToResolutionRange: [0, 1000], // Default to future markets only
     selectedCategories: [],
   });
+
+  const [pythPredictions, setPythPredictions] = useState<PythPrediction[]>([]);
 
   // Debounce search term for backend queries (300ms)
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
@@ -117,6 +124,38 @@ const MarketsPage = () => {
     setFilters(newFilters);
   }, []);
 
+  const handlePythPick = useCallback(
+    (values: CreatePythPredictionFormValues) => {
+      const id = (() => {
+        try {
+          return crypto.randomUUID();
+        } catch {
+          return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        }
+      })();
+
+      setPythPredictions((prev) => [
+        ...prev,
+        {
+          id,
+          priceId: values.priceId,
+          priceFeedLabel: values.priceFeedLabel,
+          direction: values.direction,
+          targetPrice: values.targetPrice,
+          targetPriceRaw: values.targetPriceRaw,
+          targetPriceFullPrecision: values.targetPriceFullPrecision,
+          priceExpo: values.priceExpo,
+          dateTimeLocal: values.dateTimeLocal,
+        },
+      ]);
+    },
+    []
+  );
+
+  const handleRemovePythPrediction = useCallback((id: string) => {
+    setPythPredictions((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   // Convert categories to the format expected by TableFilters
   const categoryOptions = useMemo(() => {
     return allCategories
@@ -154,7 +193,11 @@ const MarketsPage = () => {
         {/* Render only one position form instance based on viewport */}
         {isCompact ? (
           <div className="block lg:hidden">
-            <CreatePositionForm />
+            <CreatePositionForm
+              pythPredictions={pythPredictions}
+              onRemovePythPrediction={handleRemovePythPrediction}
+              onClearPythPredictions={() => setPythPredictions([])}
+            />
           </div>
         ) : null}
 
@@ -162,6 +205,14 @@ const MarketsPage = () => {
         <div className="flex-1 min-w-0 max-w-full overflow-visible flex flex-col gap-4 pr-0 lg:pr-4 pb-4 lg:pb-6">
           {/* Featured Parlays section */}
           <ExampleCombos className="mt-4 md:mt-0" />
+
+          <div className="w-full mt-2">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h2 className="sc-heading text-foreground">Predict Prices</h2>
+            </div>
+            <CreatePythPredictionForm onPick={handlePythPick} />
+            <hr className="gold-hr mt-6 -mb-2" />
+          </div>
 
           {/* Results area - always table view */}
           <div className="relative w-full max-w-full overflow-x-hidden min-h-[300px]">
@@ -196,7 +247,12 @@ const MarketsPage = () => {
               }}
             >
               <div className="h-full overflow-y-auto">
-                <CreatePositionForm variant="panel" />
+                <CreatePositionForm
+                  variant="panel"
+                  pythPredictions={pythPredictions}
+                  onRemovePythPrediction={handleRemovePythPrediction}
+                  onClearPythPredictions={() => setPythPredictions([])}
+                />
               </div>
             </div>
           </div>

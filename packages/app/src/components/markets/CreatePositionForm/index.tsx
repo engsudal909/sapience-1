@@ -55,13 +55,20 @@ import {
 } from '~/lib/utils/positionFormUtils';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import type { PythPrediction } from '@sapience/ui';
 
 interface CreatePositionFormProps {
   variant?: 'triggered' | 'panel';
+  pythPredictions?: PythPrediction[];
+  onRemovePythPrediction?: (id: string) => void;
+  onClearPythPredictions?: () => void;
 }
 
 const CreatePositionForm = ({
   variant = 'triggered',
+  pythPredictions = [],
+  onRemovePythPrediction,
+  onClearPythPredictions,
 }: CreatePositionFormProps) => {
   const {
     createPositionEntries,
@@ -732,6 +739,9 @@ const CreatePositionForm = ({
     minWager,
     // PredictionMarket contract address for fetching maker nonce
     predictionMarketAddress: PREDICTION_MARKET_ADDRESS,
+    pythPredictions,
+    onRemovePythPrediction,
+    onClearPythPredictions,
   };
 
   if (isCompact) {
@@ -773,18 +783,25 @@ const CreatePositionForm = ({
 
   if (variant === 'panel') {
     const hasItems = isPositionMode
-      ? selections.length > 0
+      ? selections.length > 0 || pythPredictions.length > 0
       : createPositionEntries.length > 0;
 
     return (
       <div className="w-full h-full flex flex-col position-form">
         <div className="hidden lg:flex items-center justify-between mb-1 px-1 pt-1">
-          <h2 className="sc-heading text-foreground">Take a position</h2>
+          <h2 className="sc-heading text-foreground">Your Position</h2>
           <Button
             variant="ghost"
             size="xs"
             className={`uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0 transition-opacity ${hasItems ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-            onClick={isPositionMode ? clearSelections : clearPositionForm}
+            onClick={() => {
+              if (isPositionMode) {
+                clearSelections();
+                onClearPythPredictions?.();
+              } else {
+                clearPositionForm();
+              }
+            }}
             title="Reset"
           >
             CLEAR
@@ -814,7 +831,7 @@ const CreatePositionForm = ({
   }
 
   const hasTriggeredItems = isPositionMode
-    ? selections.length > 0
+    ? selections.length > 0 || pythPredictions.length > 0
     : createPositionEntries.length > 0;
 
   return (
@@ -836,13 +853,20 @@ const CreatePositionForm = ({
         >
           <div className="flex-1 min-h-0">
             <div className="flex items-center justify-between mb-1 px-1">
-              <h2 className="sc-heading text-foreground">Take a position</h2>
+              <h2 className="sc-heading text-foreground">Your Position</h2>
               {hasTriggeredItems && (
                 <Button
                   variant="ghost"
                   size="xs"
                   className="uppercase font-mono tracking-wide text-muted-foreground hover:text-foreground hover:bg-transparent h-6 px-1.5 py-0"
-                  onClick={isPositionMode ? clearSelections : clearPositionForm}
+                  onClick={() => {
+                    if (isPositionMode) {
+                      clearSelections();
+                      onClearPythPredictions?.();
+                    } else {
+                      clearPositionForm();
+                    }
+                  }}
                   title="Reset"
                 >
                   CLEAR
