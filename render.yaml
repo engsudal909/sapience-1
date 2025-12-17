@@ -41,7 +41,7 @@ services:
           name: database
           property: connectionString
 
-  - name: relayer-ws
+  - name: relayer
     type: web
     env: node
     plan: standard
@@ -52,7 +52,7 @@ services:
     branch: main
     buildFilter:
       paths:
-        - packages/relayer-ws/**
+        - packages/relayer/**
     envVars:
       - key: ENABLE_AUCTION_WS
         value: "true"

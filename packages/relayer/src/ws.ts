@@ -69,7 +69,7 @@ function send(ws: WebSocket, message: ServerToClientMessage) {
     messagesSent.inc({ type: message.type });
   } catch (err) {
     // Error sending message - connection may be closed
-    console.error('[Relayer-WS] Failed to send message:', err);
+    console.error('[Relayer] Failed to send message:', err);
   }
 }
 
@@ -130,7 +130,7 @@ function broadcastToAuctionSubscribers(
         ws.send(dataStr);
         recipients++;
       } catch (error) {
-        console.warn(`[Relayer-WS] Failed to send to subscriber:`, error);
+        console.warn(`[Relayer] Failed to send to subscriber:`, error);
         subscribers.delete(ws);
       }
     } else {
@@ -306,7 +306,7 @@ export function createAuctionWebSocketServer() {
     // Check connection limit
     if (activeConnectionCount >= config.WS_MAX_CONNECTIONS) {
       console.warn(
-        `[Relayer-WS] Max connections (${config.WS_MAX_CONNECTIONS}) reached, rejecting new connection`
+        `[Relayer] Max connections (${config.WS_MAX_CONNECTIONS}) reached, rejecting new connection`
       );
       ws.close(1008, 'connection_limit_exceeded');
       return;
@@ -317,7 +317,7 @@ export function createAuctionWebSocketServer() {
       const origin = req.headers.origin;
       const allowedOrigins = config.WS_ALLOWED_ORIGINS.split(',').map(o => o.trim());
       if (!origin || !allowedOrigins.includes(origin)) {
-        console.warn(`[Relayer-WS] Origin validation failed: ${origin}`);
+        console.warn(`[Relayer] Origin validation failed: ${origin}`);
         ws.close(1008, 'origin_not_allowed');
         return;
       }
@@ -341,7 +341,7 @@ export function createAuctionWebSocketServer() {
         clearTimeout(idleTimeout);
       }
       idleTimeout = setTimeout(() => {
-        console.log(`[Relayer-WS] Connection idle timeout from ${ip}`);
+        console.log(`[Relayer] Connection idle timeout from ${ip}`);
         ws.close(1008, 'idle_timeout');
       }, config.WS_IDLE_TIMEOUT_MS);
     };
@@ -385,13 +385,13 @@ export function createAuctionWebSocketServer() {
       if (++rateCount > RATE_LIMIT_MAX_MESSAGES) {
         rateLimitHits.inc();
         console.warn(
-          `[Relayer-WS] Rate limit exceeded from ${ip}; closing connection`
+          `[Relayer] Rate limit exceeded from ${ip}; closing connection`
         );
         try {
           ws.close(1008, 'rate_limited');
         } catch (err) {
           console.error(
-            '[Relayer-WS] Failed to close rate-limited connection:',
+            '[Relayer] Failed to close rate-limited connection:',
             err
           );
         }
@@ -403,13 +403,13 @@ export function createAuctionWebSocketServer() {
           : (data as Buffer).byteLength;
       if (dataSize > 64_000) {
         console.warn(
-          `[Relayer-WS] Message too large from ${ip}; closing connection`
+          `[Relayer] Message too large from ${ip}; closing connection`
         );
         try {
           ws.close(1009, 'message_too_large');
         } catch (err) {
           console.error(
-            '[Relayer-WS] Failed to close oversized-message connection:',
+            '[Relayer] Failed to close oversized-message connection:',
             err
           );
         }
@@ -421,7 +421,7 @@ export function createAuctionWebSocketServer() {
       if (!msg || typeof msg !== 'object') {
         messagesReceived.inc({ type: 'invalid' });
         errorsTotal.inc({ type: 'validation', message_type: 'unknown' });
-        console.warn(`[Relayer-WS] Invalid JSON from ${ip}`);
+        console.warn(`[Relayer] Invalid JSON from ${ip}`);
         return;
       }
 
@@ -437,7 +437,7 @@ export function createAuctionWebSocketServer() {
           ws.send(JSON.stringify({ type: 'pong' }));
           messagesSent.inc({ type: 'pong' });
         } catch (err) {
-          console.error('[Relayer-WS] Failed to send pong response:', err);
+          console.error('[Relayer] Failed to send pong response:', err);
         }
         // Track processing duration
         const duration = (Date.now() - startTime) / 1000;
@@ -456,7 +456,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Relayer-WS] Failed to send vault_quote.ack (observe):',
+              '[Relayer] Failed to send vault_quote.ack (observe):',
               err
             );
           }
@@ -470,7 +470,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Relayer-WS] Failed to send vault_quote.ack (unobserve):',
+              '[Relayer] Failed to send vault_quote.ack (unobserve):',
               err
             );
           }
@@ -490,7 +490,7 @@ export function createAuctionWebSocketServer() {
               );
             } catch (err) {
               console.error(
-                '[Relayer-WS] Failed to send vault_quote.ack (invalid_subscribe):',
+                '[Relayer] Failed to send vault_quote.ack (invalid_subscribe):',
                 err
               );
             }
@@ -510,7 +510,7 @@ export function createAuctionWebSocketServer() {
               );
             } catch (err) {
               console.error(
-                '[Relayer-WS] Failed to send vault_quote.update (latest on subscribe):',
+                '[Relayer] Failed to send vault_quote.update (latest on subscribe):',
                 err
               );
             }
@@ -521,7 +521,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Relayer-WS] Failed to send vault_quote.ack (subscribe):',
+              '[Relayer] Failed to send vault_quote.ack (subscribe):',
               err
             );
           }
@@ -537,7 +537,7 @@ export function createAuctionWebSocketServer() {
             });
           } catch (err) {
             console.error(
-              '[Relayer-WS] Failed to broadcast to vault observers (requested):',
+              '[Relayer] Failed to broadcast to vault observers (requested):',
               err
             );
           }
@@ -560,7 +560,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Relayer-WS] Failed to send vault_quote.ack (unsubscribe):',
+              '[Relayer] Failed to send vault_quote.ack (unsubscribe):',
               err
             );
           }
@@ -591,7 +591,7 @@ export function createAuctionWebSocketServer() {
                 messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err) {
                 console.error(
-                  '[Relayer-WS] Failed to send vault_quote.ack (invalid_payload):',
+                  '[Relayer] Failed to send vault_quote.ack (invalid_payload):',
                   err
                 );
               }
@@ -615,7 +615,7 @@ export function createAuctionWebSocketServer() {
                 messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err) {
                 console.error(
-                  '[Relayer-WS] Failed to send vault_quote.ack (stale_timestamp):',
+                  '[Relayer] Failed to send vault_quote.ack (stale_timestamp):',
                   err
                 );
               }
@@ -653,7 +653,7 @@ export function createAuctionWebSocketServer() {
                 );
               } catch (err) {
                 console.error(
-                  '[Relayer-WS] Failed to send vault_quote.ack (bad_signature):',
+                  '[Relayer] Failed to send vault_quote.ack (bad_signature):',
                   err
                 );
               }
@@ -672,7 +672,7 @@ export function createAuctionWebSocketServer() {
                 messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err) {
                 console.error(
-                  '[Relayer-WS] Failed to send vault_quote.ack (unauthorized_signer):',
+                  '[Relayer] Failed to send vault_quote.ack (unauthorized_signer):',
                   err
                 );
               }
@@ -706,7 +706,7 @@ export function createAuctionWebSocketServer() {
               messagesSent.inc({ type: 'vault_quote.ack' });
             } catch (err) {
               console.error(
-                '[Relayer-WS] Failed to send vault_quote.ack (ok after publish):',
+                '[Relayer] Failed to send vault_quote.ack (ok after publish):',
                 err
               );
             }
@@ -718,7 +718,7 @@ export function createAuctionWebSocketServer() {
               });
             } catch (err) {
               console.error(
-                '[Relayer-WS] Failed to broadcast to vault observers (update):',
+                '[Relayer] Failed to broadcast to vault observers (update):',
                 err
               );
             }
@@ -737,7 +737,7 @@ export function createAuctionWebSocketServer() {
                 messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err2) {
                 console.error(
-                  '[Relayer-WS] Failed to send vault_quote.ack (internal_error):',
+                  '[Relayer] Failed to send vault_quote.ack (internal_error):',
                   err2
                 );
               }
@@ -767,7 +767,7 @@ export function createAuctionWebSocketServer() {
               if (!isValidSignature) {
                 errorsTotal.inc({ type: 'signature', message_type: 'auction.start' });
                 console.warn(
-                  `[Relayer-WS] Invalid taker signature for taker=${payload.taker}`
+                  `[Relayer] Invalid taker signature for taker=${payload.taker}`
                 );
                 send(ws, {
                   type: 'auction.ack',
@@ -780,11 +780,11 @@ export function createAuctionWebSocketServer() {
                 return;
               }
               console.log(
-                `[Relayer-WS] Valid signature verified for taker=${payload.taker}`
+                `[Relayer] Valid signature verified for taker=${payload.taker}`
               );
             } catch (err) {
               errorsTotal.inc({ type: 'signature', message_type: 'auction.start' });
-              console.error('[Relayer-WS] Signature verification error:', err);
+              console.error('[Relayer] Signature verification error:', err);
               send(ws, {
                 type: 'auction.ack',
                 payload: {
@@ -855,7 +855,7 @@ export function createAuctionWebSocketServer() {
               payload: { auctionId, subscribed: true },
             });
           } else {
-            console.warn('[Relayer-WS] subscribe rejected: missing auctionId');
+            console.warn('[Relayer] subscribe rejected: missing auctionId');
             send(ws, {
               type: 'auction.ack',
               payload: { error: 'missing_auction_id' },
@@ -877,7 +877,7 @@ export function createAuctionWebSocketServer() {
               payload: { auctionId, unsubscribed: true },
             });
           } else {
-            console.warn('[Relayer-WS] unsubscribe rejected: missing auctionId');
+            console.warn('[Relayer] unsubscribe rejected: missing auctionId');
             send(ws, {
               type: 'auction.ack',
               payload: { error: 'missing_auction_id' },
@@ -903,7 +903,7 @@ export function createAuctionWebSocketServer() {
             payload: { error: 'auction_not_found_or_expired' },
           });
           console.warn(
-            `[Relayer-WS] bid.submit rejected auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
+            `[Relayer] bid.submit rejected auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
           );
           
           // Track processing duration
@@ -920,7 +920,7 @@ export function createAuctionWebSocketServer() {
             payload: { error: sim.reason || 'invalid_bid' },
           });
           console.warn(
-            `[Relayer-WS] bid.submit rejected auctionId=${bid.auctionId} reason=${sim.reason || 'invalid_bid'}`
+            `[Relayer] bid.submit rejected auctionId=${bid.auctionId} reason=${sim.reason || 'invalid_bid'}`
           );
           
           // Track processing duration
@@ -939,12 +939,12 @@ export function createAuctionWebSocketServer() {
             });
             if (!strict.ok) {
               console.warn(
-                `[Relayer-WS] bid.submit strict verification failed auctionId=${bid.auctionId} reason=${strict.reason}`
+                `[Relayer] bid.submit strict verification failed auctionId=${bid.auctionId} reason=${strict.reason}`
               );
             }
           } catch (err) {
             console.warn(
-              '[Relayer-WS] Strict verification threw; continuing:',
+              '[Relayer] Strict verification threw; continuing:',
               err
             );
           }
@@ -958,7 +958,7 @@ export function createAuctionWebSocketServer() {
             payload: { error: 'auction_not_found_or_expired' },
           });
           console.warn(
-            `[Relayer-WS] bid.submit failed auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
+            `[Relayer] bid.submit failed auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
           );
           return;
         }
@@ -988,7 +988,7 @@ export function createAuctionWebSocketServer() {
       errorsTotal.inc({ type: 'unhandled_message', message_type: msgType });
 
       console.warn(
-        `[Relayer-WS] Unhandled message type from ${ip}: ${
+        `[Relayer] Unhandled message type from ${ip}: ${
           (msg as Record<string, unknown>)?.type ?? typeof msg
         }`
       );
@@ -996,11 +996,11 @@ export function createAuctionWebSocketServer() {
 
     ws.on('error', (err) => {
       errorsTotal.inc({ type: 'socket_error', message_type: 'unknown' });
-      console.error(`[Relayer-WS] Socket error from ${ip}:`, err);
+      console.error(`[Relayer] Socket error from ${ip}:`, err);
       try {
         Sentry.captureException(err);
       } catch (err2) {
-        console.error('[Relayer-WS] Sentry capture failed:', err2);
+        console.error('[Relayer] Sentry capture failed:', err2);
       }
     });
 
@@ -1024,7 +1024,7 @@ export function createAuctionWebSocketServer() {
       connectionsClosed.inc({ reason: reasonStr || `code_${code}` });
 
       console.log(
-        `[Relayer-WS] Socket closed from ${ip} code=${code} reason=${reasonStr}`
+        `[Relayer] Socket closed from ${ip} code=${code} reason=${reasonStr}`
       );
 
       // Clean up auction subscriptions for this client
