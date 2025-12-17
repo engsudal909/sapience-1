@@ -209,7 +209,6 @@ export class PositionResolver {
         ? `AND status = '${sanitizedStatus}'`
         : '';
 
-  
       const sanitizedEndsAtGte =
         endsAtGte !== undefined &&
         endsAtGte !== null &&
