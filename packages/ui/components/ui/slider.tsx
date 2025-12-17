@@ -1,70 +1,115 @@
 'use client';
 
-import * as SliderPrimitive from '@radix-ui/react-slider';
 import * as React from 'react';
 
 import { cn } from '../../lib/utils';
 
-const ThumbElement = () => (
-  <SliderPrimitive.Thumb asChild>
-    <span
-      className="relative flex h-7 w-[14px] items-center justify-center rounded-sm border cursor-pointer ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{
-        backgroundColor: 'hsl(var(--brand-black, var(--background)))',
-        borderColor: 'hsl(var(--foreground, var(--brand-white)))',
-      }}
-    >
-      <span
-        className="pointer-events-none flex h-full w-[4px] items-center justify-between"
-        aria-hidden
+interface SliderProps {
+  className?: string;
+  value?: number[];
+  defaultValue?: number[];
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  onValueChange?: (value: number[]) => void;
+  onValueCommit?: (value: number[]) => void;
+  id?: string;
+}
+
+const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
+  (
+    {
+      className,
+      value,
+      defaultValue,
+      min = 0,
+      max = 100,
+      step = 1,
+      disabled = false,
+      onValueChange,
+      onValueCommit,
+      id,
+    },
+    ref
+  ) => {
+    const [internalValue, setInternalValue] = React.useState(
+      () => defaultValue ?? [50]
+    );
+
+    // Use controlled value if provided, otherwise internal state
+    const currentValue = value ?? internalValue;
+    const percentage = ((currentValue[0] - min) / (max - min)) * 100;
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = [Number(e.target.value)];
+      if (value === undefined) {
+        // Uncontrolled mode - update internal state
+        setInternalValue(newValue);
+      }
+      onValueChange?.(newValue);
+    };
+
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          'relative flex w-full touch-none select-none items-center',
+          className
+        )}
       >
-        <span
-          className="block h-[65%] w-px rounded-full"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.55)',
-          }}
+        <div className="relative h-2.5 w-full grow overflow-hidden rounded-full bg-secondary">
+          <div
+            className="absolute h-full"
+            style={{
+              width: `${percentage}%`,
+              backgroundColor: 'hsl(var(--foreground, var(--primary)))',
+            }}
+          />
+        </div>
+        <input
+          type="range"
+          id={id}
+          min={min}
+          max={max}
+          step={step}
+          value={currentValue[0]}
+          onChange={handleChange}
+          onMouseUp={() => onValueCommit?.(currentValue)}
+          onTouchEnd={() => onValueCommit?.(currentValue)}
+          disabled={disabled}
+          className="absolute w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          style={{ margin: 0 }}
         />
-        <span
-          className="block h-[65%] w-px rounded-full"
+        <div
+          className="absolute h-7 w-[14px] rounded-sm border cursor-pointer ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
           style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.55)',
+            left: `calc(${percentage}% - 7px)`,
+            backgroundColor: 'hsl(var(--brand-black, var(--background)))',
+            borderColor: 'hsl(var(--foreground, var(--brand-white)))',
+            pointerEvents: 'none',
           }}
-        />
-      </span>
-    </span>
-  </SliderPrimitive.Thumb>
+        >
+          <span
+            className="pointer-events-none flex h-full w-full items-center justify-center"
+            aria-hidden
+          >
+            <span className="flex h-full w-[4px] items-center justify-between">
+              <span
+                className="block h-[65%] w-px rounded-full"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.55)' }}
+              />
+              <span
+                className="block h-[65%] w-px rounded-full"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.55)' }}
+              />
+            </span>
+          </span>
+        </div>
+      </div>
+    );
+  }
 );
-
-const Slider = React.forwardRef<
-  React.ElementRef<typeof SliderPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(({ className, defaultValue, value, ...props }, ref) => {
-  // Determine number of thumbs based on value or defaultValue
-  const thumbCount = value?.length ?? defaultValue?.length ?? 1;
-
-  return (
-    <SliderPrimitive.Root
-      ref={ref}
-      className={cn(
-        'relative flex w-full touch-none select-none items-center',
-        className
-      )}
-      defaultValue={defaultValue}
-      value={value}
-      {...props}
-    >
-      <SliderPrimitive.Track className="relative h-2.5 w-full grow overflow-hidden rounded-full bg-secondary">
-        <SliderPrimitive.Range
-          className="absolute h-full"
-          style={{ backgroundColor: 'hsl(var(--foreground, var(--primary)))' }}
-        />
-      </SliderPrimitive.Track>
-      {Array.from({ length: thumbCount }).map((_, index) => (
-        <ThumbElement key={index} />
-      ))}
-    </SliderPrimitive.Root>
-  );
-});
-Slider.displayName = SliderPrimitive.Root.displayName;
+Slider.displayName = 'Slider';
 
 export default Slider;

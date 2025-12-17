@@ -1,3 +1,5 @@
+'use client';
+
 import { useForm } from 'react-hook-form';
 
 // Define the form schema structure without zod

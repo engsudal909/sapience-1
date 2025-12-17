@@ -171,13 +171,13 @@ importers:
         version: 3.9.0(react-hook-form@7.53.0(react@19.1.0))
       '@privy-io/react-auth':
         specifier: 2.22.0
-        version: 2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)
+        version: 2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)
       '@privy-io/server-auth':
         specifier: 1.32.0
         version: 1.32.0(bufferutil@4.0.9)(encoding@0.1.13)(ethers@6.15.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
       '@privy-io/wagmi':
         specifier: 1.0.6
-        version: 1.0.6(@privy-io/react-auth@2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6))(react@19.1.0)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(wagmi@2.16.1(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.2(react@19.1.0))(@types/react@19.1.8)(bufferutil@4.0.9)(encoding@0.1.13)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6))
+        version: 1.0.6(@privy-io/react-auth@2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6))(react@19.1.0)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(wagmi@2.16.1(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.2(react@19.1.0))(@types/react@19.1.8)(bufferutil@4.0.9)(encoding@0.1.13)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6))
       '@sapience/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -199,6 +199,15 @@ importers:
       '@vercel/analytics':
         specifier: 1.4.1
         version: 1.4.1(next@14.2.33(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.47.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+      '@zerodev/ecdsa-validator':
+        specifier: ^5.4.9
+        version: 5.4.9(@zerodev/sdk@5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
+      '@zerodev/permissions':
+        specifier: ^5.6.3
+        version: 5.6.3(@zerodev/sdk@5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(@zerodev/webauthn-key@5.5.0(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
+      '@zerodev/sdk':
+        specifier: ^5.5.7
+        version: 5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
       abitype:
         specifier: 1.0.8
         version: 1.0.8(typescript@5.8.3)(zod@3.23.6)
@@ -232,6 +241,9 @@ importers:
       next-themes:
         specifier: 0.3.0
         version: 0.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      permissionless:
+        specifier: ^0.3.2
+        version: 0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -328,7 +340,7 @@ importers:
         version: 2.0.3(@types/eslint@9.6.1)(eslint@9.31.0(jiti@2.6.1))(prettier@3.3.3)(typescript@5.8.3)
       eslint-plugin-import:
         specifier: 2.32.0
-        version: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+        version: 2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-react:
         specifier: 7.37.5
         version: 7.37.5(eslint@9.31.0(jiti@2.6.1))
@@ -608,7 +620,7 @@ importers:
         version: 2.0.3(@types/eslint@9.6.1)(eslint@9.31.0(jiti@2.6.1))(prettier@3.3.3)(typescript@5.8.3)
       eslint-plugin-import:
         specifier: 2.32.0
-        version: 2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))
+        version: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-react:
         specifier: 7.37.5
         version: 7.37.5(eslint@9.31.0(jiti@2.6.1))
@@ -789,7 +801,7 @@ importers:
         version: 2.0.3(@types/eslint@9.6.1)(eslint@9.31.0(jiti@2.6.1))(prettier@3.3.3)(typescript@5.8.3)
       eslint-plugin-import:
         specifier: 2.32.0
-        version: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+        version: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-react:
         specifier: 7.37.5
         version: 7.37.5(eslint@9.31.0(jiti@2.6.1))
@@ -6165,12 +6177,23 @@ packages:
   '@shikijs/vscode-textmate@10.0.2':
     resolution: {integrity: sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg==}
 
+  '@simplewebauthn/browser@8.3.7':
+    resolution: {integrity: sha512-ZtRf+pUEgOCvjrYsbMsJfiHOdKcrSZt2zrAnIIpfmA06r0FxBovFYq0rJ171soZbe13KmWzAoLKjSxVW7KxCdQ==}
+
   '@simplewebauthn/browser@9.0.1':
     resolution: {integrity: sha512-wD2WpbkaEP4170s13/HUxPcAV5y4ZXaKo1TfNklS5zDefPinIgXOpgz1kpEvobAsaLPa2KeH7AKKX/od1mrBJw==}
+
+  '@simplewebauthn/types@12.0.0':
+    resolution: {integrity: sha512-q6y8MkoV8V8jB4zzp18Uyj2I7oFp2/ONL8c3j8uT06AOWu3cIChc1au71QYHrP2b+xDapkGTiv+9lX7xkTlAsA==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@simplewebauthn/types@9.0.1':
     resolution: {integrity: sha512-tGSRP1QvsAvsJmnOlRQyw/mvK9gnPtjEc5fg2+m8n+QUa+D7rvrKkOYyfpy42GTs90X3RDOnqJgfHt+qO67/+w==}
     deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+  '@simplewebauthn/typescript-types@8.3.4':
+    resolution: {integrity: sha512-38xtca0OqfRVNloKBrFB5LEM6PN5vzFbJG6rAutPVrtGHFYxPdiV3btYWq0eAZAZmP+dqFPYJxJWeJrGfmYHng==}
+    deprecated: This package has been renamed to @simplewebauthn/types. Please install @simplewebauthn/types instead to ensure you receive future updates.
 
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
@@ -7649,9 +7672,11 @@ packages:
 
   '@walletconnect/ethereum-provider@2.21.1':
     resolution: {integrity: sha512-SSlIG6QEVxClgl1s0LMk4xr2wg4eT3Zn/Hb81IocyqNSGfXpjtawWxKxiC5/9Z95f1INyBD6MctJbL/R1oBwIw==}
+    deprecated: 'Reliability and performance improvements. See: https://github.com/WalletConnect/walletconnect-monorepo/releases'
 
   '@walletconnect/ethereum-provider@2.21.7':
     resolution: {integrity: sha512-T+cBFCw095tDpR35WqwsTFod2ZsizmLfieSbTqpQDpNjhQyFwYf9d+tn2kcBFmxzENXAsWA8BIZK1tjRrXKtog==}
+    deprecated: 'Reliability and performance improvements. See: https://github.com/WalletConnect/walletconnect-monorepo/releases'
 
   '@walletconnect/events@1.0.1':
     resolution: {integrity: sha512-NPTqaoi0oPBVNuLv7qPaJazmGHs5JGyO8eEAk5VGKmJzDR7AHzD4k6ilox5kxk1iwiOnFopBOOMLs86Oa76HpQ==}
@@ -7851,6 +7876,29 @@ packages:
 
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
+
+  '@zerodev/ecdsa-validator@5.4.9':
+    resolution: {integrity: sha512-9NVE8/sQIKRo42UOoYKkNdmmHJY8VlT4t+2MHD2ipLg21cpbY9fS17TGZh61+Bl3qlqc8pP23I6f89z9im7kuA==}
+    peerDependencies:
+      '@zerodev/sdk': ^5.4.13
+      viem: ^2.28.0
+
+  '@zerodev/permissions@5.6.3':
+    resolution: {integrity: sha512-MwW3Eo3rB5ViOKdY6NUoyvmQTV/bCbOZbmQMTYQqAT7B8rdI9jo44nNONMOHIhDkfF4VFhQ9+M50cCZLA/6zcg==}
+    peerDependencies:
+      '@zerodev/sdk': ^5.4.0
+      '@zerodev/webauthn-key': ^5.4.0
+      viem: ^2.28.0
+
+  '@zerodev/sdk@5.5.7':
+    resolution: {integrity: sha512-Sf4G13yi131H8ujun64obvXIpk1UWn64GiGJjfvGx8aIKg+OWTRz9AZHgGKK+bE/evAmqIg4nchuSvKPhOau1w==}
+    peerDependencies:
+      viem: ^2.28.0
+
+  '@zerodev/webauthn-key@5.5.0':
+    resolution: {integrity: sha512-AbD2d/qrsX7AWxJMEfwxnLbp1TjiUjc1V4ne3Q40UJxKe+lW64Td+y8OD0qSFMqgN6rQxJZ0aOAXmat8H6xluA==}
+    peerDependencies:
+      viem: ^2.28.0
 
   '@zxing/text-encoding@0.9.0':
     resolution: {integrity: sha512-U/4aVJ2mxI0aDNI8Uq0wEhMgY+u4CNtEb0om3+y3+niDAsoTCOB33UF0sxpzqzdqXLqmvc+vZyAt4O8pPdfkwA==}
@@ -8556,6 +8604,9 @@ packages:
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
+
+  buffer-reverse@1.0.1:
+    resolution: {integrity: sha512-M87YIUBsZ6N924W57vDwT/aOu8hw7ZgdByz6ijksLjmHJELBASmYTTlNHRgjE+pTsT9oJXGaDSgqqwfdHotDUg==}
 
   buffer-to-arraybuffer@0.0.5:
     resolution: {integrity: sha512-3dthu5CYiVB1DEJp61FtApNnNndTckcqe4pFcLdvHtrpG+kcyekCJKg4MRiDcFW7A6AODnXB9U4dwQiCW5kzJQ==}
@@ -9354,6 +9405,9 @@ packages:
 
   crypto-browserify@3.12.0:
     resolution: {integrity: sha512-fz4spIh+znjO2VjL+IdhEpRJ3YN6sMzITSBijk6FK2UvTqruSQW+/cCZTSNsMiZNvUeq0CqurF+dAbyiGOY6Wg==}
+
+  crypto-js@4.2.0:
+    resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
 
   crypto-random-string@2.0.0:
     resolution: {integrity: sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==}
@@ -13529,6 +13583,10 @@ packages:
   merkle-patricia-tree@2.3.2:
     resolution: {integrity: sha512-81PW5m8oz/pz3GvsAwbauj7Y00rqm81Tzad77tHBwU7pIAtN+TJnMSOJhxBKflSVYhptMMb9RskhqHqrSm1V+g==}
 
+  merkletreejs@0.3.11:
+    resolution: {integrity: sha512-LJKTl4iVNTndhL+3Uz/tfkjD0klIWsHlUzgtuNnNrsf7bAlXR30m+xYB7lHr5Z/l6e/yAIsr26Dabx6Buo4VGQ==}
+    engines: {node: '>= 7.6.0'}
+
   mermaid-isomorphic@3.0.4:
     resolution: {integrity: sha512-XQTy7H1XwHK3DPEHf+ZNWiqUEd9BwX3Xws38R9Fj2gx718srmgjlZoUzHr+Tca+O+dqJOJsAJaKzCoP65QDfDg==}
     peerDependencies:
@@ -14049,7 +14107,6 @@ packages:
   next@15.4.7:
     resolution: {integrity: sha512-OcqRugwF7n7mC8OSYjvsZhhG1AYSvulor1EIUsIkbbEbf1qoE5EbH36Swj8WhF4cHqmDgkiam3z1c1W0J1Wifg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
-    deprecated: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.
     hasBin: true
     peerDependencies:
       '@opentelemetry/api': ^1.1.0
@@ -14697,6 +14754,15 @@ packages:
 
   performance-now@2.1.0:
     resolution: {integrity: sha512-7EAHlyLHI56VEIdK57uwHdHKIaAGbnXPiw0yWbarQZOKaKpvUIgW0jWRVLiatnM+XXlSwsanIBH/hzGMJulMow==}
+
+  permissionless@0.3.2:
+    resolution: {integrity: sha512-/YlcuybrW9ph+IQ0/vwRWZooEElXnsEgvXLJ/+HA1iU0kwIeTcxx4xlA6TiVZ/zTTsovS3+cSgVa8n7Sz/oTXg==}
+    peerDependencies:
+      ox: ^0.8.0
+      viem: ^2.28.1
+    peerDependenciesMeta:
+      ox:
+        optional: true
 
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
@@ -16862,6 +16928,10 @@ packages:
   tree-kill@1.2.2:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
     hasBin: true
+
+  treeify@1.1.0:
+    resolution: {integrity: sha512-1m4RA7xVAJrSGrrXGs0L3YTwyvBs2S8PbRHaLZAkFw7JR8oIFwYtysxlBZhYIa7xSyiYJKZ3iGrrk55cGA3i9A==}
+    engines: {node: '>=0.6'}
 
   trim-lines@3.0.1:
     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
@@ -23047,7 +23117,7 @@ snapshots:
     dependencies:
       viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
 
-  '@privy-io/js-sdk-core@0.54.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))':
+  '@privy-io/js-sdk-core@0.54.0(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))':
     dependencies:
       '@ethersproject/abstract-signer': 5.8.0
       '@ethersproject/bignumber': 5.8.0
@@ -23067,6 +23137,7 @@ snapshots:
       set-cookie-parser: 2.7.1
       uuid: 9.0.1
     optionalDependencies:
+      permissionless: 0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
       viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
     transitivePeerDependencies:
       - bufferutil
@@ -23085,7 +23156,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@privy-io/react-auth@2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)':
+  '@privy-io/react-auth@2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)':
     dependencies:
       '@base-org/account': 1.1.1(@types/react@19.1.8)(bufferutil@4.0.9)(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)
       '@coinbase/wallet-sdk': 4.3.2
@@ -23097,7 +23168,7 @@ snapshots:
       '@privy-io/api-base': 1.6.1
       '@privy-io/chains': 0.0.2
       '@privy-io/ethereum': 0.0.2(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
-      '@privy-io/js-sdk-core': 0.54.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
+      '@privy-io/js-sdk-core': 0.54.0(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
       '@privy-io/public-api': 2.44.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)
       '@reown/appkit': 1.8.9(@types/react@19.1.8)(bufferutil@4.0.9)(encoding@0.1.13)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
       '@scure/base': 1.2.6
@@ -23134,6 +23205,7 @@ snapshots:
       zustand: 5.0.8(@types/react@19.1.8)(react@19.1.0)(use-sync-external-store@1.4.0(react@19.1.0))
     optionalDependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10)
+      permissionless: 0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -23190,9 +23262,9 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@privy-io/wagmi@1.0.6(@privy-io/react-auth@2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6))(react@19.1.0)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(wagmi@2.16.1(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.2(react@19.1.0))(@types/react@19.1.8)(bufferutil@4.0.9)(encoding@0.1.13)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6))':
+  '@privy-io/wagmi@1.0.6(@privy-io/react-auth@2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6))(react@19.1.0)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(wagmi@2.16.1(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.2(react@19.1.0))(@types/react@19.1.8)(bufferutil@4.0.9)(encoding@0.1.13)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6))':
     dependencies:
-      '@privy-io/react-auth': 2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)
+      '@privy-io/react-auth': 2.22.0(@solana/web3.js@1.98.4(bufferutil@4.0.9)(encoding@0.1.13)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.1.8)(bs58@6.0.0)(bufferutil@4.0.9)(permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)(use-sync-external-store@1.4.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.23.6)
       react: 19.1.0
       viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
       wagmi: 2.16.1(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.2(react@19.1.0))(@types/react@19.1.8)(bufferutil@4.0.9)(encoding@0.1.13)(react@19.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6)
@@ -25789,11 +25861,19 @@ snapshots:
 
   '@shikijs/vscode-textmate@10.0.2': {}
 
+  '@simplewebauthn/browser@8.3.7':
+    dependencies:
+      '@simplewebauthn/typescript-types': 8.3.4
+
   '@simplewebauthn/browser@9.0.1':
     dependencies:
       '@simplewebauthn/types': 9.0.1
 
+  '@simplewebauthn/types@12.0.0': {}
+
   '@simplewebauthn/types@9.0.1': {}
+
+  '@simplewebauthn/typescript-types@8.3.4': {}
 
   '@sinclair/typebox@0.27.8': {}
 
@@ -29282,6 +29362,31 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
+  '@zerodev/ecdsa-validator@5.4.9(@zerodev/sdk@5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))':
+    dependencies:
+      '@zerodev/sdk': 5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
+      viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
+
+  '@zerodev/permissions@5.6.3(@zerodev/sdk@5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(@zerodev/webauthn-key@5.5.0(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))':
+    dependencies:
+      '@simplewebauthn/browser': 9.0.1
+      '@zerodev/sdk': 5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
+      '@zerodev/webauthn-key': 5.5.0(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))
+      merkletreejs: 0.3.11
+      viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
+
+  '@zerodev/sdk@5.5.7(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))':
+    dependencies:
+      semver: 7.7.3
+      viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
+
+  '@zerodev/webauthn-key@5.5.0(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6))':
+    dependencies:
+      '@noble/curves': 1.9.7
+      '@simplewebauthn/browser': 8.3.7
+      '@simplewebauthn/types': 12.0.0
+      viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
+
   '@zxing/text-encoding@0.9.0':
     optional: true
 
@@ -30052,6 +30157,8 @@ snapshots:
   buffer-equal-constant-time@1.0.1: {}
 
   buffer-from@1.1.2: {}
+
+  buffer-reverse@1.0.1: {}
 
   buffer-to-arraybuffer@0.0.5: {}
 
@@ -31028,6 +31135,8 @@ snapshots:
       public-encrypt: 4.0.3
       randombytes: 2.1.0
       randomfill: 1.0.4
+
+  crypto-js@4.2.0: {}
 
   crypto-random-string@2.0.0: {}
 
@@ -32142,7 +32251,7 @@ snapshots:
     optionalDependencies:
       source-map: 0.6.1
 
-  eslint-config-airbnb-base@15.0.0(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
+  eslint-config-airbnb-base@15.0.0(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1)):
     dependencies:
       confusing-browser-globals: 1.0.11
       eslint: 9.31.0(jiti@2.6.1)
@@ -32151,19 +32260,19 @@ snapshots:
       object.entries: 1.1.9
       semver: 6.3.1
 
-  eslint-config-airbnb-typescript@18.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
+  eslint-config-airbnb-typescript@18.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1)):
     dependencies:
       '@typescript-eslint/eslint-plugin': 7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
       '@typescript-eslint/parser': 7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
       eslint: 9.31.0(jiti@2.6.1)
-      eslint-config-airbnb-base: 15.0.0(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-config-airbnb-base: 15.0.0(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
     transitivePeerDependencies:
       - eslint-plugin-import
 
-  eslint-config-airbnb@19.0.4(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-jsx-a11y@6.10.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react-hooks@4.6.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react@7.37.5(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
+  eslint-config-airbnb@19.0.4(eslint-plugin-import@2.32.0)(eslint-plugin-jsx-a11y@6.10.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react-hooks@4.6.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react@7.37.5(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
     dependencies:
       eslint: 9.31.0(jiti@2.6.1)
-      eslint-config-airbnb-base: 15.0.0(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-config-airbnb-base: 15.0.0(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.31.0(jiti@2.6.1))
@@ -32179,8 +32288,8 @@ snapshots:
       '@typescript-eslint/parser': 7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
       eslint: 9.31.0(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@9.31.0(jiti@2.6.1))
@@ -32200,12 +32309,12 @@ snapshots:
       '@typescript-eslint/eslint-plugin': 7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
       '@typescript-eslint/parser': 7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
       eslint: 9.31.0(jiti@2.6.1)
-      eslint-config-airbnb: 19.0.4(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-jsx-a11y@6.10.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react-hooks@4.6.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react@7.37.5(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
-      eslint-config-airbnb-base: 15.0.0(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
-      eslint-config-airbnb-typescript: 18.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-config-airbnb: 19.0.4(eslint-plugin-import@2.32.0)(eslint-plugin-jsx-a11y@6.10.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react-hooks@4.6.2(eslint@9.31.0(jiti@2.6.1)))(eslint-plugin-react@7.37.5(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-config-airbnb-base: 15.0.0(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
+      eslint-config-airbnb-typescript: 18.0.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
       eslint-config-prettier: 9.1.2(eslint@9.31.0(jiti@2.6.1))
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.31.0(jiti@2.6.1))
       eslint-plugin-prettier: 5.5.4(@types/eslint@9.6.1)(eslint-config-prettier@9.1.2(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))(prettier@3.3.3)
       eslint-plugin-react: 7.37.5(eslint@9.31.0(jiti@2.6.1))
@@ -32228,7 +32337,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3(supports-color@8.1.1)
@@ -32243,14 +32352,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3)
       eslint: 9.31.0(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -32264,7 +32373,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.31.0(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -32275,7 +32384,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.31.0(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.21.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@2.6.1))(typescript@5.8.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.31.0(jiti@2.6.1)))(eslint@9.31.0(jiti@2.6.1))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -36778,6 +36887,14 @@ snapshots:
       rlp: 2.2.7
       semaphore: 1.1.0
 
+  merkletreejs@0.3.11:
+    dependencies:
+      bignumber.js: 9.3.1
+      buffer-reverse: 1.0.1
+      crypto-js: 4.2.0
+      treeify: 1.1.0
+      web3-utils: 1.10.4
+
   mermaid-isomorphic@3.0.4(playwright@1.56.0):
     dependencies:
       '@fortawesome/fontawesome-free': 6.7.2
@@ -38242,6 +38359,12 @@ snapshots:
       asn1.js: 5.4.1
 
   performance-now@2.1.0: {}
+
+  permissionless@0.3.2(ox@0.8.6(typescript@5.8.3)(zod@3.23.6))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)):
+    dependencies:
+      viem: 2.33.3(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.23.6)
+    optionalDependencies:
+      ox: 0.8.6(typescript@5.8.3)(zod@3.23.6)
 
   pg-int8@1.0.1: {}
 
@@ -40987,6 +41110,8 @@ snapshots:
     optional: true
 
   tree-kill@1.2.2: {}
+
+  treeify@1.1.0: {}
 
   trim-lines@3.0.1: {}
 

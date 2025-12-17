@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 import { encodeAbiParameters, parseAbiParameters, type Hash } from 'viem';
 import { useAccount } from 'wagmi';
 
@@ -6,7 +6,6 @@ import { MarketGroupClassification } from '../../lib/types';
 import { SCHEMA_UID } from '~/lib/constants';
 import { EAS_ATTEST_ABI, getEASContractAddress } from '~/hooks/contract/EAS';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
-import { useSessionKey } from '~/lib/context/SessionKeyContext';
 
 // Default to Arbitrum; anticipate most transactions occur on Arbitrum.
 // If a market requires a different chain in the future, thread that chainId in via hook params.
@@ -30,44 +29,6 @@ export function useSubmitPrediction({
   condition,
 }: UseSubmitPredictionProps) {
   const { address } = useAccount();
-  
-  // Check for session data in localStorage and refresh session context
-  const { refreshSession } = useSessionKey();
-  
-  // Check localStorage for session data and refresh context if found
-  useMemo(() => {
-    if (typeof window === 'undefined' || !address) return;
-    
-    // Check for ZeroDev session in localStorage
-    try {
-      const zerodevSession = localStorage.getItem('sapience.zerodev.session');
-      if (zerodevSession) {
-        const session = JSON.parse(zerodevSession);
-        const now = Date.now();
-        // If session is valid and matches current address, refresh context
-        if (session.expiresAt > now && session.ownerAddress?.toLowerCase() === address?.toLowerCase()) {
-          refreshSession();
-        }
-      }
-    } catch {
-      // Ignore parse errors
-    }
-    
-    // Check for local session in localStorage
-    try {
-      const localSession = localStorage.getItem('sapience.session.keys');
-      if (localSession) {
-        const session = JSON.parse(localSession);
-        const now = Date.now();
-        // If session is valid and matches current address, refresh context
-        if (session.expiresAt > now && session.authorizedBy?.toLowerCase() === address?.toLowerCase()) {
-          refreshSession();
-        }
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, [address, refreshSession]);
 
   const [attestationError, setAttestationError] = useState<string | null>(null);
   const [attestationSuccess, setAttestationSuccess] = useState<string | null>(

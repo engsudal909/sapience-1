@@ -109,13 +109,20 @@ export function useSapienceWriteContract({
     hasValidSession,
     isZeroDevMode,
     getZeroDevSessionClient,
+    getZeroDevSessionClientForChain,
+    hasValidArbitrumSession,
   } = useSessionKey();
 
   // Check if session key signing should be used
   // When enabled, transactions are signed using a stored session key
   // instead of prompting the user for each signature
+  // For current chain transactions
   const shouldUseSessionKey =
     isSessionModeEnabled && hasValidSession && isZeroDevMode;
+
+  // For Arbitrum transactions (like forecasts), check Arbitrum session specifically
+  const shouldUseArbitrumSessionKey =
+    isSessionModeEnabled && hasValidArbitrumSession && isZeroDevMode;
 
   // Helper to check if we're on Ethereal chain
   const isEtherealChain = useCallback((chainId: number) => {
@@ -471,8 +478,19 @@ export function useSapienceWriteContract({
         await validateAndSwitchChain(_chainId);
 
         // If using ZeroDev session key, use smart account for batched transactions
-        if (shouldUseSessionKey) {
-          console.log('shouldUseSessionKey', shouldUseSessionKey);
+        // For Arbitrum (42161), use Arbitrum-specific session check
+        const useSessionForThisChain = _chainId === 42161
+          ? shouldUseArbitrumSessionKey
+          : shouldUseSessionKey;
+
+        if (useSessionForThisChain) {
+          console.log('[useSapienceWriteContract] Using session key for chain', _chainId, {
+            isSessionModeEnabled,
+            hasValidArbitrumSession,
+            isZeroDevMode,
+            shouldUseArbitrumSessionKey,
+            shouldUseSessionKey,
+          });
           setIsSubmitting(true);
           const params = args[0];
           const {
@@ -484,7 +502,14 @@ export function useSapienceWriteContract({
           } = params as any;
 
           try {
-            const sessionClient = await getZeroDevSessionClient();
+            // Get session client for the target chain (supports cross-chain sessions)
+            console.log('[useSapienceWriteContract] Getting session client for chain', _chainId);
+            const sessionClient = await getZeroDevSessionClientForChain(_chainId);
+            console.log('[useSapienceWriteContract] Session client:', {
+              exists: !!sessionClient,
+              hasSendUserOperation: !!sessionClient?.sendUserOperation,
+              address: sessionClient?.address,
+            });
             if (!sessionClient) {
               throw new Error(
                 'Session client not available. Please create a new session.'
@@ -843,7 +868,8 @@ export function useSapienceWriteContract({
       isEtherealChain,
       sendCallsAsync,
       shouldUseSessionKey,
-      getZeroDevSessionClient,
+      shouldUseArbitrumSessionKey,
+      getZeroDevSessionClientForChain,
       executeAutoUnwrap,
     ]
   );
@@ -868,10 +894,15 @@ export function useSapienceWriteContract({
         await validateAndSwitchChain(_chainId);
 
         // If using ZeroDev session key, batch calls through smart account
-        if (shouldUseSessionKey) {
+        // For Arbitrum (42161), use Arbitrum-specific session check
+        const useSessionForSendCalls = _chainId === 42161
+          ? shouldUseArbitrumSessionKey
+          : shouldUseSessionKey;
+
+        if (useSessionForSendCalls) {
           setIsSubmitting(true);
           try {
-            const sessionClient = await getZeroDevSessionClient();
+            const sessionClient = await getZeroDevSessionClientForChain(_chainId);
             if (!sessionClient) {
               throw new Error('Session client not available');
             }
@@ -1109,7 +1140,8 @@ export function useSapienceWriteContract({
       executeAutoUnwrap,
       ensureEmbeddedAuth,
       shouldUseSessionKey,
-      getZeroDevSessionClient,
+      shouldUseArbitrumSessionKey,
+      getZeroDevSessionClientForChain,
       redirectPage,
       shareIntent,
       onSuccess,

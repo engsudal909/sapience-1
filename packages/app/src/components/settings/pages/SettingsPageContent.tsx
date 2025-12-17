@@ -226,19 +226,59 @@ const SettingsPageContent = () => {
 
   // Session key management
   const {
-    hasValidSession,
-    expiresAt: sessionExpiresAt,
-    sessionAccount,
     createSession,
     revokeSession,
-    refreshSession,
     isZeroDevMode,
-    smartAccountAddress,
     isZeroDevSupported,
     isCreating: isCreatingSession,
     error: sessionContextError,
   } = useSessionKey();
   const [sessionError, setSessionError] = useState<string | null>(null);
+
+  // Read session directly from localStorage based on selected chain
+  // This ensures immediate updates when switching chains
+  const [localSessionInfo, setLocalSessionInfo] = useState<{
+    hasValidSession: boolean;
+    expiresAt: number | null;
+    smartAccountAddress: string | null;
+  }>({ hasValidSession: false, expiresAt: null, smartAccountAddress: null });
+
+  // Helper to read session from localStorage for a specific chain
+  const readSessionForChain = useCallback((chainIdStr: string) => {
+    try {
+      const chainId = parseInt(chainIdStr, 10);
+      const storageKey = `sapience.zerodev.session.${chainId}`;
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        return { hasValidSession: false, expiresAt: null, smartAccountAddress: null };
+      }
+      const session = JSON.parse(raw);
+      // Check if expired
+      if (session.expiresAt <= Date.now()) {
+        localStorage.removeItem(storageKey);
+        return { hasValidSession: false, expiresAt: null, smartAccountAddress: null };
+      }
+      return {
+        hasValidSession: true,
+        expiresAt: session.expiresAt,
+        smartAccountAddress: session.smartAccountAddress,
+      };
+    } catch {
+      return { hasValidSession: false, expiresAt: null, smartAccountAddress: null };
+    }
+  }, []);
+
+  // Update local session info when chain changes
+  useEffect(() => {
+    if (!selectedChain) return;
+    const chainIdStr = selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+    setLocalSessionInfo(readSessionForChain(chainIdStr));
+  }, [selectedChain, readSessionForChain]);
+
+  // Use local session info for display
+  const hasValidSession = localSessionInfo.hasValidSession;
+  const sessionExpiresAt = localSessionInfo.expiresAt;
+  const smartAccountAddress = localSessionInfo.smartAccountAddress;
 
   // Combine context error with local error
   const displaySessionError = sessionError || sessionContextError;
@@ -252,23 +292,33 @@ const SettingsPageContent = () => {
       setSessionError('Please connect a wallet first');
       return;
     }
+    if (!selectedChain) {
+      setSessionError('Please select a chain first');
+      return;
+    }
     setSessionError(null);
     try {
       const result = await createSession();
       if (!result.success) {
         setSessionError(result.error || 'Failed to create session');
+      } else {
+        // Refresh local session info after successful creation
+        const chainIdStr = selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+        setLocalSessionInfo(readSessionForChain(chainIdStr));
       }
     } catch (err) {
       setSessionError(
         err instanceof Error ? err.message : 'Failed to create session'
       );
     }
-  }, [createSession, hasConnectedWallet]);
+  }, [createSession, hasConnectedWallet, selectedChain, readSessionForChain]);
 
   // Handle session revocation
   const handleRevokeSession = useCallback(() => {
     revokeSession();
     setSessionError(null);
+    // Clear local session info
+    setLocalSessionInfo({ hasValidSession: false, expiresAt: null, smartAccountAddress: null });
   }, [revokeSession]);
 
   // Format session expiry for display
@@ -290,12 +340,13 @@ const SettingsPageContent = () => {
     []
   );
 
-  // Refresh session when session mode changes
+  // Refresh local session info when session mode changes
   useEffect(() => {
-    if (mounted) {
-      refreshSession();
+    if (mounted && selectedChain) {
+      const chainIdStr = selectedChain === 'ethereal' ? CHAIN_ID_ETHEREAL : CHAIN_ID_ARBITRUM;
+      setLocalSessionInfo(readSessionForChain(chainIdStr));
     }
-  }, [sessionMode, mounted, refreshSession]);
+  }, [sessionMode, mounted, selectedChain, readSessionForChain]);
 
   // Initialize selectedChain from localStorage on mount
   useEffect(() => {
@@ -347,6 +398,8 @@ const SettingsPageContent = () => {
       setRpcInput(nextRpcUrl);
       setRpcUrl(nextRpcUrl);
       window.localStorage.setItem(CHAIN_ID_STORAGE_KEY, nextChainId);
+      // Dispatch custom event so useChainIdFromLocalStorage detects the change in the same tab
+      window.dispatchEvent(new Event('localStorageChange'));
     } catch {
       // no-op
     }
@@ -641,7 +694,7 @@ const SettingsPageContent = () => {
                                 >
                                   {isCreatingSession ? (
                                     <>
-                                      <LottieLoader width={16} height={16} />
+                                      <Loader width={16} height={16} />
                                       <span className="ml-2">Creating...</span>
                                     </>
                                   ) : (
@@ -659,17 +712,10 @@ const SettingsPageContent = () => {
                               {displaySessionError}
                             </p>
                           ) : null}
-                          {hasValidSession &&
-                          isZeroDevMode &&
-                          smartAccountAddress ? (
+                          {hasValidSession && smartAccountAddress ? (
                             <p className="text-xs text-muted-foreground font-mono">
                               Smart account: {smartAccountAddress.slice(0, 6)}
                               ...{smartAccountAddress.slice(-4)}
-                            </p>
-                          ) : hasValidSession && sessionAccount ? (
-                            <p className="text-xs text-muted-foreground font-mono">
-                              Session key: {sessionAccount.address.slice(0, 6)}
-                              ...{sessionAccount.address.slice(-4)}
                             </p>
                           ) : null}
                           <p className="text-xs text-muted-foreground">

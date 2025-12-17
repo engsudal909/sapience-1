@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,6 +61,12 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   const predictionValue = methods.watch('predictionValue');
   const comment = methods.watch('comment');
 
+  // Trigger validation on mount to ensure isValid is computed for default values
+  useEffect(() => {
+    methods.trigger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { submitPrediction, isAttesting } = useSubmitPrediction({
     marketClassification: MarketGroupClassification.YES_NO,
     submissionValue: predictionValue,
@@ -73,6 +79,16 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
   const handleSubmit = async () => {
     await submitPrediction();
   };
+
+  // Debug: Log disabled state conditions
+  console.log('[ConditionForecastForm] Button disabled state:', {
+    isValid: methods.formState.isValid,
+    disabled,
+    isAttesting,
+    address,
+    predictionValue,
+    formErrors: methods.formState.errors,
+  });
 
   return (
     <FormProvider {...(methods as any)}>

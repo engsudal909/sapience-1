@@ -1,33 +1,28 @@
 'use client';
 
 /**
- * ZeroDev Smart Account Hook
+ * ZeroDev Smart Account Hook with Session Keys
  *
- * Creates and manages a Kernel smart account from the user's EOA wallet.
- * This enables session key functionality for automatic bid signing.
+ * Creates and manages a Kernel smart account with session key support.
+ * Session keys allow transactions to be signed without wallet prompts.
  *
- * ## Architecture:
- *
- * ### ZeroDev Mode (when packages installed)
- * When @zerodev/sdk is available and NEXT_PUBLIC_ZERODEV_PROJECT_ID is set:
- * - Uses ZeroDev Kernel smart accounts (ERC-4337)
- * - Session keys are registered as permission validators
- * - Signatures are ERC-1271 compatible
- * - Full on-chain security with permission scoping
- *
- * ### Local Mode (current fallback)
- * When ZeroDev packages are not installed:
- * - Returns a placeholder that integrates with SessionKeyContext's local mode
- * - Local mode generates ephemeral keys stored in localStorage
- * - Signatures are EOA signatures from the session key (not ERC-1271)
- *
- * To enable full ZeroDev mode, install:
- * pnpm add @zerodev/sdk @zerodev/ecdsa-validator permissionless
+ * ## How it works:
+ * 1. User creates a session - wallet signs to authorize an ephemeral key
+ * 2. The ephemeral key is stored locally and used for signing
+ * 3. Transactions are sent via the smart account using the session key
+ * 4. No wallet prompts needed until the session expires
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
-import { createPublicClient, http, type Address, type Hex } from 'viem';
+import {
+  createPublicClient,
+  http,
+  type Address,
+  type Hex,
+  encodeFunctionData,
+} from 'viem';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import {
   getBundlerRpc,
   getPaymasterRpc,
@@ -38,39 +33,53 @@ import {
 } from './config';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
-// Check if ZeroDev packages are available
+// ZeroDev SDK imports - dynamically loaded
 let createKernelAccount: any;
 let createKernelAccountClient: any;
 let createZeroDevPaymasterClient: any;
 let signerToEcdsaValidator: any;
 let getEntryPoint: any;
-let KERNEL_V2_4: any;
+let KERNEL_V3_1: any;
+let toECDSASigner: any;
+let toPermissionValidator: any;
+let serializePermissionAccount: any;
+let deserializePermissionAccount: any;
+let ParamCondition: any;
 
-// Dynamic import to check for ZeroDev availability
+// Check if ZeroDev packages are available
 async function checkZeroDevAvailability(): Promise<boolean> {
   try {
     const sdk = await import('@zerodev/sdk');
     const ecdsa = await import('@zerodev/ecdsa-validator');
     const constants = await import('@zerodev/sdk/constants');
+    const permissions = await import('@zerodev/permissions');
+    const permissionSigners = await import('@zerodev/permissions/signers');
 
     createKernelAccount = sdk.createKernelAccount;
     createKernelAccountClient = sdk.createKernelAccountClient;
     createZeroDevPaymasterClient = sdk.createZeroDevPaymasterClient;
     getEntryPoint = constants.getEntryPoint;
     signerToEcdsaValidator = ecdsa.signerToEcdsaValidator;
-    // KERNEL_V2_4 for EntryPoint v0.6 (more widely supported)
-    KERNEL_V2_4 = constants.KERNEL_V2_4;
+    // Use KERNEL_V3_1 for EntryPoint 0.7 (required by @zerodev/permissions)
+    KERNEL_V3_1 = constants.KERNEL_V3_1;
+
+    // Permissions/session key imports
+    toPermissionValidator = permissions.toPermissionValidator;
+    serializePermissionAccount = permissions.serializePermissionAccount;
+    deserializePermissionAccount = permissions.deserializePermissionAccount;
+    ParamCondition = permissions.ParamCondition;
+    toECDSASigner = permissionSigners.toECDSASigner;
 
     return true;
-  } catch {
+  } catch (e) {
+    console.warn('[ZeroDev] Failed to load packages:', e);
     return false;
   }
 }
 
-// Session storage key prefix - sessions are stored per chain
+// Session storage key prefix
 const ZERODEV_SESSION_KEY_PREFIX = 'sapience.zerodev.session';
 
-// Get storage key for a specific chain
 function getSessionStorageKey(chainId: number): string {
   return `${ZERODEV_SESSION_KEY_PREFIX}.${chainId}`;
 }
@@ -80,87 +89,64 @@ interface StoredZeroDevSession {
   expiresAt: number;
   chainId: number;
   ownerAddress: Address;
-  // Serialized session data for restoration (when ZeroDev is available)
-  serializedSession?: string;
+  // The ephemeral session private key
+  sessionPrivateKey: Hex;
+  // Serialized permission account for restoration
+  serializedSession: string;
 }
 
 interface SmartAccountState {
-  /** Whether the smart account is ready for use */
   isReady: boolean;
-  /** Whether ZeroDev is supported on the current chain */
   isSupported: boolean;
-  /** Whether ZeroDev packages are installed */
   isZeroDevAvailable: boolean;
-  /** The smart account address (when ZeroDev mode) */
   smartAccountAddress: Address | null;
-  /** Whether a valid session exists */
   hasValidSession: boolean;
-  /** Session expiry timestamp (ms) */
   sessionExpiresAt: number | null;
-  /** Loading state */
   isLoading: boolean;
-  /** Error message */
   error: string | null;
 }
 
 interface SmartAccountActions {
-  /** Create a new session key with permissions */
-  createSession: (
-    durationHours: number
-  ) => Promise<{ success: boolean; error?: string }>;
-  /** Revoke the current session */
+  createSession: (durationHours: number) => Promise<{ success: boolean; error?: string }>;
   revokeSession: () => void;
-  /** Get the session account client for signing */
   getSessionClient: () => Promise<SmartAccountClient | null>;
-  /** Refresh session state from storage */
-  refreshSession: () => void;
+  getSessionClientForChain: (targetChainId: number) => Promise<SmartAccountClient | null>;
+  refreshSession: (forChainId?: number) => void;
 }
 
 export interface SmartAccountClient {
-  /** Sign typed data using the smart account */
   signTypedData: (params: {
     domain: any;
     types: any;
     primaryType: string;
     message: any;
   }) => Promise<Hex>;
-  /** The smart account address */
   address: Address;
-  /** Send a user operation (batched transaction) */
   sendUserOperation?: (params: {
-    userOperation: {
-      callData: Hex;
-      callGasLimit?: bigint;
-      verificationGasLimit?: bigint;
-      preVerificationGas?: bigint;
-    };
+    callData: Array<{ to: Address; data: Hex; value: bigint }>;
   }) => Promise<Hex>;
 }
 
-export type UseSmartAccountResult = SmartAccountState & SmartAccountActions;
+export type UseSmartAccountResult = SmartAccountState & SmartAccountActions & {
+  hasArbitrumSession: boolean;
+  arbitrumSessionExpiresAt: number | null;
+};
 
-/**
- * Hook for ZeroDev smart account integration.
- * Automatically detects if ZeroDev packages are installed and falls back gracefully.
- */
 export function useSmartAccount(): UseSmartAccountResult {
   const chainId = useChainIdFromLocalStorage();
-  console.log('chainId', chainId);
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
 
   // State
   const [isZeroDevAvailable, setIsZeroDevAvailable] = useState(false);
-  const [smartAccountAddress, setSmartAccountAddress] =
-    useState<Address | null>(null);
+  const [smartAccountAddress, setSmartAccountAddress] = useState<Address | null>(null);
   const [hasValidSession, setHasValidSession] = useState(false);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [kernelClient, setKernelClient] = useState<any>(null);
+  const [sessionClient, setSessionClient] = useState<any>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // Check if ZeroDev is supported for current chain
   const isSupported = useMemo(() => {
     if (!ZERODEV_PROJECT_ID) return false;
     return isZeroDevSupported(chainId);
@@ -176,8 +162,7 @@ export function useSmartAccount(): UseSmartAccountResult {
     });
   }, []);
 
-  // Load existing session from storage for a specific chain
-  // If no chainId provided, loads session for the current chain
+  // Load session from localStorage for a specific chain
   const loadSession = useCallback((forChainId?: number): StoredZeroDevSession | null => {
     if (!address) return null;
     const targetChainId = forChainId ?? chainId;
@@ -203,28 +188,129 @@ export function useSmartAccount(): UseSmartAccountResult {
     }
   }, [address, chainId]);
 
-  // Check if there's a valid Arbitrum session (for forecasting)
+  // Check for Arbitrum session
   const arbitrumSession = useMemo(() => {
     if (!address) return null;
-    return loadSession(42161); // Arbitrum chain ID
+    return loadSession(42161);
   }, [address, loadSession]);
 
-  // Initialize/restore session on mount
+  // Restore session client from stored session
+  const restoreSessionClient = useCallback(async (
+    session: StoredZeroDevSession,
+    targetChainId: number
+  ): Promise<any> => {
+    console.log('[useSmartAccount] restoreSessionClient called', {
+      targetChainId,
+      isZeroDevAvailable,
+      hasWalletClient: !!walletClient,
+      sessionSmartAccountAddress: session.smartAccountAddress,
+    });
+
+    if (!isZeroDevAvailable || !walletClient) {
+      console.log('[useSmartAccount] restoreSessionClient early return - missing deps');
+      return null;
+    }
+
+    const targetChain = getZeroDevChain(targetChainId);
+    if (!targetChain) {
+      console.log('[useSmartAccount] restoreSessionClient - chain not supported');
+      return null;
+    }
+
+    try {
+      const bundlerRpc = getBundlerRpc(targetChainId);
+      const paymasterRpc = getPaymasterRpc(targetChainId);
+      console.log('[useSmartAccount] restoreSessionClient - RPC URLs', {
+        bundlerRpc,
+        paymasterRpc,
+      });
+      if (!bundlerRpc) return null;
+
+      const publicClient = createPublicClient({
+        chain: targetChain,
+        transport: http(targetChain.rpcUrls.default.http[0]),
+      });
+
+      const entryPoint = getEntryPoint('0.7');
+
+      // Deserialize the permission account
+      console.log('[useSmartAccount] Deserializing permission account...');
+      const sessionKeyAccount = await deserializePermissionAccount(
+        publicClient,
+        entryPoint,
+        KERNEL_V3_1,
+        session.serializedSession
+      );
+      console.log('[useSmartAccount] Permission account deserialized:', sessionKeyAccount.address);
+
+      // Create kernel account client with the session key
+      const clientConfig: any = {
+        account: sessionKeyAccount,
+        chain: targetChain,
+        bundlerTransport: http(bundlerRpc),
+        entryPoint,
+      };
+
+      // Always try to add paymaster for gas sponsorship
+      if (paymasterRpc) {
+        console.log('[useSmartAccount] Setting up paymaster with sponsorUserOperation middleware...');
+        try {
+          const paymasterClient = createZeroDevPaymasterClient({
+            chain: targetChain,
+            transport: http(paymasterRpc),
+            entryPoint,
+          });
+          // Use middleware pattern for sponsorUserOperation
+          clientConfig.middleware = {
+            sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
+              console.log('[useSmartAccount] Sponsoring UserOperation...');
+              return paymasterClient.sponsorUserOperation({ userOperation });
+            },
+          };
+          console.log('[useSmartAccount] Paymaster middleware configured successfully');
+        } catch (paymasterError) {
+          console.error('[useSmartAccount] Failed to create paymaster client:', paymasterError);
+        }
+      } else {
+        console.warn('[useSmartAccount] No paymaster RPC configured');
+      }
+
+      const client = createKernelAccountClient(clientConfig);
+      console.log('[useSmartAccount] Kernel client created');
+      return client;
+    } catch (err) {
+      console.error('[ZeroDev] Failed to restore session client:', err);
+      return null;
+    }
+  }, [isZeroDevAvailable, walletClient]);
+
+  // Initialize/restore session on mount and when chain changes
   useEffect(() => {
     if (!initialized) return;
+
     const session = loadSession();
     if (session) {
       setSmartAccountAddress(session.smartAccountAddress);
       setSessionExpiresAt(session.expiresAt);
       setHasValidSession(true);
-    }
-  }, [initialized, loadSession]);
 
-  // Create a new session
+      // Restore the session client
+      restoreSessionClient(session, chainId).then((client) => {
+        if (client) {
+          setSessionClient(client);
+        }
+      });
+    } else {
+      setSmartAccountAddress(null);
+      setSessionExpiresAt(null);
+      setHasValidSession(false);
+      setSessionClient(null);
+    }
+  }, [initialized, loadSession, chainId, restoreSessionClient]);
+
+  // Create a new session with ephemeral key
   const createSession = useCallback(
-    async (
-      durationHours: number
-    ): Promise<{ success: boolean; error?: string }> => {
+    async (durationHours: number): Promise<{ success: boolean; error?: string }> => {
       if (!walletClient || !address || !chain) {
         return { success: false, error: 'Wallet not connected' };
       }
@@ -234,12 +320,9 @@ export function useSmartAccount(): UseSmartAccountResult {
       }
 
       if (!isZeroDevAvailable) {
-        // Return info about fallback mode
         return {
           success: false,
-          error:
-            'ZeroDev packages not installed. Using local session key mode. ' +
-            'Install @zerodev/sdk @zerodev/ecdsa-validator permissionless for smart account mode.',
+          error: 'ZeroDev packages not installed.',
         };
       }
 
@@ -250,47 +333,70 @@ export function useSmartAccount(): UseSmartAccountResult {
         const bundlerRpc = getBundlerRpc(chainId);
         const paymasterRpc = getPaymasterRpc(chainId);
 
-        console.log('bundlerRpc', bundlerRpc);
-        console.log('paymasterRpc', paymasterRpc);
-
         if (!bundlerRpc) {
           throw new Error('ZeroDev bundler RPC not configured');
         }
 
-        // Create public client for the chain
         const publicClient = createPublicClient({
           chain,
           transport: http(chain.rpcUrls.default.http[0]),
         });
 
-        // Get the entrypoint for v0.6 (more widely supported on Arbitrum)
-        const entryPoint = getEntryPoint('0.6');
-        console.log('entryPoint', JSON.stringify(entryPoint, null, 2));
+        const entryPoint = getEntryPoint('0.7');
 
-        // Ensure KERNEL_V2_4 is available (should be set during checkZeroDevAvailability)
-        if (!KERNEL_V2_4) {
-          console.log('KERNEL_V2_4 ERROR', JSON.stringify(KERNEL_V2_4, null, 2));
-          throw new Error(
-            'KERNEL_V2_4 constant not available. ZeroDev SDK may not be properly initialized.'
-          );
+        if (!KERNEL_V3_1) {
+          throw new Error('KERNEL_V3_1 constant not available.');
         }
-        console.log('KERNEL_V2_4', JSON.stringify(KERNEL_V2_4, null, 2));
-        // Create ECDSA validator from the wallet
+
+        // Create ECDSA validator from the wallet (sudo key)
         const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
           signer: walletClient,
           entryPoint,
-          kernelVersion: KERNEL_V2_4,
+          kernelVersion: KERNEL_V3_1,
         });
 
-        // Create Kernel account
-        // KernelVersion 0.2.4 for EntryPoint v0.6
+        // Generate ephemeral session key
+        const sessionPrivateKey = generatePrivateKey();
+        const sessionKeyAccount = privateKeyToAccount(sessionPrivateKey);
+
+        // Create session key signer
+        const sessionKeySigner = await toECDSASigner({
+          signer: sessionKeyAccount,
+        });
+
+        // Calculate expiry
+        const maxDurationHours = SESSION_KEY_DEFAULTS.maxDurationSeconds / 3600;
+        const clampedHours = Math.min(durationHours, maxDurationHours);
+        const expiresAt = Date.now() + clampedHours * 60 * 60 * 1000;
+        const validUntil = Math.floor(expiresAt / 1000);
+
+        // Create permission validator with the session key
+        // This allows the session key to sign any call (permissive for now)
+        const permissionValidator = await toPermissionValidator(publicClient, {
+          entryPoint,
+          kernelVersion: KERNEL_V3_1,
+          signer: sessionKeySigner,
+          policies: [
+            // You can add more restrictive policies here if needed
+            // For now, we allow all calls within the time window
+          ],
+        });
+
+        // Create kernel account with session key as the validator
         const kernelAccount = await createKernelAccount(publicClient, {
           plugins: {
             sudo: ecdsaValidator,
+            regular: permissionValidator,
           },
           entryPoint,
-          kernelVersion: KERNEL_V2_4,
+          kernelVersion: KERNEL_V3_1,
         });
+
+        // Serialize the permission account for storage
+        const serializedSession = await serializePermissionAccount(
+          kernelAccount,
+          sessionPrivateKey
+        );
 
         // Create kernel account client
         const clientConfig: any = {
@@ -300,47 +406,48 @@ export function useSmartAccount(): UseSmartAccountResult {
           entryPoint,
         };
 
-        // Add paymaster if configured (for gas sponsorship)
+        // Add paymaster for gas sponsorship
         if (paymasterRpc) {
+          console.log('[useSmartAccount] createSession - Setting up paymaster middleware...');
           const paymasterClient = createZeroDevPaymasterClient({
             chain,
             transport: http(paymasterRpc),
             entryPoint,
           });
+          // Use middleware pattern for sponsorUserOperation
           clientConfig.middleware = {
-            sponsorUserOperation: paymasterClient.sponsorUserOperation,
+            sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
+              console.log('[useSmartAccount] createSession - Sponsoring UserOperation...');
+              return paymasterClient.sponsorUserOperation({ userOperation });
+            },
           };
         }
 
         const client = createKernelAccountClient(clientConfig);
+        console.log('[useSmartAccount] createSession - Kernel client created');
 
-        // Calculate expiry
-        const maxDurationHours = SESSION_KEY_DEFAULTS.maxDurationSeconds / 3600;
-        const clampedHours = Math.min(durationHours, maxDurationHours);
-        const expiresAt = Date.now() + clampedHours * 60 * 60 * 1000;
-
-        // Store session with chain-specific key
+        // Store session
         const sessionData: StoredZeroDevSession = {
           smartAccountAddress: kernelAccount.address,
           expiresAt,
           chainId,
           ownerAddress: address,
+          sessionPrivateKey,
+          serializedSession,
         };
         const storageKey = getSessionStorageKey(chainId);
         localStorage.setItem(storageKey, JSON.stringify(sessionData));
 
         // Update state
-        setKernelClient(client);
+        setSessionClient(client);
         setSmartAccountAddress(kernelAccount.address);
         setSessionExpiresAt(expiresAt);
         setHasValidSession(true);
 
         return { success: true };
       } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Failed to create ZeroDev session';
+        const message = err instanceof Error ? err.message : 'Failed to create session';
+        console.error('[ZeroDev] Session creation error:', err);
         setError(message);
         return { success: false, error: message };
       } finally {
@@ -350,56 +457,206 @@ export function useSmartAccount(): UseSmartAccountResult {
     [walletClient, address, chain, chainId, isSupported, isZeroDevAvailable]
   );
 
-  // Revoke the current session (for current chain)
+  // Revoke the current session
   const revokeSession = useCallback(() => {
     if (chainId) {
       const storageKey = getSessionStorageKey(chainId);
       localStorage.removeItem(storageKey);
     }
-    setKernelClient(null);
+    setSessionClient(null);
     setSmartAccountAddress(null);
     setSessionExpiresAt(null);
     setHasValidSession(false);
     setError(null);
   }, [chainId]);
 
-  // Get the session client for signing
+  // Get session client for current chain
   const getSessionClient = useCallback(async (): Promise<SmartAccountClient | null> => {
-    if (!hasValidSession || !kernelClient) {
-      return Promise.resolve(null);
+    if (sessionClient && hasValidSession) {
+      const sendMethod = sessionClient.sendTransactions || sessionClient.sendTransaction || sessionClient.sendUserOperation;
+      return {
+        signTypedData: (params) => sessionClient.signTypedData(params),
+        address: smartAccountAddress!,
+        sendUserOperation: sendMethod
+          ? async (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }) => {
+              const calls = params.callData;
+              if (sessionClient.sendTransactions) {
+                const userOpHash = await sessionClient.sendTransactions({
+                  transactions: calls.map((call: { to: Address; data: Hex; value: bigint }) => ({
+                    to: call.to,
+                    data: call.data,
+                    value: call.value,
+                  })),
+                });
+                return userOpHash;
+              }
+              if (sessionClient.sendTransaction && calls.length === 1) {
+                const userOpHash = await sessionClient.sendTransaction({
+                  to: calls[0].to,
+                  data: calls[0].data,
+                  value: calls[0].value,
+                });
+                return userOpHash;
+              }
+              if (sessionClient.sendUserOperation) {
+                const userOpHash = await sessionClient.sendUserOperation({
+                  callData: calls,
+                });
+                return userOpHash;
+              }
+              throw new Error('No suitable send method available on session client');
+            }
+          : undefined,
+      };
     }
 
-    // Wrap the kernel client in our interface
+    // Try to restore from storage
+    const session = loadSession();
+    if (!session) return null;
+
+    const client = await restoreSessionClient(session, chainId);
+    if (!client) return null;
+
+    setSessionClient(client);
+
+    const sendMethod = client.sendTransactions || client.sendTransaction || client.sendUserOperation;
     return {
-      signTypedData: (params) => {
-        return kernelClient.signTypedData(params);
-      },
-      address: smartAccountAddress!,
-      sendUserOperation: kernelClient.sendUserOperation
-        ? (params: any) => kernelClient.sendUserOperation(params)
+      signTypedData: (params) => client.signTypedData(params),
+      address: session.smartAccountAddress,
+      sendUserOperation: sendMethod
+        ? async (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }) => {
+            const calls = params.callData;
+            if (client.sendTransactions) {
+              const userOpHash = await client.sendTransactions({
+                transactions: calls.map((call: { to: Address; data: Hex; value: bigint }) => ({
+                  to: call.to,
+                  data: call.data,
+                  value: call.value,
+                })),
+              });
+              return userOpHash;
+            }
+            if (client.sendTransaction && calls.length === 1) {
+              const userOpHash = await client.sendTransaction({
+                to: calls[0].to,
+                data: calls[0].data,
+                value: calls[0].value,
+              });
+              return userOpHash;
+            }
+            if (client.sendUserOperation) {
+              const userOpHash = await client.sendUserOperation({
+                callData: calls,
+              });
+              return userOpHash;
+            }
+            throw new Error('No suitable send method available on client');
+          }
         : undefined,
     };
-  }, [hasValidSession, kernelClient, smartAccountAddress]);
+  }, [sessionClient, hasValidSession, smartAccountAddress, loadSession, restoreSessionClient, chainId]);
+
+  // Get session client for a specific chain
+  const getSessionClientForChain = useCallback(async (targetChainId: number): Promise<SmartAccountClient | null> => {
+    console.log('[useSmartAccount] getSessionClientForChain called', {
+      targetChainId,
+      currentChainId: chainId,
+      isSameChain: targetChainId === chainId,
+    });
+
+    if (targetChainId === chainId) {
+      return getSessionClient();
+    }
+
+    const session = loadSession(targetChainId);
+    console.log('[useSmartAccount] Loaded session for chain', targetChainId, {
+      hasSession: !!session,
+      smartAccountAddress: session?.smartAccountAddress,
+      expiresAt: session?.expiresAt,
+    });
+    if (!session) return null;
+
+    const client = await restoreSessionClient(session, targetChainId);
+    console.log('[useSmartAccount] Restored session client', {
+      hasClient: !!client,
+      hasSendTransactions: !!client?.sendTransactions,
+      hasSendTransaction: !!client?.sendTransaction,
+      hasSendUserOperation: !!client?.sendUserOperation,
+      clientMethods: client ? Object.keys(client).filter(k => typeof client[k] === 'function') : [],
+    });
+    if (!client) return null;
+
+    // Try different method names that might be available on the kernel client
+    const sendMethod = client.sendTransactions || client.sendTransaction || client.sendUserOperation;
+
+    return {
+      signTypedData: (params) => client.signTypedData(params),
+      address: session.smartAccountAddress,
+      sendUserOperation: sendMethod
+        ? async (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }) => {
+            const calls = params.callData;
+            // Try sendTransactions first (for batched calls)
+            if (client.sendTransactions) {
+              const userOpHash = await client.sendTransactions({
+                transactions: calls.map((call: { to: Address; data: Hex; value: bigint }) => ({
+                  to: call.to,
+                  data: call.data,
+                  value: call.value,
+                })),
+              });
+              return userOpHash;
+            }
+            // Fallback to sendTransaction for single calls
+            if (client.sendTransaction && calls.length === 1) {
+              const userOpHash = await client.sendTransaction({
+                to: calls[0].to,
+                data: calls[0].data,
+                value: calls[0].value,
+              });
+              return userOpHash;
+            }
+            // Last resort: try sendUserOperation directly
+            if (client.sendUserOperation) {
+              const userOpHash = await client.sendUserOperation({
+                callData: calls,
+              });
+              return userOpHash;
+            }
+            throw new Error('No suitable send method available on client');
+          }
+        : undefined,
+    };
+  }, [chainId, getSessionClient, loadSession, restoreSessionClient]);
 
   // Refresh session state from storage
-  const refreshSession = useCallback(() => {
-    const session = loadSession();
+  const refreshSession = useCallback((forChainId?: number) => {
+    const targetChainId = forChainId ?? chainId;
+    const session = loadSession(targetChainId);
+
     if (session) {
       setSmartAccountAddress(session.smartAccountAddress);
       setSessionExpiresAt(session.expiresAt);
       setHasValidSession(true);
+
+      // Restore client if for current chain
+      if (targetChainId === chainId) {
+        restoreSessionClient(session, targetChainId).then((client) => {
+          if (client) setSessionClient(client);
+        });
+      }
     } else {
       setHasValidSession(false);
       setSessionExpiresAt(null);
       setSmartAccountAddress(null);
+      setSessionClient(null);
     }
-  }, [loadSession]);
+  }, [loadSession, chainId, restoreSessionClient]);
 
   // Determine error message
   const displayError = useMemo(() => {
     if (error) return error;
     if (initialized && !isZeroDevAvailable && isSupported) {
-      return 'ZeroDev packages not installed. Local session key mode will be used.';
+      return 'ZeroDev packages not installed.';
     }
     if (!ZERODEV_PROJECT_ID && isSupported) {
       return 'NEXT_PUBLIC_ZERODEV_PROJECT_ID not configured';
@@ -408,7 +665,7 @@ export function useSmartAccount(): UseSmartAccountResult {
   }, [error, initialized, isZeroDevAvailable, isSupported]);
 
   return {
-    isReady: hasValidSession && kernelClient !== null,
+    isReady: hasValidSession && sessionClient !== null,
     isSupported,
     isZeroDevAvailable,
     smartAccountAddress,
@@ -419,8 +676,8 @@ export function useSmartAccount(): UseSmartAccountResult {
     createSession,
     revokeSession,
     getSessionClient,
+    getSessionClientForChain,
     refreshSession,
-    // Arbitrum session info (for forecasting when on other chains)
     hasArbitrumSession: arbitrumSession !== null,
     arbitrumSessionExpiresAt: arbitrumSession?.expiresAt ?? null,
   };

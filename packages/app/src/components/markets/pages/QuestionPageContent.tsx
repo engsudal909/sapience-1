@@ -434,7 +434,9 @@ export default function QuestionPageContent({
     } else if (primaryTab === 'predictions') {
       setPrimaryTab('forecasts');
     }
-  }, [hasPositions, primaryTab]);
+    // Only depend on hasPositions - primaryTab changes are handled by the condition
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPositions]);
 
   // Calculate X axis domain and ticks based on predictions data
   const { xDomain, xTicks, xTickLabels } = useMemo(() => {
