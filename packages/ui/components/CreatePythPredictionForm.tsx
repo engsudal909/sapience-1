@@ -17,18 +17,24 @@ import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
-export type CreatePythPositionFormProps = {
+export type CreatePythPredictionFormProps = {
   className?: string;
   disabled?: boolean;
-  onPick?: (values: CreatePythPositionFormValues) => void;
+  onPick?: (values: CreatePythPredictionFormValues) => void;
 };
 
-export type CreatePythPositionFormDirection = 'over' | 'under';
+export type CreatePythPredictionDirection = 'over' | 'under';
 
-export type CreatePythPositionFormValues = {
+export type CreatePythPredictionFormValues = {
   priceId: string;
-  direction: CreatePythPositionFormDirection;
+  /** Optional human label (e.g. `Crypto.BTC/USD`) if known at pick time. */
+  priceFeedLabel?: string;
+  direction: CreatePythPredictionDirection;
   targetPrice: number;
+  /** Raw user-visible string for preserving precision (used for tooltips). */
+  targetPriceRaw: string;
+  /** Full precision string from Hermes (used for tooltips when auto-populated). */
+  targetPriceFullPrecision?: string;
   dateTimeLocal: string;
 };
 
@@ -92,10 +98,12 @@ function DateTimeSelector({
   disabled,
   value,
   onChange,
+  onPresetChange,
 }: {
   disabled?: boolean;
   value: string;
   onChange: (next: string) => void;
+  onPresetChange?: (preset: DateTimePreset) => void;
 }) {
   const [preset, setPreset] = React.useState<DateTimePreset>('');
   const [customValue, setCustomValue] = React.useState<string>('');
@@ -106,6 +114,7 @@ function DateTimeSelector({
     if (disabled) return;
     if (value) return;
     setPreset('15m');
+    onPresetChange?.('15m');
     onChange(formatDateTimeLocalInputValue(addMinutes(new Date(), 15)));
     // Intentionally run once on mount; don't depend on `value` or `onChange` to avoid
     // re-applying the default after user interaction.
@@ -117,12 +126,14 @@ function DateTimeSelector({
       // Clicking the active preset toggles it off.
       if (nextPreset === preset) {
         setPreset('');
+        onPresetChange?.('');
         setCustomOpen(false);
         onChange('');
         return;
       }
 
       setPreset(nextPreset);
+      onPresetChange?.(nextPreset);
 
       if (nextPreset === 'custom') {
         setCustomOpen(true);
@@ -226,6 +237,7 @@ function DateTimeSelector({
                         );
                         const nextValue = formatDateTimeLocalInputValue(next);
                         setCustomValue(nextValue);
+                        onPresetChange?.('custom');
                         onChange(nextValue);
                       }}
                       disabled={disabled}
@@ -250,6 +262,7 @@ function DateTimeSelector({
                             );
                             const nextValue = formatDateTimeLocalInputValue(next);
                             setCustomValue(nextValue);
+                            onPresetChange?.('custom');
                             onChange(nextValue);
                           }}
                           disabled={disabled}
@@ -492,12 +505,13 @@ async function fetchHermesPriceFeeds(
   throw lastError instanceof Error ? lastError : new Error('Hermes fetch failed');
 }
 
-export function CreatePythPositionForm({
+export function CreatePythPredictionForm({
   className,
   disabled,
   onPick,
-}: CreatePythPositionFormProps) {
+}: CreatePythPredictionFormProps) {
   const [priceId, setPriceId] = React.useState<string>('');
+  const [priceFeedLabel, setPriceFeedLabel] = React.useState<string>('');
   const [priceFeedQuery, setPriceFeedQuery] = React.useState<string>('');
   const [priceFeedOpen, setPriceFeedOpen] = React.useState<boolean>(false);
   const [isLoadingFeeds, setIsLoadingFeeds] = React.useState<boolean>(false);
@@ -514,9 +528,14 @@ export function CreatePythPositionForm({
   const latestPriceAbortRef = React.useRef<AbortController | null>(null);
 
   const [direction, setDirection] =
-    React.useState<CreatePythPositionFormDirection>('over');
+    React.useState<CreatePythPredictionDirection>('over');
+  // `targetPriceDisplay` drives the input UI; `targetPriceRaw` preserves full precision for tooltips.
+  const [targetPriceDisplay, setTargetPriceDisplay] = React.useState<string>('');
   const [targetPriceRaw, setTargetPriceRaw] = React.useState<string>('');
+  const [targetPriceFullPrecision, setTargetPriceFullPrecision] =
+    React.useState<string>('');
   const [dateTimeLocal, setDateTimeLocal] = React.useState<string>('');
+  const [dateTimePreset, setDateTimePreset] = React.useState<DateTimePreset>('');
 
   const populateLatestPrice = React.useCallback(
     (nextPriceId: string) => {
@@ -534,7 +553,12 @@ export function CreatePythPositionForm({
           if (ac.signal.aborted) return;
           const formatted = formatPythPriceDecimal(p.price, p.expo);
           const n = Number(formatted);
-          setTargetPriceRaw(Number.isFinite(n) ? n.toFixed(2) : formatted);
+          // Preserve precision from Hermes for tooltips, but display a clean 2dp in the input.
+          const rounded = Number.isFinite(n) ? n.toFixed(2) : formatted;
+          setTargetPriceFullPrecision(formatted);
+          // Underlying value should match what user sees when auto-populated.
+          setTargetPriceRaw(rounded);
+          setTargetPriceDisplay(rounded);
         })
         .catch((e) => {
           if (ac.signal.aborted) return;
@@ -667,9 +691,9 @@ export function CreatePythPositionForm({
   }, [deferredPriceFeedQuery, feeds, priceFeedOpen]);
 
   const targetPrice = React.useMemo(() => {
-    const n = Number(targetPriceRaw);
+    const n = Number(targetPriceDisplay);
     return Number.isFinite(n) ? n : NaN;
-  }, [targetPriceRaw]);
+  }, [targetPriceDisplay]);
 
   const isValid =
     !!priceId && Number.isFinite(targetPrice) && targetPrice > 0 && !!dateTimeLocal;
@@ -678,8 +702,52 @@ export function CreatePythPositionForm({
 
   const submit = React.useCallback(() => {
     if (isPickDisabled) return;
-    onPick?.({ priceId, direction, targetPrice, dateTimeLocal });
-  }, [dateTimeLocal, direction, isPickDisabled, onPick, priceId, targetPrice]);
+    const computedDateTimeLocal =
+      dateTimePreset === '15m'
+        ? formatDateTimeLocalInputValue(addMinutes(new Date(), 15))
+        : dateTimePreset === '1h'
+          ? formatDateTimeLocalInputValue(addMinutes(new Date(), 60))
+          : dateTimePreset === '1w'
+            ? formatDateTimeLocalInputValue(addDays(new Date(), 7))
+            : dateTimeLocal;
+
+    // Keep UI in sync when using presets (so the displayed time matches the submitted one).
+    if (computedDateTimeLocal && computedDateTimeLocal !== dateTimeLocal) {
+      setDateTimeLocal(computedDateTimeLocal);
+    }
+
+    // If the price was auto-populated from Hermes, ensure the underlying numeric value
+    // is rounded to exactly 2 decimals (avoid float artifacts leaking elsewhere).
+    const roundedTargetPrice =
+      targetPriceFullPrecision && Number.isFinite(targetPrice)
+        ? Number(targetPrice.toFixed(2))
+        : targetPrice;
+    const roundedTargetPriceRaw =
+      targetPriceFullPrecision && Number.isFinite(roundedTargetPrice)
+        ? roundedTargetPrice.toFixed(2)
+        : targetPriceRaw;
+
+    onPick?.({
+      priceId,
+      priceFeedLabel: priceFeedLabel || undefined,
+      direction,
+      targetPrice: roundedTargetPrice,
+      targetPriceRaw: roundedTargetPriceRaw,
+      targetPriceFullPrecision: targetPriceFullPrecision || undefined,
+      dateTimeLocal: computedDateTimeLocal,
+    });
+  }, [
+    dateTimeLocal,
+    dateTimePreset,
+    direction,
+    isPickDisabled,
+    onPick,
+    targetPriceRaw,
+    targetPriceFullPrecision,
+    priceFeedLabel,
+    priceId,
+    targetPrice,
+  ]);
 
   return (
     <div
@@ -720,6 +788,7 @@ export function CreatePythPositionForm({
                     const next = e.target.value;
                     setPriceFeedQuery(next);
                     setPriceId('');
+                    setPriceFeedLabel('');
                     if (!priceFeedOpen) setPriceFeedOpen(true);
                     if (
                       next.trim().length >= 1 &&
@@ -775,6 +844,7 @@ export function CreatePythPositionForm({
                                 key={f.id}
                                 onSelect={() => {
                                   setPriceId(f.id);
+                                  setPriceFeedLabel(f.symbol || f.id);
                                   setPriceFeedQuery(f.symbol || '');
                                   setPriceFeedOpen(false);
                                   populateLatestPrice(f.id);
@@ -834,8 +904,14 @@ export function CreatePythPositionForm({
               inputMode="decimal"
               step="any"
               min="0"
-              value={targetPriceRaw}
-              onChange={(e) => setTargetPriceRaw(e.target.value)}
+              value={targetPriceDisplay}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTargetPriceDisplay(v);
+                // If the user edits, treat their entry as the "raw" tooltip value too.
+                setTargetPriceRaw(v);
+                setTargetPriceFullPrecision('');
+              }}
               placeholder="Price"
               disabled={disabled}
               aria-label="Target price"
@@ -847,6 +923,7 @@ export function CreatePythPositionForm({
             disabled={disabled}
             value={dateTimeLocal}
             onChange={setDateTimeLocal}
+            onPresetChange={setDateTimePreset}
           />
 
           <Button

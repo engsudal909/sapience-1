@@ -22,8 +22,9 @@ import type { FilterState } from '~/components/markets/TableFilters';
 import { useDebouncedValue } from '~/hooks/useDebouncedValue';
 import ShareAfterMarketsRedirect from '~/components/shared/ShareAfterMarketsRedirect';
 import {
-  CreatePythPositionForm,
-  type CreatePythPositionFormValues,
+  CreatePythPredictionForm,
+  type CreatePythPredictionFormValues,
+  type PythPrediction,
 } from '@sapience/ui';
 
 // Dynamically import Loader
@@ -47,6 +48,8 @@ const MarketsPage = () => {
     timeToResolutionRange: [0, 1000], // Default to future markets only
     selectedCategories: [],
   });
+
+  const [pythPredictions, setPythPredictions] = useState<PythPrediction[]>([]);
 
   // Debounce search term for backend queries (300ms)
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
@@ -121,9 +124,35 @@ const MarketsPage = () => {
     setFilters(newFilters);
   }, []);
 
-  const handlePythPick = useCallback((values: CreatePythPositionFormValues) => {
-    // Wire this up to the Pyth prediction flow once ready.
-    void values;
+  const handlePythPick = useCallback(
+    (values: CreatePythPredictionFormValues) => {
+      const id = (() => {
+        try {
+          return crypto.randomUUID();
+        } catch {
+          return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        }
+      })();
+
+      setPythPredictions((prev) => [
+        ...prev,
+        {
+          id,
+          priceId: values.priceId,
+          priceFeedLabel: values.priceFeedLabel,
+          direction: values.direction,
+          targetPrice: values.targetPrice,
+          targetPriceRaw: values.targetPriceRaw,
+          targetPriceFullPrecision: values.targetPriceFullPrecision,
+          dateTimeLocal: values.dateTimeLocal,
+        },
+      ]);
+    },
+    []
+  );
+
+  const handleRemovePythPrediction = useCallback((id: string) => {
+    setPythPredictions((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   // Convert categories to the format expected by TableFilters
@@ -163,7 +192,11 @@ const MarketsPage = () => {
         {/* Render only one position form instance based on viewport */}
         {isCompact ? (
           <div className="block lg:hidden">
-            <CreatePositionForm />
+            <CreatePositionForm
+              pythPredictions={pythPredictions}
+              onRemovePythPrediction={handleRemovePythPrediction}
+              onClearPythPredictions={() => setPythPredictions([])}
+            />
           </div>
         ) : null}
 
@@ -176,7 +209,7 @@ const MarketsPage = () => {
             <div className="flex items-center justify-between mb-2 px-1">
               <h2 className="sc-heading text-foreground">Predict Prices</h2>
             </div>
-            <CreatePythPositionForm onPick={handlePythPick} />
+            <CreatePythPredictionForm onPick={handlePythPick} />
             <hr className="gold-hr mt-6 -mb-2" />
           </div>
 
@@ -213,7 +246,12 @@ const MarketsPage = () => {
               }}
             >
               <div className="h-full overflow-y-auto">
-                <CreatePositionForm variant="panel" />
+                <CreatePositionForm
+                  variant="panel"
+                  pythPredictions={pythPredictions}
+                  onRemovePythPrediction={handleRemovePythPrediction}
+                  onClearPythPredictions={() => setPythPredictions([])}
+                />
               </div>
             </div>
           </div>

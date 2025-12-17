@@ -28,6 +28,7 @@ import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdic
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
+import { PythPredictionListItem, type PythPrediction } from '@sapience/ui';
 
 interface PositionFormProps {
   methods: UseFormReturn<{
@@ -54,6 +55,8 @@ interface PositionFormProps {
   minWager?: string;
   // PredictionMarket contract address for fetching taker nonce
   predictionMarketAddress?: `0x${string}`;
+  pythPredictions?: PythPrediction[];
+  onRemovePythPrediction?: (id: string) => void;
 }
 
 export default function PositionForm({
@@ -69,6 +72,8 @@ export default function PositionForm({
   collateralDecimals,
   minWager,
   predictionMarketAddress,
+  pythPredictions = [],
+  onRemovePythPrediction,
 }: PositionFormProps) {
   const { selections, removeSelection } = useCreatePositionContext();
   const { address: takerAddress } = useAccount();
@@ -283,6 +288,8 @@ export default function PositionForm({
   // Derive a stable dependency for form validation state
   const hasFormErrors = Object.keys(methods.formState.errors).length > 0;
 
+  const totalPredictionCount = selections.length + pythPredictions.length;
+
   const triggerAuctionRequest = useCallback(
     (options?: { forceRefresh?: boolean }) => {
       if (!requestQuotes) return;
@@ -410,11 +417,11 @@ export default function PositionForm({
         <div>
           <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono mb-3 flex justify-between items-center">
             <span>
-              {selections.length}{' '}
-              {selections.length !== 1 ? 'PREDICTIONS' : 'PREDICTION'}
+              {totalPredictionCount}{' '}
+              {totalPredictionCount !== 1 ? 'PREDICTIONS' : 'PREDICTION'}
             </span>
             <AnimatePresence>
-              {selections.length > 1 && (
+              {totalPredictionCount > 1 && (
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -431,7 +438,26 @@ export default function PositionForm({
               )}
             </AnimatePresence>
           </div>
-          {selections.map((s, index) => {
+          {[
+            ...pythPredictions.map((p) => ({ kind: 'pyth' as const, p })),
+            ...selections.map((s) => ({ kind: 'market' as const, s })),
+          ].map((item, index) => {
+            if (item.kind === 'pyth') {
+              const p = item.p;
+              return (
+                <div
+                  key={p.id}
+                  className={`-mx-4 px-4 py-2.5 border-b border-brand-white/10 ${index === 0 ? 'border-t' : ''}`}
+                >
+                  <PythPredictionListItem
+                    prediction={p}
+                    onRemove={onRemovePythPrediction}
+                  />
+                </div>
+              );
+            }
+
+            const s = item.s;
             const CategoryIcon = getCategoryIcon(s.categorySlug);
             const categoryColor = getCategoryStyle(s.categorySlug).color;
             // Match MarketBadge style: 10% opacity background, category color icon
