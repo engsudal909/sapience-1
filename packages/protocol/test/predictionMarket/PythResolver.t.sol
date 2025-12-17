@@ -97,7 +97,8 @@ contract PythResolverTest is Test {
     }
 
     function test_validatePredictionMarkets_success() public view {
-        bytes32 priceId = keccak256("BTC-USD");
+        // Pyth Lazer feed ids are uint32 values encoded into bytes32 (high bits zero).
+        bytes32 priceId = bytes32(uint256(1));
         bytes memory encoded = _encodeOutcome(priceId, 2000, 100, -8, true, true);
 
         (bool isValid, IPredictionMarketResolver.Error err) = resolver
@@ -121,9 +122,30 @@ contract PythResolverTest is Test {
         );
     }
 
+    function test_validatePredictionMarkets_rejectsNonUint32PriceId() public view {
+        // High bits set -> not a uint32 feed id.
+        bytes32 badPriceId = bytes32(uint256(type(uint32).max) + 1);
+        bytes memory encoded = _encodeOutcome(
+            badPriceId,
+            2000,
+            100,
+            -8,
+            true,
+            true
+        );
+
+        (bool isValid, IPredictionMarketResolver.Error err) = resolver
+            .validatePredictionMarkets(encoded);
+        assertFalse(isValid);
+        assertEq(
+            uint256(err),
+            uint256(IPredictionMarketResolver.Error.INVALID_MARKET)
+        );
+    }
+
     function test_validatePredictionMarkets_marketNotOpened() public {
         vm.warp(3000);
-        bytes32 priceId = keccak256("BTC-USD");
+        bytes32 priceId = bytes32(uint256(1));
         bytes memory encoded = _encodeOutcome(priceId, 2000, 100, -8, true, true);
 
         (bool isValid, IPredictionMarketResolver.Error err) = resolver
@@ -136,7 +158,7 @@ contract PythResolverTest is Test {
     }
 
     function test_getPredictionResolution_unsettled() public view {
-        bytes32 priceId = keccak256("BTC-USD");
+        bytes32 priceId = bytes32(uint256(1));
         bytes memory encoded = _encodeOutcome(priceId, 2000, 100, -8, true, true);
 
         (
@@ -153,7 +175,7 @@ contract PythResolverTest is Test {
     }
 
     function test_settleMarket_andResolve_overWins() public {
-        bytes32 priceId = keccak256("BTC-USD");
+        bytes32 priceId = bytes32(uint256(1));
         uint64 endTime = 2000;
         int32 expo = -8;
         int64 strike = 100;
@@ -221,7 +243,7 @@ contract PythResolverTest is Test {
     }
 
     function test_settleMarket_storesSettlementFields() public {
-        bytes32 priceId = keccak256("BTC-USD");
+        bytes32 priceId = bytes32(uint256(1));
         uint64 endTime = 2000;
         int32 expo = -8;
 
@@ -255,7 +277,7 @@ contract PythResolverTest is Test {
     }
 
     function test_tieBehavior_overWinsOnTie_true() public {
-        bytes32 priceId = keccak256("ETH-USD");
+        bytes32 priceId = bytes32(uint256(2));
         uint64 endTime = 2000;
         int32 expo = -8;
         int64 strike = 100;
@@ -289,7 +311,7 @@ contract PythResolverTest is Test {
     }
 
     function test_tieBehavior_overWinsOnTie_false() public {
-        bytes32 priceId = keccak256("SOL-USD");
+        bytes32 priceId = bytes32(uint256(3));
         uint64 endTime = 2000;
         int32 expo = -8;
         int64 strike = 100;
@@ -323,7 +345,7 @@ contract PythResolverTest is Test {
     }
 
     function test_settleMarket_revertOnExpoMismatch() public {
-        bytes32 priceId = keccak256("BTC-USD");
+        bytes32 priceId = bytes32(uint256(1));
         uint64 endTime = 2000;
 
         vm.warp(endTime);
@@ -349,7 +371,7 @@ contract PythResolverTest is Test {
     }
 
     function test_settleMarket_revertIfPublishTimeOutOfRange() public {
-        bytes32 priceId = keccak256("BTC-USD");
+        bytes32 priceId = bytes32(uint256(1));
         uint64 endTime = 2000;
         int32 expo = -8;
 
@@ -367,6 +389,29 @@ contract PythResolverTest is Test {
             });
 
         vm.expectRevert(PythResolver.InvalidMarketData.selector);
+        resolver.settleMarket(market, updateData);
+    }
+
+    function test_settleMarket_revertOnZeroPrice_missingByUpstreamSemantics() public {
+        bytes32 priceId = bytes32(uint256(1));
+        uint64 endTime = 2000;
+        int32 expo = -8;
+
+        vm.warp(endTime);
+
+        // Upstream Pyth Lazer semantics treat value==0 as "ApplicableButMissing" for Price.
+        // This should revert when the resolver tries to read the price.
+        bytes[] memory updateData = _updateData(priceId, 0, expo, endTime);
+        PythResolver.BinaryOptionMarket memory market = PythResolver
+            .BinaryOptionMarket({
+                priceId: priceId,
+                endTime: endTime,
+                strikePrice: 1, // any positive strike
+                strikeExpo: expo,
+                overWinsOnTie: true
+            });
+
+        vm.expectRevert("Price is not present for the timestamp");
         resolver.settleMarket(market, updateData);
     }
 }

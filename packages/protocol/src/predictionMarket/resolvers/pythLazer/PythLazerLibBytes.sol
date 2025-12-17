@@ -152,7 +152,7 @@ library PythLazerLibBytes {
                 if (prop == PythLazerStructs.PriceFeedProperty.Price) {
                     feed._price = _readI64BE(payload, pos);
                     pos += 8;
-                    // present if non-zero (matches upstream semantics)
+                    // Match upstream semantics: value==0 means ApplicableButMissing.
                     if (feed._price != 0) {
                         feed.triStateMap |= (uint256(2) << (2 * uint8(prop)));
                     } else {

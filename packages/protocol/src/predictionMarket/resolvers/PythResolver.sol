@@ -79,6 +79,14 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
 
     mapping(bytes32 => MarketSettlement) public settlements; // marketId => settlement
 
+    function _asFeedId(bytes32 priceId) internal pure returns (uint32 feedId) {
+        // In this resolver, `priceId` is expected to encode a Pyth Lazer `feedId` (uint32)
+        // as a `bytes32` with all high bits zero.
+        uint256 raw = uint256(priceId);
+        if (raw > type(uint32).max) revert InvalidMarketData();
+        feedId = uint32(raw);
+    }
+
     function _benchmarkFromVerifiedPayload(
         bytes memory payload,
         uint32 targetFeedId
@@ -139,6 +147,10 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
             if (outcomes[i].priceId == bytes32(0)) {
                 return (false, Error.INVALID_MARKET);
             }
+            // Enforce that priceId encodes a uint32 feed id (high bits must be zero).
+            if (uint256(outcomes[i].priceId) > type(uint32).max) {
+                return (false, Error.INVALID_MARKET);
+            }
             // Market must not be expired at mint time
             if (outcomes[i].endTime <= block.timestamp) {
                 return (false, Error.MARKET_NOT_OPENED);
@@ -171,6 +183,9 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
 
         for (uint256 i = 0; i < outcomes.length; i++) {
             if (outcomes[i].priceId == bytes32(0)) {
+                return (false, Error.INVALID_MARKET, true);
+            }
+            if (uint256(outcomes[i].priceId) > type(uint32).max) {
                 return (false, Error.INVALID_MARKET, true);
             }
 
@@ -215,6 +230,9 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
         returns (bytes32 marketId, bool resolvedToOver)
     {
         if (market.priceId == bytes32(0)) revert InvalidMarketData();
+        // Ensure priceId cannot alias multiple distinct markets onto the same uint32 feed id.
+        // (We encode the uint32 feed id in the low bits of bytes32.)
+        uint32 feedId = _asFeedId(market.priceId);
         if (market.strikePrice <= 0) revert InvalidMarketData();
         if (block.timestamp < market.endTime) revert MarketNotEnded();
 
@@ -241,7 +259,7 @@ contract PythResolver is IPredictionMarketResolver, ReentrancyGuard {
             );
             (benchmarkPrice, benchmarkExpo, publishTimeSec, publishTimeMicros) = _benchmarkFromVerifiedPayload(
                 payload,
-                uint32(uint256(market.priceId))
+                feedId
             );
         }
 

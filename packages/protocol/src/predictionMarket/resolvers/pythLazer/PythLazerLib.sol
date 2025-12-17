@@ -201,6 +201,7 @@ library PythLazerLib {
                 // Price Property
                 if (property == PythLazerStructs.PriceFeedProperty.Price) {
                     (feed._price, pos) = parseFeedValueInt64(payload, pos);
+                    // Match upstream semantics: value==0 means ApplicableButMissing.
                     if (feed._price != 0) {
                         _setPresent(
                             feed,
