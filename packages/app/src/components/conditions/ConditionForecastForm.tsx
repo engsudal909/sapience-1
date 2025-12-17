@@ -80,16 +80,6 @@ const ConditionForecastForm: React.FC<ConditionForecastFormProps> = ({
     await submitPrediction();
   };
 
-  // Debug: Log disabled state conditions
-  console.log('[ConditionForecastForm] Button disabled state:', {
-    isValid: methods.formState.isValid,
-    disabled,
-    isAttesting,
-    address,
-    predictionValue,
-    formErrors: methods.formState.errors,
-  });
-
   return (
     <FormProvider {...(methods as any)}>
       <form onSubmit={methods.handleSubmit(handleSubmit)} className="space-y-3">

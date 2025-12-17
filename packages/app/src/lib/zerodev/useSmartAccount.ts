@@ -199,31 +199,14 @@ export function useSmartAccount(): UseSmartAccountResult {
     session: StoredZeroDevSession,
     targetChainId: number
   ): Promise<any> => {
-    console.log('[useSmartAccount] restoreSessionClient called', {
-      targetChainId,
-      isZeroDevAvailable,
-      hasWalletClient: !!walletClient,
-      sessionSmartAccountAddress: session.smartAccountAddress,
-    });
-
-    if (!isZeroDevAvailable || !walletClient) {
-      console.log('[useSmartAccount] restoreSessionClient early return - missing deps');
-      return null;
-    }
+    if (!isZeroDevAvailable || !walletClient) return null;
 
     const targetChain = getZeroDevChain(targetChainId);
-    if (!targetChain) {
-      console.log('[useSmartAccount] restoreSessionClient - chain not supported');
-      return null;
-    }
+    if (!targetChain) return null;
 
     try {
       const bundlerRpc = getBundlerRpc(targetChainId);
       const paymasterRpc = getPaymasterRpc(targetChainId);
-      console.log('[useSmartAccount] restoreSessionClient - RPC URLs', {
-        bundlerRpc,
-        paymasterRpc,
-      });
       if (!bundlerRpc) return null;
 
       const publicClient = createPublicClient({
@@ -234,14 +217,12 @@ export function useSmartAccount(): UseSmartAccountResult {
       const entryPoint = getEntryPoint('0.7');
 
       // Deserialize the permission account
-      console.log('[useSmartAccount] Deserializing permission account...');
       const sessionKeyAccount = await deserializePermissionAccount(
         publicClient,
         entryPoint,
         KERNEL_V3_1,
         session.serializedSession
       );
-      console.log('[useSmartAccount] Permission account deserialized:', sessionKeyAccount.address);
 
       // Create kernel account client with the session key
       const clientConfig: any = {
@@ -251,33 +232,21 @@ export function useSmartAccount(): UseSmartAccountResult {
         entryPoint,
       };
 
-      // Always try to add paymaster for gas sponsorship
+      // Add paymaster for gas sponsorship
       if (paymasterRpc) {
-        console.log('[useSmartAccount] Setting up paymaster with sponsorUserOperation middleware...');
-        try {
-          const paymasterClient = createZeroDevPaymasterClient({
-            chain: targetChain,
-            transport: http(paymasterRpc),
-            entryPoint,
-          });
-          // Use middleware pattern for sponsorUserOperation
-          clientConfig.middleware = {
-            sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
-              console.log('[useSmartAccount] Sponsoring UserOperation...');
-              return paymasterClient.sponsorUserOperation({ userOperation });
-            },
-          };
-          console.log('[useSmartAccount] Paymaster middleware configured successfully');
-        } catch (paymasterError) {
-          console.error('[useSmartAccount] Failed to create paymaster client:', paymasterError);
-        }
-      } else {
-        console.warn('[useSmartAccount] No paymaster RPC configured');
+        const paymasterClient = createZeroDevPaymasterClient({
+          chain: targetChain,
+          transport: http(paymasterRpc),
+          entryPoint,
+        });
+        clientConfig.middleware = {
+          sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
+            return paymasterClient.sponsorUserOperation({ userOperation });
+          },
+        };
       }
 
-      const client = createKernelAccountClient(clientConfig);
-      console.log('[useSmartAccount] Kernel client created');
-      return client;
+      return createKernelAccountClient(clientConfig);
     } catch (err) {
       console.error('[ZeroDev] Failed to restore session client:', err);
       return null;
@@ -408,23 +377,19 @@ export function useSmartAccount(): UseSmartAccountResult {
 
         // Add paymaster for gas sponsorship
         if (paymasterRpc) {
-          console.log('[useSmartAccount] createSession - Setting up paymaster middleware...');
           const paymasterClient = createZeroDevPaymasterClient({
             chain,
             transport: http(paymasterRpc),
             entryPoint,
           });
-          // Use middleware pattern for sponsorUserOperation
           clientConfig.middleware = {
             sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
-              console.log('[useSmartAccount] createSession - Sponsoring UserOperation...');
               return paymasterClient.sponsorUserOperation({ userOperation });
             },
           };
         }
 
         const client = createKernelAccountClient(clientConfig);
-        console.log('[useSmartAccount] createSession - Kernel client created');
 
         // Store session
         const sessionData: StoredZeroDevSession = {
@@ -558,32 +523,14 @@ export function useSmartAccount(): UseSmartAccountResult {
 
   // Get session client for a specific chain
   const getSessionClientForChain = useCallback(async (targetChainId: number): Promise<SmartAccountClient | null> => {
-    console.log('[useSmartAccount] getSessionClientForChain called', {
-      targetChainId,
-      currentChainId: chainId,
-      isSameChain: targetChainId === chainId,
-    });
-
     if (targetChainId === chainId) {
       return getSessionClient();
     }
 
     const session = loadSession(targetChainId);
-    console.log('[useSmartAccount] Loaded session for chain', targetChainId, {
-      hasSession: !!session,
-      smartAccountAddress: session?.smartAccountAddress,
-      expiresAt: session?.expiresAt,
-    });
     if (!session) return null;
 
     const client = await restoreSessionClient(session, targetChainId);
-    console.log('[useSmartAccount] Restored session client', {
-      hasClient: !!client,
-      hasSendTransactions: !!client?.sendTransactions,
-      hasSendTransaction: !!client?.sendTransaction,
-      hasSendUserOperation: !!client?.sendUserOperation,
-      clientMethods: client ? Object.keys(client).filter(k => typeof client[k] === 'function') : [],
-    });
     if (!client) return null;
 
     // Try different method names that might be available on the kernel client

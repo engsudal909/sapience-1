@@ -506,21 +506,8 @@ export const SessionKeyProvider = ({
   // Get ZeroDev session client for a specific chain
   const getZeroDevSessionClientForChain =
     useCallback(async (targetChainId: number): Promise<SmartAccountClient | null> => {
-      console.log('[SessionKeyContext] getZeroDevSessionClientForChain called', {
-        targetChainId,
-        useZeroDevMode,
-        hasMethod: !!(smartAccount as any).getSessionClientForChain,
-      });
-      if (!useZeroDevMode) {
-        console.log('[SessionKeyContext] Not in ZeroDev mode, returning null');
-        return null;
-      }
-      const client = await (smartAccount as any).getSessionClientForChain?.(targetChainId) ?? null;
-      console.log('[SessionKeyContext] Got client from smartAccount:', {
-        exists: !!client,
-        hasSendUserOperation: !!client?.sendUserOperation,
-      });
-      return client;
+      if (!useZeroDevMode) return null;
+      return (smartAccount as any).getSessionClientForChain?.(targetChainId) ?? null;
     }, [useZeroDevMode, smartAccount]);
 
   // Sign typed data using the active session (works in both ZeroDev and local modes)

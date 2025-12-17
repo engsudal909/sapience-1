@@ -484,13 +484,6 @@ export function useSapienceWriteContract({
           : shouldUseSessionKey;
 
         if (useSessionForThisChain) {
-          console.log('[useSapienceWriteContract] Using session key for chain', _chainId, {
-            isSessionModeEnabled,
-            hasValidArbitrumSession,
-            isZeroDevMode,
-            shouldUseArbitrumSessionKey,
-            shouldUseSessionKey,
-          });
           setIsSubmitting(true);
           const params = args[0];
           const {
@@ -503,13 +496,7 @@ export function useSapienceWriteContract({
 
           try {
             // Get session client for the target chain (supports cross-chain sessions)
-            console.log('[useSapienceWriteContract] Getting session client for chain', _chainId);
             const sessionClient = await getZeroDevSessionClientForChain(_chainId);
-            console.log('[useSapienceWriteContract] Session client:', {
-              exists: !!sessionClient,
-              hasSendUserOperation: !!sessionClient?.sendUserOperation,
-              address: sessionClient?.address,
-            });
             if (!sessionClient) {
               throw new Error(
                 'Session client not available. Please create a new session.'
