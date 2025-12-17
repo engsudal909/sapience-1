@@ -11,13 +11,13 @@ import {
   Target,
 } from 'lucide-react';
 
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 
 import { formatFiveSigFigs } from '~/lib/utils/util';
 import type { Parlay } from '~/hooks/graphql/useUserParlays';
@@ -218,7 +218,7 @@ function useFirstActivity(positions: Parlay[] | undefined) {
   }, [positions]);
 }
 
-export type ProfileQuickMetricsProps = {
+type ProfileQuickMetricsProps = {
   address: string;
   forecastsCount: number;
   positions: Parlay[];

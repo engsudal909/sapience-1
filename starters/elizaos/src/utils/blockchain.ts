@@ -225,7 +225,7 @@ export function getContractAddresses() {
  */
 export function getApiEndpoints() {
   return {
-    sapienceWs: process.env.SAPIENCE_WS_URL || "wss://api.sapience.xyz/auction",
+    sapienceWs: process.env.SAPIENCE_WS_URL || "wss://relayer.sapience.xyz/auction",
     sapienceGraphql: process.env.SAPIENCE_GRAPHQL_URL || "https://api.sapience.xyz/graphql",
   };
 }

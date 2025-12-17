@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vocs dev",
     "build:vocs": "vocs build",
-    "build:storybook": "cd ../sdk && pnpm build-storybook && mkdir -p ../docs/docs/public && cp -r storybook-static ../docs/docs/public/components-storybook",
+    "build:storybook": "cd ../ui && pnpm build-storybook && mkdir -p ../docs/docs/public && cp -r storybook-static ../docs/docs/public/components-storybook",
     "build": "pnpm build:vocs && pnpm build:storybook",
     "preview": "vocs preview"
   },

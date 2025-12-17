@@ -3,14 +3,14 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@sapience/sdk/ui/components/ui/dialog';
+} from '@sapience/ui/components/ui/dialog';
 import { TransactionAmountCell } from '~/components/markets/DataDrawer/TransactionCells';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';

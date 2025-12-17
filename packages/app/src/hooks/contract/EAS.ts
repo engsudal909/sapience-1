@@ -1,8 +1,3 @@
-import type { Address } from 'viem';
-import { encodeAbiParameters, parseAbiParameters } from 'viem';
-import type { MarketGroupClassification } from '~/lib/types';
-import { getPredictionValue } from '~/utils/getPredictionValue';
-
 const EAS_CONTRACTS = {
   1: '0xA1207F3BBa224E2c9c3c6D5aF63D0eb1582Ce587', // Ethereum Mainnet
   11155111: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e', // Sepolia
@@ -49,50 +44,3 @@ export const EAS_ATTEST_ABI = [
     outputs: [{ name: 'uid', type: 'bytes32' }],
   },
 ];
-
-export const encodeEASAttest = ({
-  marketAddress,
-  marketId,
-  predictionInput,
-  classification,
-  comment,
-  questionIdHex,
-}: {
-  marketAddress: Address;
-  marketId: string;
-  predictionInput: string;
-  classification: MarketGroupClassification;
-  comment: string;
-  questionIdHex?: `0x${string}`;
-}) => {
-  try {
-    const finalPredictionBigInt = getPredictionValue(
-      classification,
-      predictionInput
-    );
-
-    return encodeAbiParameters(
-      parseAbiParameters(
-        'address marketAddress, uint256 marketId, bytes32 questionId, uint160 prediction, string comment'
-      ),
-      [
-        marketAddress,
-        BigInt(marketId),
-        questionIdHex ||
-          (`0x0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`),
-        finalPredictionBigInt,
-        comment,
-      ]
-    );
-  } catch (error) {
-    console.error('Error encoding schema data:', error);
-    if (
-      error instanceof Error &&
-      (error.message.includes('Numeric prediction input must be') ||
-        error.message.includes('Unsupported market category'))
-    ) {
-      throw error;
-    }
-    throw new Error('Failed to encode prediction data');
-  }
-};

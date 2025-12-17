@@ -10,8 +10,8 @@ import {
   Tabs,
   TabsContent,
   TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
-import { NumberDisplay } from '@sapience/sdk/ui/components/NumberDisplay';
+} from '@sapience/ui/components/ui/tabs';
+import { NumberDisplay } from '@sapience/ui/components/NumberDisplay';
 import {
   TransactionTimeCell,
   TransactionAmountCell,

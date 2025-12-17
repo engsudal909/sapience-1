@@ -1,6 +1,6 @@
 'use client';
 
-import { Card } from '@sapience/sdk/ui/components/ui/card';
+import { Card } from '@sapience/ui/components/ui/card';
 import { usePrivy, useConnectOrCreateWallet } from '@privy-io/react-auth';
 import {
   AnimatePresence,

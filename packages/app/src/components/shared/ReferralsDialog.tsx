@@ -6,15 +6,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+} from '@sapience/ui/components/ui/dialog';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Input } from '@sapience/ui/components/ui/input';
 import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import { createWalletClient, custom, http, keccak256, stringToHex } from 'viem';
 import { mainnet } from 'viem/chains';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { useUserParlays } from '~/hooks/graphql/useUserParlays';
 import { useProfileVolume } from '~/hooks/useProfileVolume';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';

@@ -1,20 +1,20 @@
 'use client';
 
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@sapience/sdk/ui/components/ui/dropdown-menu';
+} from '@sapience/ui/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarTrigger,
   useSidebar,
-} from '@sapience/sdk/ui/components/ui/sidebar';
+} from '@sapience/ui/components/ui/sidebar';
 import {
   LogOut,
   Menu,

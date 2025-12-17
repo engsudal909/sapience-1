@@ -5,13 +5,13 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { graphqlRequest } from '@sapience/sdk/queries/client/graphqlClient';
 import dynamic from 'next/dynamic';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
+} from '@sapience/ui/components/ui/tabs';
 import {
   ArrowLeftRight,
   Bot,

@@ -15,7 +15,7 @@ The relayer validates messages, broadcasts auctions to all connected clients, an
 ## Endpoint
 
 ```
-wss://api.sapience.xyz/auction
+wss://relayer.sapience.xyz/auction
 ```
 
 This is the standard relayer deployment. You can configure a different relayer in the app at [sapience.xyz/settings](https://sapience.xyz/settings).
@@ -49,7 +49,7 @@ Requesters are auto-subscribed to their auction's bid stream.
 ```ts
 import WebSocket from 'ws';
 
-const ws = new WebSocket('wss://api.sapience.xyz/auction');
+const ws = new WebSocket('wss://relayer.sapience.xyz/auction');
 
 // Initialize an auction
 ws.on('open', () => {
@@ -87,7 +87,7 @@ ws.on('message', (data) => {
 ### Responder: Submit a Bid
 
 ```ts
-const ws = new WebSocket('wss://api.sapience.xyz/auction');
+const ws = new WebSocket('wss://relayer.sapience.xyz/auction');
 
 // Listen for bids
 ws.onmessage = (ev) => {

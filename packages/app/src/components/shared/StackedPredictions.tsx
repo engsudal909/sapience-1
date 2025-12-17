@@ -1,11 +1,11 @@
 'use client';
 
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
@@ -20,7 +20,7 @@ export interface Pick {
   description?: string | null;
 }
 
-export interface StackedPredictionsProps {
+interface StackedPredictionsProps {
   legs: Pick[];
   /** Show icons stacked before the question (default: true) */
   showIcons?: boolean;

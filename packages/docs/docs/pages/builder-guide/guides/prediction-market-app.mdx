@@ -136,7 +136,7 @@ pnpm dev
 ### Import components and hooks
 
 ```tsx
-import { TradeForm } from '@sapience/sdk/ui';
+import { TradeForm } from '@sapience/ui';
 ```
 
 ### Connect data
@@ -172,7 +172,7 @@ function toQuoteUrl(params: {
 
 ```tsx
 import { useMemo, useState } from 'react';
-import { TradeForm } from '@sapience/sdk/ui';
+import { TradeForm } from '@sapience/ui';
 
 export default function TradePage() {
   const [baseUrl] = useState('https://api.sapience.xyz');
@@ -236,12 +236,12 @@ export async function fetchMarkets() {
 
 ### Theming and UI
 
-`@sapience/sdk` ships with shadcn-like primitives and a Tailwind preset. Import the preset and include it in your Tailwind config.
+`@sapience/ui` ships with shadcn-like primitives and a Tailwind preset. Import the preset and include it in your Tailwind config.
 
 ```typescript
 // tailwind.config.ts
 import type { Config } from 'tailwindcss'
-import sapiencePreset from '@sapience/sdk/ui/tailwind-preset'
+import sapiencePreset from '@sapience/ui/tailwind-preset'
 
 export default {
   presets: [sapiencePreset],
@@ -249,7 +249,7 @@ export default {
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
-    './node_modules/@sapience/sdk/dist/**/*.{js,mjs}'
+    './node_modules/@sapience/ui/**/*.{js,mjs,ts,tsx}'
   ],
 } satisfies Config
 ```

@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import { MessageCircle } from 'lucide-react';
 import { motion, useAnimationControls } from 'framer-motion';
 import { useEffect, useRef } from 'react';

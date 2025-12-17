@@ -4,20 +4,20 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isAddress } from 'viem';
 import { Clock, HelpCircle, Info, X } from 'lucide-react';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
-import { Label } from '@sapience/sdk/ui/components/ui/label';
+import { Button } from '@sapience/ui/components/ui/button';
+import { Input } from '@sapience/ui/components/ui/input';
+import { Label } from '@sapience/ui/components/ui/label';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
+} from '@sapience/ui/components/ui/dialog';
 import type {
   Order,
   OrderDraft,
@@ -53,7 +53,7 @@ import ConditionsFilter from '~/components/terminal/filters/ConditionsFilter';
 import type { MultiSelectItem } from '~/components/terminal/filters/MultiSelect';
 import ForecastOddsSlider from '~/components/shared/ForecastOddsSlider';
 
-export type OrderBuilderDialogProps = {
+type OrderBuilderDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingId: string | null;

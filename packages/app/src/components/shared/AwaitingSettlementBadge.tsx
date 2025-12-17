@@ -1,12 +1,12 @@
 'use client';
 
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import { InfoIcon } from 'lucide-react';
 import type * as React from 'react';
 

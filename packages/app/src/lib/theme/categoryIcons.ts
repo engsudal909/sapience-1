@@ -24,7 +24,7 @@ const categoryIconMap: Record<string, LucideIcon> = {
   culture: Tv,
 };
 
-export type IconComponentType = React.ComponentType<{
+type IconComponentType = React.ComponentType<{
   className?: string;
   style?: React.CSSProperties;
 }>;

@@ -9,7 +9,7 @@ import YesNoSplitButton from '~/components/shared/YesNoSplitButton';
 import MarketPredictionRequest from '~/components/shared/MarketPredictionRequest';
 import MarketBadge from '~/components/markets/MarketBadge';
 
-export interface TickerMarketCardProps {
+interface TickerMarketCardProps {
   condition: {
     id?: string;
     question: string;

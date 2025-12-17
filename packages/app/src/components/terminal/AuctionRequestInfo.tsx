@@ -11,13 +11,13 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import { HelpCircle } from 'lucide-react';
 import { type UiTransaction } from '~/components/markets/DataDrawer/TransactionCells';
 import { useLastTradeForIntent } from '~/hooks/graphql/useLastTradeForIntent';

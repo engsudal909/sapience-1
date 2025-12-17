@@ -7,7 +7,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@sapience/sdk/ui/components/ui/table';
+} from '@sapience/ui/components/ui/table';
 import {
   useReactTable,
   flexRender,
@@ -18,18 +18,18 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-import { cn } from '@sapience/sdk/ui/lib/utils';
+import { cn } from '@sapience/ui/lib/utils';
 import {
   Tabs,
   TabsContent,
   TabsTrigger,
-} from '@sapience/sdk/ui/components/ui/tabs';
+} from '@sapience/ui/components/ui/tabs';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
+} from '@sapience/ui/components/ui/tooltip';
 import { Info, BarChart2, Target } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import ProfitCell from './ProfitCell';

@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useIsMobile, useIsBelow } from '@sapience/sdk/ui/hooks/use-mobile';
+import { useIsMobile, useIsBelow } from '@sapience/ui/hooks/use-mobile';
 import { motion } from 'framer-motion';
 import { decodeAbiParameters, parseUnits, erc20Abi } from 'viem';
 import { useVirtualizer } from '@tanstack/react-virtual';

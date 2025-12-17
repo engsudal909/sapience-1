@@ -10,14 +10,14 @@ import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
-export type PreflightBlockedReason =
+type PreflightBlockedReason =
   | 'chain_switch_failed'
   | 'insufficient_balance'
   | 'insufficient_allowance'
   | 'wallet_not_connected'
   | null;
 
-export type PreflightResult = {
+type PreflightResult = {
   canProceed: boolean;
   blockedReason: PreflightBlockedReason;
   details?: {
@@ -28,12 +28,12 @@ export type PreflightResult = {
   };
 };
 
-export interface UseBidPreflightOptions {
+interface UseBidPreflightOptions {
   onError?: (error: string) => void;
   onLoading?: (loading: boolean) => void;
 }
 
-export interface UseBidPreflightResult {
+interface UseBidPreflightResult {
   /** Current balance value (human-readable) */
   balanceValue: number;
   /** Current allowance value (human-readable) */

@@ -9,8 +9,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@sapience/sdk/ui/components/ui/dialog';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+} from '@sapience/ui/components/ui/dialog';
+import { Button } from '@sapience/ui/components/ui/button';
 import { Mail, Wallet } from 'lucide-react';
 
 import { useAuth } from '~/lib/context/AuthContext';

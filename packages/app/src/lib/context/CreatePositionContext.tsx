@@ -26,7 +26,7 @@ import { MarketGroupClassification as MarketGroupClassificationEnum } from '~/li
 import { createPositionDefaults } from '~/lib/utils/positionFormUtils';
 
 // Updated CreatePositionEntry type based on requirements
-export interface CreatePositionEntry {
+interface CreatePositionEntry {
   id: string;
   prediction: boolean;
   marketAddress: string;
@@ -38,7 +38,7 @@ export interface CreatePositionEntry {
 }
 
 // Lightweight position selection for OTC conditions (no on-chain market data)
-export interface PositionSelection {
+interface PositionSelection {
   id: string; // unique within position form
   conditionId: string;
   question: string;
@@ -47,9 +47,8 @@ export interface PositionSelection {
 }
 
 // Interface for market data with position
-export interface PositionWithMarketData {
+interface PositionWithMarketData {
   position: CreatePositionEntry;
-  marketGroupData: undefined;
   marketClassification: MarketGroupClassification | undefined;
   isLoading: boolean;
   error: boolean | null;
@@ -75,7 +74,7 @@ interface CreatePositionContextType {
   positionsWithMarketData: PositionWithMarketData[];
 }
 
-const CreatePositionContext = createContext<
+export const CreatePositionContext = createContext<
   CreatePositionContextType | undefined
 >(undefined);
 
@@ -113,7 +112,6 @@ export const CreatePositionProvider = ({
   const positionsWithMarketData: PositionWithMarketData[] = singlePositions.map(
     (position) => ({
       position,
-      marketGroupData: undefined,
       marketClassification: position.marketClassification,
       isLoading: false,
       error: null,

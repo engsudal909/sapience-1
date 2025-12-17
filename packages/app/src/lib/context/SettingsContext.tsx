@@ -12,6 +12,10 @@ import {
 
 type SettingsContextValue = {
   graphqlEndpoint: string | null;
+  /**
+   * Auction relayer base URL (stored as http(s) and typically includes the `/auction` path).
+   * This is used to construct the auction WebSocket URL via `toAuctionWsUrl(...)`.
+   */
   apiBaseUrl: string | null;
   chatBaseUrl: string | null;
   adminBaseUrl: string | null;
@@ -86,14 +90,21 @@ function normalizeBaseUrlPreservePath(value: string): string {
   }
 }
 
-function getDefaultApiBase(): string {
-  const root =
+function getDefaultRelayerBase(): string {
+  // Auction relayer base. Prefer explicit relayer env, otherwise derive from API env
+  // but only swap `api.sapience.xyz` -> `relayer.sapience.xyz` for production.
+  const explicitRelayer = process.env.NEXT_PUBLIC_FOIL_RELAYER_URL;
+  const apiRoot =
     process.env.NEXT_PUBLIC_FOIL_API_URL || 'https://api.sapience.xyz';
+  const root = explicitRelayer || apiRoot;
   try {
     const u = new URL(root);
+    if (!explicitRelayer && u.hostname === 'api.sapience.xyz') {
+      u.hostname = 'relayer.sapience.xyz';
+    }
     return `${u.origin}/auction`;
   } catch {
-    return 'https://api.sapience.xyz/auction';
+    return 'https://relayer.sapience.xyz/auction';
   }
 }
 
@@ -245,7 +256,7 @@ export const SettingsProvider = ({
   const defaults = useMemo(
     () => ({
       graphqlEndpoint: getDefaultGraphqlEndpoint(),
-      apiBaseUrl: getDefaultApiBase(),
+      apiBaseUrl: getDefaultRelayerBase(),
       chatBaseUrl: getDefaultChatBase(),
       adminBaseUrl: getDefaultAdminBase(),
       rpcURL: getDefaultRpcURL(),

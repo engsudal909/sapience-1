@@ -1,6 +1,6 @@
 import type React from 'react';
 import { Clock, Pause, Pencil, Play } from 'lucide-react';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import type { Order, ConditionSelection } from '../types';
 import {
   YES_BADGE_BASE_CLASSES,
@@ -20,7 +20,7 @@ import { AddressDisplay } from '~/components/shared/AddressDisplay';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 
-export type OrderCardProps = {
+type OrderCardProps = {
   order: Order;
   index: number;
   collateralSymbol: string;

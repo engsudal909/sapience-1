@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+import { Button } from '@sapience/ui/components/ui/button';
 import { formatUnits, parseUnits } from 'viem';
 import { ChevronDown, Info } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -12,7 +12,7 @@ import { quoteBidsToAuctionBids } from '~/lib/auction/bidAdapter';
 import AuctionBidsChart from '~/components/shared/AuctionBidsChart';
 import type { QuoteBid } from '~/lib/auction/useAuctionStart';
 
-export interface BidDisplayProps {
+interface BidDisplayProps {
   /** The best valid bid */
   bestBid: QuoteBid | null;
   /** Estimate bid (failed simulation but only bid available) - shown with muted styling */

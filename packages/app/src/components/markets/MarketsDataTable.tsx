@@ -8,8 +8,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@sapience/sdk/ui/components/ui/table';
-import { Button } from '@sapience/sdk/ui/components/ui/button';
+} from '@sapience/ui/components/ui/table';
+import { Button } from '@sapience/ui/components/ui/button';
 import type { SortingState } from '@tanstack/react-table';
 import {
   flexRender,
@@ -26,8 +26,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@sapience/sdk/ui/components/ui/tooltip';
-import { Badge } from '@sapience/sdk/ui/components/ui/badge';
+} from '@sapience/ui/components/ui/tooltip';
+import { Badge } from '@sapience/ui/components/ui/badge';
 import ConditionTitleLink from './ConditionTitleLink';
 import MarketBadge from './MarketBadge';
 import TableFilters, {

@@ -4,15 +4,15 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandItem,
   CommandList,
-} from '@sapience/sdk/ui/components/ui/command';
-import { Input } from '@sapience/sdk/ui/components/ui/input';
+} from '@sapience/ui/components/ui/command';
+import { Input } from '@sapience/ui/components/ui/input';
 import { SearchIcon } from 'lucide-react';
 import MarketBadge from '~/components/markets/MarketBadge';
 import { FOCUS_AREAS } from '~/lib/constants/focusAreas';
@@ -23,7 +23,7 @@ import {
 } from '~/hooks/graphql/useConditions';
 import { CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
-export interface ConditionSelectProps {
+interface ConditionSelectProps {
   selectedConditionId?: string | null;
   onSelect: (condition: ConditionType) => void;
   className?: string;

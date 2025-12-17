@@ -7,7 +7,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sapience/sdk/ui/components/ui/popover';
+} from '@sapience/ui/components/ui/popover';
 import {
   Command,
   CommandEmpty,
@@ -15,7 +15,7 @@ import {
   CommandItem,
   CommandList,
   CommandInput,
-} from '@sapience/sdk/ui/components/ui/command';
+} from '@sapience/ui/components/ui/command';
 import { Check, ChevronsUpDown } from 'lucide-react';
 
 export type MultiSelectItem = { value: string; label: string };

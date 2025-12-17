@@ -11,12 +11,6 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 
-export interface PredictedOutcomeInput {
-  marketGroup: string; // address
-  marketId: number;
-  prediction: boolean;
-}
-
 export interface AuctionParams {
   wager: string; // wei string - taker's wager amount
   resolver: string; // contract address for market validation
@@ -77,19 +71,29 @@ export function useAuctionStart() {
   const [auctionId, setAuctionId] = useState<string | null>(null);
   const [bids, setBids] = useState<QuoteBid[]>([]);
   const inflightRef = useRef<string>('');
+  // `apiBaseUrl` is the auction relayer base URL (http(s), typically includes `/auction`)
   const { apiBaseUrl } = useSettings();
   const { signMessageAsync } = useSignMessage();
-  const apiBase = useMemo(() => {
+  const relayerBase = useMemo(() => {
     if (apiBaseUrl && apiBaseUrl.length > 0) return apiBaseUrl;
-    const root = process.env.NEXT_PUBLIC_FOIL_API_URL as string;
+    const explicitRelayer = process.env.NEXT_PUBLIC_FOIL_RELAYER_URL;
+    const apiRoot =
+      process.env.NEXT_PUBLIC_FOIL_API_URL || 'https://api.sapience.xyz';
+    const root = explicitRelayer || apiRoot;
     try {
       const u = new URL(root);
+      if (!explicitRelayer && u.hostname === 'api.sapience.xyz') {
+        u.hostname = 'relayer.sapience.xyz';
+      }
       return `${u.origin}/auction`;
     } catch {
       return `${root}/auction`;
     }
   }, [apiBaseUrl]);
-  const wsUrl = useMemo(() => toAuctionWsUrl(apiBase || undefined), [apiBase]);
+  const wsUrl = useMemo(
+    () => toAuctionWsUrl(relayerBase || undefined),
+    [relayerBase]
+  );
   const lastAuctionRef = useRef<AuctionParams | null>(null);
   // Track latest auctionId in a ref to avoid stale closures in ws handlers
   const latestAuctionIdRef = useRef<string | null>(null);

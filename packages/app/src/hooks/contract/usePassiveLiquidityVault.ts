@@ -16,7 +16,7 @@ import {
 import type { Abi } from 'abitype';
 import { liquidityVaultAbi } from '@sapience/sdk';
 import { useReadContracts, useAccount, useBalance } from 'wagmi';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { verifyMessage } from 'viem';
 import { useSapienceWriteContract } from '~/hooks/blockchain/useSapienceWriteContract';
 import { useVaultShareQuoteWs } from '~/hooks/data/useVaultShareQuoteWs';
@@ -44,7 +44,7 @@ const hasFunction = (name: string, inputsLength?: number) => {
   }
 };
 
-export interface VaultData {
+interface VaultData {
   availableAssets: bigint;
   totalSupply: bigint;
   totalDeployed: bigint;
@@ -56,7 +56,7 @@ export interface VaultData {
   asset: Address;
 }
 
-export interface UserVaultData {
+interface UserVaultData {
   balance: bigint;
   pendingWithdrawal: bigint;
   withdrawalIndex: bigint;
@@ -64,21 +64,21 @@ export interface UserVaultData {
   depositIndex: bigint;
 }
 
-export interface DepositRequestDetails {
+interface DepositRequestDetails {
   user: Address;
   amount: bigint;
   timestamp: bigint;
   processed: boolean;
 }
 
-export interface WithdrawalRequestDetails {
+interface WithdrawalRequestDetails {
   user: Address;
   shares: bigint;
   timestamp: bigint;
   processed: boolean;
 }
 
-export interface PendingRequestDetails {
+interface PendingRequestDetails {
   user: Address;
   isDeposit: boolean;
   shares: bigint;
@@ -87,7 +87,7 @@ export interface PendingRequestDetails {
   processed: boolean;
 }
 
-export interface UsePassiveLiquidityVaultConfig {
+interface UsePassiveLiquidityVaultConfig {
   vaultAddress?: Address;
   chainId?: number;
 }

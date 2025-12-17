@@ -21,7 +21,7 @@ import { DEFAULT_CHAIN_ID } from '@sapience/sdk/constants';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { predictionMarketAbi } from '@sapience/sdk';
 import erc20Abi from '@sapience/sdk/queries/abis/erc20abi.json';
-import { useToast } from '@sapience/sdk/ui/hooks/use-toast';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { useConditionsByIds } from '~/hooks/graphql/useConditionsByIds';
 import { useApprovalDialog } from '~/components/terminal/ApprovalDialogContext';
 import { useTerminalLogsOptional } from '~/components/terminal/TerminalLogsContext';

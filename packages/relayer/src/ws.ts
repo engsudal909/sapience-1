@@ -1,15 +1,30 @@
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
 import type { IncomingMessage } from 'http';
 import { verifyMessage, type Abi } from 'viem';
-import { getProviderForChain } from '../utils/utils';
+import { getProviderForChain } from './utils/getProviderForChain';
 import { addBid, getBids, upsertAuction, getAuction } from './registry';
 import { basicValidateBid } from './sim';
 import { verifyMakerBidStrict } from './helpers';
 import {
+  activeConnections,
+  connectionsTotal,
+  connectionsClosed,
+  messagesReceived,
+  messagesSent,
+  messageProcessingDuration,
+  rateLimitHits,
+  auctionsStarted,
+  bidsSubmitted,
+  vaultQuotesPublished,
+  errorsTotal,
+  subscriptionsActive,
+} from './metrics';
+import { config } from './config';
+import {
   PREDICTION_MARKET_ADDRESS_ARB1,
   PREDICTION_MARKET_CHAIN_ID_ARB1,
-} from '../constants';
-import Sentry from '../instrument';
+} from './constants';
+import Sentry from './instrument';
 import type {
   BotToServerMessage,
   ClientToServerMessage,
@@ -26,7 +41,9 @@ function isClientMessage(msg: unknown): msg is ClientToServerMessage {
   const msgObj = msg as Record<string, unknown>;
   return (
     typeof msgObj.type === 'string' &&
-    (msgObj.type === 'auction.start' || msgObj.type === 'auction.subscribe')
+    (msgObj.type === 'auction.start' || 
+     msgObj.type === 'auction.subscribe' || 
+     msgObj.type === 'auction.unsubscribe')
   );
 }
 
@@ -47,7 +64,13 @@ function safeParse<T = unknown>(data: RawData): T | null {
 }
 
 function send(ws: WebSocket, message: ServerToClientMessage) {
-  ws.send(JSON.stringify(message));
+  try {
+    ws.send(JSON.stringify(message));
+    messagesSent.inc({ type: message.type });
+  } catch (err) {
+    // Error sending message - connection may be closed
+    console.error('[Relayer] Failed to send message:', err);
+  }
 }
 
 function subscribeToAuction(
@@ -61,7 +84,6 @@ function subscribeToAuction(
   auctionSubscriptions.get(auctionId)!.add(ws);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function unsubscribeFromAuction(
   auctionId: string,
   ws: WebSocket,
@@ -108,7 +130,7 @@ function broadcastToAuctionSubscribers(
         ws.send(dataStr);
         recipients++;
       } catch (error) {
-        console.warn(`[Auction-WS] Failed to send to subscriber:`, error);
+        console.warn(`[Relayer] Failed to send to subscriber:`, error);
         subscribers.delete(ws);
       }
     } else {
@@ -119,11 +141,14 @@ function broadcastToAuctionSubscribers(
   return recipients;
 }
 
-const RATE_LIMIT_WINDOW_MS = 10_000;
-const RATE_LIMIT_MAX_MESSAGES = 100;
+const RATE_LIMIT_WINDOW_MS = config.RATE_LIMIT_WINDOW_MS;
+const RATE_LIMIT_MAX_MESSAGES = config.RATE_LIMIT_MAX_MESSAGES;
 
 export function createAuctionWebSocketServer() {
   const wss = new WebSocketServer({ noServer: true });
+  
+  // Track active connections for connection limit
+  let activeConnectionCount = 0;
 
   // Track which clients are subscribed to which auction channels
   const auctionSubscriptions = new Map<string, Set<WebSocket>>();
@@ -186,13 +211,16 @@ export function createAuctionWebSocketServer() {
     set.delete(ws);
     if (set.size === 0) vaultSubscriptions.delete(key);
   }
-  function vaultUnsubscribeAll(ws: WebSocket) {
+  function vaultUnsubscribeAll(ws: WebSocket): number {
+    let count = 0;
     for (const [k, set] of vaultSubscriptions.entries()) {
       if (set.has(ws)) {
         set.delete(ws);
+        count++;
         if (set.size === 0) vaultSubscriptions.delete(k);
       }
     }
+    return count;
   }
 
   function addVaultObserver(ws: WebSocket) {
@@ -275,10 +303,62 @@ export function createAuctionWebSocketServer() {
   // Startup banner removed to reduce verbosity
 
   wss.on('connection', (ws, req: IncomingMessage) => {
+    // Check connection limit
+    if (activeConnectionCount >= config.WS_MAX_CONNECTIONS) {
+      console.warn(
+        `[Relayer] Max connections (${config.WS_MAX_CONNECTIONS}) reached, rejecting new connection`
+      );
+      ws.close(1008, 'connection_limit_exceeded');
+      return;
+    }
+
+    // Origin validation (if configured)
+    if (config.WS_ALLOWED_ORIGINS) {
+      const origin = req.headers.origin;
+      const allowedOrigins = config.WS_ALLOWED_ORIGINS.split(',').map(o => o.trim());
+      if (!origin || !allowedOrigins.includes(origin)) {
+        console.warn(`[Relayer] Origin validation failed: ${origin}`);
+        ws.close(1008, 'origin_not_allowed');
+        return;
+      }
+    }
+
+    activeConnectionCount++;
+    // Metrics: Track connection
+    activeConnections.inc();
+    connectionsTotal.inc();
+
     const ip =
       req.socket.remoteAddress ||
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       'unknown';
+
+    // Idle timeout setup
+    let idleTimeout: NodeJS.Timeout | null = null;
+
+    const resetIdleTimeout = () => {
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+      }
+      idleTimeout = setTimeout(() => {
+        console.log(`[Relayer] Connection idle timeout from ${ip}`);
+        ws.close(1008, 'idle_timeout');
+      }, config.WS_IDLE_TIMEOUT_MS);
+    };
+
+    // Handle client pings - server automatically responds with pong via ws library
+    // Reset idle timeout on ping/pong to keep connection alive
+    ws.on('ping', () => {
+      resetIdleTimeout();
+      // ws library automatically responds with pong
+    });
+
+    ws.on('pong', () => {
+      resetIdleTimeout();
+    });
+
+    // Start idle timeout
+    resetIdleTimeout();
 
     // Store request context for signature verification
     const hostHeader = (req.headers['host'] as string) || 'unknown';
@@ -293,40 +373,25 @@ export function createAuctionWebSocketServer() {
     let rateResetAt = Date.now() + RATE_LIMIT_WINDOW_MS;
 
     ws.on('message', async (data: RawData) => {
-      // Parse message early to check for ping (keepalive messages excluded from rate limiting)
-      const msg = safeParse<
-        ClientToServerMessage | BotToServerMessage | { type?: string }
-      >(data);
+      // Reset idle timeout on any message
+      resetIdleTimeout();
 
-      // Handle ping/pong keepalive (excluded from rate limiting and size checks)
-      if (
-        msg &&
-        typeof msg === 'object' &&
-        (msg as { type?: string })?.type === 'ping'
-      ) {
-        try {
-          ws.send(JSON.stringify({ type: 'pong' }));
-        } catch (err) {
-          console.error('[Auction-WS] Failed to send pong:', err);
-        }
-        return;
-      }
-
-      // basic rate limiting and size guard (applies to all non-ping messages)
+      // basic rate limiting and size guard
       const now = Date.now();
       if (now > rateResetAt) {
         rateCount = 0;
         rateResetAt = now + RATE_LIMIT_WINDOW_MS;
       }
       if (++rateCount > RATE_LIMIT_MAX_MESSAGES) {
+        rateLimitHits.inc();
         console.warn(
-          `[Auction-WS] Rate limit exceeded from ${ip}; closing connection`
+          `[Relayer] Rate limit exceeded from ${ip}; closing connection`
         );
         try {
           ws.close(1008, 'rate_limited');
         } catch (err) {
           console.error(
-            '[Auction-WS] Failed to close rate-limited connection:',
+            '[Relayer] Failed to close rate-limited connection:',
             err
           );
         }
@@ -338,21 +403,45 @@ export function createAuctionWebSocketServer() {
           : (data as Buffer).byteLength;
       if (dataSize > 64_000) {
         console.warn(
-          `[Auction-WS] Message too large from ${ip}; closing connection`
+          `[Relayer] Message too large from ${ip}; closing connection`
         );
         try {
           ws.close(1009, 'message_too_large');
         } catch (err) {
           console.error(
-            '[Auction-WS] Failed to close oversized-message connection:',
+            '[Relayer] Failed to close oversized-message connection:',
             err
           );
         }
         return;
       }
-
+      const msg = safeParse<
+        ClientToServerMessage | BotToServerMessage | { type?: string }
+      >(data);
       if (!msg || typeof msg !== 'object') {
-        console.warn(`[Auction-WS] Invalid JSON from ${ip}`);
+        messagesReceived.inc({ type: 'invalid' });
+        errorsTotal.inc({ type: 'validation', message_type: 'unknown' });
+        console.warn(`[Relayer] Invalid JSON from ${ip}`);
+        return;
+      }
+
+      const msgType = (msg as { type?: string })?.type || 'unknown';
+      const startTime = Date.now();
+
+      // Track message received
+      messagesReceived.inc({ type: msgType });
+
+      // Handle ping/pong messages (JSON-level, not WebSocket frames)
+      if (msgType === 'ping') {
+        try {
+          ws.send(JSON.stringify({ type: 'pong' }));
+          messagesSent.inc({ type: 'pong' });
+        } catch (err) {
+          console.error('[Relayer] Failed to send pong response:', err);
+        }
+        // Track processing duration
+        const duration = (Date.now() - startTime) / 1000;
+        messageProcessingDuration.observe({ type: msgType }, duration);
         return;
       }
 
@@ -367,7 +456,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Auction-WS] Failed to send vault_quote.ack (observe):',
+              '[Relayer] Failed to send vault_quote.ack (observe):',
               err
             );
           }
@@ -381,7 +470,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Auction-WS] Failed to send vault_quote.ack (unobserve):',
+              '[Relayer] Failed to send vault_quote.ack (unobserve):',
               err
             );
           }
@@ -401,14 +490,18 @@ export function createAuctionWebSocketServer() {
               );
             } catch (err) {
               console.error(
-                '[Auction-WS] Failed to send vault_quote.ack (invalid_subscribe):',
+                '[Relayer] Failed to send vault_quote.ack (invalid_subscribe):',
                 err
               );
             }
             return;
           }
           const key = makeVaultKey(chainId, vaultAddress);
+          const wasNewSubscription = !vaultSubscriptions.get(key)?.has(ws);
           vaultSubscribe(key, ws);
+          if (wasNewSubscription) {
+            subscriptionsActive.inc({ subscription_type: 'vault' });
+          }
           const latest = latestVaultQuoteByKey.get(key);
           if (latest) {
             try {
@@ -417,7 +510,7 @@ export function createAuctionWebSocketServer() {
               );
             } catch (err) {
               console.error(
-                '[Auction-WS] Failed to send vault_quote.update (latest on subscribe):',
+                '[Relayer] Failed to send vault_quote.update (latest on subscribe):',
                 err
               );
             }
@@ -428,7 +521,7 @@ export function createAuctionWebSocketServer() {
             );
           } catch (err) {
             console.error(
-              '[Auction-WS] Failed to send vault_quote.ack (subscribe):',
+              '[Relayer] Failed to send vault_quote.ack (subscribe):',
               err
             );
           }
@@ -444,7 +537,7 @@ export function createAuctionWebSocketServer() {
             });
           } catch (err) {
             console.error(
-              '[Auction-WS] Failed to broadcast to vault observers (requested):',
+              '[Relayer] Failed to broadcast to vault observers (requested):',
               err
             );
           }
@@ -456,14 +549,18 @@ export function createAuctionWebSocketServer() {
             ({} as SubscribePayload);
           if (!chainId || !vaultAddress) return;
           const key = makeVaultKey(chainId, vaultAddress);
+          const hadSubscription = vaultSubscriptions.get(key)?.has(ws) ?? false;
           vaultUnsubscribe(key, ws);
+          if (hadSubscription) {
+            subscriptionsActive.dec({ subscription_type: 'vault' });
+          }
           try {
             ws.send(
               JSON.stringify({ type: 'vault_quote.ack', payload: { ok: true } })
             );
           } catch (err) {
             console.error(
-              '[Auction-WS] Failed to send vault_quote.ack (unsubscribe):',
+              '[Relayer] Failed to send vault_quote.ack (unsubscribe):',
               err
             );
           }
@@ -482,6 +579,8 @@ export function createAuctionWebSocketServer() {
               !p.signedBy ||
               !p.signature
             ) {
+              vaultQuotesPublished.inc({ status: 'error' });
+              errorsTotal.inc({ type: 'validation', message_type: 'vault_quote.publish' });
               try {
                 ws.send(
                   JSON.stringify({
@@ -489,16 +588,23 @@ export function createAuctionWebSocketServer() {
                     payload: { error: 'invalid_payload' },
                   })
                 );
+                messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err) {
                 console.error(
-                  '[Auction-WS] Failed to send vault_quote.ack (invalid_payload):',
+                  '[Relayer] Failed to send vault_quote.ack (invalid_payload):',
                   err
                 );
               }
+              
+              // Track processing duration
+              const duration = (Date.now() - startTime) / 1000;
+              messageProcessingDuration.observe({ type: msgType }, duration);
               return;
             }
             // anti-replay window (5 minutes)
             if (Math.abs(Date.now() - p.timestamp) > 5 * 60 * 1000) {
+              vaultQuotesPublished.inc({ status: 'error' });
+              errorsTotal.inc({ type: 'validation', message_type: 'vault_quote.publish' });
               try {
                 ws.send(
                   JSON.stringify({
@@ -506,12 +612,17 @@ export function createAuctionWebSocketServer() {
                     payload: { error: 'stale_timestamp' },
                   })
                 );
+                messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err) {
                 console.error(
-                  '[Auction-WS] Failed to send vault_quote.ack (stale_timestamp):',
+                  '[Relayer] Failed to send vault_quote.ack (stale_timestamp):',
                   err
                 );
               }
+              
+              // Track processing duration
+              const duration = (Date.now() - startTime) / 1000;
+              messageProcessingDuration.observe({ type: msgType }, duration);
               return;
             }
             const key = makeVaultKey(p.chainId, p.vaultAddress);
@@ -542,13 +653,15 @@ export function createAuctionWebSocketServer() {
                 );
               } catch (err) {
                 console.error(
-                  '[Auction-WS] Failed to send vault_quote.ack (bad_signature):',
+                  '[Relayer] Failed to send vault_quote.ack (bad_signature):',
                   err
                 );
               }
               return;
             }
             if (!allowed!.signers.has(p.signedBy.toLowerCase())) {
+              vaultQuotesPublished.inc({ status: 'unauthorized' });
+              errorsTotal.inc({ type: 'authorization', message_type: 'vault_quote.publish' });
               try {
                 ws.send(
                   JSON.stringify({
@@ -556,12 +669,17 @@ export function createAuctionWebSocketServer() {
                     payload: { error: 'unauthorized_signer' },
                   })
                 );
+                messagesSent.inc({ type: 'vault_quote.ack' });
               } catch (err) {
                 console.error(
-                  '[Auction-WS] Failed to send vault_quote.ack (unauthorized_signer):',
+                  '[Relayer] Failed to send vault_quote.ack (unauthorized_signer):',
                   err
                 );
               }
+              
+              // Track processing duration
+              const duration = (Date.now() - startTime) / 1000;
+              messageProcessingDuration.observe({ type: msgType }, duration);
               return;
             }
             const normalized: PublishVaultQuotePayload = {
@@ -573,6 +691,7 @@ export function createAuctionWebSocketServer() {
               signature: p.signature,
             };
             latestVaultQuoteByKey.set(key, normalized);
+            vaultQuotesPublished.inc({ status: 'success' });
             broadcastToVaultSubscribers(key, {
               type: 'vault_quote.update',
               payload: normalized,
@@ -584,9 +703,10 @@ export function createAuctionWebSocketServer() {
                   payload: { ok: true },
                 })
               );
+              messagesSent.inc({ type: 'vault_quote.ack' });
             } catch (err) {
               console.error(
-                '[Auction-WS] Failed to send vault_quote.ack (ok after publish):',
+                '[Relayer] Failed to send vault_quote.ack (ok after publish):',
                 err
               );
             }
@@ -598,27 +718,34 @@ export function createAuctionWebSocketServer() {
               });
             } catch (err) {
               console.error(
-                '[Auction-WS] Failed to broadcast to vault observers (update):',
+                '[Relayer] Failed to broadcast to vault observers (update):',
                 err
               );
             }
-          } catch (err) {
-            try {
-              ws.send(
-                JSON.stringify({
-                  type: 'vault_quote.ack',
-                  payload: {
-                    error: (err as Error).message || 'internal_error',
-                  },
-                })
-              );
-            } catch (err2) {
-              console.error(
-                '[Auction-WS] Failed to send vault_quote.ack (internal_error):',
-                err2
-              );
+            } catch (err) {
+              vaultQuotesPublished.inc({ status: 'error' });
+              errorsTotal.inc({ type: 'internal_error', message_type: 'vault_quote.publish' });
+              try {
+                ws.send(
+                  JSON.stringify({
+                    type: 'vault_quote.ack',
+                    payload: {
+                      error: (err as Error).message || 'internal_error',
+                    },
+                  })
+                );
+                messagesSent.inc({ type: 'vault_quote.ack' });
+              } catch (err2) {
+                console.error(
+                  '[Relayer] Failed to send vault_quote.ack (internal_error):',
+                  err2
+                );
+              }
             }
-          }
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
           return;
         }
       }
@@ -638,20 +765,26 @@ export function createAuctionWebSocketServer() {
               );
 
               if (!isValidSignature) {
+                errorsTotal.inc({ type: 'signature', message_type: 'auction.start' });
                 console.warn(
-                  `[Auction-WS] Invalid taker signature for taker=${payload.taker}`
+                  `[Relayer] Invalid taker signature for taker=${payload.taker}`
                 );
                 send(ws, {
                   type: 'auction.ack',
                   payload: { auctionId: '', error: 'invalid_signature' },
                 });
+                
+                // Track processing duration
+                const duration = (Date.now() - startTime) / 1000;
+                messageProcessingDuration.observe({ type: msgType }, duration);
                 return;
               }
               console.log(
-                `[Auction-WS] Valid signature verified for taker=${payload.taker}`
+                `[Relayer] Valid signature verified for taker=${payload.taker}`
               );
             } catch (err) {
-              console.error('[Auction-WS] Signature verification error:', err);
+              errorsTotal.inc({ type: 'signature', message_type: 'auction.start' });
+              console.error('[Relayer] Signature verification error:', err);
               send(ws, {
                 type: 'auction.ack',
                 payload: {
@@ -659,13 +792,19 @@ export function createAuctionWebSocketServer() {
                   error: 'signature_verification_failed',
                 },
               });
+              
+              // Track processing duration
+              const duration = (Date.now() - startTime) / 1000;
+              messageProcessingDuration.observe({ type: msgType }, duration);
               return;
             }
           }
 
           const auctionId = upsertAuction(payload);
+          auctionsStarted.inc();
           // Subscribe this client to the auction channel
           subscribeToAuction(auctionId, ws, auctionSubscriptions);
+          subscriptionsActive.inc({ subscription_type: 'auction' });
 
           // Echo back request ID for client-side correlation
           const requestId =
@@ -692,12 +831,17 @@ export function createAuctionWebSocketServer() {
               payload: { auctionId, bids },
             });
           }
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
           return;
         }
         if (msg.type === 'auction.subscribe') {
           const auctionId = (msg.payload as { auctionId?: string })?.auctionId;
           if (typeof auctionId === 'string' && auctionId.length > 0) {
             subscribeToAuction(auctionId, ws, auctionSubscriptions);
+            subscriptionsActive.inc({ subscription_type: 'auction' });
             // Immediately stream current bids if any
             const bids = getBids(auctionId);
             if (bids.length > 0) {
@@ -706,9 +850,43 @@ export function createAuctionWebSocketServer() {
                 payload: { auctionId, bids },
               });
             }
+            send(ws, {
+              type: 'auction.ack',
+              payload: { auctionId, subscribed: true },
+            });
           } else {
-            console.warn('[Auction-WS] subscribe rejected: missing auctionId');
+            console.warn('[Relayer] subscribe rejected: missing auctionId');
+            send(ws, {
+              type: 'auction.ack',
+              payload: { error: 'missing_auction_id' },
+            });
           }
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
+          return;
+        }
+        if (msg.type === 'auction.unsubscribe') {
+          const auctionId = (msg.payload as { auctionId?: string })?.auctionId;
+          if (typeof auctionId === 'string' && auctionId.length > 0) {
+            unsubscribeFromAuction(auctionId, ws, auctionSubscriptions);
+            subscriptionsActive.dec({ subscription_type: 'auction' });
+            send(ws, {
+              type: 'auction.ack',
+              payload: { auctionId, unsubscribed: true },
+            });
+          } else {
+            console.warn('[Relayer] unsubscribe rejected: missing auctionId');
+            send(ws, {
+              type: 'auction.ack',
+              payload: { error: 'missing_auction_id' },
+            });
+          }
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
           return;
         }
       }
@@ -718,24 +896,36 @@ export function createAuctionWebSocketServer() {
         const bid = msg.payload as BidPayload;
         const rec = getAuction(bid.auctionId);
         if (!rec) {
+          bidsSubmitted.inc({ status: 'rejected' });
+          errorsTotal.inc({ type: 'validation', message_type: 'bid.submit' });
           send(ws, {
             type: 'bid.ack',
             payload: { error: 'auction_not_found_or_expired' },
           });
           console.warn(
-            `[Auction-WS] bid.submit rejected auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
+            `[Relayer] bid.submit rejected auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
           );
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
           return;
         }
         const sim = basicValidateBid(rec.auction, bid);
         if (!sim.ok) {
+          bidsSubmitted.inc({ status: 'rejected' });
+          errorsTotal.inc({ type: 'validation', message_type: 'bid.submit' });
           send(ws, {
             type: 'bid.ack',
             payload: { error: sim.reason || 'invalid_bid' },
           });
           console.warn(
-            `[Auction-WS] bid.submit rejected auctionId=${bid.auctionId} reason=${sim.reason || 'invalid_bid'}`
+            `[Relayer] bid.submit rejected auctionId=${bid.auctionId} reason=${sim.reason || 'invalid_bid'}`
           );
+          
+          // Track processing duration
+          const duration = (Date.now() - startTime) / 1000;
+          messageProcessingDuration.observe({ type: msgType }, duration);
           return;
         }
         // Optional strict EIP-712 verification when address is configured
@@ -749,30 +939,33 @@ export function createAuctionWebSocketServer() {
             });
             if (!strict.ok) {
               console.warn(
-                `[Auction-WS] bid.submit strict verification failed auctionId=${bid.auctionId} reason=${strict.reason}`
+                `[Relayer] bid.submit strict verification failed auctionId=${bid.auctionId} reason=${strict.reason}`
               );
             }
           } catch (err) {
             console.warn(
-              '[Auction-WS] Strict verification threw; continuing:',
+              '[Relayer] Strict verification threw; continuing:',
               err
             );
           }
         })().catch(() => undefined);
         const validated = addBid(bid.auctionId, bid);
         if (!validated) {
+          bidsSubmitted.inc({ status: 'error' });
+          errorsTotal.inc({ type: 'validation', message_type: 'bid.submit' });
           send(ws, {
             type: 'bid.ack',
             payload: { error: 'auction_not_found_or_expired' },
           });
           console.warn(
-            `[Auction-WS] bid.submit failed auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
+            `[Relayer] bid.submit failed auctionId=${bid.auctionId} reason=auction_not_found_or_expired`
           );
           return;
         }
+        bidsSubmitted.inc({ status: 'success' });
         send(ws, { type: 'bid.ack', payload: {} });
 
-        // Broadcast updated top bids only to auction subscribers
+          // Broadcast updated top bids only to auction subscribers
         const payload: ServerToClientMessage = {
           type: 'auction.bids',
           payload: { auctionId: bid.auctionId, bids: getBids(bid.auctionId) },
@@ -782,26 +975,45 @@ export function createAuctionWebSocketServer() {
           payload,
           auctionSubscriptions
         );
+        
+        // Track processing duration
+        const duration = (Date.now() - startTime) / 1000;
+        messageProcessingDuration.observe({ type: msgType }, duration);
         return;
       }
 
+      // Track processing duration for unhandled messages
+      const duration = (Date.now() - startTime) / 1000;
+      messageProcessingDuration.observe({ type: msgType }, duration);
+      errorsTotal.inc({ type: 'unhandled_message', message_type: msgType });
+
       console.warn(
-        `[Auction-WS] Unhandled message type from ${ip}: ${
+        `[Relayer] Unhandled message type from ${ip}: ${
           (msg as Record<string, unknown>)?.type ?? typeof msg
         }`
       );
     });
 
     ws.on('error', (err) => {
-      console.error(`[Auction-WS] Socket error from ${ip}:`, err);
+      errorsTotal.inc({ type: 'socket_error', message_type: 'unknown' });
+      console.error(`[Relayer] Socket error from ${ip}:`, err);
       try {
         Sentry.captureException(err);
       } catch (err2) {
-        console.error('[Auction-WS] Sentry capture failed:', err2);
+        console.error('[Relayer] Sentry capture failed:', err2);
       }
     });
 
     ws.on('close', (code, reason) => {
+      // Cleanup timers
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+        idleTimeout = null;
+      }
+
+      activeConnectionCount--;
+      // Metrics: Track connection closed
+      activeConnections.dec();
       const reasonStr = (() => {
         try {
           return reason ? reason.toString() : '';
@@ -809,18 +1021,25 @@ export function createAuctionWebSocketServer() {
           return '';
         }
       })();
+      connectionsClosed.inc({ reason: reasonStr || `code_${code}` });
 
       console.log(
-        `[Auction-WS] Socket closed from ${ip} code=${code} reason=${reasonStr}`
+        `[Relayer] Socket closed from ${ip} code=${code} reason=${reasonStr}`
       );
 
       // Clean up auction subscriptions for this client
       unsubscribeFromAllAuctions(ws, auctionSubscriptions);
+      subscriptionsActive.dec({ subscription_type: 'auction' });
       // Clean up vault subscriptions and observers for this client
-      vaultUnsubscribeAll(ws);
+      const vaultSubscriptionCount = vaultUnsubscribeAll(ws);
+      // Decrement metric for each vault subscription that was removed
+      for (let i = 0; i < vaultSubscriptionCount; i++) {
+        subscriptionsActive.dec({ subscription_type: 'vault' });
+      }
       removeVaultObserver(ws);
     });
   });
 
   return wss;
 }
+

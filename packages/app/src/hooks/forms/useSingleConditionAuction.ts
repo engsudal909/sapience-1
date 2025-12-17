@@ -7,7 +7,7 @@ import { predictionMarketAbi } from '@sapience/sdk';
 import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 
-export interface UseSingleConditionAuctionProps {
+interface UseSingleConditionAuctionProps {
   /** The condition ID to bet on */
   conditionId: string | null;
   /** User's prediction: true = Yes, false = No, null = unselected */
@@ -25,11 +25,11 @@ export interface UseSingleConditionAuctionProps {
   /** Request quotes function from useAuctionStart */
   requestQuotes?: (
     params: AuctionParams | null,
-    options?: { forceRefresh?: boolean }
+    options?: { forceRefresh?: boolean; requireSignature?: boolean }
   ) => void;
 }
 
-export interface UseSingleConditionAuctionReturn {
+interface UseSingleConditionAuctionReturn {
   /** The best valid bid (highest payout, not expired) */
   bestBid: QuoteBid | null;
   /** Trigger a quote request (optionally force refresh) */
@@ -160,7 +160,9 @@ export function useSingleConditionAuction({
           chainId: chainId,
         };
 
-        requestQuotes(params, options);
+        // For "forecast/preview" quotes we should never prompt a wallet signature.
+        // (Matches `MarketPredictionRequest` behavior.)
+        requestQuotes(params, { requireSignature: false, ...options });
         setLastQuoteRequestMs(Date.now());
       } catch {
         // ignore formatting errors
