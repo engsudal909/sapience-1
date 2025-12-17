@@ -507,7 +507,7 @@ export const SessionKeyProvider = ({
   const getZeroDevSessionClientForChain =
     useCallback(async (targetChainId: number): Promise<SmartAccountClient | null> => {
       if (!useZeroDevMode) return null;
-      return (smartAccount as any).getSessionClientForChain?.(targetChainId) ?? null;
+      return smartAccount.getSessionClientForChain(targetChainId);
     }, [useZeroDevMode, smartAccount]);
 
   // Sign typed data using the active session (works in both ZeroDev and local modes)
@@ -610,8 +610,8 @@ export const SessionKeyProvider = ({
     signTypedDataWithSession,
     refreshSession,
     // Arbitrum session info (for forecasting when on other chains)
-    hasValidArbitrumSession: (smartAccount as any).hasArbitrumSession ?? false,
-    arbitrumSessionExpiresAt: (smartAccount as any).arbitrumSessionExpiresAt ?? null,
+    hasValidArbitrumSession: smartAccount.hasArbitrumSession,
+    arbitrumSessionExpiresAt: smartAccount.arbitrumSessionExpiresAt,
   };
 
   return (

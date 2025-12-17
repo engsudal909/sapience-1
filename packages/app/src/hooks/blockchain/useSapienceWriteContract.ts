@@ -108,7 +108,6 @@ export function useSapienceWriteContract({
     isSessionModeEnabled,
     hasValidSession,
     isZeroDevMode,
-    getZeroDevSessionClient,
     getZeroDevSessionClientForChain,
     hasValidArbitrumSession,
   } = useSessionKey();
@@ -558,7 +557,7 @@ export function useSapienceWriteContract({
 
               // The userOpHash is the hash of the UserOperation, not a tx hash
               // For now, treat it as success - the kernel client handles confirmation
-              handleTransactionSuccess(userOpHash as Hash);
+              handleTransactionSuccess(userOpHash);
 
               // Execute auto-unwrap if needed (in a separate UserOp)
               if (needsUnwrap) {

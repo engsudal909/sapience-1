@@ -20,7 +20,6 @@ import {
   http,
   type Address,
   type Hex,
-  encodeFunctionData,
 } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import {
@@ -44,7 +43,6 @@ let toECDSASigner: any;
 let toPermissionValidator: any;
 let serializePermissionAccount: any;
 let deserializePermissionAccount: any;
-let ParamCondition: any;
 
 // Check if ZeroDev packages are available
 async function checkZeroDevAvailability(): Promise<boolean> {
@@ -67,7 +65,6 @@ async function checkZeroDevAvailability(): Promise<boolean> {
     toPermissionValidator = permissions.toPermissionValidator;
     serializePermissionAccount = permissions.serializePermissionAccount;
     deserializePermissionAccount = permissions.deserializePermissionAccount;
-    ParamCondition = permissions.ParamCondition;
     toECDSASigner = permissionSigners.toECDSASigner;
 
     return true;
@@ -125,6 +122,41 @@ export interface SmartAccountClient {
   sendUserOperation?: (params: {
     callData: Array<{ to: Address; data: Hex; value: bigint }>;
   }) => Promise<Hex>;
+}
+
+// Helper to wrap a kernel client into our SmartAccountClient interface
+function wrapKernelClient(client: any, smartAccountAddress: Address): SmartAccountClient {
+  const sendMethod = client.sendTransactions || client.sendTransaction || client.sendUserOperation;
+
+  return {
+    signTypedData: (params) => client.signTypedData(params),
+    address: smartAccountAddress,
+    sendUserOperation: sendMethod
+      ? (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }): Promise<Hex> => {
+          const calls = params.callData;
+          if (client.sendTransactions) {
+            return client.sendTransactions({
+              transactions: calls.map((call) => ({
+                to: call.to,
+                data: call.data,
+                value: call.value,
+              })),
+            });
+          }
+          if (client.sendTransaction && calls.length === 1) {
+            return client.sendTransaction({
+              to: calls[0].to,
+              data: calls[0].data,
+              value: calls[0].value,
+            });
+          }
+          if (client.sendUserOperation) {
+            return client.sendUserOperation({ callData: calls });
+          }
+          return Promise.reject(new Error('No suitable send method available on client'));
+        }
+      : undefined,
+  };
 }
 
 export type UseSmartAccountResult = SmartAccountState & SmartAccountActions & {
@@ -240,9 +272,8 @@ export function useSmartAccount(): UseSmartAccountResult {
           entryPoint,
         });
         clientConfig.middleware = {
-          sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
-            return paymasterClient.sponsorUserOperation({ userOperation });
-          },
+          sponsorUserOperation: ({ userOperation }: { userOperation: any }) =>
+            paymasterClient.sponsorUserOperation({ userOperation }),
         };
       }
 
@@ -337,7 +368,6 @@ export function useSmartAccount(): UseSmartAccountResult {
         const maxDurationHours = SESSION_KEY_DEFAULTS.maxDurationSeconds / 3600;
         const clampedHours = Math.min(durationHours, maxDurationHours);
         const expiresAt = Date.now() + clampedHours * 60 * 60 * 1000;
-        const validUntil = Math.floor(expiresAt / 1000);
 
         // Create permission validator with the session key
         // This allows the session key to sign any call (permissive for now)
@@ -383,9 +413,8 @@ export function useSmartAccount(): UseSmartAccountResult {
             entryPoint,
           });
           clientConfig.middleware = {
-            sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
-              return paymasterClient.sponsorUserOperation({ userOperation });
-            },
+            sponsorUserOperation: ({ userOperation }: { userOperation: any }) =>
+              paymasterClient.sponsorUserOperation({ userOperation }),
           };
         }
 
@@ -437,42 +466,8 @@ export function useSmartAccount(): UseSmartAccountResult {
 
   // Get session client for current chain
   const getSessionClient = useCallback(async (): Promise<SmartAccountClient | null> => {
-    if (sessionClient && hasValidSession) {
-      const sendMethod = sessionClient.sendTransactions || sessionClient.sendTransaction || sessionClient.sendUserOperation;
-      return {
-        signTypedData: (params) => sessionClient.signTypedData(params),
-        address: smartAccountAddress!,
-        sendUserOperation: sendMethod
-          ? async (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }) => {
-              const calls = params.callData;
-              if (sessionClient.sendTransactions) {
-                const userOpHash = await sessionClient.sendTransactions({
-                  transactions: calls.map((call: { to: Address; data: Hex; value: bigint }) => ({
-                    to: call.to,
-                    data: call.data,
-                    value: call.value,
-                  })),
-                });
-                return userOpHash;
-              }
-              if (sessionClient.sendTransaction && calls.length === 1) {
-                const userOpHash = await sessionClient.sendTransaction({
-                  to: calls[0].to,
-                  data: calls[0].data,
-                  value: calls[0].value,
-                });
-                return userOpHash;
-              }
-              if (sessionClient.sendUserOperation) {
-                const userOpHash = await sessionClient.sendUserOperation({
-                  callData: calls,
-                });
-                return userOpHash;
-              }
-              throw new Error('No suitable send method available on session client');
-            }
-          : undefined,
-      };
+    if (sessionClient && hasValidSession && smartAccountAddress) {
+      return wrapKernelClient(sessionClient, smartAccountAddress);
     }
 
     // Try to restore from storage
@@ -483,42 +478,7 @@ export function useSmartAccount(): UseSmartAccountResult {
     if (!client) return null;
 
     setSessionClient(client);
-
-    const sendMethod = client.sendTransactions || client.sendTransaction || client.sendUserOperation;
-    return {
-      signTypedData: (params) => client.signTypedData(params),
-      address: session.smartAccountAddress,
-      sendUserOperation: sendMethod
-        ? async (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }) => {
-            const calls = params.callData;
-            if (client.sendTransactions) {
-              const userOpHash = await client.sendTransactions({
-                transactions: calls.map((call: { to: Address; data: Hex; value: bigint }) => ({
-                  to: call.to,
-                  data: call.data,
-                  value: call.value,
-                })),
-              });
-              return userOpHash;
-            }
-            if (client.sendTransaction && calls.length === 1) {
-              const userOpHash = await client.sendTransaction({
-                to: calls[0].to,
-                data: calls[0].data,
-                value: calls[0].value,
-              });
-              return userOpHash;
-            }
-            if (client.sendUserOperation) {
-              const userOpHash = await client.sendUserOperation({
-                callData: calls,
-              });
-              return userOpHash;
-            }
-            throw new Error('No suitable send method available on client');
-          }
-        : undefined,
-    };
+    return wrapKernelClient(client, session.smartAccountAddress);
   }, [sessionClient, hasValidSession, smartAccountAddress, loadSession, restoreSessionClient, chainId]);
 
   // Get session client for a specific chain
@@ -533,46 +493,7 @@ export function useSmartAccount(): UseSmartAccountResult {
     const client = await restoreSessionClient(session, targetChainId);
     if (!client) return null;
 
-    // Try different method names that might be available on the kernel client
-    const sendMethod = client.sendTransactions || client.sendTransaction || client.sendUserOperation;
-
-    return {
-      signTypedData: (params) => client.signTypedData(params),
-      address: session.smartAccountAddress,
-      sendUserOperation: sendMethod
-        ? async (params: { callData: Array<{ to: Address; data: Hex; value: bigint }> }) => {
-            const calls = params.callData;
-            // Try sendTransactions first (for batched calls)
-            if (client.sendTransactions) {
-              const userOpHash = await client.sendTransactions({
-                transactions: calls.map((call: { to: Address; data: Hex; value: bigint }) => ({
-                  to: call.to,
-                  data: call.data,
-                  value: call.value,
-                })),
-              });
-              return userOpHash;
-            }
-            // Fallback to sendTransaction for single calls
-            if (client.sendTransaction && calls.length === 1) {
-              const userOpHash = await client.sendTransaction({
-                to: calls[0].to,
-                data: calls[0].data,
-                value: calls[0].value,
-              });
-              return userOpHash;
-            }
-            // Last resort: try sendUserOperation directly
-            if (client.sendUserOperation) {
-              const userOpHash = await client.sendUserOperation({
-                callData: calls,
-              });
-              return userOpHash;
-            }
-            throw new Error('No suitable send method available on client');
-          }
-        : undefined,
-    };
+    return wrapKernelClient(client, session.smartAccountAddress);
   }, [chainId, getSessionClient, loadSession, restoreSessionClient]);
 
   // Refresh session state from storage
