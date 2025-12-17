@@ -8,7 +8,7 @@
 pnpm --filter @sapience/relayer run test:proxy
 
 # Or directly
-node packages/relayer-ws/test-proxy.js
+node packages/relayer/test-proxy.js
 ```
 
 This tests the reverse proxy setup where:
@@ -21,7 +21,7 @@ This tests the reverse proxy setup where:
 pnpm --filter @sapience/relayer run test:proxy:direct
 
 # Or directly
-node packages/relayer-ws/test-proxy.js --direct
+node packages/relayer/test-proxy.js --direct
 ```
 
 This tests direct connection to the auction service:

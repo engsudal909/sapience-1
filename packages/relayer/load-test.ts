@@ -2,7 +2,7 @@
 /**
  * Load Test Script for Relayer WebSocket Service
  * 
- * This script performs load testing on the relayer-ws service by:
+ * This script performs load testing on the relayer service by:
  * - Creating multiple concurrent WebSocket connections
  * - Sending messages at a specified rate
  * - Testing signed and unsigned messages for all message types

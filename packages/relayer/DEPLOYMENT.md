@@ -2,7 +2,7 @@
 
 ## Overview
 
-The relayer-ws service is a standalone WebSocket server that handles auction and bid matching for the prediction market system. It runs independently from the main API service.
+The relayer service is a standalone WebSocket server that handles auction and bid matching for the prediction market system. It runs independently from the main API service.
 
 ## Local Development
 
@@ -42,7 +42,7 @@ The service will start on `http://localhost:3002` with WebSocket endpoint at `ws
 The service is configured in `render.yaml` as a web service:
 
 ```yaml
-- name: relayer-ws
+- name: relayer
   type: web
   env: node
   plan: standard
@@ -68,7 +68,7 @@ If deploying to Render, no reverse proxy setup is needed. Render handles routing
 
 ### Self-Hosted Setup
 
-If self-hosting, set up a reverse proxy to route `/auction` requests to the relayer-ws service. Example nginx configuration:
+If self-hosting, set up a reverse proxy to route `/auction` requests to the relayer service. Example nginx configuration:
 
 ```nginx
 location /auction {
@@ -87,19 +87,19 @@ location /auction {
 
 ### Alternative: Update Frontend Configuration
 
-Alternatively, update the frontend to point directly to the relayer-ws service:
+Alternatively, update the frontend to point directly to the relayer service:
 
 1. Update `packages/sapience/src/lib/ws.ts`:
    ```typescript
    export function toAuctionWsUrl(baseHttpUrl: string | null | undefined): string | null {
-     // Return relayer-ws service URL directly
+     // Return relayer service URL directly
      return process.env.NEXT_PUBLIC_AUCTION_WS_URL || 'ws://localhost:3002/auction';
    }
    ```
 
 2. Set environment variable:
    ```
-   NEXT_PUBLIC_AUCTION_WS_URL=wss://relayer-ws.example.com/auction
+   NEXT_PUBLIC_AUCTION_WS_URL=wss://relayer.example.com/auction
    ```
 
 ## Health Checks
@@ -136,20 +136,20 @@ httpServer.on('request', (req, res) => {
 The service exposes Prometheus-compatible metrics at `http://localhost:${PORT}/metrics` (or your production URL).
 
 Example metrics:
-- `relayer_ws_connections_active` - Current active WebSocket connections
-- `relayer_ws_messages_received_total` - Total messages received by type
-- `relayer_ws_messages_sent_total` - Total messages sent by type
-- `relayer_ws_auctions_started_total` - Total auctions started
-- `relayer_ws_bids_submitted_total` - Total bids submitted with status labels
-- `relayer_ws_rate_limit_hits_total` - Total rate limit violations
-- `relayer_ws_errors_total` - Total errors by type and message type
-- `relayer_ws_message_processing_duration_seconds` - Processing time histogram
+- `relayer_connections_active` - Current active WebSocket connections
+- `relayer_messages_received_total` - Total messages received by type
+- `relayer_messages_sent_total` - Total messages sent by type
+- `relayer_auctions_started_total` - Total auctions started
+- `relayer_bids_submitted_total` - Total bids submitted with status labels
+- `relayer_rate_limit_hits_total` - Total rate limit violations
+- `relayer_errors_total` - Total errors by type and message type
+- `relayer_message_processing_duration_seconds` - Processing time histogram
 
 You can scrape these metrics with Prometheus or view them directly in your browser.
 
 ## Scaling
 
-The relayer-ws service can be scaled horizontally, but note:
+The relayer service can be scaled horizontally, but note:
 - Auction state is in-memory (not shared between instances)
 - Each instance maintains its own auction registry
 - For production, consider:

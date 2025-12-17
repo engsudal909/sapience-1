@@ -16,9 +16,9 @@ The API service includes a built-in reverse proxy for the auction WebSocket serv
 RELAYER_SERVICE_URL=http://localhost:3002
 
 # Production
-RELAYER_SERVICE_URL=http://relayer-ws:3002
+RELAYER_SERVICE_URL=http://relayer:3002
 # or
-RELAYER_SERVICE_URL=https://relayer-ws.example.com
+RELAYER_SERVICE_URL=https://relayer.example.com
 ```
 
 ## How It Works
