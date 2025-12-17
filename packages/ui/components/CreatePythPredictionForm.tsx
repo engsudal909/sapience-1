@@ -35,6 +35,11 @@ export type CreatePythPredictionFormValues = {
   targetPriceRaw: string;
   /** Full precision string from Hermes (used for tooltips when auto-populated). */
   targetPriceFullPrecision?: string;
+  /**
+   * Pyth exponent for the selected feed at pick time.
+   * Needed to encode a resolver-compatible strike price (int64) and `strikeExpo` (int32).
+   */
+  priceExpo: number;
   dateTimeLocal: string;
 };
 
@@ -526,6 +531,7 @@ export function CreatePythPredictionForm({
     null
   );
   const latestPriceAbortRef = React.useRef<AbortController | null>(null);
+  const [priceExpo, setPriceExpo] = React.useState<number | null>(null);
 
   const [direction, setDirection] =
     React.useState<CreatePythPredictionDirection>('over');
@@ -547,6 +553,7 @@ export function CreatePythPredictionForm({
       latestPriceAbortRef.current = ac;
       setIsLoadingLatestPrice(true);
       setLatestPriceError(null);
+      setPriceExpo(null);
 
       fetchHermesLatestPrice(nextPriceId, ac.signal)
         .then((p) => {
@@ -559,6 +566,7 @@ export function CreatePythPredictionForm({
           // Underlying value should match what user sees when auto-populated.
           setTargetPriceRaw(rounded);
           setTargetPriceDisplay(rounded);
+          setPriceExpo(p.expo);
         })
         .catch((e) => {
           if (ac.signal.aborted) return;
@@ -696,12 +704,17 @@ export function CreatePythPredictionForm({
   }, [targetPriceDisplay]);
 
   const isValid =
-    !!priceId && Number.isFinite(targetPrice) && targetPrice > 0 && !!dateTimeLocal;
+    !!priceId &&
+    Number.isFinite(targetPrice) &&
+    targetPrice > 0 &&
+    !!dateTimeLocal &&
+    typeof priceExpo === 'number';
 
   const isPickDisabled = !!disabled || !isValid;
 
   const submit = React.useCallback(() => {
     if (isPickDisabled) return;
+    if (typeof priceExpo !== 'number') return;
     const computedDateTimeLocal =
       dateTimePreset === '15m'
         ? formatDateTimeLocalInputValue(addMinutes(new Date(), 15))
@@ -734,6 +747,7 @@ export function CreatePythPredictionForm({
       targetPrice: roundedTargetPrice,
       targetPriceRaw: roundedTargetPriceRaw,
       targetPriceFullPrecision: targetPriceFullPrecision || undefined,
+      priceExpo,
       dateTimeLocal: computedDateTimeLocal,
     });
   }, [
@@ -742,6 +756,7 @@ export function CreatePythPredictionForm({
     direction,
     isPickDisabled,
     onPick,
+    priceExpo,
     targetPriceRaw,
     targetPriceFullPrecision,
     priceFeedLabel,

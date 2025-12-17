@@ -144,6 +144,7 @@ const MarketsPage = () => {
           targetPrice: values.targetPrice,
           targetPriceRaw: values.targetPriceRaw,
           targetPriceFullPrecision: values.targetPriceFullPrecision,
+          priceExpo: values.priceExpo,
           dateTimeLocal: values.dateTimeLocal,
         },
       ]);

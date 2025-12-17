@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '@sapience/ui/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -16,10 +15,14 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useConnectOrCreateWallet } from '@privy-io/react-auth';
 import { predictionMarketAbi } from '@sapience/sdk';
 import { COLLATERAL_SYMBOLS, CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
+import { useToast } from '@sapience/ui/hooks/use-toast';
 import { useConnectedWallet } from '~/hooks/useConnectedWallet';
 import { WagerInput } from '~/components/markets/forms';
 import BidDisplay from '~/components/markets/forms/shared/BidDisplay';
-import { buildAuctionStartPayload } from '~/lib/auction/buildAuctionPayload';
+import {
+  buildAuctionStartPayload,
+  buildPythAuctionStartPayload,
+} from '~/lib/auction/buildAuctionPayload';
 import type { AuctionParams, QuoteBid } from '~/lib/auction/useAuctionStart';
 import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
@@ -28,7 +31,12 @@ import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdic
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
-import { PythPredictionListItem, type PythPrediction } from '@sapience/ui';
+import {
+  PythPredictionListItem,
+  UmaPredictionListItem,
+  type PythPrediction,
+  type UmaPrediction,
+} from '@sapience/ui';
 
 interface PositionFormProps {
   methods: UseFormReturn<{
@@ -79,6 +87,7 @@ export default function PositionForm({
   const { address: takerAddress } = useAccount();
   const { hasConnectedWallet } = useConnectedWallet();
   const { connectOrCreateWallet } = useConnectOrCreateWallet({});
+  const { toast } = useToast();
   const fallbackCollateralSymbol = COLLATERAL_SYMBOLS[chainId] || 'testUSDe';
   const collateralSymbol = collateralSymbolProp || fallbackCollateralSymbol;
   const [nowMs, setNowMs] = useState<number>(Date.now());
@@ -144,14 +153,23 @@ export default function PositionForm({
     }
   }, [parlayWagerAmount, collateralDecimals]);
 
-  // Create a stable key from selections to detect changes (for animation clearing)
-  const selectionsKey = useMemo(() => {
-    return selections
+  // Create a stable key from all prediction legs (UMA + Pyth) to detect changes
+  // and ensure we clear/re-key bids correctly when *either* leg set changes.
+  const predictionsKey = useMemo(() => {
+    const umaKey = selections
       .map((s) => `${s.conditionId}:${s.prediction}`)
       .sort()
       .join('|');
-  }, [selections]);
-  const prevSelectionsKeyRef = useRef<string>(selectionsKey);
+    const pythKey = (pythPredictions || [])
+      .map(
+        (p) =>
+          `${p.priceId}:${p.direction}:${p.targetPriceRaw ?? p.targetPrice}:${p.dateTimeLocal}`
+      )
+      .sort()
+      .join('|');
+    return [umaKey, pythKey].filter(Boolean).join('||');
+  }, [selections, pythPredictions]);
+  const prevPredictionsKeyRef = useRef<string>(predictionsKey);
 
   // Clear bids when wager amount changes (for animations)
   useEffect(() => {
@@ -166,19 +184,19 @@ export default function PositionForm({
 
   // Clear bids when selections change (prediction flipped, added, or removed) (for animations)
   useEffect(() => {
-    if (prevSelectionsKeyRef.current !== selectionsKey) {
+    if (prevPredictionsKeyRef.current !== predictionsKey) {
       setValidBids([]);
       setStickyEstimateBid(null);
       setLastQuoteRequestMs(null); // Reset cooldown when selections change
       currentRequestKeyRef.current = null; // Ignore incoming bids for old configuration
-      prevSelectionsKeyRef.current = selectionsKey;
+      prevPredictionsKeyRef.current = predictionsKey;
     }
-  }, [selectionsKey]);
+  }, [predictionsKey]);
 
   // Update valid bids when new bids come in (for animations)
   // Only accept bids if they match the current request configuration
   useEffect(() => {
-    const currentRequestKey = `${selectionsKey}:${parlayWagerAmount || ''}`;
+    const currentRequestKey = `${predictionsKey}:${parlayWagerAmount || ''}`;
     // If we have a request key set, only accept bids that match it
     // If request key is null, it means selections/wager changed, so ignore all incoming bids
     if (currentRequestKeyRef.current === null) {
@@ -189,7 +207,7 @@ export default function PositionForm({
     if (currentRequestKeyRef.current === currentRequestKey) {
       setValidBids(bids);
     }
-  }, [bids, selectionsKey, parlayWagerAmount]);
+  }, [bids, predictionsKey, parlayWagerAmount]);
 
   // Filter bids: only show bids marked as valid as best bids
   const { bestBid, estimateBid } = useMemo(() => {
@@ -294,7 +312,21 @@ export default function PositionForm({
     (options?: { forceRefresh?: boolean }) => {
       if (!requestQuotes) return;
       if (!selectedTakerAddress) return;
-      if (!selections || selections.length === 0) return;
+      const hasUma = !!selections && selections.length > 0;
+      const hasPyth = !!pythPredictions && pythPredictions.length > 0;
+
+      // Auctions accept a single resolver per request; we can't mix UMA + Pyth in one auction today.
+      if (hasUma && hasPyth) {
+        toast({
+          title: "Can't mix UMA + Pyth in one auction",
+          description:
+            'Auctions use a single resolver per request. Please submit UMA-only or Pyth-only to request bids.',
+          variant: 'destructive',
+          duration: 6000,
+        });
+        return;
+      }
+      if (!hasUma && !hasPyth) return;
       if (takerAddress && takerNonce === undefined) return;
       if (hasFormErrors) return;
 
@@ -305,11 +337,27 @@ export default function PositionForm({
           ? (collateralDecimals as number)
           : 18;
         const wagerWei = parseUnits(wagerStr, decimals).toString();
-        const outcomes = selections.map((s) => ({
-          marketId: s.conditionId || '0',
-          prediction: !!s.prediction,
-        }));
-        const payload = buildAuctionStartPayload(outcomes, chainId);
+
+        const payload = hasPyth
+          ? buildPythAuctionStartPayload(
+              pythPredictions.map((p) => ({
+                priceId: p.priceId,
+                direction: p.direction,
+                targetPrice: p.targetPrice,
+                targetPriceRaw: p.targetPriceRaw,
+                priceExpo: p.priceExpo,
+                dateTimeLocal: p.dateTimeLocal,
+              })),
+              chainId
+            )
+          : buildAuctionStartPayload(
+              selections.map((s) => ({
+                marketId: s.conditionId || '0',
+                prediction: !!s.prediction,
+              })),
+              chainId
+            );
+
         const params: AuctionParams = {
           wager: wagerWei,
           resolver: payload.resolver,
@@ -322,21 +370,36 @@ export default function PositionForm({
         requestQuotes(params, options);
         setLastQuoteRequestMs(Date.now());
         // Set the request key to match incoming bids to this configuration
-        currentRequestKeyRef.current = `${selectionsKey}:${parlayWagerAmount || ''}`;
-      } catch {
-        // ignore formatting errors
+        currentRequestKeyRef.current = `${predictionsKey}:${parlayWagerAmount || ''}`;
+      } catch (err) {
+        // Don't fail silently (especially important for Pyth payload normalization issues).
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'string'
+              ? err
+              : 'Unknown error';
+        toast({
+          title: 'Could not initiate auction',
+          description: msg,
+          variant: 'destructive',
+          duration: 7000,
+        });
       }
     },
     [
       requestQuotes,
       selectedTakerAddress,
       selections,
+      pythPredictions,
+      toast,
       takerAddress,
       takerNonce,
       hasFormErrors,
       parlayWagerAmount,
       collateralDecimals,
       chainId,
+      predictionsKey,
     ]
   );
 
@@ -466,51 +529,40 @@ export default function PositionForm({
               : categoryColor.startsWith('rgb(')
                 ? `rgb(${categoryColor.slice(4, -1)} / 0.1)`
                 : `${categoryColor}1a`; // hex with ~10% alpha
+            const umaPrediction: UmaPrediction = {
+              id: s.id,
+              conditionId: s.conditionId,
+              question: s.question,
+              prediction: s.prediction,
+              categorySlug: s.categorySlug,
+            };
             return (
               <div
                 key={s.id}
                 className={`-mx-4 px-4 py-2.5 border-b border-brand-white/10 ${index === 0 ? 'border-t' : ''}`}
               >
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
-                    style={{ backgroundColor: bgWithAlpha }}
-                  >
-                    <CategoryIcon
-                      className="w-[60%] h-[60%]"
-                      style={{ color: categoryColor, strokeWidth: 1 }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-md text-foreground">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="min-w-0 flex-1">
-                          <ConditionTitleLink
-                            conditionId={s.conditionId}
-                            title={s.question}
-                            clampLines={1}
-                          />
-                        </div>
-                        <span className="shrink-0">
-                          <Badge
-                            variant="outline"
-                            className={`w-9 px-0 py-0.5 text-xs font-medium !rounded-md shrink-0 font-mono flex items-center justify-center ${s.prediction ? 'border-emerald-500 bg-emerald-500/50 dark:bg-emerald-500/70 text-emerald-900 dark:text-white/90' : 'border-rose-500 bg-rose-500/50 dark:bg-rose-500/70 text-rose-900 dark:text-white/90'}`}
-                          >
-                            {s.prediction ? 'YES' : 'NO'}
-                          </Badge>
-                        </span>
-                      </div>
+                <UmaPredictionListItem
+                  prediction={umaPrediction}
+                  leading={
+                    <div
+                      className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
+                      style={{ backgroundColor: bgWithAlpha }}
+                    >
+                      <CategoryIcon
+                        className="w-[60%] h-[60%]"
+                        style={{ color: categoryColor, strokeWidth: 1 }}
+                      />
                     </div>
-                  </div>
-                  <button
-                    onClick={() => removeSelection(s.id)}
-                    className="text-[22px] leading-none text-muted-foreground hover:text-foreground"
-                    type="button"
-                    aria-label="Remove"
-                  >
-                    ×
-                  </button>
-                </div>
+                  }
+                  title={
+                    <ConditionTitleLink
+                      conditionId={s.conditionId}
+                      title={s.question}
+                      clampLines={1}
+                    />
+                  }
+                  onRemove={removeSelection}
+                />
               </div>
             );
           })}

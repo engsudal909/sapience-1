@@ -8,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from './ui/tooltip';
+import { PythOracleMark } from './PythOracleMark';
 
 export type PythPrediction = {
   id: string;
@@ -17,36 +18,28 @@ export type PythPrediction = {
   targetPrice: number;
   targetPriceRaw?: string;
   targetPriceFullPrecision?: string;
+  /** Pyth exponent (int32) used for on-chain resolver encoding. */
+  priceExpo: number;
   dateTimeLocal: string;
 };
 
 export type PythPredictionListItemProps = {
   prediction: PythPrediction;
   onRemove?: (id: string) => void;
+  /** When 'inline', show label + details on a single line (good for wide views like the terminal). */
+  layout?: 'stacked' | 'inline';
 };
 
 export function PythPredictionListItem({
   prediction,
   onRemove,
+  layout = 'stacked',
 }: PythPredictionListItemProps) {
   const insightsHref = prediction.priceFeedLabel
     ? `https://insights.pyth.network/price-feeds/${encodeURIComponent(
         prediction.priceFeedLabel
       )}`
     : null;
-
-  const [canMask, setCanMask] = React.useState(false);
-  React.useEffect(() => {
-    try {
-      const ok =
-        typeof CSS !== 'undefined' &&
-        (CSS.supports('mask-image', 'url("")') ||
-          CSS.supports('-webkit-mask-image', 'url("")'));
-      setCanMask(!!ok);
-    } catch {
-      setCanMask(false);
-    }
-  }, []);
 
   const parseLocalDateTime = (value: string): Date | null => {
     const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
@@ -124,30 +117,26 @@ export function PythPredictionListItem({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10">
+      <div
+        className={
+          layout === 'inline'
+            ? 'w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10'
+            : 'w-7 h-7 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10'
+        }
+      >
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex items-center justify-center">
-                {canMask ? (
-                  <span
-                    aria-hidden
-                    className="w-4 h-4 text-foreground"
-                    style={{
-                      backgroundColor: 'currentColor',
-                      WebkitMaskImage: 'url(/pyth-network.svg)',
-                      maskImage: 'url(/pyth-network.svg)',
-                      WebkitMaskRepeat: 'no-repeat',
-                      maskRepeat: 'no-repeat',
-                      WebkitMaskPosition: 'center',
-                      maskPosition: 'center',
-                      WebkitMaskSize: 'contain',
-                      maskSize: 'contain',
-                    }}
-                  />
-                ) : (
-                  <img src="/pyth-network.svg" alt="Pyth" className="w-4 h-4" />
-                )}
+                <PythOracleMark
+                  className={
+                    layout === 'inline'
+                      ? 'w-3 h-3 text-foreground'
+                      : 'w-4 h-4 text-foreground'
+                  }
+                  src="/pyth-network.svg"
+                  alt="Pyth"
+                />
               </div>
             </TooltipTrigger>
             <TooltipContent className="text-xs">
@@ -159,24 +148,32 @@ export function PythPredictionListItem({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="text-md text-foreground">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="min-w-0 flex-1">
-              {insightsHref ? (
-                <a
-                  href={insightsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block max-w-full p-0 m-0 bg-transparent font-mono text-brand-white transition-colors break-words whitespace-nowrap underline decoration-dotted decoration-1 decoration-brand-white/70 underline-offset-4 hover:decoration-brand-white/40 truncate"
-                >
-                  {prediction.priceFeedLabel}
-                </a>
-              ) : (
-                <div className="truncate text-brand-white font-mono">
-                  {prediction.priceFeedLabel || prediction.priceId}
-                </div>
-              )}
-              <div className="mt-0.5 truncate text-xs text-muted-foreground font-mono uppercase">
+        <div
+          className={
+            layout === 'inline'
+              ? 'text-sm text-foreground'
+              : 'text-md text-foreground'
+          }
+        >
+          {layout === 'inline' ? (
+            <div className="flex items-baseline gap-3 min-w-0 flex-nowrap">
+              <div className="min-w-0">
+                {insightsHref ? (
+                  <a
+                    href={insightsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block max-w-full p-0 m-0 bg-transparent font-mono text-brand-white transition-colors whitespace-nowrap underline decoration-dotted decoration-1 decoration-brand-white/70 underline-offset-4 hover:decoration-brand-white/40 truncate"
+                  >
+                    {prediction.priceFeedLabel}
+                  </a>
+                ) : (
+                  <div className="truncate text-brand-white font-mono">
+                    {prediction.priceFeedLabel || prediction.priceId}
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground font-mono uppercase whitespace-nowrap shrink-0">
                 {prediction.direction === 'over' ? 'Over' : 'Under'}{' '}
                 <TooltipProvider>
                   <Tooltip>
@@ -198,23 +195,74 @@ export function PythPredictionListItem({
                         {timeLabelNoIn}
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent className="text-xs">{timeTooltip}</TooltipContent>
+                    <TooltipContent className="text-xs">
+                      {timeTooltip}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="min-w-0 flex-1">
+                {insightsHref ? (
+                  <a
+                    href={insightsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block max-w-full p-0 m-0 bg-transparent font-mono text-brand-white transition-colors whitespace-nowrap underline decoration-dotted decoration-1 decoration-brand-white/70 underline-offset-4 hover:decoration-brand-white/40 truncate"
+                  >
+                    {prediction.priceFeedLabel}
+                  </a>
+                ) : (
+                  <div className="truncate text-brand-white font-mono">
+                    {prediction.priceFeedLabel || prediction.priceId}
+                  </div>
+                )}
+                <div className="mt-0.5 truncate text-xs text-muted-foreground font-mono uppercase">
+                  {prediction.direction === 'over' ? 'Over' : 'Under'}{' '}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help inline-block underline decoration-dotted decoration-1 decoration-brand-white/50 underline-offset-2 hover:decoration-brand-white/70">
+                          ${priceDisplay}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="font-mono text-xs">
+                        ${priceTooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>{' '}
+                  in{' '}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help inline-block underline decoration-dotted decoration-1 decoration-brand-white/50 underline-offset-2 hover:decoration-brand-white/70">
+                          {timeLabelNoIn}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-xs">
+                        {timeTooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <button
-        onClick={() => onRemove?.(prediction.id)}
-        className="text-[22px] leading-none text-muted-foreground hover:text-foreground"
-        type="button"
-        aria-label="Remove"
-      >
-        ×
-      </button>
+      {onRemove ? (
+        <button
+          onClick={() => onRemove?.(prediction.id)}
+          className="text-[22px] leading-none text-muted-foreground hover:text-foreground"
+          type="button"
+          aria-label="Remove"
+        >
+          ×
+        </button>
+      ) : null}
     </div>
   );
 }
