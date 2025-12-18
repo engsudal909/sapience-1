@@ -477,11 +477,9 @@ export function useSapienceWriteContract({
         await validateAndSwitchChain(_chainId);
 
         // If using ZeroDev session key, use smart account for batched transactions
-        // For Arbitrum (42161), use Arbitrum-specific session check
+        // Sessions are ONLY supported on Arbitrum (42161) for now
         const useSessionForThisChain =
-          _chainId === 42161
-            ? shouldUseArbitrumSessionKey
-            : shouldUseSessionKey;
+          _chainId === 42161 && shouldUseArbitrumSessionKey;
 
         if (useSessionForThisChain) {
           setIsSubmitting(true);
@@ -882,11 +880,9 @@ export function useSapienceWriteContract({
         await validateAndSwitchChain(_chainId);
 
         // If using ZeroDev session key, batch calls through smart account
-        // For Arbitrum (42161), use Arbitrum-specific session check
+        // Sessions are ONLY supported on Arbitrum (42161) for now
         const useSessionForSendCalls =
-          _chainId === 42161
-            ? shouldUseArbitrumSessionKey
-            : shouldUseSessionKey;
+          _chainId === 42161 && shouldUseArbitrumSessionKey;
 
         if (useSessionForSendCalls) {
           setIsSubmitting(true);

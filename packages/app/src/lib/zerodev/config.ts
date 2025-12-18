@@ -81,8 +81,9 @@ export const ARBITRUM_PAYMASTER_ADDRESS =
  */
 export function getBundlerRpc(chainId: number): string {
   if (!ZERODEV_PROJECT_ID) {
-    console.warn('[ZeroDev] No project ID configured');
-    return '';
+    throw new Error(
+      '[ZeroDev] NEXT_PUBLIC_ZERODEV_PROJECT_ID is not configured'
+    );
   }
   return `https://rpc.zerodev.app/api/v3/${ZERODEV_PROJECT_ID}/chain/${chainId}`;
 }
@@ -93,7 +94,9 @@ export function getBundlerRpc(chainId: number): string {
  */
 export function getPaymasterRpc(chainId: number): string {
   if (!ZERODEV_PROJECT_ID) {
-    return '';
+    throw new Error(
+      '[ZeroDev] NEXT_PUBLIC_ZERODEV_PROJECT_ID is not configured'
+    );
   }
   return `https://rpc.zerodev.app/api/v3/${ZERODEV_PROJECT_ID}/chain/${chainId}`;
 }

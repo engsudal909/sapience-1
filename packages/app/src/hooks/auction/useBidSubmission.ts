@@ -15,7 +15,6 @@ import { useSettings } from '~/lib/context/SettingsContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import { useSessionKey } from '~/lib/context/SessionKeyContext';
 
 export type BidSubmissionParams = {
   auctionId: string;
@@ -80,24 +79,6 @@ export function useBidSubmission(
   const { signTypedDataAsync } = useSignTypedData();
   const chainId = useChainIdFromLocalStorage();
   const { apiBaseUrl } = useSettings();
-
-  // Session key support for automated signing (ZeroDev only)
-  const {
-    isSessionModeEnabled,
-    hasValidSession,
-    isZeroDevMode,
-    signTypedDataWithSession,
-    smartAccountAddress,
-  } = useSessionKey();
-
-  // Determine if we should use session signing
-  // IMPORTANT: Only use session signing when ZeroDev mode is active
-  // Local session keys cannot be used for bid signing because:
-  // 1. The ephemeral key address has no deposited collateral
-  // 2. The on-chain contract verifies against the signer address
-  // 3. Without ERC-4337/smart accounts, delegation doesn't work
-  const shouldUseSessionKey =
-    isSessionModeEnabled && hasValidSession && isZeroDevMode;
 
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
 
@@ -222,70 +203,23 @@ export function useBidSubmission(
         ],
       } as const;
 
-      // Determine the owner address for the signature:
-      // - ZeroDev mode with session: use smart account address (ERC-1271 verification)
-      // - Normal mode (no session or local session): use wallet address (EOA verification)
-      const ownerAddress = (() => {
-        if (shouldUseSessionKey && smartAccountAddress) {
-          // ZeroDev smart account - ERC-1271 compatible signatures
-          return smartAccountAddress;
-        }
-        // Standard EOA signing
-        return getAddress(address);
-      })();
-
       const message = {
         messageHash: innerMessageHash,
-        owner: ownerAddress,
+        owner: getAddress(address),
       } as const;
 
-      // Sign typed data
-      // Priority:
-      // 1. ZeroDev session signing (automatic, no wallet popup) - if ZeroDev session is active
-      // 2. Wallet signing (requires user approval) - default
+      // Sign typed data via wagmi/viem
       let makerSignature: `0x${string}`;
       try {
-        if (shouldUseSessionKey) {
-          // Use ZeroDev smart account for automatic signing
-          // This produces ERC-1271 compatible signatures
-          const sessionSignature = await signTypedDataWithSession({
-            domain,
-            types,
-            primaryType: 'Approve',
-            message,
-          });
-
-          if (sessionSignature) {
-            makerSignature = sessionSignature;
-          } else {
-            // Session signing failed - fall back to wallet
-            console.warn(
-              '[useBidSubmission] ZeroDev session signing failed, falling back to wallet'
-            );
-            makerSignature = await signTypedDataAsync({
-              domain,
-              types,
-              primaryType: 'Approve',
-              message: {
-                messageHash: innerMessageHash,
-                owner: getAddress(address), // Use wallet address for fallback
-              },
-            });
-          }
-        } else {
-          // No ZeroDev session - use wallet for signing (requires user approval)
-          makerSignature = await signTypedDataAsync({
-            domain,
-            types,
-            primaryType: 'Approve',
-            message,
-          });
-        }
-      } catch (e: unknown) {
+        makerSignature = await signTypedDataAsync({
+          domain,
+          types,
+          primaryType: 'Approve',
+          message,
+        });
+      } catch (e: any) {
         const error =
-          e instanceof Error
-            ? e
-            : new Error(String((e as { message?: string })?.message || e));
+          e instanceof Error ? e : new Error(String(e?.message || e));
         onSignatureRejected?.(error);
         return {
           success: false,
@@ -298,10 +232,9 @@ export function useBidSubmission(
       }
 
       // Build bid payload
-      // For ZeroDev, the maker address is the smart account address
       const payload = {
         auctionId,
-        maker: ownerAddress,
+        maker: address,
         makerDeadline,
         makerNonce: takerNonce,
         makerSignature,
@@ -333,9 +266,6 @@ export function useBidSubmission(
       wsUrl,
       signTypedDataAsync,
       onSignatureRejected,
-      shouldUseSessionKey,
-      signTypedDataWithSession,
-      smartAccountAddress,
     ]
   );
 

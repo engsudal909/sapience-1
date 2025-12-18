@@ -700,7 +700,9 @@ const SettingsPageContent = () => {
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 border border-border">
                                   <ShieldX className="h-4 w-4 text-muted-foreground" />
                                   <span className="text-sm text-muted-foreground">
-                                    No active session
+                                    {selectedChain === 'ethereal'
+                                      ? 'Sessions not available on Ethereal'
+                                      : 'No active session'}
                                   </span>
                                 </div>
                                 <Button
@@ -708,7 +710,9 @@ const SettingsPageContent = () => {
                                   size="sm"
                                   onClick={handleCreateSession}
                                   disabled={
-                                    isCreatingSession || !hasConnectedWallet
+                                    isCreatingSession ||
+                                    !hasConnectedWallet ||
+                                    selectedChain === 'ethereal'
                                   }
                                 >
                                   {isCreatingSession ? (
@@ -738,13 +742,15 @@ const SettingsPageContent = () => {
                             </p>
                           ) : null}
                           <p className="text-xs text-muted-foreground">
-                            {hasValidSession
-                              ? isZeroDevMode
-                                ? 'Bids will be signed automatically using your smart account session key. Signatures are ERC-1271 compatible.'
-                                : 'Bids will be signed automatically using your authorized session key.'
-                              : isZeroDevSupported
-                                ? 'Create a session to authorize automatic bid signing via your smart account.'
-                                : 'Create a session to authorize automatic bid signing. Note: Local mode signatures may not work with on-chain verification.'}
+                            {selectedChain === 'ethereal'
+                              ? 'Session keys are only available on Arbitrum. Switch to Arbitrum to create a session.'
+                              : hasValidSession
+                                ? isZeroDevMode
+                                  ? 'Bids will be signed automatically using your smart account session key. Signatures are ERC-1271 compatible.'
+                                  : 'Bids will be signed automatically using your authorized session key.'
+                                : isZeroDevSupported
+                                  ? 'Create a session to authorize automatic bid signing via your smart account.'
+                                  : 'Create a session to authorize automatic bid signing. Note: Local mode signatures may not work with on-chain verification.'}
                           </p>
                         </div>
                       </>
