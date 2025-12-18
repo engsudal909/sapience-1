@@ -22,7 +22,7 @@ export function createAuctionProxyMiddleware() {
   const target = getAuctionServiceUrl();
   console.log('[Auction Proxy] Auction service URL:', target);
 
-  return createProxyMiddleware({
+  return createProxyMiddleware<Request, Response>({
     target,
     changeOrigin: true,
     ws: false, // We handle WebSocket upgrades separately

@@ -105,9 +105,7 @@ async function loadLazerFeedMap(): Promise<Map<number, string>> {
       if (typeof id !== 'number') continue;
       const sym = typeof f.symbol === 'string' ? f.symbol.trim() : '';
       const desc =
-        typeof f.description === 'string'
-          ? f.description.trim()
-          : '';
+        typeof f.description === 'string' ? f.description.trim() : '';
       const label = sym.length > 0 ? sym : desc.length > 0 ? desc : null;
       if (label) map.set(id, label);
     }

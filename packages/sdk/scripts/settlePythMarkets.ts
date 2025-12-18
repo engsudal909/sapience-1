@@ -15,18 +15,13 @@ import { contracts } from '../contracts/addresses';
 import { getPythMarketId } from '../auction/encoding';
 
 /**
- * Settle PythResolver markets referenced by Sapience positions.
+ * Settles PythResolver markets for ended positions by:
+ * - Querying GraphQL for ended conditions (by `Condition.resolver`)
+ * - Fetching positions for those conditions
+ * - Reading `PredictionMarket.getPrediction(tokenId)` to decode legs
+ * - Calling `PythResolver.settleMarket`
  *
- * Selection rule:
- * - Discover candidate positions by looking at Conditions whose `resolver` equals the PythResolver address.
- * - Fetch positions for those conditions (GraphQL `positionsByConditionId`).
- *
- * Why we still need onchain reads:
- * - The DB does NOT persist strike/expo/overWinsOnTie for Pyth legs.
- * - We read `PredictionMarket.getPrediction(tokenId)` to retrieve `encodedPredictedOutcomes`,
- *   decode legs, then call `PythResolver.settleMarket`.
- *
- * Safe by default: dry-run unless you pass `--execute`.
+ * Defaults to dry-run unless you pass `--execute`.
  *
  * Run (dry-run):
  *   pnpm --filter @sapience/sdk run settle:pyth -- \
@@ -56,12 +51,14 @@ type Args = {
   graphqlUrl: string;
   chainId: number;
   pythResolver: Address;
+  conditionResolver: Address;
   rpcUrl: string;
   privateKey?: string;
   pythToken?: string;
   pythBaseUrl: string;
   maxConditions: number;
   maxPositionsPerCondition: number;
+  positionStatus?: string;
   dryRun: boolean;
   wait: boolean;
 };
@@ -92,6 +89,11 @@ function parseArgs(argv: string[]): Args {
     );
   }
 
+  // Which resolver address to use when filtering `Condition.resolver` in GraphQL.
+  // Defaults to `--pyth-resolver`, but in some environments the indexer stores
+  // a different "canonical" resolver address on the Condition row.
+  const conditionResolverRaw = get('condition-resolver') ?? pythResolverRaw;
+
   const rpcUrl =
     get('rpc-url') ?? process.env.BOT_RPC_URL ?? process.env.RPC_URL;
   if (!rpcUrl) throw new Error('missing --rpc-url (or BOT_RPC_URL/RPC_URL)');
@@ -114,11 +116,13 @@ function parseArgs(argv: string[]): Args {
 
   const maxConditions = Number(get('max-conditions') ?? '200');
   const maxPositionsPerCondition = Number(get('max-positions') ?? '200');
+  const positionStatus = get('position-status') ?? 'active';
 
   return {
     graphqlUrl,
     chainId,
     pythResolver: getAddress(pythResolverRaw as Address),
+    conditionResolver: getAddress(conditionResolverRaw as Address),
     rpcUrl,
     privateKey,
     pythToken,
@@ -127,6 +131,7 @@ function parseArgs(argv: string[]): Args {
     maxPositionsPerCondition: Number.isFinite(maxPositionsPerCondition)
       ? maxPositionsPerCondition
       : 200,
+    positionStatus: positionStatus === 'any' ? undefined : positionStatus,
     dryRun: has('dry-run') || !has('execute'),
     wait: has('wait'),
   };
@@ -166,6 +171,19 @@ const CONDITIONS_QUERY = /* GraphQL */ `
   }
 `;
 
+const PYTH_DEBUG_CONDITIONS_QUERY = /* GraphQL */ `
+  query PythDebugConditions($where: ConditionWhereInput, $take: Int, $skip: Int) {
+    conditions(where: $where, take: $take, skip: $skip) {
+      id
+      endTime
+      chainId
+      resolver
+      claimStatement
+      question
+    }
+  }
+`;
+
 const POSITIONS_BY_CONDITION_QUERY = /* GraphQL */ `
   query PositionsByCondition(
     $conditionId: String!
@@ -192,11 +210,50 @@ const POSITIONS_BY_CONDITION_QUERY = /* GraphQL */ `
   }
 `;
 
+const CONDITION_WITH_PREDICTIONS_DEBUG_QUERY = /* GraphQL */ `
+  query ConditionDebug($id: String!) {
+    condition(where: { id: $id }) {
+      id
+      endTime
+      chainId
+      resolver
+      claimStatement
+      question
+      predictions(take: 20) {
+        id
+        chainId
+        outcomeYes
+        position {
+          id
+          chainId
+          status
+          endsAt
+          marketAddress
+          predictorNftTokenId
+          counterpartyNftTokenId
+        }
+        limitOrder {
+          id
+          chainId
+          status
+          orderId
+          marketAddress
+        }
+      }
+    }
+  }
+`;
+
 type ConditionRow = {
   id: string;
   endTime: number;
   chainId: number;
   resolver?: string | null;
+};
+
+type DebugConditionRow = ConditionRow & {
+  claimStatement: string;
+  question: string;
 };
 
 type PositionRow = {
@@ -454,6 +511,8 @@ async function main() {
   console.log('[settle:pyth] graphql=', args.graphqlUrl);
   console.log('[settle:pyth] chainId=', args.chainId);
   console.log('[settle:pyth] pythResolver=', args.pythResolver);
+  console.log('[settle:pyth] conditionResolver(filter)=', args.conditionResolver);
+  console.log('[settle:pyth] positionStatus(filter)=', args.positionStatus ?? '(any)');
   console.log('[settle:pyth] dryRun=', args.dryRun, 'wait=', args.wait);
 
   const publicClient = createPublicClient({ transport: http(args.rpcUrl) });
@@ -497,7 +556,7 @@ async function main() {
         where: {
           chainId: { equals: args.chainId },
           endTime: { lte: nowSec },
-          resolver: { equals: args.pythResolver, mode: 'insensitive' },
+          resolver: { equals: args.conditionResolver, mode: 'insensitive' },
         },
         take,
         skip,
@@ -508,6 +567,69 @@ async function main() {
   }
 
   console.log('[settle:pyth] ended resolver-matched conditions=', conditions.length);
+
+  // If we found none, print a small debug sample to help diagnose DB/indexer mismatch.
+  if (conditions.length === 0) {
+    try {
+      const dbg = await gql<{ conditions: DebugConditionRow[] }>(
+        args.graphqlUrl,
+        PYTH_DEBUG_CONDITIONS_QUERY,
+        {
+          where: {
+            chainId: { equals: args.chainId },
+            endTime: { lte: nowSec },
+            claimStatement: { startsWith: 'PYTH:' },
+          },
+          take: 10,
+          skip: 0,
+        }
+      );
+
+      const rows = dbg.conditions ?? [];
+      if (rows.length === 0) {
+        console.log(
+          '[settle:pyth][debug] No ended PYTH:* conditions found either. Check chain-id / indexer coverage.'
+        );
+      } else {
+        console.log(
+          `[settle:pyth][debug] Found ${rows.length} ended PYTH:* condition(s). Here are their stored resolver values:`
+        );
+        for (const r of rows) {
+          const label =
+            r.question?.trim()?.length > 0 ? r.question.trim() : r.claimStatement;
+          console.log(
+            `  - condition=${r.id} endTime=${r.endTime} resolver=${r.resolver ?? 'null'} label=${label}`
+          );
+        }
+        console.log(
+          '[settle:pyth][debug] If these resolvers are NOT the PythResolver address, rerun with `--condition-resolver <that-address>`.'
+        );
+
+        // Also show whether the condition has Positions or only LimitOrders.
+        const first = rows[0];
+        if (first?.id) {
+          const dbg2 = await gql<{ condition: any }>(
+            args.graphqlUrl,
+            CONDITION_WITH_PREDICTIONS_DEBUG_QUERY,
+            { id: first.id }
+          );
+          const c = dbg2.condition;
+          if (c) {
+            const posCount = (c.predictions ?? []).filter((p: any) => !!p.position).length;
+            const loCount = (c.predictions ?? []).filter((p: any) => !!p.limitOrder).length;
+            console.log(
+              `[settle:pyth][debug] condition=${c.id} predictions=${(c.predictions ?? []).length} withPosition=${posCount} withLimitOrder=${loCount}`
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.log(
+        '[settle:pyth][debug] Failed to fetch debug PYTH conditions:',
+        String((e as any)?.message ?? e)
+      );
+    }
+  }
 
   // 2) For each condition, pull active positions.
   const positions: PositionRow[] = [];
@@ -520,7 +642,7 @@ async function main() {
         take: args.maxPositionsPerCondition,
         skip: 0,
         chainId: args.chainId,
-        status: 'active',
+        status: args.positionStatus ?? null,
       }
     );
     for (const p of data.positionsByConditionId) {

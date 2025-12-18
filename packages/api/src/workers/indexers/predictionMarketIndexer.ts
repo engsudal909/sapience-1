@@ -286,6 +286,36 @@ const PREDICTION_MARKET_ABI = [
   },
 ] as const;
 
+// Minimal ABI for reading the canonical resolver address from on-chain storage.
+// NOTE: The PredictionMinted event does NOT include resolver, so we must read it.
+const PREDICTION_MARKET_READ_ABI = [
+  {
+    type: 'function',
+    name: 'getPrediction',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [
+      {
+        name: 'predictionData',
+        type: 'tuple',
+        components: [
+          { name: 'predictionId', type: 'uint256' },
+          { name: 'makerNftTokenId', type: 'uint256' },
+          { name: 'takerNftTokenId', type: 'uint256' },
+          { name: 'makerCollateral', type: 'uint256' },
+          { name: 'takerCollateral', type: 'uint256' },
+          { name: 'encodedPredictedOutcomes', type: 'bytes' },
+          { name: 'resolver', type: 'address' },
+          { name: 'maker', type: 'address' },
+          { name: 'taker', type: 'address' },
+          { name: 'settled', type: 'bool' },
+          { name: 'makerWon', type: 'bool' },
+        ],
+      },
+    ],
+  },
+] as const;
+
 // (no read ABI needed with on-event decoding)
 
 // Event signatures for filtering - using keccak256 hashes instead
@@ -726,8 +756,33 @@ class PredictionMarketIndexer implements IIndexer {
       const encodedPredictedOutcomes = decodedAny.args
         .encodedPredictedOutcomes as `0x${string}`;
 
-      const predictionResolver =
+      // IMPORTANT: PredictionMinted does NOT include the resolver address. The indexer used to
+      // fall back to a chain-level default (lzPMResolver/lzUmaResolver), which makes Condition.resolver
+      // incorrect for Pyth markets. Instead, read the resolver from on-chain storage at the log's block.
+      let predictionResolver =
         this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
+      try {
+        const tokenId = decodedAny.args.makerNftTokenId as bigint;
+        const pred = (await this.client.readContract({
+          address: log.address as `0x${string}`,
+          abi: PREDICTION_MARKET_READ_ABI,
+          functionName: 'getPrediction',
+          args: [tokenId],
+          blockNumber: log.blockNumber ?? undefined,
+        })) as unknown;
+        const resolverMaybe = (pred as { resolver?: unknown } | null)?.resolver;
+        if (
+          typeof resolverMaybe === 'string' &&
+          resolverMaybe.startsWith('0x')
+        ) {
+          predictionResolver = resolverMaybe.toLowerCase();
+        }
+      } catch (e) {
+        console.warn(
+          '[PredictionMarketIndexer] Failed to read getPrediction().resolver; falling back to configured resolver:',
+          e
+        );
+      }
 
       let predictedOutcomes: Array<{
         conditionId: string;
