@@ -26,6 +26,7 @@ import {
   type CreatePythPredictionFormValues,
   type PythPrediction,
 } from '@sapience/ui';
+import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 
 // Dynamically import Loader
 const Loader = dynamic(() => import('~/components/shared/Loader'), {
@@ -268,7 +269,11 @@ const MarketsPage = () => {
               <div className="flex items-center justify-between mb-2 px-1">
                 <h2 className="sc-heading text-foreground">Predict Prices</h2>
               </div>
-              <CreatePythPredictionForm onPick={handlePythPick} />
+              <CreatePythPredictionForm
+                onPick={handlePythPick}
+                // Ethereal uses the Lazer-based `PythResolver` which expects uint32 feed ids.
+                idMode={chainId === CHAIN_ID_ETHEREAL ? 'lazer' : 'hermes'}
+              />
               <hr className="gold-hr mt-6 -mb-2" />
             </div>
           ) : null}

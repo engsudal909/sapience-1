@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { ChevronsUpDown } from 'lucide-react';
+import { z } from 'zod';
 
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
@@ -20,12 +21,24 @@ import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 export type CreatePythPredictionFormProps = {
   className?: string;
   disabled?: boolean;
+  /**
+   * Controls what kind of identifier `priceId` represents.
+   * - `hermes`: a Hermes bytes32 price feed id (0x + 64 hex chars).
+   * - `lazer`: a Pyth Lazer uint32 feed id (represented as a number string, e.g. "1").
+   *
+   * NOTE: The protocol `PythResolver.sol` currently expects `lazer` feed ids.
+   */
+  idMode?: 'hermes' | 'lazer';
   onPick?: (values: CreatePythPredictionFormValues) => void;
 };
 
 export type CreatePythPredictionDirection = 'over' | 'under';
 
 export type CreatePythPredictionFormValues = {
+  /**
+   * If `idMode === 'hermes'`, this is a Hermes bytes32 feed id.
+   * If `idMode === 'lazer'`, this is a uint32 feed id represented as a string (e.g. "1").
+   */
   priceId: string;
   /** Optional human label (e.g. `Crypto.BTC/USD`) if known at pick time. */
   priceFeedLabel?: string;
@@ -44,6 +57,65 @@ export type CreatePythPredictionFormValues = {
 };
 
 type DateTimePreset = '' | '15m' | '1h' | '1w' | 'custom';
+
+type PythProFeedRow = {
+  id: number; // Pyth Pro ID (feed id)
+  symbol: string; // e.g. "Crypto.BTC/USD"
+  description?: string; // e.g. "BITCOIN / US DOLLAR"
+  expo: number; // exponent
+};
+
+const pythProSchema = z.array(
+  z.object({
+    asset_type: z.string(),
+    description: z.string(),
+    name: z.string(),
+    symbol: z.string(),
+    pyth_lazer_id: z.number().int().positive(),
+    exponent: z.number(),
+  })
+);
+
+async function fetchPythProFeeds(signal: AbortSignal): Promise<PythProFeedRow[]> {
+  // Matches upstream Pyth Developer Hub implementation:
+  // https://raw.githubusercontent.com/pyth-network/pyth-crosschain/refs/heads/main/apps/developer-hub/src/components/PriceFeedIdsProTable/index.tsx
+  const res = await fetch(
+    'https://history.pyth-lazer.dourolabs.app/history/v1/symbols',
+    { signal }
+  );
+  if (!res.ok) throw new Error(`Pyth Pro feed list failed (${res.status})`);
+  const json = (await res.json()) as unknown;
+  const data = pythProSchema.parse(json);
+  return data
+    .slice()
+    .sort((a, b) => a.pyth_lazer_id - b.pyth_lazer_id)
+    .map((f) => ({
+      id: f.pyth_lazer_id,
+      symbol: f.symbol,
+      description: f.description,
+      expo: f.exponent,
+    }));
+}
+
+let cachedLazerFeeds: PythProFeedRow[] | null = null;
+let inflightLazerFeeds: Promise<PythProFeedRow[]> | null = null;
+
+async function loadPythProFeedsCached(
+  signal: AbortSignal
+): Promise<PythProFeedRow[]> {
+  if (cachedLazerFeeds && cachedLazerFeeds.length > 0) return cachedLazerFeeds;
+  if (inflightLazerFeeds) return await inflightLazerFeeds;
+  inflightLazerFeeds = (async () => {
+    try {
+      const rows = await fetchPythProFeeds(signal);
+      cachedLazerFeeds = rows;
+      return rows;
+    } finally {
+      inflightLazerFeeds = null;
+    }
+  })();
+  return await inflightLazerFeeds;
+}
 
 function formatDateTimeLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -513,6 +585,7 @@ async function fetchHermesPriceFeeds(
 export function CreatePythPredictionForm({
   className,
   disabled,
+  idMode = 'hermes',
   onPick,
 }: CreatePythPredictionFormProps) {
   const [priceId, setPriceId] = React.useState<string>('');
@@ -533,6 +606,16 @@ export function CreatePythPredictionForm({
   const latestPriceAbortRef = React.useRef<AbortController | null>(null);
   const [priceExpo, setPriceExpo] = React.useState<number | null>(null);
 
+  // Pyth Pro (Lazer) feed list (id + symbol + exponent).
+  const [lazerFeeds, setLazerFeeds] = React.useState<PythProFeedRow[]>([]);
+  const [isLoadingLazerFeeds, setIsLoadingLazerFeeds] = React.useState(false);
+  const [lazerFeedsError, setLazerFeedsError] = React.useState<string | null>(
+    null
+  );
+  const [lazerOpen, setLazerOpen] = React.useState<boolean>(false);
+  const [lazerQuery, setLazerQuery] = React.useState<string>('');
+  const [lazerSelectedLabel, setLazerSelectedLabel] = React.useState<string>('');
+
   const [direction, setDirection] =
     React.useState<CreatePythPredictionDirection>('over');
   // `targetPriceDisplay` drives the input UI; `targetPriceRaw` preserves full precision for tooltips.
@@ -545,6 +628,7 @@ export function CreatePythPredictionForm({
 
   const populateLatestPrice = React.useCallback(
     (nextPriceId: string) => {
+      if (idMode === 'lazer') return;
       if (disabled) return;
       if (!nextPriceId) return;
 
@@ -579,10 +663,72 @@ export function CreatePythPredictionForm({
           setIsLoadingLatestPrice(false);
         });
     },
-    [disabled]
+    [disabled, idMode]
+  );
+
+  // Lazer mode: once a feed is selected (and we know its human symbol), use Hermes to
+  // fetch a current reference price and populate the Price input (rounded to 2dp).
+  // IMPORTANT: this should ONLY run after selection (not during search/open).
+  const populateLatestPriceForSymbol = React.useCallback(
+    (symbol: string) => {
+      if (idMode !== 'lazer') return;
+      if (disabled) return;
+      const sym = symbol?.trim();
+      if (!sym) return;
+
+      latestPriceAbortRef.current?.abort();
+      const ac = new AbortController();
+      latestPriceAbortRef.current = ac;
+      setIsLoadingLatestPrice(true);
+      setLatestPriceError(null);
+
+      (async () => {
+        try {
+          // Yield so the UI can paint (dropdown closes, etc.) before any heavy work.
+          await new Promise<void>((r) => setTimeout(r, 0));
+          if (ac.signal.aborted) return;
+
+          // Load Hermes feed list (cached where possible) to map symbol -> feed id.
+          const list =
+            hermesPriceFeedsCache && hermesPriceFeedsCache.length > 0
+              ? hermesPriceFeedsCache
+              : await fetchHermesPriceFeeds(ac.signal);
+          if (ac.signal.aborted) return;
+          if (!hermesPriceFeedsCache || hermesPriceFeedsCache.length === 0) {
+            hermesPriceFeedsCache = list;
+          }
+
+          const target = list.find(
+            (f) => (f.symbol ?? '').toLowerCase() === sym.toLowerCase()
+          );
+          if (!target?.id) return;
+
+          const p = await fetchHermesLatestPrice(target.id, ac.signal);
+          if (ac.signal.aborted) return;
+
+          const formatted = formatPythPriceDecimal(p.price, p.expo);
+          const n = Number(formatted);
+          const rounded = Number.isFinite(n) ? n.toFixed(2) : formatted;
+
+          setTargetPriceFullPrecision(formatted);
+          setTargetPriceRaw(rounded);
+          setTargetPriceDisplay(rounded);
+        } catch (e) {
+          if (ac.signal.aborted) return;
+          setLatestPriceError(
+            e instanceof Error ? e.message : 'Failed to load latest price'
+          );
+        } finally {
+          if (ac.signal.aborted) return;
+          setIsLoadingLatestPrice(false);
+        }
+      })();
+    },
+    [disabled, idMode]
   );
 
   const ensureFeedsLoaded = React.useCallback(() => {
+    if (idMode === 'lazer') return () => {};
     if (disabled) return () => {};
     if (hermesPriceFeedsCache && hermesPriceFeedsCache.length > 0) return () => {};
     if (isLoadingFeeds) return () => {};
@@ -602,11 +748,46 @@ export function CreatePythPredictionForm({
       .finally(() => setIsLoadingFeeds(false));
 
     return () => ac.abort();
-  }, [disabled, isLoadingFeeds]);
+  }, [disabled, idMode, isLoadingFeeds]);
+
+  const ensureLazerFeedsLoaded = React.useCallback(() => {
+    if (idMode !== 'lazer') return () => {};
+    if (disabled) return () => {};
+    if (isLoadingLazerFeeds) return () => {};
+    if (lazerFeeds.length > 0) return () => {};
+    if (cachedLazerFeeds && cachedLazerFeeds.length > 0) {
+      setLazerFeeds(cachedLazerFeeds);
+      return () => {};
+    }
+
+    const ac = new AbortController();
+    setIsLoadingLazerFeeds(true);
+    setLazerFeedsError(null);
+
+    // Yield before heavy JSON/zod parsing so the UI can paint "Loading…" first.
+    (async () => {
+      try {
+        await new Promise<void>((r) => setTimeout(r, 0));
+        const rows = await loadPythProFeedsCached(ac.signal);
+        if (ac.signal.aborted) return;
+        setLazerFeeds(rows);
+      } catch (e) {
+        if (ac.signal.aborted) return;
+        setLazerFeeds([]);
+        setLazerFeedsError(e instanceof Error ? e.message : 'Failed to load feeds');
+      } finally {
+        if (ac.signal.aborted) return;
+        setIsLoadingLazerFeeds(false);
+      }
+    })();
+
+    return () => ac.abort();
+  }, [disabled, idMode, isLoadingLazerFeeds, lazerFeeds.length]);
 
   // Important: don't fetch on click/open (Hermes JSON can be huge and parsing it can jank the UI).
   // Instead, warm the cache when the browser is idle, and fetch on-demand once the user types.
   React.useEffect(() => {
+    if (idMode === 'lazer') return;
     if (hermesPriceFeedsCache && hermesPriceFeedsCache.length > 0) return;
 
     let cancelled = false;
@@ -645,11 +826,12 @@ export function CreatePythPredictionForm({
       if (idleId !== null && cic) cic(idleId);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [ensureFeedsLoaded]);
+  }, [ensureFeedsLoaded, idMode]);
 
   const deferredPriceFeedQuery = React.useDeferredValue(priceFeedQuery);
 
   const filteredFeeds = React.useMemo(() => {
+    if (idMode === 'lazer') return [];
     if (!priceFeedOpen) return [];
     const q = deferredPriceFeedQuery.trim().toLowerCase();
     const list = feeds.length ? feeds : hermesPriceFeedsCache ?? [];
@@ -696,7 +878,63 @@ export function CreatePythPredictionForm({
       if (out.length >= 50) break;
     }
     return out;
-  }, [deferredPriceFeedQuery, feeds, priceFeedOpen]);
+  }, [deferredPriceFeedQuery, feeds, idMode, priceFeedOpen]);
+
+  const filteredLazerFeeds = React.useMemo(() => {
+    if (idMode !== 'lazer') return [];
+    if (!lazerOpen) return [];
+    const q = lazerQuery.trim().toLowerCase();
+    const list = lazerFeeds;
+    if (!q) {
+      // Match the pre-change UX: show a few "popular" defaults when the query is empty.
+      const wantedSymbols = ['Crypto.BTC/USD', 'Crypto.ETH/USD', 'Crypto.ENA/USD'];
+      const out: PythProFeedRow[] = [];
+      const bySymbol = new Map<string, PythProFeedRow>();
+      for (const f of list) {
+        const sym = (f.symbol ?? '').toLowerCase();
+        if (sym) bySymbol.set(sym, f);
+      }
+      for (const sym of wantedSymbols) {
+        const hit = bySymbol.get(sym.toLowerCase());
+        if (hit) out.push(hit);
+      }
+      // Fallback: if exact symbols aren’t present (e.g. ENA missing), show first items by id.
+      if (out.length === 0) return list.slice(0, 25);
+      return out;
+    }
+
+    // Support comma/space separated terms (same UX as Pyth Developer Hub).
+    const terms = q
+      .split(/[,\s]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (terms.length === 0) return list.slice(0, 25);
+
+    const exactIdMatches: PythProFeedRow[] = [];
+    const otherMatches = new Map<number, PythProFeedRow>();
+    const isNumeric = (t: string) => /^\d+$/.test(t);
+
+    const matchesTerm = (item: PythProFeedRow, term: string): boolean => {
+      if (isNumeric(term)) return String(item.id) === term;
+      const sym = item.symbol.toLowerCase();
+      const desc = (item.description ?? '').toLowerCase();
+      return sym.includes(term) || desc.includes(term);
+    };
+
+    for (const term of terms) {
+      for (const item of list) {
+        if (!matchesTerm(item, term)) continue;
+        if (isNumeric(term) && String(item.id) === term) {
+          if (!exactIdMatches.some((m) => m.id === item.id)) exactIdMatches.push(item);
+        } else if (!exactIdMatches.some((m) => m.id === item.id)) {
+          otherMatches.set(item.id, item);
+        }
+      }
+    }
+
+    const other = [...otherMatches.values()].sort((a, b) => a.id - b.id);
+    return [...exactIdMatches, ...other].slice(0, 50);
+  }, [idMode, lazerFeeds, lazerOpen, lazerQuery]);
 
   const targetPrice = React.useMemo(() => {
     const n = Number(targetPriceDisplay);
@@ -742,7 +980,10 @@ export function CreatePythPredictionForm({
 
     onPick?.({
       priceId,
-      priceFeedLabel: priceFeedLabel || undefined,
+      priceFeedLabel:
+        idMode === 'lazer'
+          ? priceFeedLabel || (priceId ? `Pyth Pro #${priceId}` : undefined)
+          : priceFeedLabel || undefined,
       direction,
       targetPrice: roundedTargetPrice,
       targetPriceRaw: roundedTargetPriceRaw,
@@ -754,6 +995,7 @@ export function CreatePythPredictionForm({
     dateTimeLocal,
     dateTimePreset,
     direction,
+    idMode,
     isPickDisabled,
     onPick,
     priceExpo,
@@ -780,89 +1022,79 @@ export function CreatePythPredictionForm({
       >
         <div className="flex flex-wrap md:flex-nowrap items-center gap-x-3 md:gap-x-4 gap-y-3">
           <div className="flex-1 min-w-[180px] md:min-w-[220px] md:max-w-[340px]">
-            <Popover
-              open={priceFeedOpen}
-              onOpenChange={(v) => {
-                setPriceFeedOpen(v);
-                if (v) {
-                  requestAnimationFrame(() => priceFeedInputRef.current?.focus());
-                  if (
-                    priceFeedQuery.trim().length === 0 &&
-                    (!hermesPriceFeedsCache || hermesPriceFeedsCache.length === 0)
-                  ) {
-                    ensureFeedsLoaded();
-                  }
-                }
-              }}
-            >
-              <div className="relative">
-                <Input
-                  ref={priceFeedInputRef}
-                  value={priceFeedQuery}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setPriceFeedQuery(next);
-                    setPriceId('');
-                    setPriceFeedLabel('');
-                    if (!priceFeedOpen) setPriceFeedOpen(true);
-                    if (
-                      next.trim().length >= 1 &&
-                      (!hermesPriceFeedsCache || hermesPriceFeedsCache.length === 0)
-                    ) {
-                      ensureFeedsLoaded();
-                    }
-                  }}
-                  onFocus={() => setPriceFeedOpen(true)}
-                  placeholder="Select Price Feed"
-                  disabled={disabled}
-                  aria-label="Search price feed"
-                  className="h-9 bg-transparent border-brand-white/20 text-foreground placeholder:text-foreground pr-9"
-                />
-                <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
-                <PopoverTrigger asChild>
-                  <div className="absolute inset-0 pointer-events-none" aria-hidden />
-                </PopoverTrigger>
-              </div>
-
-              <PopoverContent
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                className="w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)] p-0 bg-brand-black text-brand-white border border-brand-white/20 font-mono"
-                align="start"
+            {idMode === 'lazer' ? (
+              <Popover
+                open={lazerOpen}
+                onOpenChange={(v) => {
+                  setLazerOpen(v);
+                  if (v) ensureLazerFeedsLoaded();
+                }}
               >
-                {priceFeedQuery.trim().length >= 1 &&
-                !isLoadingFeeds &&
-                !feedsError &&
-                (!hermesPriceFeedsCache || hermesPriceFeedsCache.length === 0) ? (
-                  <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
-                ) : isLoadingFeeds ? (
-                  <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
-                ) : feedsError ? (
-                  <div className="py-3 px-3 text-sm text-red-400">
-                    {feedsError}
-                  </div>
-                ) : (
+                <div className="relative">
+                  <Input
+                    value={lazerQuery}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setLazerQuery(next);
+                      // clear selection when user edits
+                      setPriceId('');
+                      setPriceFeedLabel('');
+                      setLazerSelectedLabel('');
+                      setPriceExpo(null);
+                      if (!lazerOpen) setLazerOpen(true);
+                      ensureLazerFeedsLoaded();
+                    }}
+                    onFocus={() => {
+                      setLazerOpen(true);
+                      ensureLazerFeedsLoaded();
+                    }}
+                    placeholder={lazerSelectedLabel ? lazerSelectedLabel : 'Select Price Feed'}
+                    disabled={disabled}
+                    aria-label="Search Pyth Pro feeds"
+                    className="h-9 bg-transparent border-brand-white/20 text-foreground placeholder:text-foreground pr-9"
+                  />
+                  <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+                  <PopoverTrigger asChild>
+                    <div className="absolute inset-0 pointer-events-none" aria-hidden />
+                  </PopoverTrigger>
+                </div>
+
+                <PopoverContent
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  className="w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)] p-0 bg-brand-black text-brand-white border border-brand-white/20 font-mono"
+                  align="start"
+                >
                   <Command>
                     <CommandList>
-                      {filteredFeeds.length === 0 ? (
+                      {isLoadingLazerFeeds ? (
+                        <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
+                      ) : lazerFeedsError ? (
+                        <div className="py-3 px-3 text-sm text-red-400">
+                          {lazerFeedsError}
+                        </div>
+                      ) : filteredLazerFeeds.length === 0 ? (
                         <CommandEmpty className="py-4 text-center text-sm opacity-75">
-                          {priceFeedQuery.trim().length === 0
-                            ? 'No popular feeds found.'
+                          {lazerQuery.trim().length === 0
+                            ? 'No price feeds loaded.'
                             : 'No matching price feeds.'}
                         </CommandEmpty>
                       ) : (
                         <CommandGroup>
-                          {filteredFeeds.map((f) => {
-                            const label = f.symbol || f.id;
-                            const sub = f.description || f.id;
+                          {filteredLazerFeeds.map((f) => {
+                            const label = f.symbol || `Feed #${f.id}`;
+                            const sub = f.description || `ID ${f.id} • expo ${f.expo}`;
                             return (
                               <CommandItem
                                 key={f.id}
                                 onSelect={() => {
-                                  setPriceId(f.id);
-                                  setPriceFeedLabel(f.symbol || f.id);
-                                  setPriceFeedQuery(f.symbol || '');
-                                  setPriceFeedOpen(false);
-                                  populateLatestPrice(f.id);
+                                  setPriceId(String(f.id));
+                                  setPriceFeedLabel(label);
+                                  setLazerSelectedLabel(label);
+                                  setLazerQuery(label);
+                                  setPriceExpo(f.expo);
+                                  setLazerOpen(false);
+                                  // After the symbol is selected, use Hermes to populate the Price input (2dp).
+                                  populateLatestPriceForSymbol(f.symbol);
                                 }}
                                 className="flex flex-col items-start gap-0.5 text-brand-white transition-colors duration-200 ease-out hover:bg-brand-white/10 data-[highlighted]:bg-brand-white/10 data-[highlighted]:text-brand-white cursor-pointer"
                               >
@@ -879,9 +1111,114 @@ export function CreatePythPredictionForm({
                       )}
                     </CommandList>
                   </Command>
-                )}
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Popover
+                open={priceFeedOpen}
+                onOpenChange={(v) => {
+                  setPriceFeedOpen(v);
+                  if (v) {
+                    requestAnimationFrame(() => priceFeedInputRef.current?.focus());
+                    if (
+                      priceFeedQuery.trim().length === 0 &&
+                      (!hermesPriceFeedsCache || hermesPriceFeedsCache.length === 0)
+                    ) {
+                      ensureFeedsLoaded();
+                    }
+                  }
+                }}
+              >
+                <div className="relative">
+                  <Input
+                    ref={priceFeedInputRef}
+                    value={priceFeedQuery}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setPriceFeedQuery(next);
+                      setPriceId('');
+                      setPriceFeedLabel('');
+                      if (!priceFeedOpen) setPriceFeedOpen(true);
+                      if (
+                        next.trim().length >= 1 &&
+                        (!hermesPriceFeedsCache ||
+                          hermesPriceFeedsCache.length === 0)
+                      ) {
+                        ensureFeedsLoaded();
+                      }
+                    }}
+                    onFocus={() => setPriceFeedOpen(true)}
+                    placeholder="Select Price Feed"
+                    disabled={disabled}
+                    aria-label="Search price feed"
+                    className="h-9 bg-transparent border-brand-white/20 text-foreground placeholder:text-foreground pr-9"
+                  />
+                  <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+                  <PopoverTrigger asChild>
+                    <div className="absolute inset-0 pointer-events-none" aria-hidden />
+                  </PopoverTrigger>
+                </div>
+
+                <PopoverContent
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  className="w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)] p-0 bg-brand-black text-brand-white border border-brand-white/20 font-mono"
+                  align="start"
+                >
+                  {priceFeedQuery.trim().length >= 1 &&
+                  !isLoadingFeeds &&
+                  !feedsError &&
+                  (!hermesPriceFeedsCache ||
+                    hermesPriceFeedsCache.length === 0) ? (
+                    <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
+                  ) : isLoadingFeeds ? (
+                    <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
+                  ) : feedsError ? (
+                    <div className="py-3 px-3 text-sm text-red-400">
+                      {feedsError}
+                    </div>
+                  ) : (
+                    <Command>
+                      <CommandList>
+                        {filteredFeeds.length === 0 ? (
+                          <CommandEmpty className="py-4 text-center text-sm opacity-75">
+                            {priceFeedQuery.trim().length === 0
+                              ? 'No popular feeds found.'
+                              : 'No matching price feeds.'}
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {filteredFeeds.map((f) => {
+                              const label = f.symbol || f.id;
+                              const sub = f.description || f.id;
+                              return (
+                                <CommandItem
+                                  key={f.id}
+                                  onSelect={() => {
+                                    setPriceId(f.id);
+                                    setPriceFeedLabel(f.symbol || f.id);
+                                    setPriceFeedQuery(f.symbol || '');
+                                    setPriceFeedOpen(false);
+                                    populateLatestPrice(f.id);
+                                  }}
+                                  className="flex flex-col items-start gap-0.5 text-brand-white transition-colors duration-200 ease-out hover:bg-brand-white/10 data-[highlighted]:bg-brand-white/10 data-[highlighted]:text-brand-white cursor-pointer"
+                                >
+                                  <span className="text-sm text-brand-white">
+                                    {label}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {sub}
+                                  </span>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
 
           <ToggleGroup

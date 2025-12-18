@@ -17,6 +17,15 @@ export interface PredictedOutcomeInputStub {
 }
 
 export interface PythOutcomeInputStub {
+  /**
+   * For `PythResolver.sol` (Lazer-based), this must represent a **uint32 feedId**
+   * (NOT a Hermes bytes32 price feed id).
+   *
+   * Accepted formats:
+   * - base-10 integer string: "1"
+   * - hex uint32 (no padding): "0x1" / "01" / "deadbeef"
+   * - bytes32 hex that fits uint32 (high bits zero): "0x000...0001"
+   */
   priceId: string;
   direction: 'over' | 'under';
   targetPrice: number;
@@ -88,26 +97,43 @@ function normalizePythPriceId(raw: string): `0x${string}` {
   const s = raw.trim();
   if (!s) throw new Error('invalid_price_id');
 
-  // Accept either:
-  // - a full bytes32 hex string (Hermes feed id), e.g. "0x<64 hex chars>"
-  // - a base-10 integer string (legacy / alternate representation), which we left-pad to bytes32
+  // IMPORTANT:
+  // `PythResolver.sol` expects `priceId` to encode a **uint32 Pyth Lazer feedId**
+  // in the low bits of a bytes32 (high bits MUST be zero).
+  const UINT32_MAX = 0xffff_ffffn;
+
+  // base-10 integer string
   if (/^\d+$/.test(s)) {
     const v = BigInt(s);
-    if (v < 0n) throw new Error('invalid_price_id');
-    // Bound to bytes32 (uint256) even though we encode to bytes32.
-    if (v > (1n << 256n) - 1n) throw new Error('pyth_feed_id_out_of_range');
-    const hex = v.toString(16).padStart(64, '0');
-    return `0x${hex}`;
+    if (v > UINT32_MAX) throw new Error('pyth_feed_id_must_be_uint32');
+    return `0x${v.toString(16).padStart(64, '0')}`;
   }
 
   const hex = s.startsWith('0x') ? s : `0x${s}`;
   if (!/^0x[0-9a-fA-F]+$/.test(hex)) throw new Error('invalid_price_id');
   const noPrefix = hex.slice(2);
   if (noPrefix.length === 0) throw new Error('invalid_price_id');
-  // Must fit into bytes32.
-  if (noPrefix.length > 64) throw new Error('invalid_price_id_length');
-  const padded = noPrefix.padStart(64, '0');
-  return `0x${padded}`;
+
+  // Allow:
+  // - 1..8 hex chars (uint32) -> left pad to bytes32
+  // - 64 hex chars (bytes32) but ONLY if it fits uint32 (high bits zero)
+  if (noPrefix.length <= 8) {
+    const v = BigInt(hex);
+    if (v > UINT32_MAX) throw new Error('pyth_feed_id_must_be_uint32');
+    return `0x${v.toString(16).padStart(64, '0')}`;
+  }
+
+  if (noPrefix.length === 64) {
+    const v = BigInt(hex);
+    if (v > UINT32_MAX) {
+      // This most commonly indicates a Hermes bytes32 feed id, which is NOT compatible
+      // with the Lazer-based `PythResolver.sol` used on-chain.
+      throw new Error('pyth_lazer_feed_id_required_not_hermes_price_id');
+    }
+    return `0x${v.toString(16).padStart(64, '0')}`;
+  }
+
+  throw new Error('invalid_price_id_length');
 }
 
 function normalizePythOutcomes(

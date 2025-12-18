@@ -327,21 +327,19 @@ export default function OgShareDialogBase(props: OgShareDialogBaseProps) {
           {/* Position tracking section */}
           {trackPosition && open && userAddress && !positionResolved && (
             <div className="w-full p-4 bg-muted/50 rounded-lg border border-border">
-              <div className="flex flex-col items-center justify-center gap-2 py-2">
-                <Loader size={24} />
-                <p className="text-sm text-muted-foreground text-center">
-                  Waiting for position to be indexed...
-                </p>
-                {explorerTxUrl && (
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 py-2 text-sm text-muted-foreground">
+                <Loader size={20} className="shrink-0" />
+                <span>Waiting for position to be indexed...</span>
+                {explorerTxUrl ? (
                   <Link
                     href={explorerTxUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="underline underline-offset-2 hover:text-foreground transition-colors"
                   >
                     View on explorer
                   </Link>
-                )}
+                ) : null}
               </div>
             </div>
           )}

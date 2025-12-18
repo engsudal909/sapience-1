@@ -81,16 +81,37 @@ function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
   const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
   const label =
     daysLeft >= 1 ? `${daysLeft} day${daysLeft === 1 ? '' : 's'}` : '<1 day';
+  const settlesAt = new Date(endsAtMs);
+  const settlesAtLocalDisplay = settlesAt.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+  });
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      className="whitespace-nowrap"
-      disabled
-    >
-      {`Settles in ${label}`}
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="whitespace-nowrap"
+              disabled
+            >
+              {`Settles in ${label}`}
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <div>{`Settles at ${settlesAtLocalDisplay}`}</div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

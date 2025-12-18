@@ -436,6 +436,21 @@ export function useSapienceWriteContract({
     [executeAutoUnwrap, sendCallsAsync]
   );
 
+  const pickFinalTransactionHash = useCallback((data: any) => {
+    const receipts = data?.receipts;
+    if (Array.isArray(receipts) && receipts.length > 0) {
+      for (let i = receipts.length - 1; i >= 0; i--) {
+        const h = receipts?.[i]?.transactionHash;
+        if (typeof h === 'string' && h.length > 0) return h;
+      }
+    }
+    const txHash =
+      (typeof data?.transactionHash === 'string' && data.transactionHash) ||
+      (typeof data?.txHash === 'string' && data.txHash) ||
+      undefined;
+    return txHash;
+  }, []);
+
   // Custom write contract function that handles chain validation
   const sapienceWriteContract = useCallback(
     async (...args: Parameters<typeof writeContractAsync>) => {
@@ -640,9 +655,7 @@ export function useSapienceWriteContract({
                     }
                   | undefined;
                 const transactionHash =
-                  resultWithHash?.receipts?.[0]?.transactionHash ||
-                  resultWithHash?.transactionHash ||
-                  resultWithHash?.txHash;
+                  pickFinalTransactionHash(resultWithHash);
                 handleTransactionSuccess(transactionHash as Hash | undefined);
 
                 // Execute auto-unwrap if this is a withdrawal operation
@@ -715,6 +728,7 @@ export function useSapienceWriteContract({
       getUserWUSDEBalance,
       isEtherealChain,
       sendCallsAsync,
+      pickFinalTransactionHash,
     ]
   );
 
@@ -798,7 +812,7 @@ export function useSapienceWriteContract({
         try {
           if (!isEmbeddedWallet && data?.id) {
             const result = await waitForCallsStatus(client!, { id: data.id });
-            const transactionHash = result?.receipts?.[0]?.transactionHash;
+            const transactionHash = pickFinalTransactionHash(result);
             if (transactionHash) {
               // Persist share intent before redirect
               writeShareIntent(transactionHash);
@@ -833,10 +847,7 @@ export function useSapienceWriteContract({
             }
           } else {
             // Embedded path or fallback path without aggregator id.
-            const transactionHash =
-              data?.receipts?.[0]?.transactionHash ||
-              data?.transactionHash ||
-              data?.txHash;
+            const transactionHash = pickFinalTransactionHash(data);
             if (transactionHash) {
               // Persist share intent before redirect
               writeShareIntent(transactionHash);
@@ -918,6 +929,7 @@ export function useSapienceWriteContract({
       shareIntent,
       onSuccess,
       successMessage,
+      pickFinalTransactionHash,
     ]
   );
 

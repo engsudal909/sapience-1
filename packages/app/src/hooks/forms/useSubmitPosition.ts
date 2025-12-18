@@ -46,6 +46,18 @@ export function useSubmitPosition({
 }: UseSubmitPositionProps) {
   const { address } = useAccount();
 
+  // Read current wUSDe balance on Ethereal to avoid unnecessary wrap/deposit calls
+  const { data: currentWusdeBalance } = useReadContract({
+    address: WUSDE_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    chainId,
+    query: {
+      enabled: !!address && enabled && chainId === CHAIN_ID_ETHEREAL,
+    },
+  });
+
   // Read maker nonce from PredictionMarket
   const { data: makerNonce, refetch: refetchMakerNonce } = useReadContract({
     address: predictionMarketAddress,
@@ -120,16 +132,26 @@ export function useSubmitPosition({
       }
 
       if (chainId === CHAIN_ID_ETHEREAL) {
-        const wrapCalldata = encodeFunctionData({
-          abi: WUSDE_ABI,
-          functionName: 'deposit',
-        });
+        const wrappedBal =
+          typeof currentWusdeBalance === 'bigint' ? currentWusdeBalance : 0n;
+        const amountToWrap =
+          makerCollateralWei > wrappedBal
+            ? makerCollateralWei - wrappedBal
+            : 0n;
 
-        callsArray.push({
-          to: WUSDE_ADDRESS as `0x${string}`,
-          data: wrapCalldata,
-          value: makerCollateralWei,
-        });
+        // Only wrap if existing wUSDe is insufficient for the maker collateral
+        if (amountToWrap > 0n) {
+          const wrapCalldata = encodeFunctionData({
+            abi: WUSDE_ABI,
+            functionName: 'deposit',
+          });
+
+          callsArray.push({
+            to: WUSDE_ADDRESS as `0x${string}`,
+            data: wrapCalldata,
+            value: amountToWrap,
+          });
+        }
       }
 
       // Only add approval if current allowance is insufficient
@@ -185,7 +207,13 @@ export function useSubmitPosition({
 
       return callsArray;
     },
-    [predictionMarketAddress, collateralTokenAddress, currentAllowance, chainId]
+    [
+      predictionMarketAddress,
+      collateralTokenAddress,
+      currentAllowance,
+      chainId,
+      currentWusdeBalance,
+    ]
   );
 
   const submitPosition = useCallback(
