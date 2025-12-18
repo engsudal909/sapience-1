@@ -16,6 +16,9 @@ class ConditionSummary {
   @Field(() => Int, { nullable: true })
   endTime?: number | null;
 
+  @Field(() => String, { nullable: true })
+  resolver?: string | null;
+
   @Field(() => Boolean)
   settled!: boolean;
 
@@ -27,9 +30,6 @@ class ConditionSummary {
 class PredictionType {
   @Field(() => String)
   conditionId!: string;
-
-  @Field(() => String)
-  resolver!: string;
 
   @Field(() => Boolean)
   outcomeYes!: boolean;
@@ -142,6 +142,7 @@ export class PositionResolver {
               question: true,
               shortName: true,
               endTime: true,
+              resolver: true,
               settled: true,
               resolvedToYes: true,
             },
@@ -157,12 +158,12 @@ export class PositionResolver {
           question: p.condition.question ?? null,
           shortName: p.condition.shortName ?? null,
           endTime: p.condition.endTime ?? null,
+          resolver: p.condition.resolver ?? null,
           settled: p.condition.settled,
           resolvedToYes: p.condition.resolvedToYes,
         };
         const entry: PredictionType = {
           conditionId: p.conditionId,
-          resolver: p.resolver,
           outcomeYes: p.outcomeYes,
           chainId: p.chainId ?? null,
           condition: condition ?? null,
@@ -434,6 +435,7 @@ export class PositionResolver {
             question: true,
             shortName: true,
             endTime: true,
+            resolver: true,
             settled: true,
             resolvedToYes: true,
           },
@@ -449,12 +451,12 @@ export class PositionResolver {
         question: p.condition.question ?? null,
         shortName: p.condition.shortName ?? null,
         endTime: p.condition.endTime ?? null,
+        resolver: p.condition.resolver ?? null,
         settled: p.condition.settled,
         resolvedToYes: p.condition.resolvedToYes,
       };
       const entry: PredictionType = {
         conditionId: p.conditionId,
-        resolver: p.resolver,
         outcomeYes: p.outcomeYes,
         chainId: p.chainId ?? null,
         condition: condition ?? null,

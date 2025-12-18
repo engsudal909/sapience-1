@@ -555,67 +555,18 @@ class PredictionMarketIndexer implements IIndexer {
         timestamp: Number(block.timestamp),
       };
 
-      // Skip if this event already exists (avoid double-writing event and transaction)
-      const uniqueEventKey = {
-        transactionHash: log.transactionHash || '',
-        blockNumber: Number(log.blockNumber || 0),
-        logIndex: log.logIndex || 0,
-      } as const;
-
-      const existingEvent = await prisma.event.findFirst({
-        where: {
-          transactionHash: uniqueEventKey.transactionHash,
-          blockNumber: uniqueEventKey.blockNumber,
-          logIndex: uniqueEventKey.logIndex,
-        },
-      });
-
-      if (existingEvent) {
-        console.log(
-          `[PredictionMarketIndexer] Event already exists tx=${uniqueEventKey.transactionHash} block=${uniqueEventKey.blockNumber} logIndex=${uniqueEventKey.logIndex}`
-        );
-
-        // For reindexing: still check if position needs to be created (might be missing due to old bug)
-        const existingPosition = await prisma.position.findFirst({
-          where: {
-            chainId: this.chainId,
-            marketAddress: log.address.toLowerCase(),
-            predictorNftTokenId: eventData.makerNftTokenId,
-            counterpartyNftTokenId: eventData.takerNftTokenId,
-          },
-        });
-
-        if (existingPosition) {
-          console.log(
-            `[PredictionMarketIndexer] Position already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
-          );
-          return;
-        } else {
-          console.log(
-            `[PredictionMarketIndexer] Event exists but position missing - creating position for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
-          );
-          // Continue to position creation logic below
-        }
-      } else {
-        // Store new event in database
-        await prisma.event.create({
-          data: {
-            blockNumber: Number(log.blockNumber || 0),
-            transactionHash: log.transactionHash || '',
-            timestamp: BigInt(block.timestamp),
-            logIndex: log.logIndex || 0,
-            logData: eventData,
-          },
-        });
-      }
-
       const encodedPredictedOutcomes = decodedAny.args
         .encodedPredictedOutcomes as `0x${string}`;
 
+      const predictionResolver =
+        this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
+
       let predictedOutcomes: Array<{
-        conditionId: `0x${string}`;
+        conditionId: string;
         prediction: boolean;
       }> = [];
+
+      // Compute endsAt from decoded leg(s)
       let endsAt: number | null = null;
 
       // Decode outcomes.
@@ -633,7 +584,7 @@ class PredictionMarketIndexer implements IIndexer {
         ) as unknown as [[`0x${string}`, boolean][]];
 
         predictedOutcomes = outcomes.map(([marketId, prediction]) => ({
-          conditionId: marketId,
+          conditionId: String(marketId).toLowerCase(),
           prediction,
         }));
 
@@ -710,7 +661,7 @@ class PredictionMarketIndexer implements IIndexer {
         );
 
         predictedOutcomes = legs.map((l) => ({
-          conditionId: l.marketId,
+          conditionId: String(l.marketId).toLowerCase(),
           prediction: l.prediction,
         }));
 
@@ -757,11 +708,79 @@ class PredictionMarketIndexer implements IIndexer {
         }
       }
 
-      const predictionResolver =
-        this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+
+      // Always update the canonical Condition resolver (latest observed wins),
+      // even if we end up skipping writes due to existing events.
+      try {
+        if (conditionIds.length > 0) {
+          await prisma.condition.updateMany({
+            where: { id: { in: conditionIds } },
+            data: { resolver: predictionResolver },
+          });
+        }
+      } catch (e) {
+        console.warn(
+          '[PredictionMarketIndexer] Failed updating Condition.resolver:',
+          e
+        );
+      }
+
+      // Skip if this event already exists (avoid double-writing event and transaction)
+      const uniqueEventKey = {
+        transactionHash: log.transactionHash || '',
+        blockNumber: Number(log.blockNumber || 0),
+        logIndex: log.logIndex || 0,
+      } as const;
+
+      const existingEvent = await prisma.event.findFirst({
+        where: {
+          transactionHash: uniqueEventKey.transactionHash,
+          blockNumber: uniqueEventKey.blockNumber,
+          logIndex: uniqueEventKey.logIndex,
+        },
+      });
+
+      if (existingEvent) {
+        console.log(
+          `[PredictionMarketIndexer] Event already exists tx=${uniqueEventKey.transactionHash} block=${uniqueEventKey.blockNumber} logIndex=${uniqueEventKey.logIndex}`
+        );
+
+        // For reindexing: still check if position needs to be created (might be missing due to old bug)
+        const existingPosition = await prisma.position.findFirst({
+          where: {
+            chainId: this.chainId,
+            marketAddress: log.address.toLowerCase(),
+            predictorNftTokenId: eventData.makerNftTokenId,
+            counterpartyNftTokenId: eventData.takerNftTokenId,
+          },
+        });
+
+        if (existingPosition) {
+          console.log(
+            `[PredictionMarketIndexer] Position already exists for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+          );
+          return;
+        } else {
+          console.log(
+            `[PredictionMarketIndexer] Event exists but position missing - creating position for NFTs ${eventData.makerNftTokenId}/${eventData.takerNftTokenId}`
+          );
+          // Continue to position creation logic below
+        }
+      } else {
+        // Store new event in database
+        await prisma.event.create({
+          data: {
+            blockNumber: Number(log.blockNumber || 0),
+            transactionHash: log.transactionHash || '',
+            timestamp: BigInt(block.timestamp),
+            logIndex: log.logIndex || 0,
+            logData: eventData,
+          },
+        });
+      }
       const predictionLegsData = predictedOutcomes.map((outcome) => ({
-        conditionId: String(outcome.conditionId).toLowerCase(),
-        resolver: predictionResolver,
+        conditionId: outcome.conditionId,
         outcomeYes: outcome.prediction,
         chainId: this.chainId,
       }));
@@ -791,9 +810,6 @@ class PredictionMarketIndexer implements IIndexer {
       });
 
       // Update open interest for all conditions in this position
-      const conditionIds = predictedOutcomes.map((o) =>
-        String(o.conditionId).toLowerCase()
-      );
       const collateralStr = eventData.totalCollateral;
       for (const conditionId of conditionIds) {
         await prisma.$executeRaw`
@@ -1079,7 +1095,7 @@ class PredictionMarketIndexer implements IIndexer {
           encodedPredictedOutcomes
         ) as unknown as [[`0x${string}`, boolean][]];
         predictedOutcomes = outcomes.map(([marketId, prediction]) => ({
-          conditionId: marketId,
+          conditionId: String(marketId).toLowerCase() as `0x${string}`,
           prediction,
         }));
       } catch {
@@ -1134,7 +1150,7 @@ class PredictionMarketIndexer implements IIndexer {
         );
 
         predictedOutcomes = legs.map((l) => ({
-          conditionId: l.marketId,
+          conditionId: String(l.marketId).toLowerCase() as `0x${string}`,
           prediction: l.prediction,
         }));
 
@@ -1171,9 +1187,25 @@ class PredictionMarketIndexer implements IIndexer {
       }
 
       const predictionResolver = eventData.resolver.toLowerCase();
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+
+      // Keep canonical Condition resolver up to date (latest event wins)
+      try {
+        if (conditionIds.length > 0) {
+          await prisma.condition.updateMany({
+            where: { id: { in: conditionIds } },
+            data: { resolver: predictionResolver },
+          });
+        }
+      } catch (e) {
+        console.warn(
+          '[PredictionMarketIndexer] Failed updating Condition.resolver (OrderPlaced):',
+          e
+        );
+      }
+
       const predictionLegsData = predictedOutcomes.map((outcome) => ({
-        conditionId: String(outcome.conditionId).toLowerCase(),
-        resolver: predictionResolver,
+        conditionId: outcome.conditionId,
         outcomeYes: outcome.prediction,
         chainId: this.chainId,
       }));
