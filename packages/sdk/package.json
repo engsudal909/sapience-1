@@ -13,56 +13,61 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./auction/signing": {
+      "types": "./dist/auction/signing.d.ts",
       "import": "./dist/auction/signing.mjs",
-      "require": "./dist/auction/signing.js",
-      "types": "./dist/auction/signing.d.ts"
+      "require": "./dist/auction/signing.js"
+    },
+    "./auction/encoding": {
+      "types": "./dist/auction/encoding.d.ts",
+      "import": "./dist/auction/encoding.mjs",
+      "require": "./dist/auction/encoding.js"
     },
     "./relayer/auctionWs": {
+      "types": "./dist/relayer/auctionWs.d.ts",
       "import": "./dist/relayer/auctionWs.mjs",
-      "require": "./dist/relayer/auctionWs.js",
-      "types": "./dist/relayer/auctionWs.d.ts"
+      "require": "./dist/relayer/auctionWs.js"
     },
     "./mcp/client": {
+      "types": "./dist/mcp/client.d.ts",
       "import": "./dist/mcp/client.mjs",
-      "require": "./dist/mcp/client.js",
-      "types": "./dist/mcp/client.d.ts"
+      "require": "./dist/mcp/client.js"
     },
     "./abis": {
+      "types": "./dist/abis/index.d.ts",
       "import": "./dist/abis/index.mjs",
-      "require": "./dist/abis/index.js",
-      "types": "./dist/abis/index.d.ts"
+      "require": "./dist/abis/index.js"
     },
     "./constants": {
+      "types": "./dist/constants/index.d.ts",
       "import": "./dist/constants/index.mjs",
-      "require": "./dist/constants/index.js",
-      "types": "./dist/constants/index.d.ts"
+      "require": "./dist/constants/index.js"
     },
     "./queries": {
+      "types": "./dist/queries/index.d.ts",
       "import": "./dist/queries/index.mjs",
-      "require": "./dist/queries/index.js",
-      "types": "./dist/queries/index.d.ts"
+      "require": "./dist/queries/index.js"
     },
     "./types": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/types/index.mjs",
-      "require": "./dist/types/index.js",
-      "types": "./dist/types/index.d.ts"
+      "require": "./dist/types/index.js"
     },
     "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
       "import": "./dist/contracts/index.mjs",
-      "require": "./dist/contracts/index.js",
-      "types": "./dist/contracts/index.d.ts"
+      "require": "./dist/contracts/index.js"
     },
     "./boilerplates": "./boilerplates/README.md"
   },
   "scripts": {
     "prepare": "pnpm run build:lib",
-    "dev": "tsup index.ts auction/signing.ts relayer/auctionWs.ts mcp/client.ts abis/index.ts constants/index.ts contracts/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --watch",
-    "build:lib": "tsup index.ts auction/signing.ts relayer/auctionWs.ts mcp/client.ts abis/index.ts constants/index.ts contracts/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
+    "dev": "tsup index.ts auction/signing.ts auction/encoding.ts relayer/auctionWs.ts mcp/client.ts abis/index.ts constants/index.ts contracts/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --watch",
+    "build:lib": "tsup index.ts auction/signing.ts auction/encoding.ts relayer/auctionWs.ts mcp/client.ts abis/index.ts constants/index.ts contracts/index.ts queries/index.ts types/index.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
     "build": "pnpm run build:lib",
     "lint": "eslint . --quiet",
     "type-check": "tsc --noEmit"

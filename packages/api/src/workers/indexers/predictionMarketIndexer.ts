@@ -4,6 +4,7 @@ import {
   type PublicClient,
   decodeEventLog,
   decodeAbiParameters,
+  encodeAbiParameters,
   type Log,
   type Block,
   keccak256,
@@ -554,26 +555,162 @@ class PredictionMarketIndexer implements IIndexer {
         timestamp: Number(block.timestamp),
       };
 
-      const [outcomes] = decodeAbiParameters(
-        [
-          {
-            type: 'tuple[]',
-            components: [{ type: 'bytes32' }, { type: 'bool' }],
-          },
-        ],
-        decodedAny.args.encodedPredictedOutcomes
-      ) as unknown as [[`0x${string}`, boolean][]];
-      const predictedOutcomes = outcomes.map(([marketId, prediction]) => ({
-        conditionId: marketId,
-        prediction,
-      }));
-
-      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+      const encodedPredictedOutcomes = decodedAny.args
+        .encodedPredictedOutcomes as `0x${string}`;
 
       const predictionResolver =
         this.resolverAddress?.toLowerCase() ?? log.address.toLowerCase();
 
-      // Always update the canonical Condition resolver (latest event wins),
+      let predictedOutcomes: Array<{
+        conditionId: string;
+        prediction: boolean;
+      }> = [];
+
+      // Compute endsAt from decoded leg(s)
+      let endsAt: number | null = null;
+
+      // Decode outcomes.
+      // - UMA resolver uses: tuple[](bytes32 marketId, bool prediction)
+      // - Pyth resolver uses: tuple[](bytes32 priceId, uint64 endTime, int64 strikePrice, int32 strikeExpo, bool overWinsOnTie, bool prediction)
+      try {
+        const [outcomes] = decodeAbiParameters(
+          [
+            {
+              type: 'tuple[]',
+              components: [{ type: 'bytes32' }, { type: 'bool' }],
+            },
+          ],
+          encodedPredictedOutcomes
+        ) as unknown as [[`0x${string}`, boolean][]];
+
+        predictedOutcomes = outcomes.map(([marketId, prediction]) => ({
+          conditionId: String(marketId).toLowerCase(),
+          prediction,
+        }));
+
+        // UMA-style endsAt: compute from existing Condition.endTime values
+        try {
+          const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+          const matched = await prisma.condition.findMany({
+            where: { id: { in: conditionIds } },
+            select: { id: true, endTime: true },
+          });
+          if (matched.length > 0) {
+            endsAt = matched.reduce(
+              (max, c) => (c.endTime > max ? c.endTime : max),
+              matched[0].endTime
+            );
+          }
+        } catch (e) {
+          console.warn(
+            '[PredictionMarketIndexer] Failed computing endsAt from conditions:',
+            e
+          );
+        }
+      } catch {
+        // Pyth-style: compute marketId and endsAt directly from tuple contents.
+        const [outcomes] = decodeAbiParameters(
+          [
+            {
+              type: 'tuple[]',
+              components: [
+                { type: 'bytes32' }, // priceId
+                { type: 'uint64' }, // endTime
+                { type: 'int64' }, // strikePrice
+                { type: 'int32' }, // strikeExpo
+                { type: 'bool' }, // overWinsOnTie
+                { type: 'bool' }, // prediction
+              ],
+            },
+          ],
+          encodedPredictedOutcomes
+        ) as unknown as [
+          Array<[`0x${string}`, bigint, bigint, bigint, boolean, boolean]>,
+        ];
+
+        const legs = outcomes.map(
+          ([
+            priceId,
+            endTime,
+            strikePrice,
+            strikeExpo,
+            overWinsOnTie,
+            pred,
+          ]) => {
+            const strikeExpoNum = Number(strikeExpo);
+            const marketId = keccak256(
+              encodeAbiParameters(
+                [
+                  { type: 'bytes32' },
+                  { type: 'uint64' },
+                  { type: 'int64' },
+                  { type: 'int32' },
+                  { type: 'bool' },
+                ],
+                [priceId, endTime, strikePrice, strikeExpoNum, overWinsOnTie]
+              )
+            );
+
+            return {
+              marketId,
+              priceId,
+              endTimeSec: Number(endTime),
+              prediction: !!pred,
+            };
+          }
+        );
+
+        predictedOutcomes = legs.map((l) => ({
+          conditionId: String(l.marketId).toLowerCase(),
+          prediction: l.prediction,
+        }));
+
+        endsAt =
+          legs.length > 0
+            ? legs.reduce(
+                (max, l) => (l.endTimeSec > max ? l.endTimeSec : max),
+                legs[0].endTimeSec
+              )
+            : null;
+
+        // Ensure referenced Conditions exist so Prediction rows can be created (FK constraint).
+        // These are synthetic placeholders for Pyth markets; keep them non-public so they
+        // don't pollute the "Markets" list.
+        for (const l of legs) {
+          const id = String(l.marketId).toLowerCase();
+          const endTimeInt =
+            Number.isFinite(l.endTimeSec) && l.endTimeSec > 0
+              ? Math.floor(l.endTimeSec)
+              : null;
+          if (!endTimeInt) continue;
+
+          await prisma.condition.upsert({
+            where: { id },
+            create: {
+              id,
+              question: `Pyth market ${l.priceId}`,
+              shortName: null,
+              categoryId: null,
+              endTime: endTimeInt,
+              public: false,
+              claimStatement: `PYTH:${String(l.priceId).toLowerCase()}`,
+              description:
+                'Synthetic Pyth market (generated by predictionMarketIndexer)',
+              similarMarkets: [],
+              chainId: this.chainId,
+            },
+            update: {
+              // Keep endTime aligned (should be stable)
+              endTime: endTimeInt,
+              chainId: this.chainId,
+            },
+          });
+        }
+      }
+
+      const conditionIds = predictedOutcomes.map((o) => o.conditionId);
+
+      // Always update the canonical Condition resolver (latest observed wins),
       // even if we end up skipping writes due to existing events.
       try {
         if (conditionIds.length > 0) {
@@ -642,26 +779,6 @@ class PredictionMarketIndexer implements IIndexer {
           },
         });
       }
-      // Compute endsAt from known conditions (optional)
-      let endsAt: number | null = null;
-      try {
-        const matched = await prisma.condition.findMany({
-          where: { id: { in: conditionIds } },
-          select: { id: true, endTime: true },
-        });
-        if (matched.length > 0) {
-          endsAt = matched.reduce(
-            (max, c) => (c.endTime > max ? c.endTime : max),
-            matched[0].endTime
-          );
-        }
-      } catch (e) {
-        console.warn(
-          '[PredictionMarketIndexer] Failed computing endsAt from conditions:',
-          e
-        );
-      }
-
       const predictionLegsData = predictedOutcomes.map((outcome) => ({
         conditionId: outcome.conditionId,
         outcomeYes: outcome.prediction,
@@ -959,19 +1076,115 @@ class PredictionMarketIndexer implements IIndexer {
         },
       });
 
-      const [outcomes] = decodeAbiParameters(
-        [
-          {
-            type: 'tuple[]',
-            components: [{ type: 'bytes32' }, { type: 'bool' }],
-          },
-        ],
-        decoded.args.encodedPredictedOutcomes
-      ) as unknown as [[`0x${string}`, boolean][]];
-      const predictedOutcomes = outcomes.map(([marketId, prediction]) => ({
-        conditionId: marketId,
-        prediction,
-      }));
+      const encodedPredictedOutcomes = decoded.args
+        .encodedPredictedOutcomes as `0x${string}`;
+
+      let predictedOutcomes: Array<{
+        conditionId: `0x${string}`;
+        prediction: boolean;
+      }> = [];
+
+      try {
+        const [outcomes] = decodeAbiParameters(
+          [
+            {
+              type: 'tuple[]',
+              components: [{ type: 'bytes32' }, { type: 'bool' }],
+            },
+          ],
+          encodedPredictedOutcomes
+        ) as unknown as [[`0x${string}`, boolean][]];
+        predictedOutcomes = outcomes.map(([marketId, prediction]) => ({
+          conditionId: String(marketId).toLowerCase() as `0x${string}`,
+          prediction,
+        }));
+      } catch {
+        const [outcomes] = decodeAbiParameters(
+          [
+            {
+              type: 'tuple[]',
+              components: [
+                { type: 'bytes32' }, // priceId
+                { type: 'uint64' }, // endTime
+                { type: 'int64' }, // strikePrice
+                { type: 'int32' }, // strikeExpo
+                { type: 'bool' }, // overWinsOnTie
+                { type: 'bool' }, // prediction
+              ],
+            },
+          ],
+          encodedPredictedOutcomes
+        ) as unknown as [
+          Array<[`0x${string}`, bigint, bigint, bigint, boolean, boolean]>,
+        ];
+
+        const legs = outcomes.map(
+          ([
+            priceId,
+            endTime,
+            strikePrice,
+            strikeExpo,
+            overWinsOnTie,
+            pred,
+          ]) => {
+            const strikeExpoNum = Number(strikeExpo);
+            const marketId = keccak256(
+              encodeAbiParameters(
+                [
+                  { type: 'bytes32' },
+                  { type: 'uint64' },
+                  { type: 'int64' },
+                  { type: 'int32' },
+                  { type: 'bool' },
+                ],
+                [priceId, endTime, strikePrice, strikeExpoNum, overWinsOnTie]
+              )
+            );
+            return {
+              marketId,
+              priceId,
+              endTimeSec: Number(endTime),
+              prediction: !!pred,
+            };
+          }
+        );
+
+        predictedOutcomes = legs.map((l) => ({
+          conditionId: String(l.marketId).toLowerCase() as `0x${string}`,
+          prediction: l.prediction,
+        }));
+
+        // Ensure referenced Conditions exist so Prediction rows can be created (FK constraint).
+        for (const l of legs) {
+          const id = String(l.marketId).toLowerCase();
+          const endTimeInt =
+            Number.isFinite(l.endTimeSec) && l.endTimeSec > 0
+              ? Math.floor(l.endTimeSec)
+              : null;
+          if (!endTimeInt) continue;
+
+          await prisma.condition.upsert({
+            where: { id },
+            create: {
+              id,
+              question: `Pyth market ${l.priceId}`,
+              shortName: null,
+              categoryId: null,
+              endTime: endTimeInt,
+              public: false,
+              claimStatement: `PYTH:${String(l.priceId).toLowerCase()}`,
+              description:
+                'Synthetic Pyth market (generated by predictionMarketIndexer)',
+              similarMarkets: [],
+              chainId: this.chainId,
+            },
+            update: {
+              endTime: endTimeInt,
+              chainId: this.chainId,
+            },
+          });
+        }
+      }
 
       const predictionResolver = eventData.resolver.toLowerCase();
       const conditionIds = predictedOutcomes.map((o) => o.conditionId);

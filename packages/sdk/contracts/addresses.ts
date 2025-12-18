@@ -55,6 +55,28 @@ export const lzUmaResolver: ChainAddressMap = {
 
 } as const;
 
+/**
+ * PythResolver
+ *
+ * NOTE: These are intentionally placeholder addresses so the app can wire the
+ * correct resolver selection + encoding. Update them to the real deployed
+ * resolver addresses for each chain when available.
+ */
+export const pythResolver: ChainAddressMap = {
+  42161: {
+    address: '0x0000000000000000000000000000000000000000',
+    legacy: [] as const,
+  },
+  5064014: {
+    address: '0xD076c9fADC49061920e75b1a3a45642712F90F35',
+    legacy: [] as const,
+  },
+  13374202: {
+    address: '0x0000000000000000000000000000000000000000',
+    legacy: [] as const,
+  },
+} as const;
+
 export const passiveLiquidityVault: ChainAddressMap = {
   42161: {
     address: '0xcc1c64e849395d31d059a4bd19391af64d8855d7',
@@ -105,6 +127,7 @@ export const contracts = {
   umaResolver,
   lzPMResolver,
   lzUmaResolver,
+  pythResolver,
   passiveLiquidityVault,
   collateralToken,
   eas,
