@@ -28,12 +28,15 @@ export type PythPredictionListItemProps = {
   onRemove?: (id: string) => void;
   /** When 'inline', show label + details on a single line (good for wide views like the terminal). */
   layout?: 'stacked' | 'inline';
+  /** When false, hides the Pyth oracle icon (useful when a parent already renders an icon). */
+  showOracleIcon?: boolean;
 };
 
 export function PythPredictionListItem({
   prediction,
   onRemove,
   layout = 'stacked',
+  showOracleIcon = true,
 }: PythPredictionListItemProps) {
   const insightsHref = prediction.priceFeedLabel
     ? `https://insights.pyth.network/price-feeds/${encodeURIComponent(
@@ -155,35 +158,37 @@ export function PythPredictionListItem({
 
   return (
     <div className="flex items-center gap-2">
-      <div
-        className={
-          layout === 'inline'
-            ? 'w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10'
-            : 'w-7 h-7 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10'
-        }
-      >
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center justify-center">
-                <PythOracleMark
-                  className={
-                    layout === 'inline'
-                      ? 'w-3 h-3 text-foreground'
-                      : 'w-4 h-4 text-foreground'
-                  }
-                  src="/pyth-network.svg"
-                  alt="Pyth"
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="text-xs">
-              <span className="text-muted-foreground">Oracle:</span>{'  '}
-              <span className="font-mono">PYTH</span>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      {showOracleIcon ? (
+        <div
+          className={
+            layout === 'inline'
+              ? 'w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10'
+              : 'w-7 h-7 rounded-full shrink-0 flex items-center justify-center bg-brand-white/10'
+          }
+        >
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center">
+                  <PythOracleMark
+                    className={
+                      layout === 'inline'
+                        ? 'w-3 h-3 text-foreground'
+                        : 'w-4 h-4 text-foreground'
+                    }
+                    src="/pyth-network.svg"
+                    alt="Pyth"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">
+                <span className="text-muted-foreground">Oracle:</span>{'  '}
+                <span className="font-mono">PYTH</span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      ) : null}
 
       <div className="flex-1 min-w-0">
         <div

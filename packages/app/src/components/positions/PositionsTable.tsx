@@ -53,7 +53,10 @@ import StackedPredictions, {
   type Pick,
 } from '~/components/shared/StackedPredictions';
 import CounterpartyBadge from '~/components/shared/CounterpartyBadge';
-import { formatPythPriceDecimalFromInt } from '~/lib/auction/decodePredictedOutcomes';
+import {
+  formatPythPriceDecimalFromInt,
+  formatUnixSecondsToLocalInput,
+} from '~/lib/auction/decodePredictedOutcomes';
 import { usePredictionMarketWriteContract } from '~/hooks/blockchain/usePredictionMarketWriteContract';
 import {
   useUserParlays,
@@ -67,6 +70,7 @@ import AwaitingSettlementBadge from '~/components/shared/AwaitingSettlementBadge
 import EnsAvatar from '~/components/shared/EnsAvatar';
 import Loader from '~/components/shared/Loader';
 import { COLLATERAL_SYMBOLS } from '@sapience/sdk/constants';
+import type { PythPrediction } from '@sapience/ui';
 
 function EndsInButton({ endsAtMs }: { endsAtMs: number }) {
   const [nowMs, setNowMs] = React.useState(() => Date.now());
@@ -151,6 +155,7 @@ export default function PositionsTable({
     endTime?: number | null;
     description?: string | null;
     source?: 'uma' | 'pyth';
+    pythPrediction?: PythPrediction;
   };
   type UIPosition = {
     uniqueRowKey: string;
@@ -250,7 +255,11 @@ export default function PositionsTable({
     const positionRows = (data || []).map((p: any) => {
       const parsePythDescriptor = (
         desc: string | null | undefined
-      ): { strikePrice: bigint; strikeExpo: number } | null => {
+      ): {
+        strikePrice: bigint;
+        strikeExpo: number;
+        priceId?: string;
+      } | null => {
         const s = (desc ?? '').trim();
         if (!s.startsWith('PYTH_LAZER|')) return null;
         const firstLine = s.split('\n')[0] ?? s;
@@ -261,6 +270,7 @@ export default function PositionsTable({
           if (i <= 0) continue;
           kv.set(part.slice(0, i), part.slice(i + 1));
         }
+        const priceId = kv.get('priceId') || undefined;
         const strikePriceStr = kv.get('strikePrice');
         const strikeExpoStr = kv.get('strikeExpo');
         if (!strikePriceStr || !strikeExpoStr) return null;
@@ -268,7 +278,7 @@ export default function PositionsTable({
           const strikePrice = BigInt(strikePriceStr);
           const strikeExpo = Number(strikeExpoStr);
           if (!Number.isFinite(strikeExpo)) return null;
-          return { strikePrice, strikeExpo };
+          return { strikePrice, strikeExpo, priceId };
         } catch {
           return null;
         }
@@ -285,14 +295,44 @@ export default function PositionsTable({
             pythMeta.strikeExpo
           );
           const dir = o.outcomeYes ? 'OVER' : 'UNDER';
+          const direction = o.outcomeYes
+            ? ('over' as const)
+            : ('under' as const);
+          const priceNum = Number(strikeStr);
+          const endTimeSec: number | null =
+            typeof o?.condition?.endTime === 'number'
+              ? o.condition.endTime
+              : null;
+          const dateTimeLocal =
+            endTimeSec !== null
+              ? formatUnixSecondsToLocalInput(BigInt(endTimeSec))
+              : '';
+          const feedLabel = String(
+            o?.condition?.shortName || o?.condition?.question || question || ''
+          );
+
+          const pythPrediction: PythPrediction = {
+            id: `${o?.conditionId ?? 'pyth'}:${strikeStr}:${pythMeta.strikeExpo}:${endTimeSec ?? 'no-end'}`,
+            priceId: pythMeta.priceId || o?.conditionId || feedLabel || 'pyth',
+            priceFeedLabel: feedLabel || undefined,
+            direction,
+            targetPrice: Number.isFinite(priceNum) ? priceNum : 0,
+            targetPriceRaw: strikeStr,
+            targetPriceFullPrecision: strikeStr,
+            priceExpo: pythMeta.strikeExpo,
+            dateTimeLocal: dateTimeLocal || '—',
+          };
           return {
             question,
-            choice: `${dir} $${strikeStr}`,
+            // For display we render structured Pyth legs (not a choice badge).
+            // Keep a simple string for any fallback renderers.
+            choice: dir,
             conditionId: o?.conditionId,
             categorySlug: null,
             endTime: o?.condition?.endTime ?? null,
             description: desc,
             source: 'pyth' as const,
+            pythPrediction,
           };
         }
 
@@ -775,6 +815,7 @@ export default function PositionsTable({
                       endTime: leg.endTime ?? null,
                       description: leg.description ?? null,
                       source: leg.source,
+                      pythPrediction: leg.pythPrediction,
                     })
                   ) ?? []
                 }
