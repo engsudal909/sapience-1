@@ -14,10 +14,10 @@ import { Copy, Share2, Check } from 'lucide-react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import { useToast } from '@sapience/ui/hooks/use-toast';
+import * as viemChains from 'viem/chains';
 import Loader from '~/components/shared/Loader';
 import { useUserParlays, type Parlay } from '~/hooks/graphql/useUserParlays';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
-import PacmanEatingDots from '~/components/shared/PacmanEatingDots';
 
 interface OgShareDialogBaseProps {
   imageSrc: string; // Relative path with query, e.g. "/og/trade?..."
@@ -31,6 +31,7 @@ interface OgShareDialogBaseProps {
   copyButtonText?: string; // defaults to "Copy Image"
   shareButtonText?: string; // defaults to "Share"
   trackPosition?: boolean; // Enable position tracking
+  txHash?: string; // Optional tx hash for explorer link while pending
   positionTimestamp?: number; // Timestamp when position was placed (ms)
   expectedLegs?: Array<{ question: string; choice: 'Yes' | 'No' }>; // Expected conditions from betslip for validation
   lastNftId?: string; // Last NFT ID before this parlay was submitted (for validation)
@@ -49,6 +50,7 @@ export default function OgShareDialogBase(props: OgShareDialogBaseProps) {
     copyButtonText = 'Copy Image',
     shareButtonText = 'Share',
     trackPosition = false,
+    txHash,
     positionTimestamp,
     expectedLegs,
     lastNftId,
@@ -289,6 +291,21 @@ export default function OgShareDialogBase(props: OgShareDialogBaseProps) {
   // Canonical share page base; encoded short path becomes /s/<token>
   const shareHref = useMemo(() => `/share`, []);
 
+  const explorerTxUrl = useMemo(() => {
+    if (!txHash || !chainId) return null;
+    const ETHEREAL_CHAIN_ID = 5064014;
+    const etherealExplorer = 'https://explorer.ethereal.trade';
+
+    const baseUrl =
+      chainId === ETHEREAL_CHAIN_ID
+        ? etherealExplorer
+        : (Object.values(viemChains).find((c: any) => c?.id === chainId) as any)
+            ?.blockExplorers?.default?.url;
+
+    if (!baseUrl) return null;
+    return `${String(baseUrl).replace(/\/$/, '')}/tx/${txHash}`;
+  }, [txHash, chainId]);
+
   useEffect(() => {
     if (open) setCacheBust(String(Date.now()));
   }, [open]);
@@ -310,7 +327,22 @@ export default function OgShareDialogBase(props: OgShareDialogBaseProps) {
           {/* Position tracking section */}
           {trackPosition && open && userAddress && !positionResolved && (
             <div className="w-full p-4 bg-muted/50 rounded-lg border border-border">
-              <PacmanEatingDots />
+              <div className="flex flex-col items-center justify-center gap-2 py-2">
+                <Loader size={24} />
+                <p className="text-sm text-muted-foreground text-center">
+                  Waiting for position to be indexed...
+                </p>
+                {explorerTxUrl && (
+                  <Link
+                    href={explorerTxUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    View on explorer
+                  </Link>
+                )}
+              </div>
             </div>
           )}
           {trackPosition && positionResolved && (

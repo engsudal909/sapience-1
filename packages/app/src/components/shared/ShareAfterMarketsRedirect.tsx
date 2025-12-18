@@ -34,6 +34,9 @@ export default function ShareAfterMarketsRedirect() {
   const [storedLastNftId, setStoredLastNftId] = useState<string | undefined>(
     undefined
   );
+  const [storedTxHash, setStoredTxHash] = useState<string | undefined>(
+    undefined
+  );
   const [storedExpectedLegs, setStoredExpectedLegs] = useState<
     Array<{ question: string; choice: 'Yes' | 'No' }> | undefined
   >(undefined);
@@ -279,6 +282,9 @@ export default function ShareAfterMarketsRedirect() {
         if (intent.betslip?.legs) {
           setStoredExpectedLegs(intent.betslip.legs);
         }
+        if (intent.txHash) {
+          setStoredTxHash(intent.txHash);
+        }
         try {
           const params = new URLSearchParams(
             Object.fromEntries(
@@ -306,6 +312,9 @@ export default function ShareAfterMarketsRedirect() {
         if (intent.betslip.legs) {
           setStoredExpectedLegs(intent.betslip.legs);
         }
+        if (intent.txHash) {
+          setStoredTxHash(intent.txHash);
+        }
         const src = buildOgUrlFromBetslip(intent.betslip);
         if (src) {
           setImageSrc(src);
@@ -316,6 +325,9 @@ export default function ShareAfterMarketsRedirect() {
       }
 
       // Path 3: fallback to position resolution (if betslip data not available)
+      if (intent.txHash) {
+        setStoredTxHash(intent.txHash);
+      }
       refetchPositionsWrapper();
 
       const list: Parlay[] = positions || [];
@@ -387,6 +399,17 @@ export default function ShareAfterMarketsRedirect() {
     return intent?.clientTimestamp ? intent.clientTimestamp : undefined;
   }, [imageSrc, readIntent]);
 
+  const txHash = useMemo(() => {
+    if (!imageSrc) return undefined;
+    const intent = readIntent();
+    const intentTx = intent?.txHash;
+    if (intentTx) {
+      if (intentTx !== storedTxHash) setStoredTxHash(intentTx);
+      return intentTx;
+    }
+    return storedTxHash;
+  }, [imageSrc, readIntent, storedTxHash]);
+
   const expectedLegs = useMemo(() => {
     if (!imageSrc) return undefined;
     // First try to read from intent, then fall back to stored state
@@ -433,6 +456,7 @@ export default function ShareAfterMarketsRedirect() {
       title="Share"
       shareTitle="Share"
       trackPosition={true}
+      txHash={txHash}
       positionTimestamp={positionTimestamp}
       expectedLegs={expectedLegs}
       lastNftId={lastNftId}
