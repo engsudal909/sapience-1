@@ -4,7 +4,7 @@ import { useIsBelow } from '@sapience/ui/hooks/use-mobile';
 import { useIsMobile } from '@sapience/ui/hooks/use-mobile';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useCategories } from '~/hooks/graphql/useCategories';
 import {
   useConditions,
@@ -34,12 +34,69 @@ const Loader = dynamic(() => import('~/components/shared/Loader'), {
   loading: () => <div className="w-8 h-8" />,
 });
 
+const PREDICT_PRICES_FLAG_KEY = 'sapience.flags.markets.predictPrices';
+
+function isEnabledFlagValue(raw: string | null): boolean {
+  if (!raw) return false;
+  const v = raw.toLowerCase().trim();
+  return v === '1' || v === 'true';
+}
+
 const MarketsPage = () => {
   const { data: allCategories = [], isLoading: isLoadingCategories } =
     useCategories();
 
   // Read chainId from localStorage with event monitoring
   const chainId = useChainIdFromLocalStorage();
+
+  const [showPredictPrices, setShowPredictPrices] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const computeFromStorage = () => {
+      try {
+        return isEnabledFlagValue(
+          window.localStorage.getItem(PREDICT_PRICES_FLAG_KEY)
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    try {
+      const url = new URL(window.location.href);
+      const param = url.searchParams.get('predictPrices');
+
+      if (param === '1' || param?.toLowerCase() === 'true') {
+        try {
+          window.localStorage.setItem(PREDICT_PRICES_FLAG_KEY, '1');
+        } catch {
+          /* noop */
+        }
+        url.searchParams.delete('predictPrices');
+        window.history.replaceState({}, '', url.toString());
+        setShowPredictPrices(true);
+        return;
+      }
+
+      if (param === '0' || param?.toLowerCase() === 'false') {
+        try {
+          window.localStorage.removeItem(PREDICT_PRICES_FLAG_KEY);
+        } catch {
+          /* noop */
+        }
+        url.searchParams.delete('predictPrices');
+        window.history.replaceState({}, '', url.toString());
+        setShowPredictPrices(false);
+        return;
+      }
+
+      setShowPredictPrices(computeFromStorage());
+    } catch {
+      setShowPredictPrices(computeFromStorage());
+    }
+  }, []);
 
   // Filter state managed here, passed down to MarketsDataTable
   const [searchTerm, setSearchTerm] = useState('');
@@ -206,13 +263,15 @@ const MarketsPage = () => {
           {/* Featured Parlays section */}
           <ExampleCombos className="mt-4 md:mt-0" />
 
-          <div className="w-full mt-2">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <h2 className="sc-heading text-foreground">Predict Prices</h2>
+          {showPredictPrices ? (
+            <div className="w-full mt-2">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h2 className="sc-heading text-foreground">Predict Prices</h2>
+              </div>
+              <CreatePythPredictionForm onPick={handlePythPick} />
+              <hr className="gold-hr mt-6 -mb-2" />
             </div>
-            <CreatePythPredictionForm onPick={handlePythPick} />
-            <hr className="gold-hr mt-6 -mb-2" />
-          </div>
+          ) : null}
 
           {/* Results area - always table view */}
           <div className="relative w-full max-w-full overflow-x-hidden min-h-[300px]">
