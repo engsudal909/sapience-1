@@ -16,12 +16,14 @@ contract SimpleOAppBase is OApp {
 
     address public immutable factory;
 
-    // Base LayerZero endpoint
+    // Base LayerZero endpoint (same for mainnet and testnet)
     address private constant BASE_ENDPOINT = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
 
     // LayerZero EIDs
-    uint32 private constant ARBITRUM_EID = 30110;
-    uint32 private constant BASE_EID = 30140;
+    // Mainnet: Arbitrum = 30110, Base = 30140
+    // Testnet: Arbitrum Sepolia = 40231, Base Sepolia = 40245
+    uint32 private immutable ARBITRUM_EID;
+    uint32 private immutable BASE_EID;
 
     // Setup flag
     bool private _setupComplete;
@@ -48,9 +50,23 @@ contract SimpleOAppBase is OApp {
      * @notice Constructor that accepts factory address
      * @param _factory The address of the factory that deploys this contract
      * @dev Internally calls OApp constructor with Base endpoint and factory as owner
+     *      Automatically detects if running on testnet or mainnet based on chain ID
      */
     constructor(address _factory) Ownable(_factory) OApp(BASE_ENDPOINT, _factory) {
         factory = _factory;
+        
+        // Detect network: Base Sepolia = 84532, Base = 8453
+        uint256 chainId = block.chainid;
+        if (chainId == 84532) {
+            // Base Sepolia testnet
+            ARBITRUM_EID = 40231;
+            BASE_EID = 40245;
+        } else {
+            // Base mainnet (or other networks)
+            ARBITRUM_EID = 30110;
+            BASE_EID = 30140;
+        }
+        
         // The constructors are called with:
         // - Ownable: _factory (the factory that deploys this contract, becomes the owner)
         // - OApp: BASE_ENDPOINT and _factory (delegate)

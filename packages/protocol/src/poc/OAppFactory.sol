@@ -83,11 +83,17 @@ contract OAppFactory is Ownable {
 
     // Chain IDs
     uint256 private constant CHAIN_ID_ARBITRUM = 42161;
+    uint256 private constant CHAIN_ID_ARBITRUM_SEPOLIA = 421614;
     uint256 private constant CHAIN_ID_BASE = 8453;
+    uint256 private constant CHAIN_ID_BASE_SEPOLIA = 84532;
 
-    // LayerZero EIDs
-    uint32 private constant ARBITRUM_EID = 30110;
-    uint32 private constant BASE_EID = 30140;
+    // LayerZero EIDs - Mainnet
+    uint32 private constant ARBITRUM_EID_MAINNET = 30110;
+    uint32 private constant BASE_EID_MAINNET = 30140;
+    
+    // LayerZero EIDs - Testnet
+    uint32 private constant ARBITRUM_EID_TESTNET = 40231;
+    uint32 private constant BASE_EID_TESTNET = 40245;
 
     // Config type constants
     uint32 private constant EXECUTOR_CONFIG_TYPE = 1;
@@ -189,13 +195,46 @@ contract OAppFactory is Ownable {
      */
     function _getNetworkType() internal view returns (NetworkType) {
         uint256 chainId = block.chainid;
-        if (chainId == CHAIN_ID_ARBITRUM) {
+        if (chainId == CHAIN_ID_ARBITRUM || chainId == CHAIN_ID_ARBITRUM_SEPOLIA) {
             return NetworkType.ARBITRUM;
-        } else if (chainId == CHAIN_ID_BASE) {
+        } else if (chainId == CHAIN_ID_BASE || chainId == CHAIN_ID_BASE_SEPOLIA) {
             return NetworkType.BASE;
         } else {
             revert UnsupportedChainId(chainId);
         }
+    }
+    
+    /**
+     * @notice Check if current network is a testnet
+     * @return True if running on testnet
+     */
+    function isTestnet() external view returns (bool) {
+        uint256 chainId = block.chainid;
+        return chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
+    }
+    
+    /**
+     * @notice Get the LayerZero EID for Arbitrum (mainnet or testnet)
+     * @return The EID for Arbitrum network
+     */
+    function getArbitrumEid() external view returns (uint32) {
+        uint256 chainId = block.chainid;
+        if (chainId == CHAIN_ID_ARBITRUM_SEPOLIA) {
+            return ARBITRUM_EID_TESTNET;
+        }
+        return ARBITRUM_EID_MAINNET;
+    }
+    
+    /**
+     * @notice Get the LayerZero EID for Base (mainnet or testnet)
+     * @return The EID for Base network
+     */
+    function getBaseEid() external view returns (uint32) {
+        uint256 chainId = block.chainid;
+        if (chainId == CHAIN_ID_BASE_SEPOLIA) {
+            return BASE_EID_TESTNET;
+        }
+        return BASE_EID_MAINNET;
     }
 
     /**
@@ -382,8 +421,19 @@ contract OAppFactory is Ownable {
             ? 0x6EDCE65403992e310A62460808c4b910D972f10f
             : 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
         
-        uint32 remoteEid = networkType == NetworkType.ARBITRUM ? BASE_EID : ARBITRUM_EID;
-        uint32 localEid = networkType == NetworkType.ARBITRUM ? ARBITRUM_EID : BASE_EID;
+        // Determine EIDs based on current network (testnet or mainnet)
+        uint256 chainId = block.chainid;
+        bool isTestnetNetwork = chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
+        
+        uint32 remoteEid;
+        uint32 localEid;
+        if (networkType == NetworkType.ARBITRUM) {
+            remoteEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+            localEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+        } else {
+            remoteEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+            localEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+        }
 
         ILayerZeroEndpointV2 endpointContract = ILayerZeroEndpointV2(endpoint);
         endpointContract.setSendLibrary(oapp, remoteEid, config.sendLib);
@@ -392,11 +442,14 @@ contract OAppFactory is Ownable {
         address[] memory requiredDVNs = new address[](1);
         requiredDVNs[0] = config.requiredDVN;
 
-        SetConfigParam[] memory params = new SetConfigParam[](2);
-        params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(ExecutorConfig(config.maxMessageSize, config.executor)));
-        params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(UlnConfig(
+        ExecutorConfig memory executorConfig = ExecutorConfig(config.maxMessageSize, config.executor);
+        UlnConfig memory ulnConfig = UlnConfig(
             config.confirmations, 1, type(uint8).max, 0, requiredDVNs, new address[](0)
-        )));
+        );
+
+        SetConfigParam[] memory params = new SetConfigParam[](2);
+        params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(executorConfig));
+        params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(ulnConfig));
 
         endpointContract.setConfig(oapp, config.sendLib, params);
 

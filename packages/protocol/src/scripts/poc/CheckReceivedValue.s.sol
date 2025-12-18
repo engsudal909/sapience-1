@@ -8,101 +8,76 @@ import {SimpleOAppBase} from "../../poc/SimpleOAppBase.sol";
 
 /**
  * @title CheckReceivedValue
- * @notice Script to check if a value was received from the other network
- * @dev This is a view-only script that doesn't require broadcasting.
- * Run this on the destination network to verify cross-chain message delivery.
+ * @notice Script to check the value received from the other network
+ * @dev Use this script to verify cross-chain message delivery
  */
 contract CheckReceivedValue is Script {
-    // Salt for the test pair (must match the salt used when creating the pair)
-    bytes32 private constant TEST_SALT = keccak256("TEST_POC_PAIR_v1");
+    // Factory address (same on both networks)
+    address private constant FACTORY_ADDRESS = 0x4aB1dECB7D8Dd00091e2A6285E99F319aABD5c5E;
+    
+    // Test salt (must match the one used to create the pair)
+    bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external view {
-        // Load configuration from environment
-        address factoryAddress = vm.envAddress("FACTORY_ADDRESS");
-        
         uint256 chainId = block.chainid;
-        bool isArbitrum = chainId == 42161;
-        bool isBase = chainId == 8453;
         
-        require(isArbitrum || isBase, "This script only works on Arbitrum or Base");
-
-        console.log("=== Check Received Value ===");
-        console.log("Chain ID:", chainId);
-        console.log("Network:", isArbitrum ? "Arbitrum" : "Base");
-        console.log("Factory address:", factoryAddress);
-        console.log("");
-
-        OAppFactory factory = OAppFactory(factoryAddress);
+        // Get pair address from factory
+        OAppFactory factory = OAppFactory(FACTORY_ADDRESS);
+        address pairAddress = factory.getPairAddress(TEST_SALT);
         
-        // Check if pair exists
-        if (!factory.isPairDeployed(TEST_SALT)) {
-            console.log("ERROR: Pair not deployed");
-            console.log("Run TestOAppFactory first to create the pair");
-            return;
-        }
-        
-        address pairAddress = factory.deployedPairs(TEST_SALT);
+        console.log("========================================");
+        console.log("Check Received Value");
+        console.log("========================================");
         console.log("Pair address:", pairAddress);
+        console.log("Chain ID:", chainId);
+        console.log("Network:", _getNetworkName(chainId));
         console.log("");
-
-        // Get pair contract
-        if (isArbitrum) {
+        
+        if (chainId == 421614) {
+            // Arbitrum Sepolia
             SimpleOAppArbitrum pair = SimpleOAppArbitrum(payable(pairAddress));
             
-            console.log("Pair Status:");
-            console.log("  - Setup complete:", pair.isSetupComplete());
-            console.log("  - Factory:", pair.factory());
-            console.log("  - Owner:", pair.owner());
+            console.log("LayerZero setup complete:", pair.isSetupComplete());
+            console.log("Received value from Base Sepolia:", pair.getValue());
             console.log("");
             
-            if (pair.isSetupComplete()) {
-                uint256 receivedValue = pair.getValue();
-                console.log("Received Value:", receivedValue);
-                console.log("");
-                
-                if (receivedValue == 0) {
-                    console.log("No value received yet.");
-                    console.log("This could mean:");
-                    console.log("  1. No value has been sent from Base network");
-                    console.log("  2. LayerZero message is still in transit");
-                    console.log("  3. Message delivery failed (check LayerZero scan)");
-                } else {
-                    console.log("SUCCESS: Value received from Base network!");
-                    console.log("The cross-chain bridge is working correctly.");
-                }
+            if (pair.getValue() == 0) {
+                console.log("No value received yet.");
+                console.log("This could mean:");
+                console.log("  1. No value has been sent from Base Sepolia");
+                console.log("  2. LayerZero message is still in transit (wait a few minutes)");
+                console.log("  3. Message delivery failed (check LayerZero explorer)");
             } else {
-                console.log("WARNING: LayerZero setup not complete");
-                console.log("Run TestOAppFactory to complete setup");
+                console.log("SUCCESS: Value received from Base Sepolia!");
             }
-        } else {
+            
+        } else if (chainId == 84532) {
+            // Base Sepolia
             SimpleOAppBase pair = SimpleOAppBase(payable(pairAddress));
             
-            console.log("Pair Status:");
-            console.log("  - Setup complete:", pair.isSetupComplete());
-            console.log("  - Factory:", pair.factory());
-            console.log("  - Owner:", pair.owner());
+            console.log("LayerZero setup complete:", pair.isSetupComplete());
+            console.log("Received value from Arbitrum Sepolia:", pair.getValue());
             console.log("");
             
-            if (pair.isSetupComplete()) {
-                uint256 receivedValue = pair.getValue();
-                console.log("Received Value:", receivedValue);
-                console.log("");
-                
-                if (receivedValue == 0) {
-                    console.log("No value received yet.");
-                    console.log("This could mean:");
-                    console.log("  1. No value has been sent from Arbitrum network");
-                    console.log("  2. LayerZero message is still in transit");
-                    console.log("  3. Message delivery failed (check LayerZero scan)");
-                } else {
-                    console.log("SUCCESS: Value received from Arbitrum network!");
-                    console.log("The cross-chain bridge is working correctly.");
-                }
+            if (pair.getValue() == 0) {
+                console.log("No value received yet.");
+                console.log("This could mean:");
+                console.log("  1. No value has been sent from Arbitrum Sepolia");
+                console.log("  2. LayerZero message is still in transit (wait a few minutes)");
+                console.log("  3. Message delivery failed (check LayerZero explorer)");
             } else {
-                console.log("WARNING: LayerZero setup not complete");
-                console.log("Run TestOAppFactory to complete setup");
+                console.log("SUCCESS: Value received from Arbitrum Sepolia!");
             }
+        } else {
+            console.log("ERROR: Unsupported network!");
+            console.log("This script only works on Arbitrum Sepolia (421614) or Base Sepolia (84532)");
         }
     }
+    
+    
+    function _getNetworkName(uint256 chainId) internal pure returns (string memory) {
+        if (chainId == 421614) return "Arbitrum Sepolia";
+        if (chainId == 84532) return "Base Sepolia";
+        return "Unknown";
+    }
 }
-

@@ -189,7 +189,15 @@ forge test --match-path test/poc/OAppFactory.t.sol -vvv
 
 2. **LayerZero Endpoint**: The endpoint addresses are hardcoded in `SimpleOAppArbitrum` and `SimpleOAppBase`. Each network uses its own implementation with the correct endpoint.
 
-3. **Owner**: The factory becomes the owner of all deployed OApp contracts. Consider if you want to transfer ownership after deployment.
+3. **Testnet Support**: The contracts automatically detect testnet networks and use the correct LayerZero EIDs:
+   - **Arbitrum Sepolia** (Chain ID: 421614) → EID 40231 (Arbitrum), 40245 (Base)
+   - **Base Sepolia** (Chain ID: 84532) → EID 40231 (Arbitrum), 40245 (Base)
+   - **Arbitrum One** (Chain ID: 42161) → EID 30110 (Arbitrum), 30140 (Base)
+   - **Base** (Chain ID: 8453) → EID 30110 (Arbitrum), 30140 (Base)
+   
+   See `TESTNET_SETUP.md` for detailed testnet deployment instructions.
+
+4. **Owner**: The factory becomes the owner of all deployed OApp contracts. Consider if you want to transfer ownership after deployment.
 
 ## Files
 

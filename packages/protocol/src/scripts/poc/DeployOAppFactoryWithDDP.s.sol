@@ -14,14 +14,19 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * (also known as the "CREATE2 Factory").
  * 
  * This script uses the standard DDP interface:
- * - deploy(bytes memory bytecode, bytes32 salt) -> address
+ * - deploy(bytes memory bytecode, uint256 salt) -> address
+ * 
+ * Note: The DDP at 0x4e59b44847b379578588920cA78FbF26c0B4956C uses uint256 salt,
+ * not bytes32. This is the standard CREATE2 Factory by Nick Johnson.
  */
 contract DeployOAppFactoryWithDDP is Script {
     // Standard DDP address (same on all EVM chains)
     address private constant DDP = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     
     // Salt for deterministic deployment (change this to get a different address)
-    bytes32 private constant DEPLOYMENT_SALT = keccak256("OAppFactory-v1");
+    // Note: DDP uses uint256 salt, so we convert bytes32 to uint256
+    bytes32 private constant DEPLOYMENT_SALT_BYTES32 = keccak256("OAppFactory-v1");
+    uint256 private constant DEPLOYMENT_SALT = uint256(keccak256("OAppFactory-v1"));
 
     function run() external {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
@@ -29,12 +34,30 @@ contract DeployOAppFactoryWithDDP is Script {
         
         console.log("Deploying OAppFactory via DDP...");
         console.log("DDP address:", DDP);
-        console.log("Deployment salt:", vm.toString(DEPLOYMENT_SALT));
+        console.log("Deployment salt (uint256):", DEPLOYMENT_SALT);
         console.log("Chain ID:", block.chainid);
 
         // Calculate the deployment address
         address factoryAddress = _computeAddress(DEPLOYMENT_SALT);
         console.log("Expected factory address:", factoryAddress);
+        
+        // Verify DDP exists
+        uint256 ddpCodeSize;
+        assembly {
+            ddpCodeSize := extcodesize(DDP)
+        }
+        if (ddpCodeSize == 0) {
+            console.log("");
+            console.log("ERROR: DDP not deployed on this network!");
+            console.log("The DDP at", DDP, "does not exist on chain ID", block.chainid);
+            console.log("");
+            console.log("Options:");
+            console.log("1. Deploy the DDP first (see: https://github.com/Arachnid/deterministic-deployment-proxy)");
+            console.log("2. Use DeployOAppFactory.s.sol with same deployer + nonce method");
+            console.log("");
+            revert("DDP not deployed on this network");
+        }
+        console.log("DDP verified - code size:", ddpCodeSize);
 
         // Check if already deployed
         if (factoryAddress.code.length > 0) {
@@ -49,45 +72,182 @@ contract DeployOAppFactoryWithDDP is Script {
             type(OAppFactory).creationCode,
             abi.encode(deployer) // initialOwner
         );
+        
+        console.log("Bytecode length:", bytecode.length);
+        console.log("Bytecode hash:", vm.toString(keccak256(bytecode)));
 
-        // Deploy via DDP using low-level call
-        // The DDP interface is: deploy(bytes memory bytecode, bytes32 salt) returns (address)
-        bytes memory callData = abi.encodeWithSignature(
-            "deploy(bytes,bytes32)",
+        address deployedAddress;
+        bool success;
+        bytes memory returnData;
+
+        // Try different DDP interfaces - some networks use different signatures
+        // Interface 1: deploy(bytes, uint256) - Standard Nick Johnson DDP
+        console.log("Trying interface 1: deploy(bytes, uint256)");
+        bytes memory callData1 = abi.encodeWithSignature(
+            "deploy(bytes,uint256)",
             bytecode,
             DEPLOYMENT_SALT
         );
         
-        (bool success, bytes memory returnData) = DDP.call(callData);
-        require(success, "DDP deployment failed");
-        
-        // Extract deployed address from return data (first 32 bytes)
-        address deployedAddress;
-        assembly {
-            deployedAddress := mload(add(returnData, 0x20))
+        (success, returnData) = DDP.call(callData1);
+        if (success) {
+            console.log("Interface 1 succeeded!");
+        } else {
+            console.log("Interface 1 failed, trying interface 2...");
+            // Interface 2: create2(uint256, bytes) - Some DDPs use this order
+            bytes memory callData2 = abi.encodeWithSignature(
+                "create2(uint256,bytes)",
+                DEPLOYMENT_SALT,
+                bytecode
+            );
+            
+            (success, returnData) = DDP.call(callData2);
+            if (success) {
+                console.log("Interface 2 succeeded!");
+            } else {
+                console.log("Interface 2 failed, trying interface 3...");
+                // Interface 3: create2(bytes32, bytes) - Alternative interface
+                bytes32 saltBytes32 = bytes32(DEPLOYMENT_SALT);
+                bytes memory callData3 = abi.encodeWithSignature(
+                    "create2(bytes32,bytes)",
+                    saltBytes32,
+                    bytecode
+                );
+                
+                (success, returnData) = DDP.call(callData3);
+                if (success) {
+                    console.log("Interface 3 succeeded!");
+                }
+            }
         }
         
-        require(deployedAddress == factoryAddress, "Deployed address mismatch");
-        require(deployedAddress.code.length > 0, "Deployment failed - no code");
+        if (!success) {
+            // Try to get error message
+            if (returnData.length > 0) {
+                console.log("DDP call failed. Return data length:", returnData.length);
+                assembly {
+                    let returndata_size := mload(returnData)
+                    revert(add(32, returnData), returndata_size)
+                }
+            }
+            revert("DDP deployment failed - tried all known interfaces");
+        }
+        
+        // Extract deployed address from return data
+        // The DDP returns the address as the first 32 bytes (padded)
+        require(returnData.length >= 32, "Invalid return data from DDP - too short");
+        assembly {
+            // Load the first 32 bytes (which contains the address, right-aligned)
+            deployedAddress := mload(add(returnData, 0x20))
+            // Mask to get only the address (20 bytes = 160 bits)
+            deployedAddress := and(deployedAddress, 0xffffffffffffffffffffffffffffffffffffffff)
+        }
+        
+        console.log("Deployed address from DDP:", deployedAddress);
+        console.log("Return data length:", returnData.length);
+        console.log("Expected address (uint256 salt):", factoryAddress);
+        
+        // Recalculate expected address with bytes32 salt (some DDPs use this internally)
+        bytes32 saltBytes32 = bytes32(DEPLOYMENT_SALT);
+        address expectedAddressBytes32 = _computeAddressBytes32(saltBytes32);
+        console.log("Expected address (bytes32 salt):", expectedAddressBytes32);
+        
+        // Also calculate what the address should be if DDP uses create2 directly
+        address expectedCreate2 = _computeCreate2Address(saltBytes32, bytecode);
+        console.log("Expected address (create2 formula):", expectedCreate2);
+        
+        // Check which address matches (if any)
+        address finalAddress = address(0);
+        if (deployedAddress == factoryAddress) {
+            finalAddress = factoryAddress;
+            console.log("Address matches (uint256 salt format)");
+        } else if (deployedAddress == expectedAddressBytes32) {
+            finalAddress = expectedAddressBytes32;
+            console.log("Address matches (bytes32 salt format)");
+        } else if (deployedAddress == expectedCreate2) {
+            finalAddress = expectedCreate2;
+            console.log("Address matches (create2 formula)");
+        } else {
+            // Check if the deployed address has code (deployment might have succeeded anyway)
+            uint256 codeSize;
+            assembly {
+                codeSize := extcodesize(deployedAddress)
+            }
+            
+            if (codeSize > 0) {
+                console.log("");
+                console.log("WARNING: Address mismatch, but contract has code!");
+                console.log("The DDP on this network may use a different interface.");
+                console.log("Deployed address:", deployedAddress);
+                console.log("Code size:", codeSize);
+                console.log("");
+                console.log("This might still work if you use the same DDP interface");
+                console.log("on all networks. Verify the deployed contract manually.");
+                finalAddress = deployedAddress;
+            } else {
+                console.log("");
+                console.log("ERROR: Address mismatch and no code at deployed address!");
+                console.log("This DDP interface may not be compatible.");
+                console.log("");
+                console.log("Options:");
+                console.log("1. Try DeployOAppFactory.s.sol with same deployer + nonce");
+                console.log("2. Manually verify the DDP interface on this network");
+                console.log("3. Deploy a compatible DDP first");
+                revert("Deployed address mismatch and no code");
+            }
+        }
+        
+        require(finalAddress.code.length > 0, "Deployment failed - no code at final address");
+        
+        console.log("");
+        console.log("Success! Factory deployed to:", finalAddress);
 
         vm.stopBroadcast();
 
-        console.log("OAppFactory deployed to:", deployedAddress);
         console.log("");
-        console.log("This address will be the same on all networks!");
+        console.log("OAppFactory deployed to:", finalAddress);
+        console.log("");
+        console.log("NOTE: If this address differs from expected, ensure you use");
+        console.log("the same DDP interface and salt format on all networks!");
     }
 
     /**
      * @notice Compute the CREATE2 address for the factory
-     * @param salt The salt used for deployment
+     * @param salt The salt used for deployment (uint256)
      * @return The address where the contract will be deployed
      */
-    function _computeAddress(bytes32 salt) internal view returns (address) {
+    function _computeAddress(uint256 salt) internal view returns (address) {
         bytes memory bytecode = abi.encodePacked(
             type(OAppFactory).creationCode,
             abi.encode(vm.envAddress("DEPLOYER_ADDRESS"))
         );
 
+        // DDP uses uint256 salt, so we need to encode it properly
+        // The CREATE2 formula is: keccak256(0xff || deployer || salt || keccak256(bytecode))
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                bytes1(0xff),
+                DDP,
+                salt,  // uint256 is 32 bytes, so this should work
+                keccak256(bytecode)
+            )
+        );
+
+        return address(uint160(uint256(hash)));
+    }
+    
+    /**
+     * @notice Compute the CREATE2 address using bytes32 salt (alternative format)
+     * @param salt The salt used for deployment (bytes32)
+     * @return The address where the contract will be deployed
+     */
+    function _computeAddressBytes32(bytes32 salt) internal view returns (address) {
+        bytes memory bytecode = abi.encodePacked(
+            type(OAppFactory).creationCode,
+            abi.encode(vm.envAddress("DEPLOYER_ADDRESS"))
+        );
+
+        // CREATE2 formula with bytes32 salt
         bytes32 hash = keccak256(
             abi.encodePacked(
                 bytes1(0xff),
@@ -97,6 +257,25 @@ contract DeployOAppFactoryWithDDP is Script {
             )
         );
 
+        return address(uint160(uint256(hash)));
+    }
+    
+    /**
+     * @notice Compute the CREATE2 address using the standard CREATE2 formula
+     * @param salt The salt used for deployment (bytes32)
+     * @param bytecode The bytecode to deploy
+     * @return The address where the contract will be deployed
+     */
+    function _computeCreate2Address(bytes32 salt, bytes memory bytecode) internal view returns (address) {
+        // Standard CREATE2 formula: keccak256(0xff || deployer || salt || keccak256(bytecode))
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                bytes1(0xff),
+                DDP,
+                salt,
+                keccak256(bytecode)
+            )
+        );
         return address(uint160(uint256(hash)));
     }
 }
