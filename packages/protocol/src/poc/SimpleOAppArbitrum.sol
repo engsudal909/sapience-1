@@ -36,6 +36,8 @@ contract SimpleOAppArbitrum is OApp {
     error SetupAlreadyComplete();
     error SetupNotComplete();
     error InsufficientFee(uint256 required, uint256 provided);
+    error InvalidSourceEid(uint32 expected, uint32 actual);
+    error InvalidSender(address expected, address actual);
 
     // ============ Events ============
     event BridgeConfigUpdated(BridgeTypes.BridgeConfig config);
@@ -125,6 +127,12 @@ contract SimpleOAppArbitrum is OApp {
             revert InsufficientFee(fee.nativeFee, msg.value);
         }
 
+        // Refund excess ETH to the caller
+        uint256 excess = msg.value - fee.nativeFee;
+        if (excess > 0) {
+            payable(msg.sender).transfer(excess);
+        }
+
         // Send the message
         MessagingReceipt memory receipt = _lzSend(
             BASE_EID,
@@ -185,9 +193,16 @@ contract SimpleOAppArbitrum is OApp {
         address _executor,
         bytes calldata _extraData
     ) internal override {
-        // Verify the message is from the expected source
+        // Verify the message is from the expected source EID
         if (_origin.srcEid != BASE_EID) {
             revert InvalidSourceEid(BASE_EID, _origin.srcEid);
+        }
+
+        // CRITICAL: Verify the sender is the paired contract (same address on Base network)
+        address expectedSender = address(this);
+        address actualSender = address(uint160(uint256(_origin.sender)));
+        if (actualSender != expectedSender) {
+            revert InvalidSender(expectedSender, actualSender);
         }
 
         // Decode the value from the message
@@ -198,8 +213,5 @@ contract SimpleOAppArbitrum is OApp {
 
         emit ValueReceived(value, _origin.srcEid);
     }
-
-    // ============ Additional Errors ============
-    error InvalidSourceEid(uint32 expected, uint32 actual);
 }
 

@@ -40,6 +40,21 @@ contract OAppFactory is Ownable {
     );
 
     /**
+     * @notice Emitted when default DVN configuration is set
+     * @param networkType The network type for which the config was set
+     * @param config The DVN configuration
+     */
+    event DefaultDVNConfigSet(NetworkType indexed networkType, DVNConfig config);
+
+    /**
+     * @notice Emitted when DVN is configured for a pair
+     * @param salt The salt of the pair
+     * @param oapp The OApp contract address
+     * @param config The DVN configuration applied
+     */
+    event DVNConfigured(bytes32 indexed salt, address indexed oapp, DVNConfig config);
+
+    /**
      * @notice Mapping to track deployed pairs by salt
      * @return pairAddress The address of the deployed contract, or address(0) if not deployed
      */
@@ -264,7 +279,31 @@ contract OAppFactory is Ownable {
         uint32 maxMessageSize,
         uint32 gracePeriod
     ) external onlyOwner {
-        defaultDVNConfig[networkType] = DVNConfig({
+        // Validate addresses
+        if (sendLib == address(0)) {
+            revert InvalidAddress("sendLib");
+        }
+        if (receiveLib == address(0)) {
+            revert InvalidAddress("receiveLib");
+        }
+        if (requiredDVN == address(0)) {
+            revert InvalidAddress("requiredDVN");
+        }
+        if (executor == address(0)) {
+            revert InvalidAddress("executor");
+        }
+
+        // Validate confirmations (reasonable bounds: 1-100)
+        if (confirmations == 0 || confirmations > 100) {
+            revert InvalidConfirmations(confirmations);
+        }
+
+        // Validate maxMessageSize (reasonable bounds: 1-100000 bytes)
+        if (maxMessageSize == 0 || maxMessageSize > 100000) {
+            revert InvalidMaxMessageSize(maxMessageSize);
+        }
+
+        DVNConfig memory config = DVNConfig({
             sendLib: sendLib,
             receiveLib: receiveLib,
             requiredDVN: requiredDVN,
@@ -273,7 +312,11 @@ contract OAppFactory is Ownable {
             maxMessageSize: maxMessageSize,
             gracePeriod: gracePeriod
         });
+
+        defaultDVNConfig[networkType] = config;
         isDVNConfigSet[networkType] = true;
+
+        emit DefaultDVNConfigSet(networkType, config);
     }
 
     /**
@@ -292,7 +335,21 @@ contract OAppFactory is Ownable {
         address requiredDVN,
         address executor
     ) external onlyOwner {
-        defaultDVNConfig[networkType] = DVNConfig({
+        // Validate addresses
+        if (sendLib == address(0)) {
+            revert InvalidAddress("sendLib");
+        }
+        if (receiveLib == address(0)) {
+            revert InvalidAddress("receiveLib");
+        }
+        if (requiredDVN == address(0)) {
+            revert InvalidAddress("requiredDVN");
+        }
+        if (executor == address(0)) {
+            revert InvalidAddress("executor");
+        }
+
+        DVNConfig memory config = DVNConfig({
             sendLib: sendLib,
             receiveLib: receiveLib,
             requiredDVN: requiredDVN,
@@ -301,7 +358,11 @@ contract OAppFactory is Ownable {
             maxMessageSize: 10000,
             gracePeriod: 0
         });
+
+        defaultDVNConfig[networkType] = config;
         isDVNConfigSet[networkType] = true;
+
+        emit DefaultDVNConfigSet(networkType, config);
     }
 
     /**
@@ -338,6 +399,8 @@ contract OAppFactory is Ownable {
         )));
 
         endpointContract.setConfig(oapp, config.sendLib, params);
+
+        emit DVNConfigured(salt, oapp, config);
     }
 
     // ============ Errors ============
@@ -346,5 +409,8 @@ contract OAppFactory is Ownable {
     error InvalidNetworkType();
     error UnsupportedChainId(uint256 chainId);
     error PairNotDeployed(bytes32 salt);
+    error InvalidAddress(string parameter);
+    error InvalidConfirmations(uint64 confirmations);
+    error InvalidMaxMessageSize(uint32 maxMessageSize);
 }
 
