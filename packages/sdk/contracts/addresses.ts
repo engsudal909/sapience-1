@@ -68,7 +68,7 @@ export const pythResolver: ChainAddressMap = {
     legacy: [] as const,
   },
   5064014: {
-    address: '0x0000000000000000000000000000000000000000',
+    address: '0xD076c9fADC49061920e75b1a3a45642712F90F35',
     legacy: [] as const,
   },
   13374202: {
