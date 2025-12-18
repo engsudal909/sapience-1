@@ -515,6 +515,7 @@ export default function PositionForm({
                   <PythPredictionListItem
                     prediction={p}
                     onRemove={onRemovePythPrediction}
+                    layout="inline"
                   />
                 </div>
               );

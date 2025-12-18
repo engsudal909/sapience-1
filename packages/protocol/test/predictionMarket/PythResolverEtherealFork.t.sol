@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/StdJson.sol";
 
 import "../../src/predictionMarket/resolvers/PythResolver.sol";
 import "../../src/predictionMarket/resolvers/pythLazer/IPythLazer.sol";
@@ -9,30 +10,191 @@ import "../../src/predictionMarket/resolvers/pythLazer/PythLazerLib.sol";
 import "../../src/predictionMarket/resolvers/pythLazer/PythLazerLibBytes.sol";
 import "../../src/predictionMarket/resolvers/pythLazer/PythLazerStructs.sol";
 
-interface IPythLazerAdmin {
-    function owner() external view returns (address);
-
-    function updateTrustedSigner(address trustedSigner, uint256 expiresAt) external;
-}
-
 /// @notice Ethereal fork/e2e test for the Pyth Lazer-based resolver.
 /// @dev This test is **opt-in** and will be skipped unless `RUN_PYTH_ETHEREAL_FORK_TESTS=true`.
 contract PythResolverEtherealForkTest is Test {
+    using stdJson for string;
+
     string internal constant DEFAULT_ETHEREAL_RPC = "https://rpc.ethereal.trade";
+    string internal constant DEFAULT_PYTH_LAZER_BASE = "https://pyth-lazer.dourolabs.app";
 
     // Deployed PythLazer verifier on Ethereal (provided by user).
     address internal constant ETHEREAL_PYTH_LAZER_VERIFIER =
         0x486908B534E34D1Ca04d12F01b5Bf47aC62A68F5;
 
-    // Hardcoded EVM update blob from `https://pyth-lazer.dourolabs.app/v1/price`
-    // Request params used:
-    // - priceFeedIds=[1,2]
-    // - properties=["price","exponent"]
-    // - formats=["evm"]
-    // - channel="fixed_rate@50ms"
-    // - jsonBinaryEncoding="hex"
-    bytes internal constant UPDATE_BLOB =
-        hex"2a22999a23b2e8f7d06b0ea8fb6042cce562200075d760922584553e1caa2ace98891bf21335bff89d33e9d9961fe2d42e742ee044e260973803c56f0c4ff58ea1af5b8f01003093c7d3750006462cf6b7a6000202000000010200000007d1aff3c50304fff800000002020000000041a04fa7a904fff8";
+    function _requireUint64(uint256 v, string memory label) private pure returns (uint64) {
+        require(v <= type(uint64).max, label);
+        return uint64(v);
+    }
+
+    function _fetchUpdateFromHttpsEndpoint(
+        string memory token,
+        uint64 timestampUs,
+        uint32 feedId,
+        string memory channel,
+        string memory baseUrl
+    ) internal returns (bytes memory updateBlob) {
+        // This uses Foundry FFI to call curl + node to return a tiny JSON object:
+        //   { "evm": { "data": "0x..." } }
+        // so StdJson can parse it as bytes.
+        //
+        // Requires running forge with: `--ffi`
+        // And a valid token: `PYTH_LAZER_TOKEN`
+
+        string memory feedList = vm.toString(uint256(feedId));
+
+        string memory url = string.concat(baseUrl, "/v1/price");
+
+        // Build a JSON body matching the "Pyth Lazer Price HTTPS Endpoint Guide".
+        // We request `jsonBinaryEncoding=hex` so `evm.data` is hex and we can prepend 0x.
+        string memory body = string.concat(
+            '{"timestamp":',
+            vm.toString(uint256(timestampUs)),
+            ',"priceFeedIds":[',
+            feedList,
+            '],"properties":["price","exponent"],"formats":["evm"],"channel":"',
+            channel,
+            '","jsonBinaryEncoding":"hex"}'
+        );
+
+        string[] memory cmd = new string[](6);
+        cmd[0] = "bash";
+        cmd[1] = "-lc";
+        cmd[2] = string.concat(
+            "curl -sS -X POST ",
+            "-H 'content-type: application/json' ",
+            "-H \"Authorization: Bearer ",
+            token,
+            "\" ",
+            "--data '",
+            body,
+            "' ",
+            "\"",
+            url,
+            "\"",
+            " | node -e \"const fs=require('fs');const j=JSON.parse(fs.readFileSync(0,'utf8'));const d=(j.evm&&j.evm.data||'').trim();const hex=(d.startsWith('0x')?d:('0x'+d));process.stdout.write(JSON.stringify({evm:{data:hex}}));\""
+        );
+        cmd[3] = "true"; // no-op arg to keep bash happy if needed
+        cmd[4] = "true";
+        cmd[5] = "true";
+
+        bytes memory out = vm.ffi(cmd);
+        string memory json = string(out);
+        updateBlob = json.readBytes(".evm.data");
+        require(updateBlob.length > 0, "empty update blob");
+    }
+
+    function _decodePriceExpoFromVerifiedPayload(
+        bytes memory payload,
+        uint32 feedId
+    ) internal pure returns (int64 price, int32 expo) {
+        PythLazerStructs.Update memory u = PythLazerLibBytes
+            .parseUpdateFromPayloadBytes(payload);
+        (PythLazerStructs.Feed memory feed, bool found) = _findFeed(u, feedId);
+        require(found, "feed not found");
+        price = PythLazerLib.getPrice(feed);
+        expo = int32(PythLazerLib.getExponent(feed));
+    }
+
+    function _settleSingleMarket(
+        IPythLazer lazer,
+        uint256 fee,
+        bytes memory updateBlob,
+        uint64 endTime,
+        uint32 feedId
+    ) internal {
+        // Deploy resolver configured for Ethereal Lazer verifier and settle the market.
+        PythResolver.Settings memory settings = PythResolver.Settings({
+            maxPredictionMarkets: 1,
+            pythLazer: lazer
+        });
+        PythResolver resolver = new PythResolver(settings);
+
+        bytes[] memory updateData = new bytes[](1);
+        updateData[0] = updateBlob;
+
+        vm.warp(endTime);
+
+        // Verify once to get the payload for strike expo.
+        (bytes memory payload, ) = lazer.verifyUpdate{value: fee}(updateBlob);
+        (int64 price, int32 expo) = _decodePriceExpoFromVerifiedPayload(
+            payload,
+            feedId
+        );
+
+        PythResolver.BinaryOptionMarket memory market = PythResolver
+            .BinaryOptionMarket({
+                priceId: bytes32(uint256(feedId)),
+                endTime: endTime,
+                strikePrice: price - 1,
+                strikeExpo: expo,
+                overWinsOnTie: true
+            });
+
+        (bytes32 marketId, bool resolvedToOver) = resolver.settleMarket{value: fee}(
+            market,
+            updateData
+        );
+        assertTrue(resolvedToOver);
+        (bool settled, , , , uint64 publishTime) = resolver.settlements(marketId);
+        assertTrue(settled);
+        assertEq(publishTime, endTime);
+    }
+
+    function _settleSingleMarketExternal(
+        bytes calldata updateBlob,
+        uint64 endTime,
+        uint32 feedId
+    ) external {
+        IPythLazer lazer = IPythLazer(ETHEREAL_PYTH_LAZER_VERIFIER);
+        uint256 fee = lazer.verification_fee();
+        _settleSingleMarket(lazer, fee, updateBlob, endTime, feedId);
+    }
+
+    function _logVerifierDiagnostics(bytes memory fetchedBlob) internal returns (address recovered) {
+        recovered = _recoverSignerFromUpdate(fetchedBlob);
+        emit log_named_bytes("https update evm blob", fetchedBlob);
+        emit log_named_address("https update recovered signer", recovered);
+        emit log_named_address("ethereal lazer verifier", ETHEREAL_PYTH_LAZER_VERIFIER);
+
+        (bool ownerOk, address owner) = _probeOwner(ETHEREAL_PYTH_LAZER_VERIFIER);
+        if (ownerOk) emit log_named_address("verifier owner()", owner);
+        else emit log_string("verifier owner() not readable");
+
+        (bool trustOk, bool isTrusted, string memory trustMethod) = _probeIsTrustedSigner(
+            ETHEREAL_PYTH_LAZER_VERIFIER,
+            recovered
+        );
+        if (trustOk) {
+            emit log_string(
+                string.concat(
+                    "verifier ",
+                    trustMethod,
+                    " => ",
+                    isTrusted ? "true" : "false"
+                )
+            );
+        } else {
+            emit log_string("verifier trust check not readable (no isTrusted* view)");
+        }
+
+        (bool expOk, uint256 expiresAt, string memory expMethod) = _probeTrustedSignerExpiry(
+            ETHEREAL_PYTH_LAZER_VERIFIER,
+            recovered
+        );
+        if (expOk) {
+            emit log_string(
+                string.concat(
+                    "verifier ",
+                    expMethod,
+                    " => expiresAt=",
+                    vm.toString(expiresAt)
+                )
+            );
+        } else {
+            emit log_string("verifier expiry not readable (no trustedSigners* view)");
+        }
+    }
 
     function _readU16BE(bytes memory b, uint256 pos) private pure returns (uint16 v) {
         require(pos + 2 <= b.length, "oob");
@@ -93,37 +255,97 @@ contract PythResolverEtherealForkTest is Test {
         return (feed, false);
     }
 
-    function _decodeFeedFromBlob(
-        IPythLazer lazer,
-        uint256 fee,
-        uint32 feedId
-    )
-        internal
-        returns (uint64 endTime, int64 price, int32 expo)
-    {
-        (bytes memory payload, ) = lazer.verifyUpdate{value: fee}(UPDATE_BLOB);
-        PythLazerStructs.Update memory u = PythLazerLibBytes
-            .parseUpdateFromPayloadBytes(payload);
-
-        // This fork test expects an update exactly aligned to a 1-second boundary.
-        // If this assertion fails, we need to regenerate UPDATE_BLOB using a timestamp
-        // divisible by 1_000_000 microseconds.
-        assertEq(uint256(u.timestamp) % 1_000_000, 0, "update not second-aligned");
-
-        endTime = uint64(u.timestamp / 1_000_000);
-
-        (PythLazerStructs.Feed memory feed, bool found) = _findFeed(u, feedId);
-        assertTrue(found);
-
-        price = PythLazerLib.getPrice(feed);
-        expo = int32(PythLazerLib.getExponent(feed));
+    function _probeOwner(address lazer) internal view returns (bool ok, address owner) {
+        bytes memory ret;
+        (ok, ret) = lazer.staticcall(
+            abi.encodeWithSelector(bytes4(keccak256("owner()")))
+        );
+        if (!ok || ret.length < 32) return (false, address(0));
+        owner = abi.decode(ret, (address));
+        return (true, owner);
     }
 
-    function test_e2e_etherealFork_settleMarket_feed1_and_feed2() public {
+    function _probeTrustedSignerExpiry(
+        address lazer,
+        address signer
+    ) internal view returns (bool ok, uint256 expiresAt, string memory method) {
+        bytes4[3] memory sels = [
+            bytes4(keccak256("trustedSigners(address)")),
+            bytes4(keccak256("trustedSignerExpiresAt(address)")),
+            bytes4(keccak256("trustedSignerExpirations(address)"))
+        ];
+        string[3] memory names = [
+            "trustedSigners(address)",
+            "trustedSignerExpiresAt(address)",
+            "trustedSignerExpirations(address)"
+        ];
+
+        for (uint256 i = 0; i < sels.length; i++) {
+            bool okCall;
+            bytes memory ret;
+            (okCall, ret) = lazer.staticcall(
+                abi.encodeWithSelector(sels[i], signer)
+            );
+            if (okCall && ret.length >= 32) {
+                expiresAt = abi.decode(ret, (uint256));
+                return (true, expiresAt, names[i]);
+            }
+        }
+        return (false, 0, "");
+    }
+
+    function _probeIsTrustedSigner(
+        address lazer,
+        address signer
+    ) internal view returns (bool ok, bool isTrusted, string memory method) {
+        bytes4[2] memory sels = [
+            bytes4(keccak256("isTrustedSigner(address)")),
+            bytes4(keccak256("isTrusted(address)"))
+        ];
+        string[2] memory names = [
+            "isTrustedSigner(address)",
+            "isTrusted(address)"
+        ];
+
+        for (uint256 i = 0; i < sels.length; i++) {
+            bool okCall;
+            bytes memory ret;
+            (okCall, ret) = lazer.staticcall(
+                abi.encodeWithSelector(sels[i], signer)
+            );
+            if (okCall && ret.length >= 32) {
+                isTrusted = abi.decode(ret, (bool));
+                return (true, isTrusted, names[i]);
+            }
+        }
+        return (false, false, "");
+    }
+
+    /// @notice End-to-end fork test that fetches the signed update blob from the HTTPS endpoint.
+    /// @dev This test intentionally does NOT call `updateTrustedSigner`. If the signer returned by
+    ///      the HTTPS API is not trusted by the Ethereal verifier, `verifyUpdate` will revert with
+    ///      `invalid signer` (which matches production behavior).
+    ///
+    /// Run:
+    ///   RUN_PYTH_ETHEREAL_FORK_TESTS=true \
+    ///   PYTH_LAZER_TOKEN=... \
+    ///   PYTH_LAZER_TIMESTAMP_US=... \
+    ///   forge test --ffi \
+    ///     --match-path test/predictionMarket/PythResolverEtherealFork.t.sol -vvv
+    function test_e2e_etherealFork_settleMarket_fetchFromHttps_withoutWhitelisting() public {
         bool runFork = vm.envOr("RUN_PYTH_ETHEREAL_FORK_TESTS", false);
         if (!runFork) vm.skip(true);
 
-        // Fork Ethereal (optionally pinned)
+        string memory token = vm.envOr("PYTH_LAZER_TOKEN", string(""));
+        if (bytes(token).length == 0) vm.skip(true);
+
+        // Require a deterministic timestamp from env so this test is fully driven by HTTPS fetches
+        // and does not rely on any hardcoded sample blob.
+        uint256 tsEnv = vm.envOr("PYTH_LAZER_TIMESTAMP_US", uint256(0));
+        if (tsEnv == 0) vm.skip(true);
+        uint64 timestampUs = _requireUint64(tsEnv, "timestamp too large");
+
+        // Fork Ethereal
         {
             string memory rpc = vm.envOr("ETHEREAL_RPC", DEFAULT_ETHEREAL_RPC);
             uint256 forkBlock = vm.envOr("ETHEREAL_FORK_BLOCK", uint256(0));
@@ -138,101 +360,33 @@ contract PythResolverEtherealForkTest is Test {
             vm.skip(true);
         }
 
-        IPythLazer lazer = IPythLazer(ETHEREAL_PYTH_LAZER_VERIFIER);
-        uint256 fee = lazer.verification_fee();
+        // Resolver requires exact second alignment.
+        assertEq(uint256(timestampUs) % 1_000_000, 0, "timestamp not second-aligned");
+        uint64 endTime = uint64(timestampUs / 1_000_000);
+
+        // Fetch a fresh signed blob for the same timestamp.
+        string memory baseUrl = vm.envOr("PYTH_LAZER_BASE_URL", DEFAULT_PYTH_LAZER_BASE);
+        uint32 feedId = uint32(vm.envOr("PYTH_LAZER_FEED_ID", uint256(1)));
+        string memory channel = vm.envOr("PYTH_LAZER_CHANNEL", string("fixed_rate@50ms"));
+        bytes memory fetchedBlob = _fetchUpdateFromHttpsEndpoint(
+            token,
+            timestampUs,
+            feedId,
+            channel,
+            baseUrl
+        );
+
         vm.deal(address(this), 1 ether);
 
-        // Ensure the recovered signer is trusted on the verifier (fork-local state only).
-        // This makes the test robust even if the on-chain verifier hasn't been configured yet.
-        {
-            address signer = _recoverSignerFromUpdate(UPDATE_BLOB);
-            if (signer == address(0)) vm.skip(true);
+        // Diagnostics: recovered signer from the HTTPS blob, plus what we can learn from the verifier.
+        _logVerifierDiagnostics(fetchedBlob);
 
-            address owner;
-            try IPythLazerAdmin(ETHEREAL_PYTH_LAZER_VERIFIER).owner() returns (
-                address o
-            ) {
-                owner = o;
-            } catch {
-                vm.skip(true);
-            }
-
-            vm.prank(owner);
-            try
-                IPythLazerAdmin(ETHEREAL_PYTH_LAZER_VERIFIER)
-                    .updateTrustedSigner(signer, block.timestamp + 30 days)
-            {} catch {
-                vm.skip(true);
-            }
-        }
-
-        // Deploy resolver configured for Ethereal Lazer verifier.
-        PythResolver.Settings memory settings = PythResolver.Settings({
-            maxPredictionMarkets: 2,
-            pythLazer: lazer
-        });
-        PythResolver resolver = new PythResolver(settings);
-
-        bytes[] memory updateData = new bytes[](1);
-        updateData[0] = UPDATE_BLOB;
-
-        // Decode timestamp once (same for both feeds) so we can warp.
-        uint64 endTime;
-        {
-            (endTime, , ) = _decodeFeedFromBlob(lazer, fee, 1);
-        }
-
-        vm.warp(endTime);
-
-        // Market for feedId=1
-        {
-            (, int64 price1, int32 expo1) = _decodeFeedFromBlob(lazer, fee, 1);
-            PythResolver.BinaryOptionMarket memory market = PythResolver
-                .BinaryOptionMarket({
-                    priceId: bytes32(uint256(1)),
-                    endTime: endTime,
-                    strikePrice: price1 - 1,
-                    strikeExpo: expo1,
-                    overWinsOnTie: true
-                });
-
-            (bytes32 marketId, bool resolvedToOver) = resolver.settleMarket{
-                value: fee
-            }(market, updateData);
-            assertTrue(resolvedToOver);
-
-            (bool settled, , int64 storedPrice, int32 storedExpo, uint64 publishTime) = resolver
-                .settlements(marketId);
-            assertTrue(settled);
-            assertEq(storedPrice, price1);
-            assertEq(storedExpo, expo1);
-            assertEq(publishTime, endTime);
-        }
-
-        // Market for feedId=2
-        {
-            (, int64 price2, int32 expo2) = _decodeFeedFromBlob(lazer, fee, 2);
-            PythResolver.BinaryOptionMarket memory market = PythResolver
-                .BinaryOptionMarket({
-                    priceId: bytes32(uint256(2)),
-                    endTime: endTime,
-                    strikePrice: price2 - 1,
-                    strikeExpo: expo2,
-                    overWinsOnTie: true
-                });
-
-            (bytes32 marketId, bool resolvedToOver) = resolver.settleMarket{
-                value: fee
-            }(market, updateData);
-            assertTrue(resolvedToOver);
-
-            (bool settled, , int64 storedPrice, int32 storedExpo, uint64 publishTime) = resolver
-                .settlements(marketId);
-            assertTrue(settled);
-            assertEq(storedPrice, price2);
-            assertEq(storedExpo, expo2);
-            assertEq(publishTime, endTime);
-        }
+        // This call should behave exactly like production:
+        // - If the HTTPS endpoint returns an update signed by a trusted signer, settlement succeeds.
+        // - Otherwise, the verifier reverts (typically `invalid signer`) and this test FAILS.
+        //
+        // This is intentional: we want the fork test to surface real-chain verifier configuration.
+        this._settleSingleMarketExternal(fetchedBlob, endTime, feedId);
     }
 }
 

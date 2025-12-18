@@ -5,7 +5,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@sapience/ui/components/ui/popover';
-import { PredictionChoiceBadge, PythOracleMark } from '@sapience/ui';
+import {
+  PredictionChoiceBadge,
+  PythOracleMark,
+  PythPredictionListItem,
+  type PythPrediction,
+} from '@sapience/ui';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
@@ -25,6 +30,11 @@ export interface Pick {
    * (Useful when a combo includes a Pyth leg.)
    */
   source?: 'uma' | 'pyth';
+  /**
+   * Optional structured Pyth prediction data. When provided, we render with `PythPredictionListItem`
+   * (no "OVER $0.19" badge).
+   */
+  pythPrediction?: PythPrediction;
 }
 
 interface StackedPredictionsProps {
@@ -110,26 +120,42 @@ export function StackedPredictionsTitle({
   const remainingLegs = legs.slice(1);
   const remainingCount = remainingLegs.length;
   const badgeLabel = String(firstLeg.choice).toUpperCase();
+  const firstIsPyth = firstLeg.source === 'pyth' && !!firstLeg.pythPrediction;
 
   return (
     <div
       className={`flex items-center gap-2 flex-wrap xl:flex-nowrap min-w-0 ${className ?? ''}`}
     >
-      <span className={`text-sm ${maxWidthClass} truncate min-w-0`}>
-        {firstLeg.conditionId ? (
-          <ConditionTitleLink
-            conditionId={firstLeg.conditionId}
-            title={firstLeg.question}
-            clampLines={1}
+      {firstIsPyth ? (
+        <div className={`min-w-0 ${maxWidthClass}`}>
+          <PythPredictionListItem
+            prediction={firstLeg.pythPrediction!}
+            layout="inline"
+            showOracleIcon={false}
           />
-        ) : (
-          <span className="font-mono text-brand-white">
-            {firstLeg.question}
+        </div>
+      ) : (
+        <>
+          <span className={`text-sm ${maxWidthClass} truncate min-w-0`}>
+            {firstLeg.conditionId ? (
+              <ConditionTitleLink
+                conditionId={firstLeg.conditionId}
+                title={firstLeg.question}
+                clampLines={1}
+              />
+            ) : (
+              <span className="font-mono text-brand-white">
+                {firstLeg.question}
+              </span>
+            )}
           </span>
-        )}
-      </span>
+          <span className="inline-flex items-center gap-2 shrink-0 whitespace-nowrap">
+            <PredictionChoiceBadge choice={badgeLabel} />
+          </span>
+        </>
+      )}
+
       <span className="inline-flex items-center gap-2 shrink-0 whitespace-nowrap">
-        <PredictionChoiceBadge choice={badgeLabel} />
 
         {/* "and N predictions" popover */}
         {remainingCount > 0 && (
@@ -154,27 +180,38 @@ export function StackedPredictionsTitle({
                       key={`${leg.conditionId || i}-${i}`}
                       className="flex items-center gap-3 px-3 py-2"
                     >
-                      <MarketBadge
-                        label={leg.question}
-                        size={32}
-                        color={getCategoryColor(leg.categorySlug)}
-                        categorySlug={leg.categorySlug}
-                      />
-                      {leg.conditionId ? (
-                        <ConditionTitleLink
-                          conditionId={leg.conditionId}
-                          title={leg.question}
-                          clampLines={1}
-                          className="text-sm"
-                        />
+                      {leg.source === 'pyth' && leg.pythPrediction ? (
+                        <div className="min-w-0 flex-1">
+                          <PythPredictionListItem
+                            prediction={leg.pythPrediction}
+                            layout="inline"
+                          />
+                        </div>
                       ) : (
-                        <span className="text-sm font-mono text-brand-white">
-                          {leg.question}
-                        </span>
+                        <>
+                          <MarketBadge
+                            label={leg.question}
+                            size={32}
+                            color={getCategoryColor(leg.categorySlug)}
+                            categorySlug={leg.categorySlug}
+                          />
+                          {leg.conditionId ? (
+                            <ConditionTitleLink
+                              conditionId={leg.conditionId}
+                              title={leg.question}
+                              clampLines={1}
+                              className="text-sm"
+                            />
+                          ) : (
+                            <span className="text-sm font-mono text-brand-white">
+                              {leg.question}
+                            </span>
+                          )}
+                          <PredictionChoiceBadge
+                            choice={String(leg.choice).toUpperCase()}
+                          />
+                        </>
                       )}
-                      <PredictionChoiceBadge
-                        choice={String(leg.choice).toUpperCase()}
-                      />
                     </div>
                   ))}
                 </div>
