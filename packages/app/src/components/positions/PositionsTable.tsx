@@ -255,7 +255,11 @@ export default function PositionsTable({
     const positionRows = (data || []).map((p: any) => {
       const parsePythDescriptor = (
         desc: string | null | undefined
-      ): { strikePrice: bigint; strikeExpo: number; priceId?: string } | null => {
+      ): {
+        strikePrice: bigint;
+        strikeExpo: number;
+        priceId?: string;
+      } | null => {
         const s = (desc ?? '').trim();
         if (!s.startsWith('PYTH_LAZER|')) return null;
         const firstLine = s.split('\n')[0] ?? s;
@@ -291,10 +295,14 @@ export default function PositionsTable({
             pythMeta.strikeExpo
           );
           const dir = o.outcomeYes ? 'OVER' : 'UNDER';
-          const direction = o.outcomeYes ? ('over' as const) : ('under' as const);
+          const direction = o.outcomeYes
+            ? ('over' as const)
+            : ('under' as const);
           const priceNum = Number(strikeStr);
           const endTimeSec: number | null =
-            typeof o?.condition?.endTime === 'number' ? o.condition.endTime : null;
+            typeof o?.condition?.endTime === 'number'
+              ? o.condition.endTime
+              : null;
           const dateTimeLocal =
             endTimeSec !== null
               ? formatUnixSecondsToLocalInput(BigInt(endTimeSec))

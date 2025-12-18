@@ -156,7 +156,6 @@ export function StackedPredictionsTitle({
       )}
 
       <span className="inline-flex items-center gap-2 shrink-0 whitespace-nowrap">
-
         {/* "and N predictions" popover */}
         {remainingCount > 0 && (
           <>
