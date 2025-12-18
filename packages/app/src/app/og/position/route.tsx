@@ -50,14 +50,35 @@ export async function GET(req: Request) {
     // Shared assets and fonts
     const { bgUrl } = commonAssets(req);
 
-    // Parse legs passed as repeated `leg` params: text|Yes or text|No
+    // Parse legs passed as repeated `leg` params: text|CHOICE
     const rawLegs = searchParams.getAll('leg').slice(0, 12); // safety cap
     const legs = rawLegs
       .map((entry) => entry.split('|'))
-      .map(([text, choice]) => ({
-        text: normalizeText(text || '', 120),
-        choice: (choice || '').toLowerCase() === 'yes' ? 'Yes' : 'No',
-      }))
+      .map(([text, choice]) => {
+        const label = normalizeText(choice || '', 48) || '—';
+        const upper = label.toUpperCase();
+        const normalized =
+          upper === 'YES' || upper.startsWith('YES')
+            ? 'YES'
+            : upper === 'NO' || upper.startsWith('NO')
+              ? 'NO'
+              : upper === 'OVER' || upper.startsWith('OVER')
+                ? 'OVER'
+                : upper === 'UNDER' || upper.startsWith('UNDER')
+                  ? 'UNDER'
+                  : null;
+        const tone =
+          normalized === 'YES' || normalized === 'OVER'
+            ? ('success' as const)
+            : normalized === 'NO' || normalized === 'UNDER'
+              ? ('danger' as const)
+              : ('neutral' as const);
+        return {
+          text: normalizeText(text || '', 120),
+          choice: label,
+          tone,
+        };
+      })
       .filter((l) => l.text);
 
     const fonts = await loadFontData(req);
@@ -136,7 +157,6 @@ export async function GET(req: Request) {
                               </div>
                             );
                           }
-                          const isYes = leg.choice === 'Yes';
                           return (
                             <div
                               key={idx}
@@ -168,7 +188,7 @@ export async function GET(req: Request) {
                               >
                                 <Pill
                                   text={leg.choice}
-                                  tone={isYes ? 'success' : 'danger'}
+                                  tone={leg.tone}
                                   scale={scale}
                                 />
                               </div>
