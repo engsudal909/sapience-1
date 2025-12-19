@@ -336,7 +336,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
         </button>
       </div>
       <div className="rounded-md border border-brand-white/20 overflow-hidden bg-brand-black">
-        <Table className="w-full">
+        <Table className="w-full table-fixed">
           <TableBody>
             <AnimatePresence mode="popLayout">
               {isLoading || topCombos.length === 0
@@ -351,17 +351,19 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                       className="border-b border-brand-white/20"
                     >
                       {/* Desktop icons cell - hidden on mobile */}
-                      <TableCell className="hidden md:table-cell py-3 pl-4 pr-3 w-[56px]">
-                        <div
-                          className="w-10 h-6 rounded bg-brand-white/5"
-                          style={{
-                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
-                            animationDelay: `${idx * 0.3}s`,
-                          }}
-                        />
+                      <TableCell className="hidden md:table-cell p-0 w-[88px]">
+                        <div className="py-3 pl-4 pr-3">
+                          <div
+                            className="w-10 h-6 rounded bg-brand-white/5"
+                            style={{
+                              animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                              animationDelay: `${idx * 0.3}s`,
+                            }}
+                          />
+                        </div>
                       </TableCell>
                       {/* Question cell - includes all content on mobile */}
-                      <TableCell className="py-3 pl-3 md:pl-1 pr-3 md:pr-0">
+                      <TableCell className="py-3 pl-3 md:pl-0 pr-3 md:pr-0">
                         <div className="flex flex-col gap-2">
                           {/* Mobile Row 1: Icons skeleton */}
                           <div
@@ -408,14 +410,16 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                         />
                       </TableCell>
                       {/* Desktop button cell - hidden on mobile */}
-                      <TableCell className="hidden md:table-cell py-3 pr-4 w-[70px]">
-                        <div
-                          className="w-14 h-7 rounded bg-brand-white/5"
-                          style={{
-                            animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
-                            animationDelay: `${idx * 0.3 + 0.15}s`,
-                          }}
-                        />
+                      <TableCell className="hidden md:table-cell p-0 w-[96px]">
+                        <div className="py-3 pr-4 flex justify-end">
+                          <div
+                            className="w-14 h-7 rounded bg-brand-white/5"
+                            style={{
+                              animation: `suggestedRowPulse 2.4s ease-in-out infinite`,
+                              animationDelay: `${idx * 0.3 + 0.15}s`,
+                            }}
+                          />
+                        </div>
                       </TableCell>
                     </motion.tr>
                   ))
@@ -442,11 +446,13 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                         className="border-b border-brand-white/20 hover:bg-transparent"
                       >
                         {/* Desktop icons cell - hidden on mobile */}
-                        <TableCell className="hidden md:table-cell py-3 pl-4 pr-3 w-[56px] shrink-0">
-                          <StackedIcons legs={legs} />
+                        <TableCell className="hidden md:table-cell p-0 w-[88px] shrink-0">
+                          <div className="py-3 pl-4 pr-3">
+                            <StackedIcons legs={legs} />
+                          </div>
                         </TableCell>
                         {/* Question cell - includes all content on mobile */}
-                        <TableCell className="py-3 pl-3 md:pl-1 pr-3 md:pr-0 min-w-0">
+                        <TableCell className="py-3 pl-3 md:pl-0 pr-3 md:pr-0 min-w-0">
                           <div className="flex flex-col gap-2 min-w-0">
                             {/* Mobile Row 1: Icons (on their own line) */}
                             <StackedIcons
@@ -457,7 +463,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                             <StackedPredictionsTitle
                               legs={legs}
                               className="md:gap-x-2"
-                              maxWidthClass="max-w-[calc(100%-190px)] md:max-w-[300px]"
+                              maxWidthClass="max-w-full md:max-w-[300px]"
                             />
                             {/* Mobile Row 3/4: Probability + PICK in one row */}
                             <div className="md:hidden mt-0.5 flex items-center gap-3">
@@ -505,9 +511,9 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                           </div>
                         </TableCell>
                         {/* Probability cell - desktop only */}
-                        <TableCell className="hidden md:table-cell py-3 px-4 text-right whitespace-nowrap">
+                        <TableCell className="hidden md:table-cell py-3 px-4 text-right min-w-0 whitespace-normal">
                           {status === 'received' && probability !== null ? (
-                            <span className="text-sm">
+                            <div className="text-sm min-w-0 leading-snug">
                               <PercentChance
                                 probability={1 - probability}
                                 showLabel
@@ -520,7 +526,7 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                               <span className="text-brand-white font-medium font-mono">
                                 {(1 / (1 - probability)).toFixed(2)} USDe
                               </span>
-                            </span>
+                            </div>
                           ) : status === 'error' ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
@@ -530,16 +536,18 @@ const ExampleCombos: React.FC<ExampleCombosProps> = ({ className }) => {
                           )}
                         </TableCell>
                         {/* Desktop PICK button cell - hidden on mobile */}
-                        <TableCell className="hidden md:table-cell py-3 pr-4 w-[70px]">
-                          <Button
-                            className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
-                            variant="default"
-                            size="sm"
-                            type="button"
-                            onClick={() => handlePickCombo(combo)}
-                          >
-                            PICK
-                          </Button>
+                        <TableCell className="hidden md:table-cell p-0 w-[96px]">
+                          <div className="py-3 pr-4 flex justify-end">
+                            <Button
+                              className="tracking-wider font-mono text-xs px-3 h-7 bg-brand-white text-brand-black"
+                              variant="default"
+                              size="sm"
+                              type="button"
+                              onClick={() => handlePickCombo(combo)}
+                            >
+                              PICK
+                            </Button>
+                          </div>
                         </TableCell>
                       </motion.tr>
                     );

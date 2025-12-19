@@ -43,22 +43,19 @@ const FEATURED_WALLETS = [
     id: 'rabby',
     name: 'Rabby Wallet',
     matchIds: ['io.rabby', 'rabby'],
-    downloadUrl: 'https://rabby.io/',
     icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzhBOTdGRiIvPgo8cGF0aCBkPSJNMjQuNSAxMy41QzI0LjUgMTAuNSAyMiA4IDE5IDhIMTNDMTAgOCA3LjUgMTAuNSA3LjUgMTMuNUM3LjUgMTUuNSA4LjUgMTcuMiAxMCAxOEw4IDI0SDEyTDE0IDIwSDE4TDIwIDI0SDI0TDIyIDE4QzIzLjUgMTcuMiAyNC41IDE1LjUgMjQuNSAxMy41WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
   },
   {
     id: 'metamask',
     name: 'MetaMask',
     matchIds: ['io.metamask', 'metamask'],
-    downloadUrl: 'https://metamask.io/download/',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iI0Y1ODQxRiIvPgo8cGF0aCBkPSJNMjQgOEwxNiAxNEwxOCAxMC41TDI0IDhaIiBmaWxsPSIjRTI3NjFCIi8+CjxwYXRoIGQ9Ik04IDhMMTYgMTRMMTQgMTAuNUw4IDhaIiBmaWxsPSIjRTI3NjFCIi8+CjxwYXRoIGQ9Ik0yMiAyMEwyMCAyNEwxNiAyM0wxMiAyNEwxMCAyMEw2IDE0TDEwIDE2TDEyIDEyTDIwIDEyTDIyIDE2TDI2IDE0TDIyIDIwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
+    icon: '/wallet-icons/metamask.svg',
   },
   {
     id: 'phantom',
     name: 'Phantom',
     matchIds: ['app.phantom', 'phantom'],
-    downloadUrl: 'https://phantom.app/download',
-    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzU0NEFDRiIvPgo8cGF0aCBkPSJNMjQgMTZDMjQgMjAuNCAyMC40IDI0IDE2IDI0QzExLjYgMjQgOCAyMC40IDggMTZDOCAxMS42IDExLjYgOCAxNiA4QzIwLjQgOCAyNCAxMS42IDI0IDE2WiIgZmlsbD0id2hpdGUiLz4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxNCIgcj0iMiIgZmlsbD0iIzU0NEFDRiIvPgo8Y2lyY2xlIGN4PSIyMCIgY3k9IjE0IiByPSIyIiBmaWxsPSIjNTQ0QUNGIi8+Cjwvc3ZnPg==',
+    icon: '/wallet-icons/phantom.ico',
   },
 ] as const;
 
@@ -148,15 +145,9 @@ export default function ConnectDialog({
   );
 
   const handleWalletClick = useCallback(
-    (wallet: {
-      eip6963Provider?: EIP6963ProviderDetail;
-      downloadUrl?: string;
-      id: string;
-    }) => {
+    (wallet: { eip6963Provider?: EIP6963ProviderDetail; id: string }) => {
       if (wallet.eip6963Provider) {
         handleEIP6963Connect(wallet.eip6963Provider);
-      } else if (wallet.downloadUrl) {
-        window.open(wallet.downloadUrl, '_blank');
       }
     },
     [handleEIP6963Connect]
@@ -169,7 +160,6 @@ export default function ConnectDialog({
       name: string;
       icon?: string;
       eip6963Provider?: EIP6963ProviderDetail;
-      downloadUrl?: string;
     }> = [];
 
     // Add featured wallets (always shown)
@@ -188,7 +178,6 @@ export default function ConnectDialog({
         name: featured.name,
         icon: detectedWallet?.info.icon || featured.icon,
         eip6963Provider: detectedWallet,
-        downloadUrl: featured.downloadUrl,
       });
     }
 
@@ -225,7 +214,7 @@ export default function ConnectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] p-6 gap-0 border-border/50 bg-[hsl(var(--background))]">
+      <DialogContent className="top-1/2 translate-y-[-50%] sm:max-w-[420px] p-6 gap-0 border-border/50 bg-[hsl(var(--background))]">
         <DialogHeader className="pb-6">
           <DialogTitle className="text-center text-xl font-normal">
             Log in
@@ -277,7 +266,7 @@ export default function ConnectDialog({
                   variant="outline"
                   className="w-full h-14 justify-start gap-3 px-4 text-base font-medium bg-[hsl(var(--muted)/0.3)] border-border/50 hover:bg-[hsl(var(--muted)/0.5)] disabled:opacity-50"
                   onClick={() => handleWalletClick(wallet)}
-                  disabled={isPending && isInstalled}
+                  disabled={!isInstalled || (isPending && isInstalled)}
                 >
                   <div className="flex items-center justify-center w-7 h-7 rounded overflow-hidden shrink-0">
                     {wallet.icon ? (
@@ -295,11 +284,6 @@ export default function ConnectDialog({
                   <span className="flex-1 text-left">
                     {isThisConnecting ? 'Connecting...' : wallet.name}
                   </span>
-                  {!isInstalled && (
-                    <span className="text-xs text-muted-foreground">
-                      Install
-                    </span>
-                  )}
                 </Button>
               );
             })}

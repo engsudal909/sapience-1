@@ -11,6 +11,7 @@ import {
   PythPredictionListItem,
   type PythPrediction,
 } from '@sapience/ui';
+import Link from 'next/link';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
@@ -127,7 +128,7 @@ export function StackedPredictionsTitle({
       className={`flex items-center gap-2 flex-wrap xl:flex-nowrap min-w-0 ${className ?? ''}`}
     >
       {firstIsPyth ? (
-        <div className={`min-w-0 ${maxWidthClass}`}>
+        <div className={`min-w-0 flex-initial ${maxWidthClass}`}>
           <PythPredictionListItem
             prediction={firstLeg.pythPrediction!}
             layout="inline"
@@ -136,26 +137,30 @@ export function StackedPredictionsTitle({
         </div>
       ) : (
         <>
-          <span className={`text-sm ${maxWidthClass} truncate min-w-0`}>
+          {/* Question + badge stay together; question truncates but doesn't push badge to far right */}
+          <span
+            className={`inline-flex items-center gap-2 min-w-0 max-w-full ${maxWidthClass}`}
+          >
             {firstLeg.conditionId ? (
-              <ConditionTitleLink
-                conditionId={firstLeg.conditionId}
-                title={firstLeg.question}
-                clampLines={1}
-              />
+              <Link
+                href={`/questions/${firstLeg.conditionId}`}
+                className="min-w-0 flex-1 block truncate text-sm font-mono text-brand-white transition-colors underline decoration-dotted decoration-1 decoration-brand-white/70 underline-offset-4 hover:decoration-brand-white/40"
+              >
+                {firstLeg.question}
+              </Link>
             ) : (
-              <span className="font-mono text-brand-white">
+              <span className="min-w-0 flex-1 block truncate text-sm font-mono text-brand-white">
                 {firstLeg.question}
               </span>
             )}
-          </span>
-          <span className="inline-flex items-center gap-2 shrink-0 whitespace-nowrap">
-            <PredictionChoiceBadge choice={badgeLabel} />
+            <span className="shrink-0 whitespace-nowrap">
+              <PredictionChoiceBadge choice={badgeLabel} />
+            </span>
           </span>
         </>
       )}
 
-      <span className="inline-flex items-center gap-2 shrink-0 whitespace-nowrap">
+      <span className="inline-flex items-center gap-2 whitespace-nowrap basis-full md:basis-auto md:shrink-0">
         {/* "and N predictions" popover */}
         {remainingCount > 0 && (
           <>
