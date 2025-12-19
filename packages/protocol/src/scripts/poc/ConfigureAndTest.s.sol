@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 import {OAppFactory} from "../../poc/OAppFactory.sol";
 import {SimpleOAppArbitrum} from "../../poc/SimpleOAppArbitrum.sol";
-import {SimpleOAppBase} from "../../poc/SimpleOAppBase.sol";
+import {SimpleOAppBaseNetwork} from "../../poc/SimpleOAppBaseNetwork.sol";
 
 /**
  * @title ConfigureAndTest
@@ -77,20 +77,39 @@ contract ConfigureAndTest is Script {
             console.log("Step 3: Creating Pair");
             console.log("----------------------------------------");
             console.log("Creating pair with salt:", vm.toString(TEST_SALT));
-            
-            address deployedPair = factory.createPair(TEST_SALT);
-            console.log("Pair created at:", deployedPair);
+            console.log("Expected pair address:", pairAddress);
             console.log("");
             
-            // Verify it matches expected address
-            if (deployedPair == pairAddress) {
-                console.log("SUCCESS: Pair address matches expected!");
-            } else {
-                console.log("WARNING: Pair address does not match expected");
-                console.log("Expected:", pairAddress);
-                console.log("Actual:", deployedPair);
+            try factory.createPair(TEST_SALT) returns (address deployedPair) {
+                console.log("Pair created at:", deployedPair);
+                console.log("");
+                
+                // Verify it matches expected address
+                if (deployedPair == pairAddress) {
+                    console.log("SUCCESS: Pair address matches expected!");
+                } else {
+                    console.log("WARNING: Pair address does not match expected");
+                    console.log("Expected:", pairAddress);
+                    console.log("Actual:", deployedPair);
+                    // Use the actual deployed address
+                    pairAddress = deployedPair;
+                }
+                console.log("");
+            } catch Error(string memory reason) {
+                console.log("ERROR creating pair:", reason);
+                console.log("");
+                console.log("Possible causes:");
+                console.log("  1. DVN configuration may be incorrect");
+                console.log("  2. Insufficient gas");
+                console.log("  3. Factory may not have proper permissions");
+                vm.stopBroadcast();
+                return;
+            } catch (bytes memory lowLevelData) {
+                console.log("ERROR: Low-level error creating pair");
+                console.log("Error data length:", lowLevelData.length);
+                vm.stopBroadcast();
+                return;
             }
-            console.log("");
         } else {
             console.log("Step 3: Pair Already Exists");
             console.log("----------------------------------------");
@@ -102,16 +121,55 @@ contract ConfigureAndTest is Script {
         console.log("Step 4: Setting Up LayerZero");
         console.log("----------------------------------------");
         
+        // Verify pair has code
+        uint256 pairCodeSize;
+        assembly {
+            pairCodeSize := extcodesize(pairAddress)
+        }
+        
+        if (pairCodeSize == 0) {
+            console.log("ERROR: Pair address has no code!");
+            console.log("The pair may not have been deployed correctly.");
+            console.log("Pair address:", pairAddress);
+            vm.stopBroadcast();
+            return;
+        }
+        
+        console.log("Pair code size:", pairCodeSize);
+        console.log("");
+        
         // Determine which contract type based on network
         if (chainId == 421614) {
             // Arbitrum Sepolia
             SimpleOAppArbitrum pair = SimpleOAppArbitrum(payable(pairAddress));
+            
+            // Verify it's the correct contract type
+            try pair.factory() returns (address factoryAddr) {
+                console.log("Pair factory address:", factoryAddr);
+                if (factoryAddr != FACTORY_ADDRESS) {
+                    console.log("WARNING: Pair factory address doesn't match!");
+                }
+            } catch {
+                console.log("WARNING: Could not verify pair factory address");
+            }
+            
             bool isSetup = pair.isSetupComplete();
+            console.log("Current setup status:", isSetup);
             
             if (!isSetup) {
                 console.log("Setting up LayerZero on Arbitrum Sepolia...");
-                pair.setupLayerZero();
-                console.log("LayerZero setup complete!");
+                try pair.setupLayerZero() {
+                    console.log("LayerZero setup complete!");
+                } catch Error(string memory reason) {
+                    console.log("ERROR setting up LayerZero:", reason);
+                    vm.stopBroadcast();
+                    return;
+                } catch (bytes memory lowLevelData) {
+                    console.log("ERROR: Low-level error setting up LayerZero");
+                    console.log("Error data length:", lowLevelData.length);
+                    vm.stopBroadcast();
+                    return;
+                }
             } else {
                 console.log("LayerZero already configured");
             }
@@ -122,13 +180,35 @@ contract ConfigureAndTest is Script {
             console.log("");
         } else if (chainId == 84532) {
             // Base Sepolia
-            SimpleOAppBase pair = SimpleOAppBase(payable(pairAddress));
+            SimpleOAppBaseNetwork pair = SimpleOAppBaseNetwork(payable(pairAddress));
+            
+            // Verify it's the correct contract type
+            try pair.factory() returns (address factoryAddr) {
+                console.log("Pair factory address:", factoryAddr);
+                if (factoryAddr != FACTORY_ADDRESS) {
+                    console.log("WARNING: Pair factory address doesn't match!");
+                }
+            } catch {
+                console.log("WARNING: Could not verify pair factory address");
+            }
+            
             bool isSetup = pair.isSetupComplete();
+            console.log("Current setup status:", isSetup);
             
             if (!isSetup) {
                 console.log("Setting up LayerZero on Base Sepolia...");
-                pair.setupLayerZero();
-                console.log("LayerZero setup complete!");
+                try pair.setupLayerZero() {
+                    console.log("LayerZero setup complete!");
+                } catch Error(string memory reason) {
+                    console.log("ERROR setting up LayerZero:", reason);
+                    vm.stopBroadcast();
+                    return;
+                } catch (bytes memory lowLevelData) {
+                    console.log("ERROR: Low-level error setting up LayerZero");
+                    console.log("Error data length:", lowLevelData.length);
+                    vm.stopBroadcast();
+                    return;
+                }
             } else {
                 console.log("LayerZero already configured");
             }
@@ -137,6 +217,11 @@ contract ConfigureAndTest is Script {
             console.log("Setup complete:", pair.isSetupComplete());
             console.log("Current received value:", pair.getValue());
             console.log("");
+        } else {
+            console.log("ERROR: Unsupported network!");
+            console.log("This script only works on Arbitrum Sepolia (421614) or Base Sepolia (84532)");
+            vm.stopBroadcast();
+            return;
         }
         
         vm.stopBroadcast();
@@ -156,7 +241,7 @@ contract ConfigureAndTest is Script {
             console.log("   pair.sendValue{value: fee}(12345);");
         } else {
             console.log("   On Base Sepolia:");
-            console.log("   SimpleOAppBase pair = SimpleOAppBase(payable(", vm.toString(pairAddress), "));");
+            console.log("   SimpleOAppBaseNetwork pair = SimpleOAppBaseNetwork(payable(", vm.toString(pairAddress), "));");
             console.log("   uint256 fee = pair.quoteSendValue(12345);");
             console.log("   pair.sendValue{value: fee}(12345);");
         }

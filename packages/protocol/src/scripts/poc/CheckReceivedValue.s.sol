@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 import {OAppFactory} from "../../poc/OAppFactory.sol";
 import {SimpleOAppArbitrum} from "../../poc/SimpleOAppArbitrum.sol";
-import {SimpleOAppBase} from "../../poc/SimpleOAppBase.sol";
+import {SimpleOAppBaseNetwork} from "../../poc/SimpleOAppBaseNetwork.sol";
 
 /**
  * @title CheckReceivedValue
@@ -53,7 +53,7 @@ contract CheckReceivedValue is Script {
             
         } else if (chainId == 84532) {
             // Base Sepolia
-            SimpleOAppBase pair = SimpleOAppBase(payable(pairAddress));
+            SimpleOAppBaseNetwork pair = SimpleOAppBaseNetwork(payable(pairAddress));
             
             console.log("LayerZero setup complete:", pair.isSetupComplete());
             console.log("Received value from Arbitrum Sepolia:", pair.getValue());

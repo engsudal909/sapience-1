@@ -3,11 +3,12 @@ pragma solidity ^0.8.19;
 
 import {CREATE3} from "./CREATE3.sol";
 import {SimpleOAppArbitrum} from "./SimpleOAppArbitrum.sol";
-import {SimpleOAppBase} from "./SimpleOAppBase.sol";
+import {SimpleOAppBaseNetwork} from "./SimpleOAppBaseNetwork.sol";
 import {ILayerZeroEndpointV2} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {SetConfigParam} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
 import {UlnConfig} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/UlnBase.sol";
 import {ExecutorConfig} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/SendLibBase.sol";
+import {IOAppCore} from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -161,7 +162,7 @@ contract OAppFactory is Ownable {
             );
         } else if (networkType == NetworkType.BASE) {
             bytecode = abi.encodePacked(
-                type(SimpleOAppBase).creationCode,
+                type(SimpleOAppBaseNetwork).creationCode,
                 abi.encode(address(this))
             );
         } else {
@@ -180,12 +181,17 @@ contract OAppFactory is Ownable {
         deployedPairs[salt] = pairAddress;
         pairNetworkType[salt] = networkType;
 
+        emit PairCreated(pairAddress, salt, networkType);
+
         // Automatically configure DVN if default config is set
+        // Note: This is done after emitting the event to ensure the pair is registered first
         if (isDVNConfigSet[networkType]) {
             _configureDVN(salt, defaultDVNConfig[networkType]);
         }
 
-        emit PairCreated(pairAddress, salt, networkType);
+        // Automatically setup LayerZero peer (factory is owner, so it can call setPeer)
+        // Note: This is done after emitting the event to ensure the pair is registered first
+        _setupLayerZeroPeer(salt, networkType);
     }
 
     /**
@@ -454,6 +460,67 @@ contract OAppFactory is Ownable {
         endpointContract.setConfig(oapp, config.sendLib, params);
 
         emit DVNConfigured(salt, oapp, config);
+    }
+
+    /**
+     * @notice Internal function to setup LayerZero peer on the deployed pair
+     * @param salt The salt of the deployed pair
+     * @param networkType The network type of the pair
+     * @dev The factory is the owner of the pair, so it can call setPeer
+     */
+    function _setupLayerZeroPeer(bytes32 salt, NetworkType networkType) internal {
+        address oapp = deployedPairs[salt];
+        if (oapp == address(0)) {
+            revert PairNotDeployed(salt);
+        }
+
+        // Determine EIDs based on current network (testnet or mainnet)
+        uint256 chainId = block.chainid;
+        bool isTestnetNetwork = chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
+        
+        uint32 remoteEid;
+        if (networkType == NetworkType.ARBITRUM) {
+            remoteEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+        } else {
+            remoteEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+        }
+
+        // Set peer: the pair address on the other network (same address due to CREATE3)
+        bytes32 peerAddress = bytes32(uint256(uint160(oapp)));
+        
+        // Call setPeer directly - factory is owner so it has permissions
+        // Use the interface to call setPeer on either SimpleOAppArbitrum or SimpleOAppBaseNetwork
+        IOAppCore(oapp).setPeer(remoteEid, peerAddress);
+    }
+    
+    /**
+     * @notice Setup LayerZero peer for an existing pair (owner only)
+     * @param salt The salt of the deployed pair
+     * @dev Allows the factory owner to setup the peer for pairs that were created before
+     *      the automatic peer setup was implemented
+     */
+    function setupPeerForPair(bytes32 salt) external onlyOwner {
+        address oapp = deployedPairs[salt];
+        if (oapp == address(0)) {
+            revert PairNotDeployed(salt);
+        }
+        
+        NetworkType networkType = pairNetworkType[salt];
+        
+        // Determine EIDs based on current network (testnet or mainnet)
+        uint256 chainId = block.chainid;
+        bool isTestnetNetwork = chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
+        
+        uint32 remoteEid;
+        if (networkType == NetworkType.ARBITRUM) {
+            remoteEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+        } else {
+            remoteEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+        }
+        
+        // Set peer: the pair address on the other network (same address due to CREATE3)
+        bytes32 peerAddress = bytes32(uint256(uint160(oapp)));
+        IOAppCore(oapp).setPeer(remoteEid, peerAddress);
     }
 
     // ============ Errors ============

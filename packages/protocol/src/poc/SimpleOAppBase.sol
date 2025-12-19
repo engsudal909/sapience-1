@@ -8,22 +8,13 @@ import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Option
 
 /**
  * @title SimpleOAppBase
- * @notice Simple OApp implementation for Base network
- * @dev The constructor internally calls OApp with Base LayerZero endpoint and factory as owner
+ * @notice Base contract for SimpleOApp implementations
+ * @dev Contains all common logic, to be extended by network-specific implementations
  */
-contract SimpleOAppBase is OApp {
+abstract contract SimpleOAppBase is OApp {
     using OptionsBuilder for bytes;
 
     address public immutable factory;
-
-    // Base LayerZero endpoint (same for mainnet and testnet)
-    address private constant BASE_ENDPOINT = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
-
-    // LayerZero EIDs
-    // Mainnet: Arbitrum = 30110, Base = 30140
-    // Testnet: Arbitrum Sepolia = 40231, Base Sepolia = 40245
-    uint32 private immutable ARBITRUM_EID;
-    uint32 private immutable BASE_EID;
 
     // Setup flag
     bool private _setupComplete;
@@ -47,35 +38,38 @@ contract SimpleOAppBase is OApp {
     event ValueReceived(uint256 value, uint32 sourceEid);
 
     /**
-     * @notice Constructor that accepts factory address
+     * @notice Constructor that accepts factory address and endpoint
      * @param _factory The address of the factory that deploys this contract
-     * @dev Internally calls OApp constructor with Base endpoint and factory as owner
-     *      Automatically detects if running on testnet or mainnet based on chain ID
+     * @param _endpoint The LayerZero endpoint address for this network
+     * @dev Internally calls OApp constructor with endpoint and factory as owner/delegate
      */
-    constructor(address _factory) Ownable(_factory) OApp(BASE_ENDPOINT, _factory) {
+    constructor(address _factory, address _endpoint) OApp(_endpoint, _factory) Ownable(_factory) {
         factory = _factory;
-        
-        // Detect network: Base Sepolia = 84532, Base = 8453
-        uint256 chainId = block.chainid;
-        if (chainId == 84532) {
-            // Base Sepolia testnet
-            ARBITRUM_EID = 40231;
-            BASE_EID = 40245;
-        } else {
-            // Base mainnet (or other networks)
-            ARBITRUM_EID = 30110;
-            BASE_EID = 30140;
-        }
-        
-        // The constructors are called with:
-        // - Ownable: _factory (the factory that deploys this contract, becomes the owner)
-        // - OApp: BASE_ENDPOINT and _factory (delegate)
     }
 
     /**
+     * @notice Get the LayerZero endpoint address for this network
+     * @return The endpoint address
+     */
+    function getEndpoint() public pure virtual returns (address);
+
+    /**
+     * @notice Get the local EID (this network's EID)
+     * @return The local EID
+     */
+    function getLocalEid() public view virtual returns (uint32);
+
+    /**
+     * @notice Get the remote EID (the other network's EID)
+     * @return The remote EID
+     */
+    function getRemoteEid() public view virtual returns (uint32);
+
+    /**
      * @notice Setup LayerZero configuration
-     * @dev Can only be called once. Sets up peer and bridge config.
-     *      Since CREATE3 ensures same address on both networks, the peer is this contract's address.
+     * @dev Can only be called once. Sets up bridge config.
+     *      Note: The peer is automatically set by the factory when the pair is created.
+     *      This function only sets up the internal bridge config state.
      *      Anyone can call this function as it doesn't take parameters or transfer tokens.
      */
     function setupLayerZero() external {
@@ -83,13 +77,11 @@ contract SimpleOAppBase is OApp {
             revert SetupAlreadyComplete();
         }
 
-        // Set peer: Arbitrum network EID pointing to this contract (same address on Arbitrum)
-        bytes32 peerAddress = bytes32(uint256(uint160(address(this))));
-        setPeer(ARBITRUM_EID, peerAddress);
+        uint32 remoteEid = getRemoteEid();
 
-        // Set bridge config: remote is Arbitrum network with this contract's address
+        // Set bridge config: remote network with this contract's address
         bridgeConfig = BridgeTypes.BridgeConfig({
-            remoteEid: ARBITRUM_EID,
+            remoteEid: remoteEid,
             remoteBridge: address(this)
         });
         emit BridgeConfigUpdated(bridgeConfig);
@@ -116,13 +108,15 @@ contract SimpleOAppBase is OApp {
     /**
      * @notice Send a value to the pair on the other network
      * @param value The value to send
-     * @dev Sends the value via LayerZero to the pair contract on Arbitrum network
+     * @dev Sends the value via LayerZero to the pair contract on the remote network
      *      Requires setup to be complete and sufficient ETH for fees
      */
     function sendValue(uint256 value) external payable {
         if (!_setupComplete) {
             revert SetupNotComplete();
         }
+
+        uint32 remoteEid = getRemoteEid();
 
         // Encode the value as the message payload
         bytes memory payload = abi.encode(value);
@@ -132,7 +126,7 @@ contract SimpleOAppBase is OApp {
 
         // Get quote for the message
         MessagingFee memory fee = _quote(
-            ARBITRUM_EID,
+            remoteEid,
             payload,
             options,
             false // payInLzToken
@@ -151,14 +145,14 @@ contract SimpleOAppBase is OApp {
 
         // Send the message
         MessagingReceipt memory receipt = _lzSend(
-            ARBITRUM_EID,
+            remoteEid,
             payload,
             options,
             fee,
             payable(msg.sender)
         );
 
-        emit ValueSent(value, ARBITRUM_EID);
+        emit ValueSent(value, remoteEid);
     }
 
     /**
@@ -173,11 +167,13 @@ contract SimpleOAppBase is OApp {
             revert SetupNotComplete();
         }
 
+        uint32 remoteEid = getRemoteEid();
+
         bytes memory payload = abi.encode(value);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(0, 0);
 
         MessagingFee memory fee = _quote(
-            ARBITRUM_EID,
+            remoteEid,
             payload,
             options,
             false // payInLzToken
@@ -209,12 +205,14 @@ contract SimpleOAppBase is OApp {
         address _executor,
         bytes calldata _extraData
     ) internal override {
+        uint32 expectedSourceEid = getRemoteEid();
+
         // Verify the message is from the expected source EID
-        if (_origin.srcEid != ARBITRUM_EID) {
-            revert InvalidSourceEid(ARBITRUM_EID, _origin.srcEid);
+        if (_origin.srcEid != expectedSourceEid) {
+            revert InvalidSourceEid(expectedSourceEid, _origin.srcEid);
         }
 
-        // CRITICAL: Verify the sender is the paired contract (same address on Arbitrum network)
+        // CRITICAL: Verify the sender is the paired contract (same address on remote network)
         address expectedSender = address(this);
         address actualSender = address(uint160(uint256(_origin.sender)));
         if (actualSender != expectedSender) {
@@ -230,4 +228,3 @@ contract SimpleOAppBase is OApp {
         emit ValueReceived(value, _origin.srcEid);
     }
 }
-

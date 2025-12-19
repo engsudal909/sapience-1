@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 import {OAppFactory} from "../../poc/OAppFactory.sol";
 import {SimpleOAppArbitrum} from "../../poc/SimpleOAppArbitrum.sol";
-import {SimpleOAppBase} from "../../poc/SimpleOAppBase.sol";
+import {SimpleOAppBaseNetwork} from "../../poc/SimpleOAppBaseNetwork.sol";
 
 /**
  * @title SendValueTest
@@ -67,7 +67,7 @@ contract SendValueTest is Script {
             
         } else if (chainId == 84532) {
             // Base Sepolia - Send to Arbitrum Sepolia
-            SimpleOAppBase pair = SimpleOAppBase(payable(pairAddress));
+            SimpleOAppBaseNetwork pair = SimpleOAppBaseNetwork(payable(pairAddress));
             
             // Check setup
             if (!pair.isSetupComplete()) {
