@@ -156,14 +156,21 @@ contract OAppFactory is Ownable {
         // Get the bytecode based on network type
         bytes memory bytecode;
         if (networkType == NetworkType.ARBITRUM) {
+            // Arbitrum endpoint (same for mainnet and testnet)
+            address arbitrumEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
             bytecode = abi.encodePacked(
                 type(SimpleOAppArbitrum).creationCode,
-                abi.encode(address(this))
+                abi.encode(address(this), arbitrumEndpoint)
             );
         } else if (networkType == NetworkType.BASE) {
+            // Determine Base endpoint based on current network (testnet or mainnet)
+            uint256 chainId = block.chainid;
+            address baseEndpoint = (chainId == CHAIN_ID_BASE_SEPOLIA)
+                ? 0x6EDCE65403992e310A62460808c4b910D972f10f  // Base Sepolia testnet
+                : 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7; // Base mainnet
             bytecode = abi.encodePacked(
                 type(SimpleOAppBaseNetwork).creationCode,
-                abi.encode(address(this))
+                abi.encode(address(this), baseEndpoint)
             );
         } else {
             revert InvalidNetworkType();

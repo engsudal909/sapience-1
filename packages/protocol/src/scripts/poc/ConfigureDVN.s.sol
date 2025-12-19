@@ -15,7 +15,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  */
 contract ConfigureDVN is Script {
     // Factory address (same on both networks)
-    address private constant FACTORY_ADDRESS = 0x4aB1dECB7D8Dd00091e2A6285E99F319aABD5c5E;
+    address private constant FACTORY_ADDRESS = 0x1847e316e6e4302b23B5Ab5BE078926386D78E95;
     
     // Arbitrum Sepolia addresses
     address private constant ARB_SEPOLIA_SEND_LIB = 0x4f7cd4DA19ABB31b0eC98b9066B9e857B1bf9C0E;      // SendUln302

@@ -92,6 +92,10 @@ contract DeployOAppFactoryWithDDP is Script {
         (success, returnData) = DDP.call(callData1);
         if (success) {
             console.log("Interface 1 succeeded!");
+            console.log("Return data length:", returnData.length);
+            if (returnData.length > 0) {
+                console.log("Return data (hex):", vm.toString(returnData));
+            }
         } else {
             console.log("Interface 1 failed, trying interface 2...");
             // Interface 2: create2(uint256, bytes) - Some DDPs use this order
@@ -134,18 +138,68 @@ contract DeployOAppFactoryWithDDP is Script {
         }
         
         // Extract deployed address from return data
-        // The DDP returns the address as the first 32 bytes (padded)
-        require(returnData.length >= 32, "Invalid return data from DDP - too short");
-        assembly {
-            // Load the first 32 bytes (which contains the address, right-aligned)
-            deployedAddress := mload(add(returnData, 0x20))
-            // Mask to get only the address (20 bytes = 160 bits)
-            deployedAddress := and(deployedAddress, 0xffffffffffffffffffffffffffffffffffffffff)
+        // The DDP returns the address - it might be in different formats
+        if (returnData.length == 0) {
+            // If no return data, check if the expected address has code
+            deployedAddress = factoryAddress;
+            console.log("No return data from DDP, checking expected address...");
+        } else if (returnData.length == 20) {
+            // Direct address (20 bytes)
+            assembly {
+                deployedAddress := mload(add(returnData, 0x20))
+                deployedAddress := and(deployedAddress, 0xffffffffffffffffffffffffffffffffffffffff)
+            }
+        } else if (returnData.length >= 32) {
+            // Address padded to 32 bytes (standard ABI encoding)
+            assembly {
+                // Load the first 32 bytes (which contains the address, right-aligned)
+                deployedAddress := mload(add(returnData, 0x20))
+                // Mask to get only the address (20 bytes = 160 bits)
+                deployedAddress := and(deployedAddress, 0xffffffffffffffffffffffffffffffffffffffff)
+            }
+        } else {
+            // Try to extract address from shorter return data
+            console.log("WARNING: Unexpected return data length:", returnData.length);
+            console.log("Return data (hex):", vm.toString(returnData));
+            // Try to extract address anyway (might be right-aligned)
+            assembly {
+                let dataLength := mload(returnData)
+                if gt(dataLength, 0) {
+                    // Load the data and mask to address size
+                    let dataPtr := add(returnData, 0x20)
+                    deployedAddress := mload(dataPtr)
+                    deployedAddress := and(deployedAddress, 0xffffffffffffffffffffffffffffffffffffffff)
+                }
+            }
         }
         
         console.log("Deployed address from DDP:", deployedAddress);
         console.log("Return data length:", returnData.length);
+        if (returnData.length > 0) {
+            console.log("Return data (hex):", vm.toString(returnData));
+        }
         console.log("Expected address (uint256 salt):", factoryAddress);
+        
+        // Check if the deployed address has code
+        uint256 deployedCodeSize;
+        assembly {
+            deployedCodeSize := extcodesize(deployedAddress)
+        }
+        console.log("Code size at deployed address:", deployedCodeSize);
+        
+        if (deployedCodeSize == 0 && deployedAddress != address(0)) {
+            console.log("");
+            console.log("WARNING: Contract deployed but has 0 bytes of code!");
+            console.log("This means the constructor reverted during deployment.");
+            console.log("The address", deployedAddress, "was created but the constructor failed.");
+            console.log("");
+            console.log("Possible causes:");
+            console.log("1. Constructor parameters are incorrect");
+            console.log("2. Constructor is calling external contracts that don't exist");
+            console.log("3. Constructor is reverting due to validation errors");
+            console.log("");
+            revert("Constructor reverted during deployment");
+        }
         
         // Recalculate expected address with bytes32 salt (some DDPs use this internally)
         bytes32 saltBytes32 = bytes32(DEPLOYMENT_SALT);

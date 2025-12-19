@@ -51,7 +51,7 @@ abstract contract SimpleOAppBase is OApp {
      * @notice Get the LayerZero endpoint address for this network
      * @return The endpoint address
      */
-    function getEndpoint() public pure virtual returns (address);
+    function getEndpoint() public view virtual returns (address);
 
     /**
      * @notice Get the local EID (this network's EID)

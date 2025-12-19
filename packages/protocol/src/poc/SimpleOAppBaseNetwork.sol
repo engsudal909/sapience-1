@@ -9,8 +9,11 @@ import "./SimpleOAppBase.sol";
  * @dev Extends SimpleOAppBase with Base-specific endpoint and EIDs
  */
 contract SimpleOAppBaseNetwork is SimpleOAppBase {
-    // Base LayerZero endpoint (same for mainnet and testnet)
-    address private constant BASE_ENDPOINT = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
+    // Base LayerZero endpoints
+    // Testnet: Base Sepolia uses the same endpoint as Arbitrum Sepolia
+    address private constant BASE_ENDPOINT_TESTNET = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+    // Mainnet: Base mainnet endpoint
+    address private constant BASE_ENDPOINT_MAINNET = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
 
     // LayerZero EIDs
     // Mainnet: Arbitrum = 30110, Base = 30140
@@ -19,11 +22,12 @@ contract SimpleOAppBaseNetwork is SimpleOAppBase {
     uint32 private immutable BASE_EID;
 
     /**
-     * @notice Constructor that accepts factory address
+     * @notice Constructor that accepts factory address and endpoint
      * @param _factory The address of the factory that deploys this contract
-     * @dev Automatically detects if running on testnet or mainnet based on chain ID
+     * @param _endpoint The LayerZero endpoint address for this network
+     * @dev The factory determines the endpoint in time of execution and passes it here
      */
-    constructor(address _factory) SimpleOAppBase(_factory, BASE_ENDPOINT) {
+    constructor(address _factory, address _endpoint) SimpleOAppBase(_factory, _endpoint) {
         // Detect network: Base Sepolia = 84532, Base = 8453
         uint256 chainId = block.chainid;
         if (chainId == 84532) {
@@ -39,10 +43,15 @@ contract SimpleOAppBaseNetwork is SimpleOAppBase {
 
     /**
      * @notice Get the LayerZero endpoint address for Base
-     * @return The Base endpoint address
+     * @return The Base endpoint address (testnet or mainnet)
      */
-    function getEndpoint() public pure override returns (address) {
-        return BASE_ENDPOINT;
+    function getEndpoint() public view override returns (address) {
+        uint256 chainId = block.chainid;
+        if (chainId == 84532) {
+            return BASE_ENDPOINT_TESTNET;
+        } else {
+            return BASE_ENDPOINT_MAINNET;
+        }
     }
 
     /**

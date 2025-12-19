@@ -19,11 +19,12 @@ contract SimpleOAppArbitrum is SimpleOAppBase {
     uint32 private immutable BASE_EID;
 
     /**
-     * @notice Constructor that accepts factory address
+     * @notice Constructor that accepts factory address and endpoint
      * @param _factory The address of the factory that deploys this contract
-     * @dev Automatically detects if running on testnet or mainnet based on chain ID
+     * @param _endpoint The LayerZero endpoint address for this network
+     * @dev The factory determines the endpoint in time of execution and passes it here
      */
-    constructor(address _factory) SimpleOAppBase(_factory, ARBITRUM_ENDPOINT) {
+    constructor(address _factory, address _endpoint) SimpleOAppBase(_factory, _endpoint) {
         // Detect network: Arbitrum Sepolia = 421614, Arbitrum One = 42161
         uint256 chainId = block.chainid;
         if (chainId == 421614) {

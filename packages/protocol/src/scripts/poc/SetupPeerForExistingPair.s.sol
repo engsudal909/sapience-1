@@ -11,7 +11,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  *      This is the correct way to setup peers for existing pairs
  */
 contract SetupPeerForExistingPair is Script {
-    address private constant FACTORY_ADDRESS = 0x4aB1dECB7D8Dd00091e2A6285E99F319aABD5c5E;
+    address private constant FACTORY_ADDRESS = 0x1847e316e6e4302b23B5Ab5BE078926386D78E95;
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external {
