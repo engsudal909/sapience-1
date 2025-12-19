@@ -9,17 +9,13 @@ import "./SimpleOAppBase.sol";
  * @dev Extends SimpleOAppBase with Base-specific endpoint and EIDs
  */
 contract SimpleOAppBaseNetwork is SimpleOAppBase {
-    // Base LayerZero endpoints
-    // Testnet: Base Sepolia uses the same endpoint as Arbitrum Sepolia
-    address private constant BASE_ENDPOINT_TESTNET = 0x6EDCE65403992e310A62460808c4b910D972f10f;
-    // Mainnet: Base mainnet endpoint
-    address private constant BASE_ENDPOINT_MAINNET = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
+    // Base LayerZero endpoint (mainnet)
+    address private constant BASE_ENDPOINT = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
 
-    // LayerZero EIDs
-    // Mainnet: Arbitrum = 30110, Base = 30140
-    // Testnet: Arbitrum Sepolia = 40231, Base Sepolia = 40245
-    uint32 private immutable ARBITRUM_EID;
-    uint32 private immutable BASE_EID;
+    // LayerZero EIDs - Mainnet only
+    // Arbitrum = 30110, Base = 30140
+    uint32 private constant ARBITRUM_EID = 30110;
+    uint32 private constant BASE_EID = 30140;
 
     /**
      * @notice Constructor that accepts factory address and endpoint
@@ -28,45 +24,30 @@ contract SimpleOAppBaseNetwork is SimpleOAppBase {
      * @dev The factory determines the endpoint in time of execution and passes it here
      */
     constructor(address _factory, address _endpoint) SimpleOAppBase(_factory, _endpoint) {
-        // Detect network: Base Sepolia = 84532, Base = 8453
-        uint256 chainId = block.chainid;
-        if (chainId == 84532) {
-            // Base Sepolia testnet
-            ARBITRUM_EID = 40231;
-            BASE_EID = 40245;
-        } else {
-            // Base mainnet (or other networks)
-            ARBITRUM_EID = 30110;
-            BASE_EID = 30140;
-        }
+        // Mainnet only - EIDs are constants
     }
 
     /**
      * @notice Get the LayerZero endpoint address for Base
-     * @return The Base endpoint address (testnet or mainnet)
+     * @return The Base endpoint address (mainnet)
      */
-    function getEndpoint() public view override returns (address) {
-        uint256 chainId = block.chainid;
-        if (chainId == 84532) {
-            return BASE_ENDPOINT_TESTNET;
-        } else {
-            return BASE_ENDPOINT_MAINNET;
-        }
+    function getEndpoint() public pure override returns (address) {
+        return BASE_ENDPOINT;
     }
 
     /**
      * @notice Get the local EID (Base's EID)
-     * @return The Base EID
+     * @return The Base EID (30140)
      */
-    function getLocalEid() public view override returns (uint32) {
+    function getLocalEid() public pure override returns (uint32) {
         return BASE_EID;
     }
 
     /**
      * @notice Get the remote EID (Arbitrum's EID)
-     * @return The Arbitrum EID
+     * @return The Arbitrum EID (30110)
      */
-    function getRemoteEid() public view override returns (uint32) {
+    function getRemoteEid() public pure override returns (uint32) {
         return ARBITRUM_EID;
     }
 }

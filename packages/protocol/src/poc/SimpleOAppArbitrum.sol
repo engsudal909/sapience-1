@@ -9,14 +9,13 @@ import "./SimpleOAppBase.sol";
  * @dev Extends SimpleOAppBase with Arbitrum-specific endpoint and EIDs
  */
 contract SimpleOAppArbitrum is SimpleOAppBase {
-    // Arbitrum LayerZero endpoint (same for mainnet and testnet)
+    // Arbitrum LayerZero endpoint (mainnet)
     address private constant ARBITRUM_ENDPOINT = 0x6EDCE65403992e310A62460808c4b910D972f10f;
 
-    // LayerZero EIDs
-    // Mainnet: Arbitrum = 30110, Base = 30140
-    // Testnet: Arbitrum Sepolia = 40231, Base Sepolia = 40245
-    uint32 private immutable ARBITRUM_EID;
-    uint32 private immutable BASE_EID;
+    // LayerZero EIDs - Mainnet only
+    // Arbitrum = 30110, Base = 30140
+    uint32 private constant ARBITRUM_EID = 30110;
+    uint32 private constant BASE_EID = 30140;
 
     /**
      * @notice Constructor that accepts factory address and endpoint
@@ -25,17 +24,7 @@ contract SimpleOAppArbitrum is SimpleOAppBase {
      * @dev The factory determines the endpoint in time of execution and passes it here
      */
     constructor(address _factory, address _endpoint) SimpleOAppBase(_factory, _endpoint) {
-        // Detect network: Arbitrum Sepolia = 421614, Arbitrum One = 42161
-        uint256 chainId = block.chainid;
-        if (chainId == 421614) {
-            // Arbitrum Sepolia testnet
-            ARBITRUM_EID = 40231;
-            BASE_EID = 40245;
-        } else {
-            // Arbitrum One mainnet (or other networks)
-            ARBITRUM_EID = 30110;
-            BASE_EID = 30140;
-        }
+        // Mainnet only - EIDs are constants
     }
 
     /**
@@ -48,17 +37,17 @@ contract SimpleOAppArbitrum is SimpleOAppBase {
 
     /**
      * @notice Get the local EID (Arbitrum's EID)
-     * @return The Arbitrum EID
+     * @return The Arbitrum EID (30110)
      */
-    function getLocalEid() public view override returns (uint32) {
+    function getLocalEid() public pure override returns (uint32) {
         return ARBITRUM_EID;
     }
 
     /**
      * @notice Get the remote EID (Base's EID)
-     * @return The Base EID
+     * @return The Base EID (30140)
      */
-    function getRemoteEid() public view override returns (uint32) {
+    function getRemoteEid() public pure override returns (uint32) {
         return BASE_EID;
     }
 }

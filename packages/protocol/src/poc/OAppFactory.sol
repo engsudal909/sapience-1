@@ -82,19 +82,13 @@ contract OAppFactory is Ownable {
      */
     constructor(address _owner) Ownable(_owner) {}
 
-    // Chain IDs
+    // Chain IDs - Mainnet only
     uint256 private constant CHAIN_ID_ARBITRUM = 42161;
-    uint256 private constant CHAIN_ID_ARBITRUM_SEPOLIA = 421614;
     uint256 private constant CHAIN_ID_BASE = 8453;
-    uint256 private constant CHAIN_ID_BASE_SEPOLIA = 84532;
 
-    // LayerZero EIDs - Mainnet
-    uint32 private constant ARBITRUM_EID_MAINNET = 30110;
-    uint32 private constant BASE_EID_MAINNET = 30140;
-    
-    // LayerZero EIDs - Testnet
-    uint32 private constant ARBITRUM_EID_TESTNET = 40231;
-    uint32 private constant BASE_EID_TESTNET = 40245;
+    // LayerZero EIDs - Mainnet only
+    uint32 private constant ARBITRUM_EID = 30110;
+    uint32 private constant BASE_EID = 30140;
 
     // Config type constants
     uint32 private constant EXECUTOR_CONFIG_TYPE = 1;
@@ -156,18 +150,15 @@ contract OAppFactory is Ownable {
         // Get the bytecode based on network type
         bytes memory bytecode;
         if (networkType == NetworkType.ARBITRUM) {
-            // Arbitrum endpoint (same for mainnet and testnet)
-            address arbitrumEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+            // Arbitrum mainnet endpoint
+            address arbitrumEndpoint = 0x1a44076050125825900e736c501f859c50fE728c;
             bytecode = abi.encodePacked(
                 type(SimpleOAppArbitrum).creationCode,
                 abi.encode(address(this), arbitrumEndpoint)
             );
         } else if (networkType == NetworkType.BASE) {
-            // Determine Base endpoint based on current network (testnet or mainnet)
-            uint256 chainId = block.chainid;
-            address baseEndpoint = (chainId == CHAIN_ID_BASE_SEPOLIA)
-                ? 0x6EDCE65403992e310A62460808c4b910D972f10f  // Base Sepolia testnet
-                : 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7; // Base mainnet
+            // Base mainnet endpoint
+            address baseEndpoint = 0x1a44076050125825900e736c501f859c50fE728c;
             bytecode = abi.encodePacked(
                 type(SimpleOAppBaseNetwork).creationCode,
                 abi.encode(address(this), baseEndpoint)
@@ -204,50 +195,34 @@ contract OAppFactory is Ownable {
     /**
      * @notice Gets the network type based on the current chain ID
      * @return The network type (ARBITRUM or BASE)
-     * @dev Reverts if chain ID is not supported
+     * @dev Reverts if chain ID is not supported (mainnet only)
      */
     function _getNetworkType() internal view returns (NetworkType) {
         uint256 chainId = block.chainid;
-        if (chainId == CHAIN_ID_ARBITRUM || chainId == CHAIN_ID_ARBITRUM_SEPOLIA) {
+        if (chainId == CHAIN_ID_ARBITRUM) {
             return NetworkType.ARBITRUM;
-        } else if (chainId == CHAIN_ID_BASE || chainId == CHAIN_ID_BASE_SEPOLIA) {
+        } else if (chainId == CHAIN_ID_BASE) {
             return NetworkType.BASE;
         } else {
             revert UnsupportedChainId(chainId);
         }
     }
     
+    
     /**
-     * @notice Check if current network is a testnet
-     * @return True if running on testnet
+     * @notice Get the LayerZero EID for Arbitrum (mainnet only)
+     * @return The EID for Arbitrum network (30110)
      */
-    function isTestnet() external view returns (bool) {
-        uint256 chainId = block.chainid;
-        return chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
+    function getArbitrumEid() external pure returns (uint32) {
+        return ARBITRUM_EID;
     }
     
     /**
-     * @notice Get the LayerZero EID for Arbitrum (mainnet or testnet)
-     * @return The EID for Arbitrum network
+     * @notice Get the LayerZero EID for Base (mainnet only)
+     * @return The EID for Base network (30140)
      */
-    function getArbitrumEid() external view returns (uint32) {
-        uint256 chainId = block.chainid;
-        if (chainId == CHAIN_ID_ARBITRUM_SEPOLIA) {
-            return ARBITRUM_EID_TESTNET;
-        }
-        return ARBITRUM_EID_MAINNET;
-    }
-    
-    /**
-     * @notice Get the LayerZero EID for Base (mainnet or testnet)
-     * @return The EID for Base network
-     */
-    function getBaseEid() external view returns (uint32) {
-        uint256 chainId = block.chainid;
-        if (chainId == CHAIN_ID_BASE_SEPOLIA) {
-            return BASE_EID_TESTNET;
-        }
-        return BASE_EID_MAINNET;
+    function getBaseEid() external pure returns (uint32) {
+        return BASE_EID;
     }
 
     /**
@@ -430,22 +405,26 @@ contract OAppFactory is Ownable {
         }
 
         NetworkType networkType = pairNetworkType[salt];
-        address endpoint = networkType == NetworkType.ARBITRUM
-            ? 0x6EDCE65403992e310A62460808c4b910D972f10f
-            : 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
+        address endpoint;
+        if (networkType == NetworkType.ARBITRUM) {
+            endpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Arbitrum mainnet endpoint
+        } else if (networkType == NetworkType.BASE) {
+            endpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Base mainnet endpoint
+        } else {
+            revert InvalidNetworkType();
+        }
         
-        // Determine EIDs based on current network (testnet or mainnet)
-        uint256 chainId = block.chainid;
-        bool isTestnetNetwork = chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
-        
+        // Mainnet EIDs only
         uint32 remoteEid;
         uint32 localEid;
         if (networkType == NetworkType.ARBITRUM) {
-            remoteEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
-            localEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+            remoteEid = BASE_EID;  // Base mainnet
+            localEid = ARBITRUM_EID;  // Arbitrum mainnet
+        } else if (networkType == NetworkType.BASE) {
+            remoteEid = ARBITRUM_EID;  // Arbitrum mainnet
+            localEid = BASE_EID;  // Base mainnet
         } else {
-            remoteEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
-            localEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+            revert InvalidNetworkType();
         }
 
         ILayerZeroEndpointV2 endpointContract = ILayerZeroEndpointV2(endpoint);
@@ -481,15 +460,14 @@ contract OAppFactory is Ownable {
             revert PairNotDeployed(salt);
         }
 
-        // Determine EIDs based on current network (testnet or mainnet)
-        uint256 chainId = block.chainid;
-        bool isTestnetNetwork = chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
-        
+        // Mainnet EIDs only
         uint32 remoteEid;
         if (networkType == NetworkType.ARBITRUM) {
-            remoteEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+            remoteEid = BASE_EID;  // Base mainnet
+        } else if (networkType == NetworkType.BASE) {
+            remoteEid = ARBITRUM_EID;  // Arbitrum mainnet
         } else {
-            remoteEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+            revert InvalidNetworkType();
         }
 
         // Set peer: the pair address on the other network (same address due to CREATE3)
@@ -514,15 +492,14 @@ contract OAppFactory is Ownable {
         
         NetworkType networkType = pairNetworkType[salt];
         
-        // Determine EIDs based on current network (testnet or mainnet)
-        uint256 chainId = block.chainid;
-        bool isTestnetNetwork = chainId == CHAIN_ID_ARBITRUM_SEPOLIA || chainId == CHAIN_ID_BASE_SEPOLIA;
-        
+        // Mainnet EIDs only
         uint32 remoteEid;
         if (networkType == NetworkType.ARBITRUM) {
-            remoteEid = isTestnetNetwork ? BASE_EID_TESTNET : BASE_EID_MAINNET;
+            remoteEid = BASE_EID;  // Base mainnet
+        } else if (networkType == NetworkType.BASE) {
+            remoteEid = ARBITRUM_EID;  // Arbitrum mainnet
         } else {
-            remoteEid = isTestnetNetwork ? ARBITRUM_EID_TESTNET : ARBITRUM_EID_MAINNET;
+            revert InvalidNetworkType();
         }
         
         // Set peer: the pair address on the other network (same address due to CREATE3)
