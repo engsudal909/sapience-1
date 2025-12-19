@@ -102,7 +102,11 @@ export default function PositionForm({
     null
   );
   // State for managing bid clearing when wager/selections change (for animations)
-  const [validBids, setValidBids] = useState<QuoteBid[]>(bids);
+  // IMPORTANT: do NOT seed from `bids` prop.
+  // `bids` comes from a shared auction hook and may contain leftover quotes from
+  // a previous request for a different prediction set. We only want to display
+  // bids after *this* form initiates an auction for the current inputs.
+  const [validBids, setValidBids] = useState<QuoteBid[]>([]);
 
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
 
@@ -333,6 +337,10 @@ export default function PositionForm({
       const wagerStr = parlayWagerAmount || '0';
 
       try {
+        // Reset display state for a new request (prevents stale "active bid" while awaiting quotes).
+        setValidBids([]);
+        setStickyEstimateBid(null);
+
         const decimals = Number.isFinite(collateralDecimals as number)
           ? (collateralDecimals as number)
           : 18;
