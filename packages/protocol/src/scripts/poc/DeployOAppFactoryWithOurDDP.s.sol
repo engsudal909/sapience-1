@@ -24,7 +24,8 @@ contract DeployOAppFactoryWithOurDDP is Script {
     address private constant OUR_DDP_ADDRESS = address(0xc1525CF7d9b9ed81Ce277c2Bf96fb1E0e85E1e7E); // Update after deployment
     
     // Salt for deploying the factory
-    bytes32 private constant FACTORY_SALT = keccak256("OAppFactory-OurDDP-v1");
+    // v2: Updated to remove automatic peer setup during pair creation
+    bytes32 private constant FACTORY_SALT = keccak256("OAppFactory-OurDDP-v3");
 
     function run() external {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
@@ -88,10 +89,21 @@ contract DeployOAppFactoryWithOurDDP is Script {
         console.log("Factory salt:", vm.toString(FACTORY_SALT));
         console.log("Expected factory address:", expectedFactoryAddress);
         
+        // Warn if old factory exists at different address
+        address oldFactoryAddress = 0xC3E9eB3F80EC69aa95Ce06b7f288B0c1562B7CFa;
+        if (oldFactoryAddress.code.length > 0 && oldFactoryAddress != expectedFactoryAddress) {
+            console.log("");
+            console.log("WARNING: Old factory (v1) exists at:", oldFactoryAddress);
+            console.log("New factory (v2) will be deployed at:", expectedFactoryAddress);
+            console.log("You will need to update all scripts with the new factory address.");
+            console.log("");
+        }
+        
         // Check if factory already deployed
         if (expectedFactoryAddress.code.length > 0) {
             console.log("");
             console.log("Factory already deployed at:", expectedFactoryAddress);
+            console.log("If you need to redeploy, you must use a different salt or remove the old factory first.");
             return;
         }
         

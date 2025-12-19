@@ -10,8 +10,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * @dev Use this if ConfigureAndTest fails at pair creation
  */
 contract CreatePair is Script {
-    // TODO: Update with the new factory address after deployment
-    address private constant FACTORY_ADDRESS = address(0); // Update after factory deployment
+    address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external {
@@ -48,6 +47,13 @@ contract CreatePair is Script {
         
         console.log("Pair created at:", deployed);
         console.log("Matches expected:", deployed == expectedAddress);
+        console.log("");
+        console.log("Next steps:");
+        console.log("1. Create the pair on the other network with the same salt");
+        console.log("2. Configure DVN on both networks using ConfigureDVNForPair.s.sol");
+        console.log("   (Note: This may fail if libraries are not registered - check LayerZero docs)");
+        console.log("3. Setup peer on both networks using SetupPeerForExistingPair.s.sol");
+        console.log("4. Call setupLayerZero() on both pairs to complete the setup");
     }
 }
 

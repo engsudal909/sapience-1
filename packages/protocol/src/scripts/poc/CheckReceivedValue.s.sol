@@ -13,7 +13,7 @@ import {SimpleOAppBaseNetwork} from "../../poc/SimpleOAppBaseNetwork.sol";
  */
 contract CheckReceivedValue is Script {
     // Factory address (same on both networks)
-    address private constant FACTORY_ADDRESS = 0x1847e316e6e4302b23B5Ab5BE078926386D78E95;
+    address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
     
     // Test salt (must match the one used to create the pair)
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");

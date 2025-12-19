@@ -88,7 +88,7 @@ contract OAppFactory is Ownable {
 
     // LayerZero EIDs - Mainnet only
     uint32 private constant ARBITRUM_EID = 30110;
-    uint32 private constant BASE_EID = 30140;
+    uint32 private constant BASE_EID = 30184;
 
     // Config type constants
     uint32 private constant EXECUTOR_CONFIG_TYPE = 1;
@@ -181,15 +181,15 @@ contract OAppFactory is Ownable {
 
         emit PairCreated(pairAddress, salt, networkType);
 
-        // Automatically configure DVN if default config is set
-        // Note: This is done after emitting the event to ensure the pair is registered first
-        if (isDVNConfigSet[networkType]) {
-            _configureDVN(salt, defaultDVNConfig[networkType]);
-        }
+        // Note: DVN configuration is NOT done automatically during pair creation
+        // because setReceiveLibrary may fail if the library is not registered in the endpoint.
+        // Configure DVN manually after pair creation using configureDVNForPair() or
+        // ensure libraries are registered before creating pairs.
 
-        // Automatically setup LayerZero peer (factory is owner, so it can call setPeer)
-        // Note: This is done after emitting the event to ensure the pair is registered first
-        _setupLayerZeroPeer(salt, networkType);
+        // Note: Peer setup is NOT done automatically during creation because setPeer requires
+        // the remote EID to be recognized by the endpoint, which may not be the case until
+        // both pairs are created and DVN is configured on both networks.
+        // Use setupPeerForPair() after both pairs are created on both networks.
     }
 
     /**
@@ -219,7 +219,7 @@ contract OAppFactory is Ownable {
     
     /**
      * @notice Get the LayerZero EID for Base (mainnet only)
-     * @return The EID for Base network (30140)
+     * @return The EID for Base network (30184)
      */
     function getBaseEid() external pure returns (uint32) {
         return BASE_EID;
@@ -453,6 +453,7 @@ contract OAppFactory is Ownable {
      * @param salt The salt of the deployed pair
      * @param networkType The network type of the pair
      * @dev The factory is the owner of the pair, so it can call setPeer
+     * @dev This function is kept for backwards compatibility but is no longer called automatically
      */
     function _setupLayerZeroPeer(bytes32 salt, NetworkType networkType) internal {
         address oapp = deployedPairs[salt];
@@ -505,6 +506,26 @@ contract OAppFactory is Ownable {
         // Set peer: the pair address on the other network (same address due to CREATE3)
         bytes32 peerAddress = bytes32(uint256(uint160(oapp)));
         IOAppCore(oapp).setPeer(remoteEid, peerAddress);
+    }
+    
+    /**
+     * @notice Configure DVN for an existing pair (owner only)
+     * @param salt The salt of the deployed pair
+     * @dev Allows the factory owner to configure DVN for pairs after creation
+     *      This is useful when libraries need to be registered first
+     */
+    function configureDVNForPair(bytes32 salt) external onlyOwner {
+        address oapp = deployedPairs[salt];
+        if (oapp == address(0)) {
+            revert PairNotDeployed(salt);
+        }
+        
+        NetworkType networkType = pairNetworkType[salt];
+        if (!isDVNConfigSet[networkType]) {
+            revert("DVN config not set for this network type");
+        }
+        
+        _configureDVN(salt, defaultDVNConfig[networkType]);
     }
 
     // ============ Errors ============

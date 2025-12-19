@@ -13,9 +13,9 @@ contract SimpleOAppBaseNetwork is SimpleOAppBase {
     address private constant BASE_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
 
     // LayerZero EIDs - Mainnet only
-    // Arbitrum = 30110, Base = 30140
+    // Arbitrum = 30110, Base = 30184
     uint32 private constant ARBITRUM_EID = 30110;
-    uint32 private constant BASE_EID = 30140;
+    uint32 private constant BASE_EID = 30184;
 
     /**
      * @notice Constructor that accepts factory address and endpoint
@@ -37,7 +37,7 @@ contract SimpleOAppBaseNetwork is SimpleOAppBase {
 
     /**
      * @notice Get the local EID (Base's EID)
-     * @return The Base EID (30140)
+     * @return The Base EID (30184)
      */
     function getLocalEid() public pure override returns (uint32) {
         return BASE_EID;

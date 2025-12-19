@@ -15,19 +15,19 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  */
 contract ConfigureDVN is Script {
     // Factory address (same on both networks)
-    address private constant FACTORY_ADDRESS = 0x1847e316e6e4302b23B5Ab5BE078926386D78E95;
+    address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
     
     // Arbitrum One mainnet addresses
     // TODO: Update with actual mainnet addresses from LayerZero documentation
     address private constant ARB_MAINNET_SEND_LIB = address(0x975bcD720be66659e3EB3C0e4F1866a3020E493A);      // TODO: Get from docs
-    address private constant ARB_MAINNET_RECEIVE_LIB = address(0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf);    // TODO: Get from docs
+    address private constant ARB_MAINNET_RECEIVE_LIB = address(0x7B9E184e07a6EE1aC23eAe0fe8D6Be2f663f05e6);    // TODO: Get from docs
     address private constant ARB_MAINNET_DVN = address(0x2f55C492897526677C5B68fb199ea31E2c126416);            // TODO: Get from docs
     address private constant ARB_MAINNET_EXECUTOR = address(0x31CAe3B7fB82d847621859fb1585353c5720660D);      // TODO: Get from docs
     
     // Base mainnet addresses
     // TODO: Update with actual mainnet addresses from LayerZero documentation
     address private constant BASE_MAINNET_SEND_LIB = address(0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2);      // TODO: Get from docs
-    address private constant BASE_MAINNET_RECEIVE_LIB = address(0x7B9E184e07a6EE1aC23eAe0fe8D6Be2f663f05e6);  // TODO: Get from docs
+    address private constant BASE_MAINNET_RECEIVE_LIB = address(0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf);  // TODO: Get from docs
     address private constant BASE_MAINNET_DVN = address(0x9e059a54699a285714207b43B055483E78FAac25);          // TODO: Get from docs
     address private constant BASE_MAINNET_EXECUTOR = address(0x2CCA08ae69E0C44b18a57Ab2A87644234dAebaE4);      // TODO: Get from docs
 

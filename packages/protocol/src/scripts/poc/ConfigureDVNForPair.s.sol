@@ -5,12 +5,17 @@ import "forge-std/Script.sol";
 import {OAppFactory} from "../../poc/OAppFactory.sol";
 
 /**
- * @title SetupPeerForExistingPair
- * @notice Script to setup LayerZero peer for an existing pair using the factory's owner function
- * @dev The factory has a function setupPeerForPair that can be called by the owner
- *      This is the correct way to setup peers for existing pairs
+ * @title ConfigureDVNForPair
+ * @notice Script to configure DVN for an existing pair
+ * @dev This script calls configureDVNForPair() on the factory to configure DVN
+ *      for a pair that was created without automatic DVN configuration.
+ * 
+ * Prerequisites:
+ * 1. Pair must be created
+ * 2. Default DVN config must be set for the network type
+ * 3. Libraries must be registered in the LayerZero endpoint
  */
-contract SetupPeerForExistingPair is Script {
+contract ConfigureDVNForPair is Script {
     address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
@@ -19,9 +24,12 @@ contract SetupPeerForExistingPair is Script {
         address deployer = vm.addr(deployerPrivateKey);
         uint256 chainId = block.chainid;
         
-        console.log("Setting up peer for existing pair...");
-        console.log("Factory:", FACTORY_ADDRESS);
+        console.log("========================================");
+        console.log("Configure DVN for Pair");
+        console.log("========================================");
+        console.log("Factory address:", FACTORY_ADDRESS);
         console.log("Chain ID:", chainId);
+        console.log("Network:", chainId == 42161 ? "Arbitrum One" : "Base");
         console.log("Salt:", vm.toString(TEST_SALT));
         console.log("");
         
@@ -35,7 +43,7 @@ contract SetupPeerForExistingPair is Script {
             console.log("Factory owner:", factoryOwner);
             revert("Not factory owner");
         }
-        console.log("Deployer verified as factory owner (OK)");
+        console.log("Deployer verified as factory owner ✓");
         console.log("");
         
         // Verify pair exists
@@ -48,24 +56,33 @@ contract SetupPeerForExistingPair is Script {
         console.log("Pair address:", pairAddress);
         console.log("");
         
-        // Note: The factory is the owner of the pair, so it can call setPeer
-        // This is set in the SimpleOAppBase constructor: Ownable(_factory)
-        console.log("Note: Factory is the owner of the pair, so it can call setPeer");
+        // Check if DVN config is set
+        OAppFactory.NetworkType networkType = chainId == 42161 
+            ? OAppFactory.NetworkType.ARBITRUM 
+            : OAppFactory.NetworkType.BASE;
+        
+        bool isDVNConfigSet = factory.isDVNConfigSet(networkType);
+        if (!isDVNConfigSet) {
+            console.log("ERROR: DVN config not set for this network type!");
+            console.log("Run ConfigureDVN.s.sol first to set default DVN config.");
+            return;
+        }
+        console.log("DVN config verified ✓");
         console.log("");
         
         vm.startBroadcast(deployerPrivateKey);
         
-        console.log("Calling factory.setupPeerForPair()...");
-        console.log("(Factory will call setPeer on the pair as owner)");
+        console.log("Configuring DVN for pair...");
+        console.log("(This may fail if libraries are not registered in the endpoint)");
         console.log("");
         
-        factory.setupPeerForPair(TEST_SALT);
+        factory.configureDVNForPair(TEST_SALT);
         
         vm.stopBroadcast();
         
-        console.log("SUCCESS: Peer configured!");
         console.log("");
-        console.log("Next: Call setupLayerZero() on the pair to complete the setup");
+        console.log("SUCCESS: DVN configured for pair!");
+        console.log("");
     }
 }
 

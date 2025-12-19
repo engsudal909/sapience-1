@@ -37,12 +37,10 @@ This guide explains how to deploy and test the OAppFactory PoC on Arbitrum Sepol
 
 ## Automatic Testnet Detection
 
-The contracts automatically detect if they're running on testnet or mainnet based on the chain ID:
+The contracts use the correct LayerZero EIDs for mainnet:
 
-- **Arbitrum Sepolia** (421614) → Uses EID `40231` for Arbitrum, `40245` for Base
-- **Base Sepolia** (84532) → Uses EID `40231` for Arbitrum, `40245` for Base
-- **Arbitrum One** (42161) → Uses EID `30110` for Arbitrum, `30140` for Base
-- **Base** (8453) → Uses EID `30110` for Arbitrum, `30140` for Base
+- **Arbitrum One** (42161) → Uses EID `30110` for Arbitrum, `30184` for Base
+- **Base** (8453) → Uses EID `30110` for Arbitrum, `30184` for Base
 
 No code changes are needed - the contracts will automatically use the correct EIDs!
 
