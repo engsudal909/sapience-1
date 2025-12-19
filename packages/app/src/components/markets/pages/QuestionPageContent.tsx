@@ -611,7 +611,7 @@ export default function QuestionPageContent({
           <div className="p-4 border-b border-border/60">
             <ConditionForecastForm
               conditionId={conditionId}
-              resolver={resolverAddress ?? UMA_RESOLVER_ARBITRUM}
+              resolver={UMA_RESOLVER_ARBITRUM}
               question={data.shortName || data.question || ''}
               endTime={data.endTime ?? undefined}
               categorySlug={data.category?.slug}
@@ -718,7 +718,7 @@ export default function QuestionPageContent({
           <div className="p-4 border-b border-border/60">
             <ConditionForecastForm
               conditionId={conditionId}
-              resolver={resolverAddress ?? UMA_RESOLVER_ARBITRUM}
+              resolver={UMA_RESOLVER_ARBITRUM}
               question={data.shortName || data.question || ''}
               endTime={data.endTime ?? undefined}
               categorySlug={data.category?.slug}

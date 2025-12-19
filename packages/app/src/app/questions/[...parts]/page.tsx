@@ -34,7 +34,9 @@ const QuestionPage = () => {
   React.useEffect(() => {
     if (!conditionId) return;
     // Always redirect legacy URL to canonical URL once we know the chain.
-    router.replace(getQuestionHref({ conditionId, chainId: CHAIN_ID_ETHEREAL }));
+    router.replace(
+      getQuestionHref({ conditionId, chainId: CHAIN_ID_ETHEREAL })
+    );
   }, [router, conditionId]);
 
   // While resolving redirect, render the page content (keeps behavior close to previous implementation).

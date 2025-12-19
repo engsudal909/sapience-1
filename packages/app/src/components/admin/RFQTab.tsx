@@ -48,11 +48,7 @@ import { formatDistanceToNow, fromUnixTime } from 'date-fns';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { keccak256, concatHex, toHex } from 'viem';
 import { lzUmaResolver, lzPMResolver } from '@sapience/sdk/contracts';
-import {
-  DEFAULT_CHAIN_ID,
-  CHAIN_ID_ARBITRUM,
-  CHAIN_ID_ETHEREAL,
-} from '@sapience/sdk/constants';
+import { DEFAULT_CHAIN_ID, CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 import DateTimePicker from '../shared/DateTimePicker';
 import DataTable from './data-table';
 import ResolveConditionCell from './ResolveConditionCell';
@@ -705,7 +701,7 @@ const RFQTab = ({
                 size="sm"
                 onClick={() => {
                   setEditingId(id);
-                  setEditingChainId(original.chainId ?? CHAIN_ID_ARBITRUM);
+                  setEditingChainId(original.chainId ?? DEFAULT_CHAIN_ID);
                   setQuestion(original.question || '');
                   setShortName(original.shortName || '');
                   setCategorySlug(original.category?.slug || '');
