@@ -9,8 +9,8 @@ import "./SimpleOAppBase.sol";
  * @dev Extends SimpleOAppBase with Base-specific endpoint and EIDs
  */
 contract SimpleOAppBaseNetwork is SimpleOAppBase {
-    // Base LayerZero endpoint (mainnet)
-    address private constant BASE_ENDPOINT = 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7;
+    // Base LayerZero endpoint (mainnet) - LayerZero v2 unified endpoint
+    address private constant BASE_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
 
     // LayerZero EIDs - Mainnet only
     // Arbitrum = 30110, Base = 30140

@@ -9,8 +9,8 @@ import "./SimpleOAppBase.sol";
  * @dev Extends SimpleOAppBase with Arbitrum-specific endpoint and EIDs
  */
 contract SimpleOAppArbitrum is SimpleOAppBase {
-    // Arbitrum LayerZero endpoint (mainnet)
-    address private constant ARBITRUM_ENDPOINT = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+    // Arbitrum LayerZero endpoint (mainnet) - LayerZero v2 unified endpoint
+    address private constant ARBITRUM_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
 
     // LayerZero EIDs - Mainnet only
     // Arbitrum = 30110, Base = 30140

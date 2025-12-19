@@ -10,7 +10,8 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * @dev Use this if ConfigureAndTest fails at pair creation
  */
 contract CreatePair is Script {
-    address private constant FACTORY_ADDRESS = 0x1847e316e6e4302b23B5Ab5BE078926386D78E95;
+    // TODO: Update with the new factory address after deployment
+    address private constant FACTORY_ADDRESS = address(0); // Update after factory deployment
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external {

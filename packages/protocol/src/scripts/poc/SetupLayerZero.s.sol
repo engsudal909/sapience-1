@@ -45,8 +45,8 @@ contract SetupLayerZero is Script {
         
         vm.startBroadcast(deployerPrivateKey);
         
-        if (chainId == 421614) {
-            // Arbitrum Sepolia
+        if (chainId == 42161) {
+            // Arbitrum One
             SimpleOAppArbitrum pair = SimpleOAppArbitrum(payable(pairAddress));
             
             bool isSetup = pair.isSetupComplete();
@@ -63,8 +63,8 @@ contract SetupLayerZero is Script {
             console.log("Final setup status:", pair.isSetupComplete());
             console.log("Received value:", pair.getValue());
             
-        } else if (chainId == 84532) {
-            // Base Sepolia
+        } else if (chainId == 8453) {
+            // Base
             SimpleOAppBaseNetwork pair = SimpleOAppBaseNetwork(payable(pairAddress));
             
             bool isSetup = pair.isSetupComplete();
@@ -82,7 +82,7 @@ contract SetupLayerZero is Script {
             console.log("Received value:", pair.getValue());
             
         } else {
-            console.log("ERROR: Unsupported network!");
+            console.log("ERROR: Unsupported network! Only Arbitrum One (42161) or Base (8453) are supported.");
         }
         
         vm.stopBroadcast();

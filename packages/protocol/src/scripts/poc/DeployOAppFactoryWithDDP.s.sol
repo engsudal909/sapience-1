@@ -6,7 +6,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
 
 /**
  * @title DeployOAppFactoryWithDDP
- * @notice Script to deploy OAppFactory using a Deterministic Deployment Proxy (DDP)
+ * @notice Script to deploy OAppFactory using a Deterministic Deployment Proxy (DDP) - Mainnet Only
  * @dev This approach uses CREATE2 via a DDP to ensure the same address on all networks.
  * 
  * The DDP (Deterministic Deployment Proxy) is a contract deployed at the same address
@@ -18,6 +18,8 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * 
  * Note: The DDP at 0x4e59b44847b379578588920cA78FbF26c0B4956C uses uint256 salt,
  * not bytes32. This is the standard CREATE2 Factory by Nick Johnson.
+ * 
+ * IMPORTANT: This script is for mainnet only (Arbitrum One and Base).
  */
 contract DeployOAppFactoryWithDDP is Script {
     // Standard DDP address (same on all EVM chains)
@@ -31,11 +33,23 @@ contract DeployOAppFactoryWithDDP is Script {
     function run() external {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        uint256 chainId = block.chainid;
         
-        console.log("Deploying OAppFactory via DDP...");
+        // Verify we're on mainnet
+        if (chainId != 42161 && chainId != 8453) {
+            console.log("ERROR: This script only works on Arbitrum One (42161) or Base (8453) mainnet!");
+            console.log("Current chain ID:", chainId);
+            revert("Unsupported network");
+        }
+        
+        console.log("========================================");
+        console.log("Deploying OAppFactory via DDP (Mainnet)");
+        console.log("========================================");
         console.log("DDP address:", DDP);
         console.log("Deployment salt (uint256):", DEPLOYMENT_SALT);
-        console.log("Chain ID:", block.chainid);
+        console.log("Chain ID:", chainId);
+        console.log("Network:", chainId == 42161 ? "Arbitrum One" : "Base");
+        console.log("");
 
         // Calculate the deployment address
         address factoryAddress = _computeAddress(DEPLOYMENT_SALT);

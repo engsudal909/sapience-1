@@ -16,14 +16,12 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * 1. Use the same deployer address and private key
  * 2. Ensure the deployer has the same nonce on both networks before deployment
  * 
- * For testnets (Arbitrum Sepolia, Base Sepolia), this method is reliable and simple.
+ * For mainnet (Arbitrum One, Base), this method is reliable and simple.
  */
 contract DeployOAppFactory is Script {
-    // Chain IDs for reference
+    // Chain IDs for reference (mainnet only)
     uint256 private constant CHAIN_ID_ARBITRUM = 42161;
-    uint256 private constant CHAIN_ID_ARBITRUM_SEPOLIA = 421614;
     uint256 private constant CHAIN_ID_BASE = 8453;
-    uint256 private constant CHAIN_ID_BASE_SEPOLIA = 84532;
 
     function run() external {
         // Load deployer address from environment
@@ -73,12 +71,10 @@ contract DeployOAppFactory is Script {
         console.log("  - Ensure deployer has the SAME nonce on both networks");
         console.log("  - Current nonce:", currentNonce);
         console.log("");
-        console.log("To check nonce on other networks:");
-        if (chainId == CHAIN_ID_ARBITRUM || chainId == CHAIN_ID_ARBITRUM_SEPOLIA) {
-            console.log("  - Base Sepolia: https://sepolia-explorer.base.org/address/", vm.toString(deployer));
+        console.log("To check nonce on other network:");
+        if (chainId == CHAIN_ID_ARBITRUM) {
             console.log("  - Base Mainnet: https://basescan.org/address/", vm.toString(deployer));
         } else {
-            console.log("  - Arbitrum Sepolia: https://sepolia-explorer.arbitrum.io/address/", vm.toString(deployer));
             console.log("  - Arbitrum Mainnet: https://arbiscan.io/address/", vm.toString(deployer));
         }
         console.log("");
@@ -125,9 +121,7 @@ contract DeployOAppFactory is Script {
      */
     function _getNetworkName(uint256 chainId) internal pure returns (string memory) {
         if (chainId == CHAIN_ID_ARBITRUM) return "Arbitrum One";
-        if (chainId == CHAIN_ID_ARBITRUM_SEPOLIA) return "Arbitrum Sepolia";
         if (chainId == CHAIN_ID_BASE) return "Base";
-        if (chainId == CHAIN_ID_BASE_SEPOLIA) return "Base Sepolia";
         return "Unknown";
     }
 }
