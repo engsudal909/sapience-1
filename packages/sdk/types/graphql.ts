@@ -1984,12 +1984,6 @@ export type PredictionPositionIdConditionIdCompoundUniqueInput = {
   positionId: Scalars['Int']['input'];
 };
 
-export type PredictionPositionIdConditionIdResolverCompoundUniqueInput = {
-  conditionId: Scalars['String']['input'];
-  positionId: Scalars['Int']['input'];
-  resolver: Scalars['String']['input'];
-};
-
 export type PredictionScalarFieldEnum =
   | 'chainId'
   | 'conditionId'
@@ -1997,8 +1991,7 @@ export type PredictionScalarFieldEnum =
   | 'id'
   | 'limitOrderId'
   | 'outcomeYes'
-  | 'positionId'
-  | 'resolver';
+  | 'positionId';
 
 export type PredictionType = {
   __typename?: 'PredictionType';
@@ -2006,7 +1999,6 @@ export type PredictionType = {
   condition?: Maybe<ConditionSummary>;
   conditionId: Scalars['String']['output'];
   outcomeYes: Scalars['Boolean']['output'];
-  resolver: Scalars['String']['output'];
 };
 
 export type PredictionWhereInput = {
@@ -2023,7 +2015,6 @@ export type PredictionWhereInput = {
   outcomeYes?: InputMaybe<BoolFilter>;
   position?: InputMaybe<PositionNullableRelationFilter>;
   positionId?: InputMaybe<IntNullableFilter>;
-  resolver?: InputMaybe<StringFilter>;
 };
 
 export type PredictionWhereUniqueInput = {
@@ -2042,8 +2033,6 @@ export type PredictionWhereUniqueInput = {
   position?: InputMaybe<PositionNullableRelationFilter>;
   positionId?: InputMaybe<IntNullableFilter>;
   positionId_conditionId?: InputMaybe<PredictionPositionIdConditionIdCompoundUniqueInput>;
-  positionId_conditionId_resolver?: InputMaybe<PredictionPositionIdConditionIdResolverCompoundUniqueInput>;
-  resolver?: InputMaybe<StringFilter>;
 };
 
 export type ProfitRankType = {
@@ -2093,7 +2082,6 @@ export type Query = {
   groupByCondition: Array<ConditionGroupBy>;
   groupByConditionGroup: Array<ConditionGroupGroupBy>;
   groupByUser: Array<UserGroupBy>;
-  positionById?: Maybe<PositionType>;
   positions: Array<PositionType>;
   positionsByConditionId: Array<PositionType>;
   positionsCount: Scalars['Int']['output'];
@@ -2400,16 +2388,12 @@ export type QueryGroupByUserArgs = {
 };
 
 
-export type QueryPositionByIdArgs = {
-  chainId?: InputMaybe<Scalars['Int']['input']>;
-  id: Scalars['Int']['input'];
-};
-
-
 export type QueryPositionsArgs = {
-  address: Scalars['String']['input'];
+  address?: InputMaybe<Scalars['String']['input']>;
   chainId?: InputMaybe<Scalars['Int']['input']>;
   endsAtGte?: InputMaybe<Scalars['Int']['input']>;
+  marketAddress?: InputMaybe<Scalars['String']['input']>;
+  nftTokenId?: InputMaybe<Scalars['String']['input']>;
   orderBy?: InputMaybe<Scalars['String']['input']>;
   orderDirection?: InputMaybe<Scalars['String']['input']>;
   skip?: Scalars['Int']['input'];
