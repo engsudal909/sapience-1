@@ -21,12 +21,12 @@ import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLoc
 import type { FilterState } from '~/components/markets/TableFilters';
 import { useDebouncedValue } from '~/hooks/useDebouncedValue';
 import ShareAfterMarketsRedirect from '~/components/shared/ShareAfterMarketsRedirect';
+import { useCreatePositionContext } from '~/lib/context/CreatePositionContext';
 import {
   CreatePythPredictionForm,
   type CreatePythPredictionFormValues,
   type PythPrediction,
 } from '@sapience/ui';
-import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 
 // Dynamically import Loader
 const Loader = dynamic(() => import('~/components/shared/Loader'), {
@@ -50,7 +50,13 @@ const MarketsPage = () => {
   // Read chainId from localStorage with event monitoring
   const chainId = useChainIdFromLocalStorage();
 
+  // Get mobile/compact status (needed by callbacks below)
+  const isMobile = useIsMobile();
+  const isCompact = useIsBelow(1024);
+
   const [showPredictPrices, setShowPredictPrices] = useState(false);
+
+  const { openPopover } = useCreatePositionContext();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -206,8 +212,13 @@ const MarketsPage = () => {
           dateTimeLocal: values.dateTimeLocal,
         },
       ]);
+
+      // Mobile UX: after a successful pick, open the bet slip drawer so users can see/use it.
+      if (isCompact) {
+        openPopover();
+      }
     },
-    []
+    [isCompact, openPopover]
   );
 
   const handleRemovePythPrediction = useCallback((id: string) => {
@@ -224,10 +235,6 @@ const MarketsPage = () => {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allCategories]);
-
-  // Get mobile/compact status
-  const isMobile = useIsMobile();
-  const isCompact = useIsBelow(1024);
 
   // Show loader only on initial load (not when filtering)
   if (isLoadingCategories) {
@@ -269,11 +276,7 @@ const MarketsPage = () => {
               <div className="flex items-center justify-between mb-2 px-1">
                 <h2 className="sc-heading text-foreground">Predict Prices</h2>
               </div>
-              <CreatePythPredictionForm
-                onPick={handlePythPick}
-                // Ethereal uses the Lazer-based `PythResolver` which expects uint32 feed ids.
-                idMode={chainId === CHAIN_ID_ETHEREAL ? 'lazer' : 'hermes'}
-              />
+              <CreatePythPredictionForm onPick={handlePythPick} />
               <hr className="gold-hr mt-6 -mb-2" />
             </div>
           ) : null}

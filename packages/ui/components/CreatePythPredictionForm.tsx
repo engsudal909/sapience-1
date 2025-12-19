@@ -22,13 +22,11 @@ export type CreatePythPredictionFormProps = {
   className?: string;
   disabled?: boolean;
   /**
-   * Controls what kind of identifier `priceId` represents.
-   * - `hermes`: a Hermes bytes32 price feed id (0x + 64 hex chars).
-   * - `lazer`: a Pyth Lazer uint32 feed id (represented as a number string, e.g. "1").
+   * This form is Lazer-only: `priceId` is a Pyth Lazer uint32 feed id (represented as a number
+   * string, e.g. "1"). We still use Hermes behind the scenes to fetch a latest reference price.
    *
-   * NOTE: The protocol `PythResolver.sol` currently expects `lazer` feed ids.
+   * NOTE: The protocol `PythResolver.sol` expects `lazer` feed ids.
    */
-  idMode?: 'hermes' | 'lazer';
   onPick?: (values: CreatePythPredictionFormValues) => void;
 };
 
@@ -36,8 +34,7 @@ export type CreatePythPredictionDirection = 'over' | 'under';
 
 export type CreatePythPredictionFormValues = {
   /**
-   * If `idMode === 'hermes'`, this is a Hermes bytes32 feed id.
-   * If `idMode === 'lazer'`, this is a uint32 feed id represented as a string (e.g. "1").
+   * Pyth Lazer uint32 feed id represented as a string (e.g. "1").
    */
   priceId: string;
   /** Optional human label (e.g. `Crypto.BTC/USD`) if known at pick time. */
@@ -245,15 +242,15 @@ function DateTimeSelector({
 
   const isCustom = preset === 'custom';
   const presetBtnBase =
-    'h-9 px-4 font-mono font-medium transition-all duration-200 ease-in-out select-none rounded-md border whitespace-nowrap tracking-wider uppercase text-sm disabled:opacity-50';
+    'h-9 px-2 md:px-4 font-mono font-medium transition-all duration-200 ease-in-out select-none rounded-md border whitespace-nowrap tracking-wider uppercase text-sm disabled:opacity-50 flex-1 md:flex-none text-center';
 
   return (
-    <div className="flex items-center gap-x-3">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 w-full">
       <span className="text-base md:text-lg text-muted-foreground whitespace-nowrap">
         {isCustom ? 'at' : 'in'}
       </span>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 flex-1 w-full md:w-auto">
         {(
           [
             { id: '15m', label: '15m', aria: 'In 15 minutes' },
@@ -585,19 +582,10 @@ async function fetchHermesPriceFeeds(
 export function CreatePythPredictionForm({
   className,
   disabled,
-  idMode = 'hermes',
   onPick,
 }: CreatePythPredictionFormProps) {
   const [priceId, setPriceId] = React.useState<string>('');
   const [priceFeedLabel, setPriceFeedLabel] = React.useState<string>('');
-  const [priceFeedQuery, setPriceFeedQuery] = React.useState<string>('');
-  const [priceFeedOpen, setPriceFeedOpen] = React.useState<boolean>(false);
-  const [isLoadingFeeds, setIsLoadingFeeds] = React.useState<boolean>(false);
-  const [feedsError, setFeedsError] = React.useState<string | null>(null);
-  const [feeds, setFeeds] = React.useState<HermesPriceFeed[]>(
-    hermesPriceFeedsCache ?? []
-  );
-  const priceFeedInputRef = React.useRef<HTMLInputElement>(null);
   const [isLoadingLatestPrice, setIsLoadingLatestPrice] =
     React.useState<boolean>(false);
   const [latestPriceError, setLatestPriceError] = React.useState<string | null>(
@@ -626,52 +614,11 @@ export function CreatePythPredictionForm({
   const [dateTimeLocal, setDateTimeLocal] = React.useState<string>('');
   const [dateTimePreset, setDateTimePreset] = React.useState<DateTimePreset>('');
 
-  const populateLatestPrice = React.useCallback(
-    (nextPriceId: string) => {
-      if (idMode === 'lazer') return;
-      if (disabled) return;
-      if (!nextPriceId) return;
-
-      latestPriceAbortRef.current?.abort();
-      const ac = new AbortController();
-      latestPriceAbortRef.current = ac;
-      setIsLoadingLatestPrice(true);
-      setLatestPriceError(null);
-      setPriceExpo(null);
-
-      fetchHermesLatestPrice(nextPriceId, ac.signal)
-        .then((p) => {
-          if (ac.signal.aborted) return;
-          const formatted = formatPythPriceDecimal(p.price, p.expo);
-          const n = Number(formatted);
-          // Preserve precision from Hermes for tooltips, but display a clean 2dp in the input.
-          const rounded = Number.isFinite(n) ? n.toFixed(2) : formatted;
-          setTargetPriceFullPrecision(formatted);
-          // Underlying value should match what user sees when auto-populated.
-          setTargetPriceRaw(rounded);
-          setTargetPriceDisplay(rounded);
-          setPriceExpo(p.expo);
-        })
-        .catch((e) => {
-          if (ac.signal.aborted) return;
-          setLatestPriceError(
-            e instanceof Error ? e.message : 'Failed to load latest price'
-          );
-        })
-        .finally(() => {
-          if (ac.signal.aborted) return;
-          setIsLoadingLatestPrice(false);
-        });
-    },
-    [disabled, idMode]
-  );
-
-  // Lazer mode: once a feed is selected (and we know its human symbol), use Hermes to
+  // Once a Lazer feed is selected (and we know its human symbol), use Hermes to
   // fetch a current reference price and populate the Price input (rounded to 2dp).
   // IMPORTANT: this should ONLY run after selection (not during search/open).
   const populateLatestPriceForSymbol = React.useCallback(
     (symbol: string) => {
-      if (idMode !== 'lazer') return;
       if (disabled) return;
       const sym = symbol?.trim();
       if (!sym) return;
@@ -723,34 +670,10 @@ export function CreatePythPredictionForm({
         }
       })();
     },
-    [disabled, idMode]
+    [disabled]
   );
 
-  const ensureFeedsLoaded = React.useCallback(() => {
-    if (idMode === 'lazer') return () => {};
-    if (disabled) return () => {};
-    if (hermesPriceFeedsCache && hermesPriceFeedsCache.length > 0) return () => {};
-    if (isLoadingFeeds) return () => {};
-
-    const ac = new AbortController();
-    setIsLoadingFeeds(true);
-    setFeedsError(null);
-
-    fetchHermesPriceFeeds(ac.signal)
-      .then((list) => {
-        hermesPriceFeedsCache = list;
-        setFeeds(list);
-      })
-      .catch((e) => {
-        setFeedsError(e instanceof Error ? e.message : 'Failed to load feeds');
-      })
-      .finally(() => setIsLoadingFeeds(false));
-
-    return () => ac.abort();
-  }, [disabled, idMode, isLoadingFeeds]);
-
   const ensureLazerFeedsLoaded = React.useCallback(() => {
-    if (idMode !== 'lazer') return () => {};
     if (disabled) return () => {};
     if (isLoadingLazerFeeds) return () => {};
     if (lazerFeeds.length > 0) return () => {};
@@ -780,106 +703,9 @@ export function CreatePythPredictionForm({
     })();
 
     return () => ac.abort();
-  }, [disabled, idMode, isLoadingLazerFeeds, lazerFeeds.length]);
-
-  // Important: don't fetch on click/open (Hermes JSON can be huge and parsing it can jank the UI).
-  // Instead, warm the cache when the browser is idle, and fetch on-demand once the user types.
-  React.useEffect(() => {
-    if (idMode === 'lazer') return;
-    if (hermesPriceFeedsCache && hermesPriceFeedsCache.length > 0) return;
-
-    let cancelled = false;
-    const start = () => {
-      if (cancelled) return;
-      const cleanup = ensureFeedsLoaded();
-      // If ensureFeedsLoaded kicked off a request, return its cleanup.
-      return cleanup;
-    };
-
-    // Prefer idle time so we don't block first interaction.
-    const ric =
-      typeof window !== 'undefined' && 'requestIdleCallback' in window
-        ? (window.requestIdleCallback as unknown as (cb: () => void) => number)
-        : null;
-    const cic =
-      typeof window !== 'undefined' && 'cancelIdleCallback' in window
-        ? (window.cancelIdleCallback as unknown as (id: number) => void)
-        : null;
-
-    let idleId: number | null = null;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    if (ric) {
-      idleId = ric(() => {
-        start();
-      });
-    } else {
-      timeoutId = setTimeout(() => {
-        start();
-      }, 0);
-    }
-
-    return () => {
-      cancelled = true;
-      if (idleId !== null && cic) cic(idleId);
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [ensureFeedsLoaded, idMode]);
-
-  const deferredPriceFeedQuery = React.useDeferredValue(priceFeedQuery);
-
-  const filteredFeeds = React.useMemo(() => {
-    if (idMode === 'lazer') return [];
-    if (!priceFeedOpen) return [];
-    const q = deferredPriceFeedQuery.trim().toLowerCase();
-    const list = feeds.length ? feeds : hermesPriceFeedsCache ?? [];
-
-    // When empty, show a couple of popular defaults.
-    if (q.length === 0) {
-      const wantedSymbols = ['Crypto.BTC/USD', 'Crypto.ETH/USD', 'Crypto.ENA/USD'];
-      const out: HermesPriceFeed[] = [];
-      const bySymbol = new Map<string, HermesPriceFeed>();
-      for (const f of list) {
-        const sym = f.symbol ?? '';
-        if (sym) bySymbol.set(sym.toLowerCase(), f);
-      }
-
-      // Prefer exact symbol matches (these are what we want to show).
-      for (const sym of wantedSymbols) {
-        const hit = bySymbol.get(sym.toLowerCase());
-        if (hit) out.push(hit);
-      }
-
-      // Fallback: if exact symbols aren't present, try partial matches so we still show something useful.
-      if (out.length === 0) {
-        const wantedFragments = ['btc/usd', 'eth/usd', 'ena/usd'];
-        for (const frag of wantedFragments) {
-          for (const f of list) {
-            const sym = (f.symbol ?? '').toLowerCase();
-            if (sym.includes(frag)) {
-              out.push(f);
-              break;
-            }
-          }
-        }
-      }
-      return out;
-    }
-
-    const out: HermesPriceFeed[] = [];
-    for (const f of list) {
-      if (!f?.id) continue;
-      const hay = `${f.symbol ?? ''} ${f.description ?? ''} ${f.asset_type ?? ''} ${
-        f.id
-      }`.toLowerCase();
-      if (hay.includes(q)) out.push(f);
-      if (out.length >= 50) break;
-    }
-    return out;
-  }, [deferredPriceFeedQuery, feeds, idMode, priceFeedOpen]);
+  }, [disabled, isLoadingLazerFeeds, lazerFeeds.length]);
 
   const filteredLazerFeeds = React.useMemo(() => {
-    if (idMode !== 'lazer') return [];
     if (!lazerOpen) return [];
     const q = lazerQuery.trim().toLowerCase();
     const list = lazerFeeds;
@@ -932,7 +758,7 @@ export function CreatePythPredictionForm({
 
     const other = [...otherMatches.values()].sort((a, b) => a.id - b.id);
     return [...exactIdMatches, ...other].slice(0, 50);
-  }, [idMode, lazerFeeds, lazerOpen, lazerQuery]);
+  }, [lazerFeeds, lazerOpen, lazerQuery]);
 
   const targetPrice = React.useMemo(() => {
     const n = Number(targetPriceDisplay);
@@ -979,9 +805,7 @@ export function CreatePythPredictionForm({
     onPick?.({
       priceId,
       priceFeedLabel:
-        idMode === 'lazer'
-          ? priceFeedLabel || (priceId ? `Pyth Pro #${priceId}` : undefined)
-          : priceFeedLabel || undefined,
+        priceFeedLabel || (priceId ? `Pyth Pro #${priceId}` : undefined),
       direction,
       targetPrice: roundedTargetPrice,
       targetPriceRaw: roundedTargetPriceRaw,
@@ -993,7 +817,6 @@ export function CreatePythPredictionForm({
     dateTimeLocal,
     dateTimePreset,
     direction,
-    idMode,
     isPickDisabled,
     onPick,
     priceExpo,
@@ -1019,268 +842,167 @@ export function CreatePythPredictionForm({
         }}
       >
         <div className="flex flex-wrap md:flex-nowrap items-center gap-x-3 md:gap-x-4 gap-y-3">
-          <div className="flex-1 min-w-[180px] md:min-w-[220px] md:max-w-[340px]">
-            {idMode === 'lazer' ? (
-              <Popover
-                open={lazerOpen}
-                onOpenChange={(v) => {
-                  setLazerOpen(v);
-                  if (v) ensureLazerFeedsLoaded();
-                }}
-              >
-                <div className="relative">
-                  <Input
-                    value={lazerQuery}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setLazerQuery(next);
-                      // clear selection when user edits
-                      setPriceId('');
-                      setPriceFeedLabel('');
-                      setLazerSelectedLabel('');
-                      setPriceExpo(null);
-                      if (!lazerOpen) setLazerOpen(true);
-                      ensureLazerFeedsLoaded();
-                    }}
-                    onFocus={() => {
-                      setLazerOpen(true);
-                      ensureLazerFeedsLoaded();
-                    }}
-                    placeholder={lazerSelectedLabel ? lazerSelectedLabel : 'Select Price Feed'}
-                    disabled={disabled}
-                    aria-label="Search Pyth Pro feeds"
-                    className="h-9 bg-transparent border-brand-white/20 text-foreground placeholder:text-foreground pr-9"
-                  />
-                  <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
-                  <PopoverTrigger asChild>
-                    <div className="absolute inset-0 pointer-events-none" aria-hidden />
-                  </PopoverTrigger>
-                </div>
-
-                <PopoverContent
-                  onOpenAutoFocus={(e) => e.preventDefault()}
-                  className="w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)] p-0 bg-brand-black text-brand-white border border-brand-white/20 font-mono"
-                  align="start"
-                >
-                  <Command>
-                    <CommandList>
-                      {isLoadingLazerFeeds ? (
-                        <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
-                      ) : lazerFeedsError ? (
-                        <div className="py-3 px-3 text-sm text-red-400">
-                          {lazerFeedsError}
-                        </div>
-                      ) : filteredLazerFeeds.length === 0 ? (
-                        <CommandEmpty className="py-4 text-center text-sm opacity-75">
-                          {lazerQuery.trim().length === 0
-                            ? 'No price feeds loaded.'
-                            : 'No matching price feeds.'}
-                        </CommandEmpty>
-                      ) : (
-                        <CommandGroup>
-                          {filteredLazerFeeds.map((f) => {
-                            const label = f.symbol || `Feed #${f.id}`;
-                            const sub = f.description || `ID ${f.id} • expo ${f.expo}`;
-                            return (
-                              <CommandItem
-                                key={f.id}
-                                onSelect={() => {
-                                  setPriceId(String(f.id));
-                                  setPriceFeedLabel(label);
-                                  setLazerSelectedLabel(label);
-                                  setLazerQuery(label);
-                                  setPriceExpo(f.expo);
-                                  setLazerOpen(false);
-                                  // After the symbol is selected, use Hermes to populate the Price input (2dp).
-                                  populateLatestPriceForSymbol(f.symbol);
-                                }}
-                                className="flex flex-col items-start gap-0.5 text-brand-white transition-colors duration-200 ease-out hover:bg-brand-white/10 data-[highlighted]:bg-brand-white/10 data-[highlighted]:text-brand-white cursor-pointer"
-                              >
-                                <span className="text-sm text-brand-white">
-                                  {label}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {sub}
-                                </span>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      )}
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <Popover
-                open={priceFeedOpen}
-                onOpenChange={(v) => {
-                  setPriceFeedOpen(v);
-                  if (v) {
-                    requestAnimationFrame(() => priceFeedInputRef.current?.focus());
-                    if (
-                      priceFeedQuery.trim().length === 0 &&
-                      (!hermesPriceFeedsCache || hermesPriceFeedsCache.length === 0)
-                    ) {
-                      ensureFeedsLoaded();
-                    }
+          <div className="basis-full md:basis-auto w-full md:w-auto flex-1 min-w-[180px] md:min-w-[220px]">
+            <Popover
+              open={lazerOpen}
+              onOpenChange={(v) => {
+                setLazerOpen(v);
+                if (v) ensureLazerFeedsLoaded();
+              }}
+            >
+              <div className="relative">
+                <Input
+                  value={lazerQuery}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setLazerQuery(next);
+                    // clear selection when user edits
+                    setPriceId('');
+                    setPriceFeedLabel('');
+                    setLazerSelectedLabel('');
+                    setPriceExpo(null);
+                    if (!lazerOpen) setLazerOpen(true);
+                    ensureLazerFeedsLoaded();
+                  }}
+                  onFocus={() => {
+                    setLazerOpen(true);
+                    ensureLazerFeedsLoaded();
+                  }}
+                  placeholder={
+                    lazerSelectedLabel ? lazerSelectedLabel : 'Select Price Feed'
                   }
-                }}
-              >
-                <div className="relative">
-                  <Input
-                    ref={priceFeedInputRef}
-                    value={priceFeedQuery}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setPriceFeedQuery(next);
-                      setPriceId('');
-                      setPriceFeedLabel('');
-                      if (!priceFeedOpen) setPriceFeedOpen(true);
-                      if (
-                        next.trim().length >= 1 &&
-                        (!hermesPriceFeedsCache ||
-                          hermesPriceFeedsCache.length === 0)
-                      ) {
-                        ensureFeedsLoaded();
-                      }
-                    }}
-                    onFocus={() => setPriceFeedOpen(true)}
-                    placeholder="Select Price Feed"
-                    disabled={disabled}
-                    aria-label="Search price feed"
-                    className="h-9 bg-transparent border-brand-white/20 text-foreground placeholder:text-foreground pr-9"
-                  />
-                  <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
-                  <PopoverTrigger asChild>
-                    <div className="absolute inset-0 pointer-events-none" aria-hidden />
-                  </PopoverTrigger>
-                </div>
+                  disabled={disabled}
+                  aria-label="Search Pyth Pro feeds"
+                  className="h-9 bg-transparent border-brand-white/20 text-foreground placeholder:text-foreground pr-9"
+                />
+                <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+                <PopoverTrigger asChild>
+                  <div className="absolute inset-0 pointer-events-none" aria-hidden />
+                </PopoverTrigger>
+              </div>
 
-                <PopoverContent
-                  onOpenAutoFocus={(e) => e.preventDefault()}
-                  className="w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)] p-0 bg-brand-black text-brand-white border border-brand-white/20 font-mono"
-                  align="start"
-                >
-                  {priceFeedQuery.trim().length >= 1 &&
-                  !isLoadingFeeds &&
-                  !feedsError &&
-                  (!hermesPriceFeedsCache ||
-                    hermesPriceFeedsCache.length === 0) ? (
-                    <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
-                  ) : isLoadingFeeds ? (
-                    <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
-                  ) : feedsError ? (
-                    <div className="py-3 px-3 text-sm text-red-400">
-                      {feedsError}
-                    </div>
-                  ) : (
-                    <Command>
-                      <CommandList>
-                        {filteredFeeds.length === 0 ? (
-                          <CommandEmpty className="py-4 text-center text-sm opacity-75">
-                            {priceFeedQuery.trim().length === 0
-                              ? 'No popular feeds found.'
-                              : 'No matching price feeds.'}
-                          </CommandEmpty>
-                        ) : (
-                          <CommandGroup>
-                            {filteredFeeds.map((f) => {
-                              const label = f.symbol || f.id;
-                              const sub = f.description || f.id;
-                              return (
-                                <CommandItem
-                                  key={f.id}
-                                  onSelect={() => {
-                                    setPriceId(f.id);
-                                    setPriceFeedLabel(f.symbol || f.id);
-                                    setPriceFeedQuery(f.symbol || '');
-                                    setPriceFeedOpen(false);
-                                    populateLatestPrice(f.id);
-                                  }}
-                                  className="flex flex-col items-start gap-0.5 text-brand-white transition-colors duration-200 ease-out hover:bg-brand-white/10 data-[highlighted]:bg-brand-white/10 data-[highlighted]:text-brand-white cursor-pointer"
-                                >
-                                  <span className="text-sm text-brand-white">
-                                    {label}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {sub}
-                                  </span>
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        )}
-                      </CommandList>
-                    </Command>
-                  )}
-                </PopoverContent>
-              </Popover>
-            )}
+              <PopoverContent
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                className="w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)] p-0 bg-brand-black text-brand-white border border-brand-white/20 font-mono"
+                align="start"
+              >
+                <Command>
+                  <CommandList>
+                    {isLoadingLazerFeeds ? (
+                      <div className="py-3 px-3 text-sm opacity-75">Loading…</div>
+                    ) : lazerFeedsError ? (
+                      <div className="py-3 px-3 text-sm text-red-400">
+                        {lazerFeedsError}
+                      </div>
+                    ) : filteredLazerFeeds.length === 0 ? (
+                      <CommandEmpty className="py-4 text-center text-sm opacity-75">
+                        {lazerQuery.trim().length === 0
+                          ? 'No price feeds loaded.'
+                          : 'No matching price feeds.'}
+                      </CommandEmpty>
+                    ) : (
+                      <CommandGroup>
+                        {filteredLazerFeeds.map((f) => {
+                          const label = f.symbol || `Feed #${f.id}`;
+                          const sub = f.description || `ID ${f.id} • expo ${f.expo}`;
+                          return (
+                            <CommandItem
+                              key={f.id}
+                              onSelect={() => {
+                                setPriceId(String(f.id));
+                                setPriceFeedLabel(label);
+                                setLazerSelectedLabel(label);
+                                setLazerQuery(label);
+                                setPriceExpo(f.expo);
+                                setLazerOpen(false);
+                                // After the symbol is selected, use Hermes to populate the Price input (2dp).
+                                populateLatestPriceForSymbol(f.symbol);
+                              }}
+                              className="flex flex-col items-start gap-0.5 text-brand-white transition-colors duration-200 ease-out hover:bg-brand-white/10 data-[highlighted]:bg-brand-white/10 data-[highlighted]:text-brand-white cursor-pointer"
+                            >
+                              <span className="text-sm text-brand-white">
+                                {label}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {sub}
+                              </span>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <ToggleGroup
-            type="single"
-            value={direction}
-            onValueChange={(v) => {
-              if (v === 'over' || v === 'under') setDirection(v);
-            }}
-            disabled={disabled}
-            className="bg-transparent gap-4"
-            aria-label="Select direction"
-          >
-            <ToggleGroupItem
-              value="over"
-              aria-label="Over"
-              className="h-9 px-4 font-mono font-medium transition-all duration-200 ease-in-out select-none rounded-md border whitespace-nowrap tracking-wider uppercase text-emerald-700 dark:text-white/90 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-400/60 shadow-[0_0_0_1px_rgba(16,185,129,0.18)] hover:shadow-[0_0_0_1px_rgba(16,185,129,0.28),_0_0_10px_rgba(16,185,129,0.18)] dark:shadow-[0_0_0_1px_rgba(16,185,129,0.28)] dark:hover:shadow-[0_0_0_1px_rgba(16,185,129,0.4),_0_0_12px_rgba(16,185,129,0.3)] data-[state=on]:text-emerald-900 data-[state=on]:bg-emerald-500/50 data-[state=on]:hover:bg-emerald-500/60 data-[state=on]:border-emerald-500 data-[state=on]:shadow-[0_0_0_2px_rgba(16,185,129,0.35)] dark:data-[state=on]:text-white/90 dark:data-[state=on]:bg-emerald-500/70 dark:data-[state=on]:hover:bg-emerald-500/80 dark:data-[state=on]:shadow-[0_0_0_2px_rgba(16,185,129,0.45)]"
-            >
-              Over
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="under"
-              aria-label="Under"
-              className="h-9 px-4 font-mono font-medium transition-all duration-200 ease-in-out select-none rounded-md border whitespace-nowrap tracking-wider uppercase text-rose-700 dark:text-white/90 bg-rose-500/10 hover:bg-rose-500/20 border-rose-400/60 shadow-[0_0_0_1px_rgba(244,63,94,0.18)] hover:shadow-[0_0_0_1px_rgba(244,63,94,0.28),_0_0_10px_rgba(244,63,94,0.18)] dark:shadow-[0_0_0_1px_rgba(244,63,94,0.28)] dark:hover:shadow-[0_0_0_1px_rgba(244,63,94,0.4),_0_0_12px_rgba(244,63,94,0.3)] data-[state=on]:text-rose-900 data-[state=on]:bg-rose-500/50 data-[state=on]:hover:bg-rose-500/60 data-[state=on]:border-rose-500 data-[state=on]:shadow-[0_0_0_2px_rgba(244,63,94,0.35)] dark:data-[state=on]:text-white/90 dark:data-[state=on]:bg-rose-500/70 dark:data-[state=on]:hover:bg-rose-500/80 dark:data-[state=on]:shadow-[0_0_0_2px_rgba(244,63,94,0.45)]"
-            >
-              Under
-            </ToggleGroupItem>
-          </ToggleGroup>
-
-          <div className="relative w-[160px] md:w-[180px]">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-              $
-            </span>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min="0"
-              value={targetPriceDisplay}
-              onChange={(e) => {
-                const v = e.target.value;
-                setTargetPriceDisplay(v);
-                // If the user edits, treat their entry as the "raw" tooltip value too.
-                setTargetPriceRaw(v);
-                setTargetPriceFullPrecision('');
+          <div className="basis-full md:basis-auto w-full md:w-auto flex items-center gap-x-3 md:gap-x-4 gap-y-3 flex-wrap md:flex-nowrap">
+            <ToggleGroup
+              type="single"
+              value={direction}
+              onValueChange={(v) => {
+                if (v === 'over' || v === 'under') setDirection(v);
               }}
-              placeholder="Price"
               disabled={disabled}
-              aria-label="Target price"
-              className="h-9 w-full bg-transparent border-brand-white/20 text-foreground placeholder:text-muted-foreground pl-7"
+              className="bg-transparent gap-4 shrink-0 justify-start"
+              aria-label="Select direction"
+            >
+              <ToggleGroupItem
+                value="over"
+                aria-label="Over"
+                className="h-9 px-4 font-mono font-medium transition-all duration-200 ease-in-out select-none rounded-md border whitespace-nowrap tracking-wider uppercase text-emerald-700 dark:text-white/90 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-400/60 shadow-[0_0_0_1px_rgba(16,185,129,0.18)] hover:shadow-[0_0_0_1px_rgba(16,185,129,0.28),_0_0_10px_rgba(16,185,129,0.18)] dark:shadow-[0_0_0_1px_rgba(16,185,129,0.28)] dark:hover:shadow-[0_0_0_1px_rgba(16,185,129,0.4),_0_0_12px_rgba(16,185,129,0.3)] data-[state=on]:text-emerald-900 data-[state=on]:bg-emerald-500/50 data-[state=on]:hover:bg-emerald-500/60 data-[state=on]:border-emerald-500 data-[state=on]:shadow-[0_0_0_2px_rgba(16,185,129,0.35)] dark:data-[state=on]:text-white/90 dark:data-[state=on]:bg-emerald-500/70 dark:data-[state=on]:hover:bg-emerald-500/80 dark:data-[state=on]:shadow-[0_0_0_2px_rgba(16,185,129,0.45)]"
+              >
+                Over
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="under"
+                aria-label="Under"
+                className="h-9 px-4 font-mono font-medium transition-all duration-200 ease-in-out select-none rounded-md border whitespace-nowrap tracking-wider uppercase text-rose-700 dark:text-white/90 bg-rose-500/10 hover:bg-rose-500/20 border-rose-400/60 shadow-[0_0_0_1px_rgba(244,63,94,0.18)] hover:shadow-[0_0_0_1px_rgba(244,63,94,0.28),_0_0_10px_rgba(244,63,94,0.18)] dark:shadow-[0_0_0_1px_rgba(244,63,94,0.28)] dark:hover:shadow-[0_0_0_1px_rgba(244,63,94,0.4),_0_0_12px_rgba(244,63,94,0.3)] data-[state=on]:text-rose-900 data-[state=on]:bg-rose-500/50 data-[state=on]:hover:bg-rose-500/60 data-[state=on]:border-rose-500 data-[state=on]:shadow-[0_0_0_2px_rgba(244,63,94,0.35)] dark:data-[state=on]:text-white/90 dark:data-[state=on]:bg-rose-500/70 dark:data-[state=on]:hover:bg-rose-500/80 dark:data-[state=on]:shadow-[0_0_0_2px_rgba(244,63,94,0.45)]"
+              >
+                Under
+              </ToggleGroupItem>
+            </ToggleGroup>
+
+            <div className="relative flex-1 md:flex-none md:w-[180px] min-w-[140px] sm:min-w-[160px] md:min-w-[180px]">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                $
+              </span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                min="0"
+                value={targetPriceDisplay}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTargetPriceDisplay(v);
+                  // If the user edits, treat their entry as the "raw" tooltip value too.
+                  setTargetPriceRaw(v);
+                  setTargetPriceFullPrecision('');
+                }}
+                placeholder="Price"
+                disabled={disabled}
+                aria-label="Target price"
+                className="h-9 w-full bg-transparent border-brand-white/20 text-foreground placeholder:text-muted-foreground pl-7"
+              />
+            </div>
+          </div>
+
+          <div className="basis-full md:basis-auto w-full md:w-auto flex-1 min-w-[220px] md:min-w-0">
+            <DateTimeSelector
+              disabled={disabled}
+              value={dateTimeLocal}
+              onChange={setDateTimeLocal}
+              onPresetChange={setDateTimePreset}
             />
           </div>
-
-          <DateTimeSelector
-            disabled={disabled}
-            value={dateTimeLocal}
-            onChange={setDateTimeLocal}
-            onPresetChange={setDateTimePreset}
-          />
 
           <Button
             type="submit"
             disabled={isPickDisabled}
             variant="default"
-            className="tracking-wider font-mono text-sm px-4 h-9 bg-brand-white text-brand-black shrink-0 ml-0.5 md:ml-2"
+            className="tracking-wider font-mono text-base md:text-sm px-4 h-12 md:h-9 bg-brand-white text-brand-black shrink-0 ml-0 md:ml-2 w-full md:w-auto basis-full md:basis-auto mt-2 md:mt-0"
           >
             PICK
           </Button>
