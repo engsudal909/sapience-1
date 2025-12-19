@@ -252,7 +252,7 @@ export default function PositionsTable({
     [account]
   );
   const rows: UIPosition[] = React.useMemo(() => {
-    const positionRows = (data || []).map((p: any) => {
+    const positionRows = (data || []).flatMap((p: any) => {
       const parsePythDescriptor = (
         desc: string | null | undefined
       ): {
@@ -358,67 +358,7 @@ export default function PositionsTable({
         typeof p.counterparty === 'string' &&
         p.counterparty.toLowerCase() === viewer;
       const isActive = p.status === 'active';
-      const userWon =
-        !isActive &&
-        ((userIsPredictor && p.predictorWon === true) ||
-          (userIsCounterparty && p.predictorWon === false));
-      const status: UIPosition['status'] = isActive
-        ? 'active'
-        : userWon
-          ? 'won'
-          : 'lost';
-      const tokenIdToClaim = userWon
-        ? userIsPredictor
-          ? BigInt(p.predictorNftTokenId)
-          : BigInt(p.counterpartyNftTokenId)
-        : undefined;
 
-      // Calculate PnL for settled positions
-      let userPnL = '0';
-      if (
-        !isActive &&
-        p.predictorCollateral &&
-        p.counterpartyCollateral &&
-        p.totalCollateral
-      ) {
-        try {
-          const predictorCollateral = BigInt(p.predictorCollateral);
-          const counterpartyCollateral = BigInt(p.counterpartyCollateral);
-          const totalCollateral = BigInt(p.totalCollateral);
-
-          if (userIsPredictor) {
-            if (p.predictorWon) {
-              // Predictor won: profit = totalCollateral - predictorCollateral
-              userPnL = (totalCollateral - predictorCollateral).toString();
-            } else {
-              // Predictor lost: loss = -predictorCollateral
-              userPnL = (-predictorCollateral).toString();
-            }
-          } else if (userIsCounterparty) {
-            if (!p.predictorWon) {
-              // Counterparty won: profit = totalCollateral - counterpartyCollateral
-              userPnL = (totalCollateral - counterpartyCollateral).toString();
-            } else {
-              // Counterparty lost: loss = -counterpartyCollateral
-              userPnL = (-counterpartyCollateral).toString();
-            }
-          }
-        } catch (e) {
-          console.error('Error calculating position PnL:', e);
-        }
-      }
-
-      // Choose positionId based on the profile address' role
-      const positionId = userIsPredictor
-        ? Number(p.predictorNftTokenId)
-        : userIsCounterparty
-          ? Number(p.counterpartyNftTokenId)
-          : p.predictorNftTokenId
-            ? Number(p.predictorNftTokenId)
-            : p.id;
-      // Create unique row key combining position ID and role
-      const uniqueRowKey = `${p.id}-${userIsPredictor ? 'predictor' : userIsCounterparty ? 'counterparty' : 'unknown'}`;
-      // Choose wager based on the profile address' role
       const viewerPredictorCollateralWei = (() => {
         try {
           return p.predictorCollateral
@@ -437,39 +377,118 @@ export default function PositionsTable({
           return undefined;
         }
       })();
-      return {
-        uniqueRowKey,
-        positionId,
-        legs,
-        direction: 'Long' as const,
-        endsAt: endsAtSec ? endsAtSec * 1000 : Date.now(),
-        status,
-        tokenIdToClaim,
-        createdAt: p.mintedAt ? Number(p.mintedAt) * 1000 : Date.now(),
-        totalPayoutWei: (() => {
-          try {
-            return BigInt(p.totalCollateral || '0');
-          } catch {
-            return 0n;
-          }
-        })(),
-        predictorCollateralWei: viewerPredictorCollateralWei,
-        counterpartyCollateralWei: viewerCounterpartyCollateralWei,
-        userPnL,
-        addressRole: userIsPredictor
-          ? ('predictor' as const)
-          : userIsCounterparty
-            ? ('counterparty' as const)
-            : ('unknown' as const),
-        counterpartyAddress:
-          (userIsPredictor
-            ? (p.counterparty as Address | undefined)
+
+      const totalPayoutWei = (() => {
+        try {
+          return BigInt(p.totalCollateral || '0');
+        } catch {
+          return 0n;
+        }
+      })();
+
+      const roles: UIPosition['addressRole'][] =
+        userIsPredictor && userIsCounterparty
+          ? (['predictor', 'counterparty'] as const)
+          : userIsPredictor
+            ? (['predictor'] as const)
             : userIsCounterparty
-              ? (p.predictor as Address | undefined)
-              : undefined) ?? null,
-        chainId: Number(p.chainId || DEFAULT_CHAIN_ID),
-        marketAddress: p.marketAddress as Address,
+              ? (['counterparty'] as const)
+              : (['unknown'] as const);
+
+      const buildRowForRole = (role: UIPosition['addressRole']): UIPosition => {
+        const roleWon =
+          !isActive &&
+          (role === 'predictor'
+            ? p.predictorWon === true
+            : role === 'counterparty'
+              ? p.predictorWon === false
+              : false);
+
+        const status: UIPosition['status'] = isActive
+          ? 'active'
+          : roleWon
+            ? 'won'
+            : 'lost';
+
+        const tokenIdToClaim = (() => {
+          if (!roleWon) return undefined;
+          try {
+            if (role === 'predictor') return BigInt(p.predictorNftTokenId);
+            if (role === 'counterparty')
+              return BigInt(p.counterpartyNftTokenId);
+            return undefined;
+          } catch {
+            return undefined;
+          }
+        })();
+
+        // Calculate PnL for settled positions (per-role; important when viewer is both sides)
+        let userPnL = '0';
+        if (
+          !isActive &&
+          p.predictorCollateral &&
+          p.counterpartyCollateral &&
+          p.totalCollateral &&
+          role !== 'unknown'
+        ) {
+          try {
+            const predictorCollateral = BigInt(p.predictorCollateral);
+            const counterpartyCollateral = BigInt(p.counterpartyCollateral);
+            const totalCollateral = BigInt(p.totalCollateral);
+
+            if (role === 'predictor') {
+              userPnL = p.predictorWon
+                ? (totalCollateral - predictorCollateral).toString()
+                : (-predictorCollateral).toString();
+            } else if (role === 'counterparty') {
+              userPnL = !p.predictorWon
+                ? (totalCollateral - counterpartyCollateral).toString()
+                : (-counterpartyCollateral).toString();
+            }
+          } catch (e) {
+            console.error('Error calculating position PnL:', e);
+          }
+        }
+
+        // Choose positionId based on the role for this row.
+        const positionId =
+          role === 'predictor'
+            ? Number(p.predictorNftTokenId)
+            : role === 'counterparty'
+              ? Number(p.counterpartyNftTokenId)
+              : p.predictorNftTokenId
+                ? Number(p.predictorNftTokenId)
+                : p.id;
+
+        // Create unique row key combining prediction id, role, and token id (stable + unique).
+        const uniqueRowKey = `${p.id}-${role}-${positionId}`;
+
+        return {
+          uniqueRowKey,
+          positionId,
+          legs,
+          direction: 'Long' as const,
+          endsAt: endsAtSec ? endsAtSec * 1000 : Date.now(),
+          status,
+          tokenIdToClaim,
+          createdAt: p.mintedAt ? Number(p.mintedAt) * 1000 : Date.now(),
+          totalPayoutWei: totalPayoutWei,
+          predictorCollateralWei: viewerPredictorCollateralWei,
+          counterpartyCollateralWei: viewerCounterpartyCollateralWei,
+          userPnL,
+          addressRole: role,
+          counterpartyAddress:
+            (role === 'predictor'
+              ? (p.counterparty as Address | undefined)
+              : role === 'counterparty'
+                ? (p.predictor as Address | undefined)
+                : undefined) ?? null,
+          chainId: Number(p.chainId || DEFAULT_CHAIN_ID),
+          marketAddress: p.marketAddress as Address,
+        };
       };
+
+      return roles.map(buildRowForRole);
     });
 
     return positionRows;
