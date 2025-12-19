@@ -70,6 +70,7 @@ type RFQRow = {
   description: string;
   similarMarketUrls?: string[];
   chainId?: number;
+  resolver?: string | null;
   settled?: boolean;
   resolvedToYes?: boolean;
   assertionId?: string;
@@ -695,6 +696,7 @@ const RFQTab = ({
                 claim={original.claimStatement}
                 assertionId={original.assertionId}
                 assertionTimestamp={original.assertionTimestamp}
+                resolver={original.resolver ?? null}
               />
               <Button
                 variant="secondary"
@@ -760,6 +762,7 @@ const RFQTab = ({
         description: c.description,
         similarMarketUrls: c.similarMarkets,
         chainId: c.chainId,
+        resolver: c.resolver ?? null,
         resolvedToYes,
         assertionId: c.assertionId,
         assertionTimestamp: c.assertionTimestamp,

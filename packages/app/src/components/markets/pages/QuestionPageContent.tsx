@@ -83,6 +83,7 @@ export default function QuestionPageContent({
       description?: string | null;
       category?: { slug: string } | null;
       chainId?: number | null;
+      resolver?: string | null;
       openInterest?: string | null;
     } | null,
     Error
@@ -102,6 +103,7 @@ export default function QuestionPageContent({
             resolvedToYes
             description
             chainId
+            resolver
             openInterest
             category {
               slug
@@ -120,6 +122,7 @@ export default function QuestionPageContent({
           description?: string | null;
           category?: { slug: string } | null;
           chainId?: number | null;
+          resolver?: string | null;
           openInterest?: string | null;
         }>;
       }>(QUERY, { ids: [conditionId] });
@@ -135,11 +138,10 @@ export default function QuestionPageContent({
     setRefetchTrigger((prev) => prev + 1);
   }, []);
 
-  // Conditions are assumed to be on Ethereal.
-  const chainId = CHAIN_ID_ETHEREAL;
-
-  // Get resolver address for this chain
+  // Use chain/resolver from the condition when available; fall back to Ethereal defaults.
+  const chainId = data?.chainId ?? CHAIN_ID_ETHEREAL;
   const resolverAddress =
+    data?.resolver ??
     lzPMResolver[chainId]?.address ??
     lzUmaResolver[chainId]?.address ??
     umaResolver[chainId]?.address;
