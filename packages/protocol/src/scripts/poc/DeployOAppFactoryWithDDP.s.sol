@@ -42,18 +42,28 @@ contract DeployOAppFactoryWithDDP is Script {
             revert("Unsupported network");
         }
         
+        // Validate deployer address
+        if (deployer == address(0)) {
+            console.log("ERROR: DEPLOYER_ADDRESS cannot be address(0)!");
+            revert("Invalid deployer address");
+        }
+        
         console.log("========================================");
         console.log("Deploying OAppFactory via DDP (Mainnet)");
         console.log("========================================");
         console.log("DDP address:", DDP);
+        console.log("Deployer address:", deployer);
         console.log("Deployment salt (uint256):", DEPLOYMENT_SALT);
         console.log("Chain ID:", chainId);
         console.log("Network:", chainId == 42161 ? "Arbitrum One" : "Base");
         console.log("");
 
-        // Calculate the deployment address
+        // Calculate the deployment address (try both formats)
+        bytes32 saltBytes32 = bytes32(DEPLOYMENT_SALT);
         address factoryAddress = _computeAddress(DEPLOYMENT_SALT);
-        console.log("Expected factory address:", factoryAddress);
+        address factoryAddressBytes32 = _computeAddressBytes32(saltBytes32);
+        console.log("Expected factory address (uint256 salt):", factoryAddress);
+        console.log("Expected factory address (bytes32 salt):", factoryAddressBytes32);
         
         // Verify DDP exists
         uint256 ddpCodeSize;
@@ -95,46 +105,45 @@ contract DeployOAppFactoryWithDDP is Script {
         bytes memory returnData;
 
         // Try different DDP interfaces - some networks use different signatures
-        // Interface 1: deploy(bytes, uint256) - Standard Nick Johnson DDP
-        console.log("Trying interface 1: deploy(bytes, uint256)");
+        // Interface 1: create2(bytes32, bytes) - Most common on Arbitrum/Base
+        console.log("Trying interface 1: create2(bytes32, bytes)");
         bytes memory callData1 = abi.encodeWithSignature(
-            "deploy(bytes,uint256)",
-            bytecode,
-            DEPLOYMENT_SALT
+            "create2(bytes32,bytes)",
+            saltBytes32,
+            bytecode
         );
         
         (success, returnData) = DDP.call(callData1);
         if (success) {
-            console.log("Interface 1 succeeded!");
+            console.log("Interface 1 (create2 bytes32) succeeded!");
             console.log("Return data length:", returnData.length);
             if (returnData.length > 0) {
                 console.log("Return data (hex):", vm.toString(returnData));
             }
         } else {
             console.log("Interface 1 failed, trying interface 2...");
-            // Interface 2: create2(uint256, bytes) - Some DDPs use this order
+            // Interface 2: deploy(bytes, uint256) - Standard Nick Johnson DDP
             bytes memory callData2 = abi.encodeWithSignature(
-                "create2(uint256,bytes)",
-                DEPLOYMENT_SALT,
-                bytecode
+                "deploy(bytes,uint256)",
+                bytecode,
+                DEPLOYMENT_SALT
             );
             
             (success, returnData) = DDP.call(callData2);
             if (success) {
-                console.log("Interface 2 succeeded!");
+                console.log("Interface 2 (deploy uint256) succeeded!");
             } else {
                 console.log("Interface 2 failed, trying interface 3...");
-                // Interface 3: create2(bytes32, bytes) - Alternative interface
-                bytes32 saltBytes32 = bytes32(DEPLOYMENT_SALT);
+                // Interface 3: create2(uint256, bytes) - Alternative order
                 bytes memory callData3 = abi.encodeWithSignature(
-                    "create2(bytes32,bytes)",
-                    saltBytes32,
+                    "create2(uint256,bytes)",
+                    DEPLOYMENT_SALT,
                     bytecode
                 );
                 
                 (success, returnData) = DDP.call(callData3);
                 if (success) {
-                    console.log("Interface 3 succeeded!");
+                    console.log("Interface 3 (create2 uint256) succeeded!");
                 }
             }
         }
@@ -203,20 +212,31 @@ contract DeployOAppFactoryWithDDP is Script {
         
         if (deployedCodeSize == 0 && deployedAddress != address(0)) {
             console.log("");
-            console.log("WARNING: Contract deployed but has 0 bytes of code!");
+            console.log("ERROR: Contract deployed but has 0 bytes of code!");
             console.log("This means the constructor reverted during deployment.");
             console.log("The address", deployedAddress, "was created but the constructor failed.");
             console.log("");
-            console.log("Possible causes:");
-            console.log("1. Constructor parameters are incorrect");
-            console.log("2. Constructor is calling external contracts that don't exist");
-            console.log("3. Constructor is reverting due to validation errors");
+            console.log("Debugging info:");
+            console.log("  Deployer address:", deployer);
+            console.log("  Deployer is zero:", deployer == address(0));
+            console.log("  Bytecode length:", bytecode.length);
+            console.log("  Salt (uint256):", DEPLOYMENT_SALT);
+            console.log("  Salt (bytes32):", vm.toString(saltBytes32));
             console.log("");
-            revert("Constructor reverted during deployment");
+            console.log("Address mismatch detected:");
+            console.log("  Deployed address:", deployedAddress);
+            console.log("  Expected (uint256):", factoryAddress);
+            console.log("  Expected (bytes32):", factoryAddressBytes32);
+            console.log("");
+            console.log("This suggests the DDP on Arbitrum uses a different interface or salt format.");
+            console.log("");
+            console.log("RECOMMENDATION: Use DeployOAppFactory.s.sol instead (same deployer + nonce method)");
+            console.log("The DDP method may not be compatible with Arbitrum's DDP implementation.");
+            console.log("");
+            revert("Constructor reverted - DDP interface mismatch on Arbitrum");
         }
         
         // Recalculate expected address with bytes32 salt (some DDPs use this internally)
-        bytes32 saltBytes32 = bytes32(DEPLOYMENT_SALT);
         address expectedAddressBytes32 = _computeAddressBytes32(saltBytes32);
         console.log("Expected address (bytes32 salt):", expectedAddressBytes32);
         
