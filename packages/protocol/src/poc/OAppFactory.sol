@@ -527,6 +527,75 @@ contract OAppFactory is Ownable {
         
         _configureDVN(salt, defaultDVNConfig[networkType]);
     }
+    
+    /**
+     * @notice Update DVN configuration for an existing pair with custom values
+     * @param salt The salt of the deployed pair
+     * @param confirmations Minimum block confirmations
+     * @param requiredDVNCount Number of required DVNs
+     * @dev Allows updating the DVN configuration with custom values without changing defaults
+     */
+    function updateDVNConfigForPair(
+        bytes32 salt,
+        uint64 confirmations,
+        uint8 requiredDVNCount
+    ) external onlyOwner {
+        address oapp = deployedPairs[salt];
+        if (oapp == address(0)) {
+            revert PairNotDeployed(salt);
+        }
+        
+        NetworkType networkType = pairNetworkType[salt];
+        if (!isDVNConfigSet[networkType]) {
+            revert("DVN config not set for this network type");
+        }
+        
+        // Get the default config and update with custom values
+        DVNConfig memory config = defaultDVNConfig[networkType];
+        config.confirmations = confirmations;
+        
+        // Update the configuration with custom values
+        address endpoint;
+        if (networkType == NetworkType.ARBITRUM) {
+            endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
+        } else if (networkType == NetworkType.BASE) {
+            endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
+        } else {
+            revert InvalidNetworkType();
+        }
+        
+        uint32 remoteEid;
+        if (networkType == NetworkType.ARBITRUM) {
+            remoteEid = BASE_EID;
+        } else if (networkType == NetworkType.BASE) {
+            remoteEid = ARBITRUM_EID;
+        } else {
+            revert InvalidNetworkType();
+        }
+        
+        ILayerZeroEndpointV2 endpointContract = ILayerZeroEndpointV2(endpoint);
+        
+        address[] memory requiredDVNs = new address[](1);
+        requiredDVNs[0] = config.requiredDVN;
+        
+        ExecutorConfig memory executorConfig = ExecutorConfig(config.maxMessageSize, config.executor);
+        UlnConfig memory ulnConfig = UlnConfig(
+            confirmations,
+            requiredDVNCount,
+            type(uint8).max,
+            0,
+            requiredDVNs,
+            new address[](0)
+        );
+        
+        SetConfigParam[] memory params = new SetConfigParam[](2);
+        params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(executorConfig));
+        params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(ulnConfig));
+        
+        endpointContract.setConfig(oapp, config.sendLib, params);
+        
+        emit DVNConfigured(salt, oapp, config);
+    }
 
     // ============ Errors ============
     error PairAlreadyExists(bytes32 salt);

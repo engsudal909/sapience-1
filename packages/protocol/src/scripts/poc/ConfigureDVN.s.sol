@@ -15,7 +15,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  */
 contract ConfigureDVN is Script {
     // Factory address (same on both networks)
-    address private constant FACTORY_ADDRESS = 0xe827EbdC7BF7A89aF4d27f1caaCcd21aC3Cf33dD;
+    address private constant FACTORY_ADDRESS = 0xAB5C685d69F4EA2ec36E6e356A192AdAa2338129;
     
     // Arbitrum One mainnet addresses
     // TODO: Update with actual mainnet addresses from LayerZero documentation

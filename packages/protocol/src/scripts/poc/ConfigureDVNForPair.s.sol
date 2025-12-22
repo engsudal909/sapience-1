@@ -16,7 +16,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * 3. Libraries must be registered in the LayerZero endpoint
  */
 contract ConfigureDVNForPair is Script {
-    address private constant FACTORY_ADDRESS = 0xe827EbdC7BF7A89aF4d27f1caaCcd21aC3Cf33dD;
+    address private constant FACTORY_ADDRESS = 0xAB5C685d69F4EA2ec36E6e356A192AdAa2338129;
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external {
