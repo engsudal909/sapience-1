@@ -103,6 +103,7 @@ contract OAppFactory is Ownable {
         uint64 confirmations;
         uint32 maxMessageSize;
         uint32 gracePeriod;
+        uint8 requiredDVNCount;
     }
 
     /**
@@ -304,7 +305,8 @@ contract OAppFactory is Ownable {
         address executor,
         uint64 confirmations,
         uint32 maxMessageSize,
-        uint32 gracePeriod
+        uint32 gracePeriod,
+        uint8 requiredDVNCount
     ) external onlyOwner {
         // Validate addresses
         if (sendLib == address(0)) {
@@ -330,6 +332,11 @@ contract OAppFactory is Ownable {
             revert InvalidMaxMessageSize(maxMessageSize);
         }
 
+        // Validate requiredDVNCount (reasonable bounds: 1-255)
+        if (requiredDVNCount == 0 || requiredDVNCount > 255) {
+            revert("Invalid requiredDVNCount");
+        }
+
         DVNConfig memory config = DVNConfig({
             sendLib: sendLib,
             receiveLib: receiveLib,
@@ -337,7 +344,8 @@ contract OAppFactory is Ownable {
             executor: executor,
             confirmations: confirmations,
             maxMessageSize: maxMessageSize,
-            gracePeriod: gracePeriod
+            gracePeriod: gracePeriod,
+            requiredDVNCount: requiredDVNCount
         });
 
         defaultDVNConfig[networkType] = config;
@@ -353,7 +361,7 @@ contract OAppFactory is Ownable {
      * @param receiveLib The receive library address
      * @param requiredDVN The required DVN address
      * @param executor The executor address
-     * @dev Uses default values: 20 confirmations, 10000 max message size, 0 grace period
+     * @dev Uses default values: 20 confirmations, 10000 max message size, 0 grace period, 1 required DVN count
      */
     function setDefaultDVNConfigWithDefaults(
         NetworkType networkType,
@@ -383,7 +391,8 @@ contract OAppFactory is Ownable {
             executor: executor,
             confirmations: 20,
             maxMessageSize: 10000,
-            gracePeriod: 0
+            gracePeriod: 0,
+            requiredDVNCount: 1
         });
 
         defaultDVNConfig[networkType] = config;
@@ -436,7 +445,7 @@ contract OAppFactory is Ownable {
 
         ExecutorConfig memory executorConfig = ExecutorConfig(config.maxMessageSize, config.executor);
         UlnConfig memory ulnConfig = UlnConfig(
-            config.confirmations, 1, type(uint8).max, 0, requiredDVNs, new address[](0)
+            config.confirmations, config.requiredDVNCount, type(uint8).max, 0, requiredDVNs, new address[](0)
         );
 
         SetConfigParam[] memory params = new SetConfigParam[](2);

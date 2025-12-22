@@ -18,18 +18,22 @@ contract ConfigureDVN is Script {
     address private constant FACTORY_ADDRESS = 0xAB5C685d69F4EA2ec36E6e356A192AdAa2338129;
     
     // Arbitrum One mainnet addresses
-    // TODO: Update with actual mainnet addresses from LayerZero documentation
-    address private constant ARB_MAINNET_SEND_LIB = address(0x975bcD720be66659e3EB3C0e4F1866a3020E493A);      // TODO: Get from docs
-    address private constant ARB_MAINNET_RECEIVE_LIB = address(0x7B9E184e07a6EE1aC23eAe0fe8D6Be2f663f05e6);    // TODO: Get from docs
-    address private constant ARB_MAINNET_DVN = address(0x2f55C492897526677C5B68fb199ea31E2c126416);            // TODO: Get from docs
-    address private constant ARB_MAINNET_EXECUTOR = address(0x31CAe3B7fB82d847621859fb1585353c5720660D);      // TODO: Get from docs
+    address private constant ARB_MAINNET_SEND_LIB = address(0x975bcD720be66659e3EB3C0e4F1866a3020E493A);
+    address private constant ARB_MAINNET_RECEIVE_LIB = address(0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf);
+    address private constant ARB_MAINNET_DVN = address(0x2f55C492897526677C5B68fb199ea31E2c126416);
+    address private constant ARB_MAINNET_EXECUTOR = address(0x31CAe3B7fB82d847621859fb1585353c5720660D);
     
     // Base mainnet addresses
-    // TODO: Update with actual mainnet addresses from LayerZero documentation
-    address private constant BASE_MAINNET_SEND_LIB = address(0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2);      // TODO: Get from docs
-    address private constant BASE_MAINNET_RECEIVE_LIB = address(0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf);  // TODO: Get from docs
-    address private constant BASE_MAINNET_DVN = address(0x9e059a54699a285714207b43B055483E78FAac25);          // TODO: Get from docs
-    address private constant BASE_MAINNET_EXECUTOR = address(0x2CCA08ae69E0C44b18a57Ab2A87644234dAebaE4);      // TODO: Get from docs
+    address private constant BASE_MAINNET_SEND_LIB = address(0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2);
+    address private constant BASE_MAINNET_RECEIVE_LIB = address(0x7B9E184e07a6EE1aC23eAe0fe8D6Be2f663f05e6);
+    address private constant BASE_MAINNET_DVN = address(0x9e059a54699a285714207b43B055483E78FAac25);
+    address private constant BASE_MAINNET_EXECUTOR = address(0x2CCA08ae69E0C44b18a57Ab2A87644234dAebaE4);
+    
+    // DVN Configuration values - IMPORTANT: These must match on both networks
+    uint64 private constant CONFIRMATIONS = 20;
+    uint32 private constant MAX_MESSAGE_SIZE = 10000;
+    uint32 private constant GRACE_PERIOD = 0;
+    uint8 private constant REQUIRED_DVN_COUNT = 1;  // Must be the same on both networks!
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -89,14 +93,20 @@ contract ConfigureDVN is Script {
                 console.log("  ReceiveLib:", ARB_MAINNET_RECEIVE_LIB);
                 console.log("  DVN:", ARB_MAINNET_DVN);
                 console.log("  Executor:", ARB_MAINNET_EXECUTOR);
+                console.log("  Confirmations:", CONFIRMATIONS);
+                console.log("  Required DVN Count:", REQUIRED_DVN_COUNT);
                 console.log("");
                 
-                factory.setDefaultDVNConfigWithDefaults(
+                factory.setDefaultDVNConfig(
                     OAppFactory.NetworkType.ARBITRUM,
                     ARB_MAINNET_SEND_LIB,
                     ARB_MAINNET_RECEIVE_LIB,
                     ARB_MAINNET_DVN,
-                    ARB_MAINNET_EXECUTOR
+                    ARB_MAINNET_EXECUTOR,
+                    CONFIRMATIONS,
+                    MAX_MESSAGE_SIZE,
+                    GRACE_PERIOD,
+                    REQUIRED_DVN_COUNT
                 );
                 
                 console.log("SUCCESS: Arbitrum DVN configured!");
@@ -112,14 +122,20 @@ contract ConfigureDVN is Script {
                 console.log("  ReceiveLib:", BASE_MAINNET_RECEIVE_LIB);
                 console.log("  DVN:", BASE_MAINNET_DVN);
                 console.log("  Executor:", BASE_MAINNET_EXECUTOR);
+                console.log("  Confirmations:", CONFIRMATIONS);
+                console.log("  Required DVN Count:", REQUIRED_DVN_COUNT);
                 console.log("");
                 
-                factory.setDefaultDVNConfigWithDefaults(
+                factory.setDefaultDVNConfig(
                     OAppFactory.NetworkType.BASE,
                     BASE_MAINNET_SEND_LIB,
                     BASE_MAINNET_RECEIVE_LIB,
                     BASE_MAINNET_DVN,
-                    BASE_MAINNET_EXECUTOR
+                    BASE_MAINNET_EXECUTOR,
+                    CONFIRMATIONS,
+                    MAX_MESSAGE_SIZE,
+                    GRACE_PERIOD,
+                    REQUIRED_DVN_COUNT
                 );
                 
                 console.log("SUCCESS: Base DVN configured!");
@@ -135,14 +151,20 @@ contract ConfigureDVN is Script {
                 console.log("  ReceiveLib:", BASE_MAINNET_RECEIVE_LIB);
                 console.log("  DVN:", BASE_MAINNET_DVN);
                 console.log("  Executor:", BASE_MAINNET_EXECUTOR);
+                console.log("  Confirmations:", CONFIRMATIONS);
+                console.log("  Required DVN Count:", REQUIRED_DVN_COUNT);
                 console.log("");
                 
-                factory.setDefaultDVNConfigWithDefaults(
+                factory.setDefaultDVNConfig(
                     OAppFactory.NetworkType.BASE,
                     BASE_MAINNET_SEND_LIB,
                     BASE_MAINNET_RECEIVE_LIB,
                     BASE_MAINNET_DVN,
-                    BASE_MAINNET_EXECUTOR
+                    BASE_MAINNET_EXECUTOR,
+                    CONFIRMATIONS,
+                    MAX_MESSAGE_SIZE,
+                    GRACE_PERIOD,
+                    REQUIRED_DVN_COUNT
                 );
                 
                 console.log("SUCCESS: Base DVN configured!");
@@ -158,14 +180,20 @@ contract ConfigureDVN is Script {
                 console.log("  ReceiveLib:", ARB_MAINNET_RECEIVE_LIB);
                 console.log("  DVN:", ARB_MAINNET_DVN);
                 console.log("  Executor:", ARB_MAINNET_EXECUTOR);
+                console.log("  Confirmations:", CONFIRMATIONS);
+                console.log("  Required DVN Count:", REQUIRED_DVN_COUNT);
                 console.log("");
                 
-                factory.setDefaultDVNConfigWithDefaults(
+                factory.setDefaultDVNConfig(
                     OAppFactory.NetworkType.ARBITRUM,
                     ARB_MAINNET_SEND_LIB,
                     ARB_MAINNET_RECEIVE_LIB,
                     ARB_MAINNET_DVN,
-                    ARB_MAINNET_EXECUTOR
+                    ARB_MAINNET_EXECUTOR,
+                    CONFIRMATIONS,
+                    MAX_MESSAGE_SIZE,
+                    GRACE_PERIOD,
+                    REQUIRED_DVN_COUNT
                 );
                 
                 console.log("SUCCESS: Arbitrum DVN configured!");
