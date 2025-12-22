@@ -25,7 +25,7 @@ contract DeployOAppFactoryWithOurDDP is Script {
     
     // Salt for deploying the factory
     // v2: Updated to remove automatic peer setup during pair creation
-    bytes32 private constant FACTORY_SALT = keccak256("OAppFactory-OurDDP-v3");
+    bytes32 private constant FACTORY_SALT = keccak256("OAppFactory-OurDDP-v4");
 
     function run() external {
         address deployer = vm.envAddress("DEPLOYER_ADDRESS");

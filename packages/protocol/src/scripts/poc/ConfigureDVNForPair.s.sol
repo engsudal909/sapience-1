@@ -16,7 +16,7 @@ import {OAppFactory} from "../../poc/OAppFactory.sol";
  * 3. Libraries must be registered in the LayerZero endpoint
  */
 contract ConfigureDVNForPair is Script {
-    address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
+    address private constant FACTORY_ADDRESS = 0xe827EbdC7BF7A89aF4d27f1caaCcd21aC3Cf33dD;
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external {
@@ -43,7 +43,7 @@ contract ConfigureDVNForPair is Script {
             console.log("Factory owner:", factoryOwner);
             revert("Not factory owner");
         }
-        console.log("Deployer verified as factory owner ✓");
+        console.log("Deployer verified as factory owner - OK");
         console.log("");
         
         // Verify pair exists
@@ -67,7 +67,7 @@ contract ConfigureDVNForPair is Script {
             console.log("Run ConfigureDVN.s.sol first to set default DVN config.");
             return;
         }
-        console.log("DVN config verified ✓");
+        console.log("DVN config verified - OK");
         console.log("");
         
         vm.startBroadcast(deployerPrivateKey);

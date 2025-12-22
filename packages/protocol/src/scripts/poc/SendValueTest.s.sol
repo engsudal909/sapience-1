@@ -13,7 +13,7 @@ import {SimpleOAppBaseNetwork} from "../../poc/SimpleOAppBaseNetwork.sol";
  */
 contract SendValueTest is Script {
     // Factory address (same on both networks)
-    address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
+    address private constant FACTORY_ADDRESS = 0xe827EbdC7BF7A89aF4d27f1caaCcd21aC3Cf33dD;
     
     // Test salt (must match the one used to create the pair)
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
@@ -39,14 +39,14 @@ contract SendValueTest is Script {
         
         uint256 valueToSend = 12345;
         
-        if (chainId == 421614) {
-            // Arbitrum Sepolia - Send to Base Sepolia
+        if (chainId == 42161) {
+            // Arbitrum One - Send to Base
             SimpleOAppArbitrum pair = SimpleOAppArbitrum(payable(pairAddress));
             
             // Check setup
             if (!pair.isSetupComplete()) {
                 console.log("ERROR: LayerZero not set up yet!");
-                console.log("Run ConfigureAndTest.s.sol first");
+                console.log("Run SetupLayerZero.s.sol first");
                 vm.stopBroadcast();
                 return;
             }
@@ -59,20 +59,20 @@ contract SendValueTest is Script {
             console.log("");
             
             // Send value
-            console.log("Sending value to Base Sepolia...");
+            console.log("Sending value to Base...");
             pair.sendValue{value: nativeFee}(valueToSend);
             console.log("Value sent! Transaction submitted.");
             console.log("");
-            console.log("Wait a few minutes, then check on Base Sepolia using CheckReceivedValue.s.sol");
+            console.log("Wait a few minutes, then check on Base using CheckReceivedValue.s.sol");
             
-        } else if (chainId == 84532) {
-            // Base Sepolia - Send to Arbitrum Sepolia
+        } else if (chainId == 8453) {
+            // Base - Send to Arbitrum One
             SimpleOAppBaseNetwork pair = SimpleOAppBaseNetwork(payable(pairAddress));
             
             // Check setup
             if (!pair.isSetupComplete()) {
                 console.log("ERROR: LayerZero not set up yet!");
-                console.log("Run ConfigureAndTest.s.sol first");
+                console.log("Run SetupLayerZero.s.sol first");
                 vm.stopBroadcast();
                 return;
             }
@@ -85,14 +85,14 @@ contract SendValueTest is Script {
             console.log("");
             
             // Send value
-            console.log("Sending value to Arbitrum Sepolia...");
+            console.log("Sending value to Arbitrum One...");
             pair.sendValue{value: nativeFee}(valueToSend);
             console.log("Value sent! Transaction submitted.");
             console.log("");
-            console.log("Wait a few minutes, then check on Arbitrum Sepolia using CheckReceivedValue.s.sol");
+            console.log("Wait a few minutes, then check on Arbitrum One using CheckReceivedValue.s.sol");
         } else {
             console.log("ERROR: Unsupported network!");
-            console.log("This script only works on Arbitrum Sepolia (421614) or Base Sepolia (84532)");
+            console.log("This script only works on Arbitrum One (42161) or Base (8453)");
         }
         
         vm.stopBroadcast();
@@ -100,8 +100,8 @@ contract SendValueTest is Script {
     
     
     function _getNetworkName(uint256 chainId) internal pure returns (string memory) {
-        if (chainId == 421614) return "Arbitrum Sepolia";
-        if (chainId == 84532) return "Base Sepolia";
+        if (chainId == 42161) return "Arbitrum One";
+        if (chainId == 8453) return "Base";
         return "Unknown";
     }
 }

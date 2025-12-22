@@ -12,7 +12,7 @@ import {SimpleOAppBaseNetwork} from "../../poc/SimpleOAppBaseNetwork.sol";
  * @dev Use this if ConfigureAndTest fails at LayerZero setup
  */
 contract SetupLayerZero is Script {
-    address private constant FACTORY_ADDRESS = 0xD3ccEF4741d1C7886321bf732E010455F9c60a1B;
+    address private constant FACTORY_ADDRESS = 0xe827EbdC7BF7A89aF4d27f1caaCcd21aC3Cf33dD;
     bytes32 private constant TEST_SALT = keccak256("TEST_PAIR_V1");
 
     function run() external {

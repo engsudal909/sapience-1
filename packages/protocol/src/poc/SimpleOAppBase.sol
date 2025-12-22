@@ -25,6 +25,11 @@ abstract contract SimpleOAppBase is OApp {
     // Value storage for PoC
     uint256 private _receivedValue;
 
+    // ============ Constants ============
+    /// @notice Gas limit for lzReceive execution
+    /// @dev This value must be sufficient for the _lzReceive function execution
+    uint128 private constant LZ_RECEIVE_GAS_LIMIT = 200_000;
+
     // ============ Errors ============
     error SetupAlreadyComplete();
     error SetupNotComplete();
@@ -122,7 +127,7 @@ abstract contract SimpleOAppBase is OApp {
         bytes memory payload = abi.encode(value);
 
         // Build options with executor LZ receive option
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(0, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(LZ_RECEIVE_GAS_LIMIT, 0);
 
         // Get quote for the message
         MessagingFee memory fee = _quote(
@@ -170,7 +175,7 @@ abstract contract SimpleOAppBase is OApp {
         uint32 remoteEid = getRemoteEid();
 
         bytes memory payload = abi.encode(value);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(0, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(LZ_RECEIVE_GAS_LIMIT, 0);
 
         MessagingFee memory fee = _quote(
             remoteEid,
