@@ -2,13 +2,11 @@ import {
   Block,
   PublicClient,
   createPublicClient,
-  formatUnits,
   http,
   webSocket,
   type Transport,
 } from 'viem';
 import { mainnet, sepolia, cannon, base, arbitrum } from 'viem/chains';
-import { TOKEN_PRECISION } from '../constants';
 import dotenv from 'dotenv';
 import { fromRoot } from './fromRoot';
 import * as viem from 'viem';
@@ -51,7 +49,6 @@ export const chains: viem.Chain[] = [
   convergeChain,
   etherealChain,
 ];
-
 
 // Load environment variables
 dotenv.config({ path: fromRoot('.env') });
@@ -262,7 +259,6 @@ export async function createRenderJob(serviceId: string, startCommand: string) {
   return await response.json();
 }
 
-
 export const CELENIUM_API_KEY = process.env.CELENIUM_API_KEY;
 
 const MAX_RETRIES = Infinity;
@@ -329,4 +325,3 @@ export function createResilientProcess<T>(
     }
   };
 }
-
