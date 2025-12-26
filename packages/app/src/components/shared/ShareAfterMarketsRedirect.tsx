@@ -34,6 +34,9 @@ export default function ShareAfterMarketsRedirect() {
   const [storedLastNftId, setStoredLastNftId] = useState<string | undefined>(
     undefined
   );
+  const [storedClientTimestamp, setStoredClientTimestamp] = useState<
+    number | undefined
+  >(undefined);
   const [storedTxHash, setStoredTxHash] = useState<string | undefined>(
     undefined
   );
@@ -41,11 +44,15 @@ export default function ShareAfterMarketsRedirect() {
     Array<{ question: string; choice: 'Yes' | 'No' }> | undefined
   >(undefined);
   const clearedRef = useRef(false);
+  const openRef = useRef(false);
+  const imageSrcRef = useRef<string | null>(null);
+  const storedLastNftIdRef = useRef<string | undefined>(undefined);
+  const positionsRef = useRef<Parlay[]>([]);
   const { address } = useAccount();
 
   const lowerAddress = address ? String(address).toLowerCase() : null;
 
-  // Data hooks for fallback resolution
+  // Data hooks for position resolution
   const { data: positions, refetch: refetchPositions } = useUserParlays({
     address: lowerAddress || undefined,
   });
@@ -86,13 +93,58 @@ export default function ShareAfterMarketsRedirect() {
     }
   }, []);
 
-  // Build OG url from NFT ID and market address (preferred method)
+  // Build OG url from NFT ID and market address with position data
   const buildOgUrlFromNftAndMarket = useCallback(
-    (nftTokenId: string, marketAddress: string): string | null => {
+    (
+      nftTokenId: string,
+      marketAddress: string,
+      position: Parlay
+    ): string | null => {
       try {
         const qp = new URLSearchParams();
         qp.set('nftId', String(nftTokenId));
         qp.set('marketAddress', String(marketAddress));
+
+        // Add address
+        if (position.predictor) {
+          qp.set('addr', position.predictor.toLowerCase());
+        }
+
+        // Add wager (predictorCollateral)
+        const collateralDecimals = 18;
+        if (position.predictorCollateral) {
+          const wager = parseFloat(
+            formatUnits(
+              BigInt(position.predictorCollateral),
+              collateralDecimals
+            )
+          ).toFixed(2);
+          qp.set('wager', wager);
+        }
+
+        // Add payout (totalCollateral)
+        if (position.totalCollateral) {
+          const payout = parseFloat(
+            formatUnits(BigInt(position.totalCollateral), collateralDecimals)
+          ).toFixed(2);
+          qp.set('payout', payout);
+        }
+
+        // Add symbol (default to testUSDe)
+        qp.set('symbol', 'testUSDe');
+
+        // Add legs from predictions
+        if (position.predictions && position.predictions.length > 0) {
+          position.predictions.forEach((pred) => {
+            const question =
+              pred.condition?.shortName || pred.condition?.question || '';
+            if (question) {
+              const choice = pred.outcomeYes ? 'Yes' : 'No';
+              qp.append('leg', `${question}|${choice}`);
+            }
+          });
+        }
+
         const ogUrl = `/og/position?${qp.toString()}`;
         return ogUrl;
       } catch (e) {
@@ -106,122 +158,104 @@ export default function ShareAfterMarketsRedirect() {
     []
   );
 
-  // Build OG url from betslip data (fallback)
-  const buildOgUrlFromBetslip = useCallback(
-    (betslip: ShareIntentStored['betslip']): string | null => {
-      if (!lowerAddress || !betslip) {
+  // Check if position is indexed and update imageSrc if found
+  const checkAndUpdatePosition = useCallback(
+    (
+      intent: ShareIntentStored,
+      positionsList: Parlay[],
+      lastNftIdToCheck: string
+    ): Parlay | null => {
+      if (!intent.betslip?.legs || intent.betslip.legs.length === 0) {
         return null;
       }
+
+      const ts = Number(intent.clientTimestamp || 0);
+      const windowMs = 2 * 60 * 1000; // 2 minutes
+      const minTs = ts - windowMs;
+
+      // Find positions minted after the intent timestamp
+      const candidatePositions = positionsList.filter((p: Parlay) => {
+        const mintedAtMs = Number(p.mintedAt) * 1000;
+        const passes = mintedAtMs >= minTs;
+        return passes;
+      });
+
+      // Filter by NFT ID
+      let filteredByNftId: Parlay[] = [];
       try {
-        const qp = new URLSearchParams();
-        qp.set('addr', lowerAddress);
-
-        // Add legs
-        if (betslip.legs && betslip.legs.length > 0) {
-          betslip.legs.forEach((leg) => {
-            if (leg.question) {
-              qp.append('leg', `${leg.question}|${leg.choice}`);
-            }
-          });
-        }
-
-        // Add wager
-        if (betslip.wager) {
-          qp.set('wager', betslip.wager);
-        }
-
-        // Add payout
-        if (betslip.payout) {
-          qp.set('payout', betslip.payout);
-        }
-
-        // Add symbol
-        if (betslip.symbol) {
-          qp.set('symbol', betslip.symbol);
-        }
-
-        const ogUrl = `/og/position?${qp.toString()}`;
-        return ogUrl;
+        const lastNftIdBigInt = BigInt(lastNftIdToCheck);
+        filteredByNftId = candidatePositions.filter((p: Parlay) => {
+          try {
+            const currentNftId = BigInt(p.predictorNftTokenId || '0');
+            return currentNftId > lastNftIdBigInt;
+          } catch (err) {
+            console.error(
+              '[ShareAfterMarketsRedirect] Position indexing: Error comparing NFT ID for position',
+              {
+                positionId: p.id,
+                nftId: p.predictorNftTokenId,
+                error: err,
+              }
+            );
+            return false;
+          }
+        });
       } catch (e) {
         console.error(
-          '[ShareAfterMarketsRedirect] Error building OG URL from betslip:',
+          '[ShareAfterMarketsRedirect] Position indexing: Error comparing NFT IDs:',
           e
         );
         return null;
       }
+
+      // Find the position using expected legs
+      const resolved = filteredByNftId.find((p: Parlay) => {
+        const positionLegs = (p.predictions || []).map((pred) => {
+          const question =
+            pred.condition?.shortName || pred.condition?.question || '';
+          const choice = pred.outcomeYes ? 'Yes' : 'No';
+          return { question, choice };
+        });
+
+        if (positionLegs.length !== intent.betslip!.legs.length) {
+          return false;
+        }
+
+        const expectedMap = new Map(
+          intent.betslip!.legs.map((leg) => [
+            `${leg.question}|${leg.choice}`,
+            true,
+          ])
+        );
+        const positionMap = new Map(
+          positionLegs.map((leg) => [`${leg.question}|${leg.choice}`, true])
+        );
+
+        // Check if all expected legs are present in position
+        for (const leg of intent.betslip!.legs) {
+          const key = `${leg.question}|${leg.choice}`;
+          if (!positionMap.has(key)) {
+            return false;
+          }
+        }
+
+        // Check if all position legs are in expected (to ensure exact match)
+        for (const leg of positionLegs) {
+          const key = `${leg.question}|${leg.choice}`;
+          if (!expectedMap.has(key)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      return resolved || null;
     },
-    [lowerAddress]
+    []
   );
 
-  // Build minimal OG url from resolved parlay (fallback)
-  // Uses NFT ID and market address when available, otherwise falls back to query params
-  const toOgUrl = useCallback(
-    (entity: Parlay): string | null => {
-      if (!lowerAddress) {
-        return null;
-      }
-      try {
-        const position = entity;
-
-        // Prefer NFT ID and market address-based URL
-        if (position?.predictorNftTokenId && position?.marketAddress) {
-          return buildOgUrlFromNftAndMarket(
-            position.predictorNftTokenId,
-            position.marketAddress
-          );
-        }
-
-        // Fallback to query params if positionId is not available
-        const qp = new URLSearchParams();
-        qp.set('addr', lowerAddress);
-
-        // Encode all legs with question and prediction choice
-        const legs = (position?.predictions || [])
-          .map((o) => {
-            const question =
-              (o?.condition?.shortName as string) ||
-              (o?.condition?.question as string);
-            const choice = o?.outcomeYes ? 'Yes' : 'No';
-            return question ? `${question}|${choice}` : null;
-          })
-          .filter(Boolean);
-        if (legs.length > 0) {
-          legs.forEach((l) => qp.append('leg', String(l)));
-        }
-
-        const collateralDecimals = 18;
-        const collateralSymbol = 'testUSDe';
-        if (position?.predictorCollateral) {
-          const wager = parseFloat(
-            formatUnits(
-              BigInt(position.predictorCollateral),
-              collateralDecimals
-            )
-          ).toFixed(2);
-          qp.set('wager', wager);
-        }
-
-        if (position?.totalCollateral) {
-          const totalCollateralBigInt = BigInt(position.totalCollateral);
-          const payout = parseFloat(
-            formatUnits(totalCollateralBigInt, collateralDecimals)
-          ).toFixed(2);
-          qp.set('payout', payout);
-        }
-
-        qp.set('symbol', collateralSymbol);
-
-        const ogUrl = `/og/position?${qp.toString()}`;
-        return ogUrl;
-      } catch (e) {
-        console.error('[ShareAfterMarketsRedirect] Error building OG URL:', e);
-        return null;
-      }
-    },
-    [lowerAddress, buildOgUrlFromNftAndMarket]
-  );
-
-  // Handle intent detection and open dialog with betslip data
+  // Handle intent detection and open dialog when position is indexed
   // Uses periodic check to detect intents written while already on the page
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -234,7 +268,7 @@ export default function ShareAfterMarketsRedirect() {
       const intent = readIntent();
       if (!intent) {
         // If no intent but dialog is open, close it to reset state
-        if (open) {
+        if (openRef.current) {
           setOpen(false);
           setImageSrc(null);
         }
@@ -245,215 +279,100 @@ export default function ShareAfterMarketsRedirect() {
       const intentAddr = String(intent.address || '').toLowerCase();
       if (intentAddr !== lowerAddress) return;
       if (intent.anchor !== 'positions') return;
-
       // If dialog is already open, close it first to reset state for new intent
       // This handles the case where multiple parlays are created without refresh
-      if (open) {
+      if (openRef.current) {
         setOpen(false);
         setImageSrc(null);
         setStoredLastNftId(undefined); // Reset stored NFT ID for new intent
-        setStoredExpectedLegs(undefined); // Reset stored expected legs for new intent
         clearedRef.current = false;
         return; // Will process new intent on next check cycle
       }
 
-      // Update intent with latest NFT ID if not already set (for tracking)
-      // Prefer lastNftId from betslip data, otherwise get from positions
-      // Also store in state when found
-      if (!intent.lastNftId) {
-        let nftIdToUse: string | undefined = intent.betslip?.lastNftId;
-
-        // If found in betslip, store it in state immediately
-        if (nftIdToUse) {
-          setStoredLastNftId(nftIdToUse);
-        }
-
-        if (!nftIdToUse && positions && positions.length > 0) {
-          // Get the highest NFT ID from current positions
-          const latestPosition = positions.reduce((latest, current) => {
-            try {
-              const latestNftId = BigInt(latest.predictorNftTokenId || '0');
-              const currentNftId = BigInt(current.predictorNftTokenId || '0');
-              return currentNftId > latestNftId ? current : latest;
-            } catch {
-              return latest;
-            }
-          }, positions[0]);
-
-          if (latestPosition && latestPosition.predictorNftTokenId) {
-            nftIdToUse = latestPosition.predictorNftTokenId;
-          }
-        }
-
-        if (nftIdToUse) {
-          const updatedIntent = {
-            ...intent,
-            lastNftId: nftIdToUse,
-          };
-          try {
-            window.sessionStorage.setItem(
-              'sapience:share-intent',
-              JSON.stringify(updatedIntent)
-            );
-            // Store in state so it persists after intent is cleared
-            setStoredLastNftId(nftIdToUse);
-            // Update local intent reference for this check cycle
-            Object.assign(intent, updatedIntent);
-          } catch (e) {
-            console.error(
-              '[ShareAfterMarketsRedirect] Error updating intent with NFT ID:',
-              e
-            );
-          }
-        }
+      // Get lastNftId from intent (required)
+      const nftIdToUse = intent.betslip?.lastNftId || intent.lastNftId;
+      if (!nftIdToUse) {
+        // Cannot proceed without lastNftId
+        return;
       }
 
-      // Path 1: immediate OG provided by caller
-      if (intent.og && intent.og.imagePath) {
-        // Store expected legs in state if available in betslip
-        if (intent.betslip?.legs) {
-          setStoredExpectedLegs(intent.betslip.legs);
-        }
-        if (intent.txHash) {
-          setStoredTxHash(intent.txHash);
-        }
+      // Update intent and state with lastNftId
+      if (intent.lastNftId !== nftIdToUse) {
+        const updatedIntent = {
+          ...intent,
+          lastNftId: nftIdToUse,
+        };
         try {
-          const params = new URLSearchParams(
-            Object.fromEntries(
-              Object.entries(intent.og.params || {})
-                .filter(([, v]) => v !== undefined && v !== null)
-                .map(([k, v]) => [k, String(v)])
-            )
+          window.sessionStorage.setItem(
+            'sapience:share-intent',
+            JSON.stringify(updatedIntent)
           );
-          const src = `${intent.og.imagePath}?${params.toString()}`;
-          setImageSrc(src);
-          setOpen(true);
-          clearIntent();
-          return;
+          Object.assign(intent, updatedIntent);
         } catch (e) {
           console.error(
-            '[ShareAfterMarketsRedirect] Error using provided OG:',
+            '[ShareAfterMarketsRedirect] Error updating intent with NFT ID:',
             e
           );
         }
       }
 
-      // Path 2: Wait for position to be indexed, then use positionId
-      refetchPositionsWrapper();
-
-      const list: Parlay[] = positions || [];
-      const ts = Number(intent.clientTimestamp || 0);
-      const windowMs = 2 * 60 * 1000; // 2 minutes
-      const minTs = ts - windowMs;
-
-      // Find positions minted after the intent timestamp
-      const candidatePositions = list.filter(
-        (p: Parlay) => Number(p.mintedAt) * 1000 >= minTs
-      );
-
-      // Filter by NFT ID if lastNftId is provided
-      let filteredByNftId = candidatePositions;
-      const lastNftIdToCheck = intent.lastNftId || intent.betslip?.lastNftId;
-      if (lastNftIdToCheck && candidatePositions.length > 0) {
-        try {
-          const lastNftIdBigInt = BigInt(lastNftIdToCheck);
-          filteredByNftId = candidatePositions.filter((p: Parlay) => {
-            try {
-              const currentNftId = BigInt(p.predictorNftTokenId || '0');
-              return currentNftId > lastNftIdBigInt;
-            } catch {
-              return false;
-            }
-          });
-        } catch (e) {
-          console.error(
-            '[ShareAfterMarketsRedirect] Error comparing NFT IDs:',
-            e
-          );
-          // Error comparing NFT IDs, use all candidates
-        }
+      if (storedLastNftIdRef.current !== nftIdToUse) {
+        setStoredLastNftId(nftIdToUse);
+        storedLastNftIdRef.current = nftIdToUse;
       }
 
-      // If expectedLegs are provided, verify the position matches
-      let resolved: Parlay | null = null;
+      // Store all intent data in state before clearing
+      if (intent.clientTimestamp) {
+        setStoredClientTimestamp(intent.clientTimestamp);
+      }
+      if (intent.txHash) {
+        setStoredTxHash(intent.txHash);
+      }
       if (intent.betslip?.legs && intent.betslip.legs.length > 0) {
-        resolved =
-          filteredByNftId.find((p: Parlay) => {
-            const positionLegs = (p.predictions || []).map((pred) => {
-              const question =
-                pred.condition?.shortName || pred.condition?.question || '';
-              const choice = pred.outcomeYes ? 'Yes' : 'No';
-              return { question, choice };
-            });
-
-            if (positionLegs.length !== intent.betslip!.legs.length) {
-              return false;
-            }
-
-            const expectedMap = new Map(
-              intent.betslip!.legs.map((leg) => [
-                `${leg.question}|${leg.choice}`,
-                true,
-              ])
-            );
-            const positionMap = new Map(
-              positionLegs.map((leg) => [`${leg.question}|${leg.choice}`, true])
-            );
-
-            for (const leg of intent.betslip!.legs) {
-              const key = `${leg.question}|${leg.choice}`;
-              if (!positionMap.has(key)) {
-                return false;
-              }
-            }
-
-            for (const leg of positionLegs) {
-              const key = `${leg.question}|${leg.choice}`;
-              if (!expectedMap.has(key)) {
-                return false;
-              }
-            }
-
-            return true;
-          }) || null;
-      } else {
-        // Fallback: use first candidate after NFT ID filter
-        resolved =
-          filteredByNftId.sort(
-            (a: Parlay, b: Parlay) => Number(b.mintedAt) - Number(a.mintedAt)
-          )[0] || null;
+        setStoredExpectedLegs(intent.betslip.legs);
       }
 
-      if (resolved) {
-        // Use NFT ID and market address to build OG URL (preferred method)
-        if (resolved.predictorNftTokenId && resolved.marketAddress) {
-          const src = buildOgUrlFromNftAndMarket(
-            resolved.predictorNftTokenId,
-            resolved.marketAddress
-          );
-          if (src) {
-            setImageSrc(src);
-            setOpen(true);
-            clearIntent();
-            return;
-          }
-        }
+      // Open dialog immediately with OG URL built from intent
+      if (!imageSrcRef.current && intent.betslip && lowerAddress) {
+        try {
+          const qp = new URLSearchParams();
+          qp.set('addr', lowerAddress);
 
-        // Fallback to old method if positionId method fails
-        const fallbackSrc = toOgUrl(resolved);
-        if (fallbackSrc) {
-          setImageSrc(fallbackSrc);
+          // Add legs
+          if (intent.betslip.legs && intent.betslip.legs.length > 0) {
+            intent.betslip.legs.forEach((leg) => {
+              if (leg.question) {
+                qp.append('leg', `${leg.question}|${leg.choice}`);
+              }
+            });
+          }
+
+          // Add wager
+          if (intent.betslip.wager) {
+            qp.set('wager', intent.betslip.wager);
+          }
+
+          // Add payout
+          if (intent.betslip.payout) {
+            qp.set('payout', intent.betslip.payout);
+          }
+
+          // Add symbol
+          if (intent.betslip.symbol) {
+            qp.set('symbol', intent.betslip.symbol);
+          }
+
+          const ogUrl = `/og/position?${qp.toString()}`;
+          setImageSrc(ogUrl);
           setOpen(true);
           clearIntent();
+          refetchPositionsWrapper();
+        } catch (e) {
+          console.error(
+            '[ShareAfterMarketsRedirect] Error building OG URL from intent:',
+            e
+          );
         }
-        return;
-      }
-
-      // Path 3: If position not found yet, wait for indexing
-      // Don't open dialog optimistically - wait for position to be indexed
-      if (list.length === 0) {
-        // Will retry when positions load
-        return;
       }
     };
 
@@ -464,18 +383,71 @@ export default function ShareAfterMarketsRedirect() {
     const checkInterval = setInterval(() => {
       checkAndOpenDialog();
     }, 500); // Check every 500ms
-
     return () => clearInterval(checkInterval);
+  }, [lowerAddress, readIntent, clearIntent, refetchPositionsWrapper]);
+
+  // Update refs when state changes
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    imageSrcRef.current = imageSrc;
+  }, [imageSrc]);
+
+  useEffect(() => {
+    storedLastNftIdRef.current = storedLastNftId;
+  }, [storedLastNftId]);
+
+  useEffect(() => {
+    positionsRef.current = positions || [];
+  }, [positions]);
+
+  // Track position resolution and update imageSrc when found
+  useEffect(() => {
+    if (!open || !imageSrc || !lowerAddress || !storedLastNftId) return;
+
+    // Use stored expected legs to check position
+    if (!storedExpectedLegs || storedExpectedLegs.length === 0) return;
+
+    const list: Parlay[] = positions || [];
+
+    // Create a temporary intent-like object for checkAndUpdatePosition
+    const tempIntent: ShareIntentStored = {
+      address: lowerAddress,
+      anchor: 'positions',
+      clientTimestamp: storedClientTimestamp || Date.now(),
+      lastNftId: storedLastNftId,
+      betslip: {
+        legs: storedExpectedLegs,
+        wager: '',
+        symbol: 'testUSDe',
+      },
+    };
+
+    const resolved = checkAndUpdatePosition(tempIntent, list, storedLastNftId);
+
+    if (resolved?.predictorNftTokenId && resolved.marketAddress) {
+      const ogUrl = buildOgUrlFromNftAndMarket(
+        resolved.predictorNftTokenId,
+        resolved.marketAddress,
+        resolved
+      );
+
+      if (ogUrl && imageSrc !== ogUrl) {
+        setImageSrc(ogUrl);
+      }
+    }
   }, [
+    open,
+    imageSrc,
     lowerAddress,
     positions,
-    readIntent,
+    storedLastNftId,
+    storedExpectedLegs,
+    storedClientTimestamp,
+    checkAndUpdatePosition,
     buildOgUrlFromNftAndMarket,
-    buildOgUrlFromBetslip,
-    toOgUrl,
-    clearIntent,
-    open,
-    refetchPositionsWrapper,
   ]);
 
   useEffect(() => {
@@ -488,58 +460,36 @@ export default function ShareAfterMarketsRedirect() {
       if (imageSrc) {
         setImageSrc(null);
       }
+      // Clear stored state when dialog closes
+      setStoredClientTimestamp(undefined);
+      setStoredTxHash(undefined);
+      setStoredExpectedLegs(undefined);
+      setStoredLastNftId(undefined);
     }
   }, [open, imageSrc]);
 
-  // Get position timestamp and expected legs from intent for tracking (must be before conditional return)
+  // Get position timestamp and expected legs from stored state
   const positionTimestamp = useMemo(() => {
     if (!imageSrc) return undefined;
-    const intent = readIntent();
-    return intent?.clientTimestamp ? intent.clientTimestamp : undefined;
-  }, [imageSrc, readIntent]);
+    return storedClientTimestamp;
+  }, [imageSrc, storedClientTimestamp]);
 
   const txHash = useMemo(() => {
     if (!imageSrc) return undefined;
-    const intent = readIntent();
-    const intentTx = intent?.txHash;
-    if (intentTx) {
-      if (intentTx !== storedTxHash) setStoredTxHash(intentTx);
-      return intentTx;
-    }
     return storedTxHash;
-  }, [imageSrc, readIntent, storedTxHash]);
+  }, [imageSrc, storedTxHash]);
 
   const expectedLegs = useMemo(() => {
     if (!imageSrc) return undefined;
-    // First try to read from intent, then fall back to stored state
-    const intent = readIntent();
-    const intentLegs = intent?.betslip?.legs;
-    if (intentLegs) {
-      // Update state if we found it in intent
-      if (JSON.stringify(intentLegs) !== JSON.stringify(storedExpectedLegs)) {
-        setStoredExpectedLegs(intentLegs);
-      }
-      return intentLegs;
-    }
-    // Fall back to stored state (persists after intent is cleared)
     return storedExpectedLegs;
-  }, [imageSrc, readIntent, storedExpectedLegs]);
+  }, [imageSrc, storedExpectedLegs]);
 
   const lastNftId = useMemo(() => {
-    if (!imageSrc) return undefined;
-    // First try to read from intent, then fall back to stored state
-    const intent = readIntent();
-    const intentNftId = intent?.lastNftId;
-    if (intentNftId) {
-      // Update state if we found it in intent
-      if (intentNftId !== storedLastNftId) {
-        setStoredLastNftId(intentNftId);
-      }
-      return intentNftId;
+    if (!imageSrc) {
+      return undefined;
     }
-    // Fall back to stored state (persists after intent is cleared)
     return storedLastNftId;
-  }, [imageSrc, readIntent, storedLastNftId]);
+  }, [imageSrc, storedLastNftId]);
 
   if (!imageSrc) {
     return null;

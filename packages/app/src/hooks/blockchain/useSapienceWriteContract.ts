@@ -1,5 +1,12 @@
 'use client';
-import { useCallback, useMemo, useRef, useState, useContext } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useContext,
+} from 'react';
 import type { useTransactionReceipt } from 'wagmi';
 import {
   useWriteContract,
@@ -69,6 +76,10 @@ interface useSapienceWriteContractProps {
    * automatically open a share dialog with the correct OG image.
    */
   shareIntent?: ShareIntentPartial;
+  /**
+   * If true, disables the success toast notification.
+   */
+  disableSuccessToast?: boolean;
 }
 
 export function useSapienceWriteContract({
@@ -80,12 +91,38 @@ export function useSapienceWriteContract({
   redirectProfileAnchor,
   redirectPage = 'profile',
   shareIntent,
+  disableSuccessToast = false,
 }: useSapienceWriteContractProps) {
   const { data: client } = useConnectorClient();
   const [txHash, setTxHash] = useState<Hash | undefined>(undefined);
   const { toast } = useToast();
   const [chainId, setChainId] = useState<number | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // Store share intent in state so it can be updated dynamically
+  const [currentShareIntent, setCurrentShareIntent] = useState<
+    ShareIntentPartial | undefined
+  >(shareIntent);
+  // Use a ref to store the latest intent for synchronous access in writeShareIntent
+  // This ensures we always have the freshest data even if state hasn't updated yet
+  const currentShareIntentRef = useRef<ShareIntentPartial | undefined>(
+    shareIntent
+  );
+
+  // Sync shareIntent prop to state when it changes (but allow dynamic updates via updateShareIntent)
+  // Use a ref to track the previous value to avoid infinite loops
+  const prevShareIntentRef = useRef<ShareIntentPartial | undefined>(
+    shareIntent
+  );
+  useEffect(() => {
+    // Only update if shareIntent actually changed (deep comparison)
+    const prevStr = JSON.stringify(prevShareIntentRef.current);
+    const newStr = JSON.stringify(shareIntent);
+    if (prevStr !== newStr && shareIntent !== undefined) {
+      prevShareIntentRef.current = shareIntent;
+      setCurrentShareIntent(shareIntent);
+      currentShareIntentRef.current = shareIntent;
+    }
+  }, [shareIntent]);
   const { wallets } = useWallets();
   const { user, login } = usePrivy();
   const { address: wagmiAddress } = useAccount();
@@ -153,6 +190,23 @@ export function useSapienceWriteContract({
     }
   }, [wagmiAddress, chainId, isEtherealChain]);
 
+  // Update share intent dynamically (e.g., to get fresh lastNftId before submission)
+  const updateShareIntent = useCallback((newIntent: ShareIntentPartial) => {
+    setCurrentShareIntent((prev) => {
+      const updated = {
+        ...prev,
+        ...newIntent,
+        // Merge betslip data if both exist
+        betslip: newIntent.betslip
+          ? { ...prev?.betslip, ...newIntent.betslip }
+          : prev?.betslip,
+      };
+      // Update ref synchronously so writeShareIntent can read fresh data immediately
+      currentShareIntentRef.current = updated;
+      return updated;
+    });
+  }, []);
+
   // Write durable share intent to sessionStorage
   const writeShareIntent = useCallback(
     (maybeHash?: string) => {
@@ -163,7 +217,17 @@ export function useSapienceWriteContract({
           redirectPage === 'profile' && redirectProfileAnchor;
         const shouldWriteForMarkets = redirectPage === 'markets';
         if (!shouldWriteForProfile && !shouldWriteForMarkets) return;
-        if (shareIntent === undefined) return; // only write when caller explicitly opts-in
+        // Use ref for synchronous access to latest intent (avoids stale state from async updates)
+        // Fall back to state if ref is not set
+        console.log(
+          'currentShareIntentRef.current, currentShareIntent, writing:',
+          currentShareIntentRef.current,
+          currentShareIntent,
+          currentShareIntentRef.current ? 'first' : 'second'
+        );
+        const latestIntent =
+          currentShareIntentRef.current ?? currentShareIntent;
+        if (latestIntent === undefined) return; // only write when caller explicitly opts-in
 
         const connectedAddress = (
           wagmiAddress ||
@@ -183,20 +247,40 @@ export function useSapienceWriteContract({
           anchor: anchor,
           clientTimestamp: Date.now(),
           txHash: maybeHash || undefined,
-          // Spread all shareIntent properties to allow custom data
-          ...shareIntent,
+          // Spread all latestIntent properties to allow custom data (uses ref for fresh data)
+          ...latestIntent,
         } as Record<string, any>;
 
         window.sessionStorage.setItem(
           'sapience:share-intent',
           JSON.stringify(intent)
         );
+        console.log(
+          '[useSapienceWriteContract] Share intent written to sessionStorage',
+          {
+            address: connectedAddress,
+            anchor,
+            clientTimestamp: intent.clientTimestamp,
+            txHash: intent.txHash,
+            lastNftId: intent.lastNftId,
+            betslipLastNftId: intent.betslip?.lastNftId,
+            hasBetslip: !!intent.betslip,
+            betslipLegsCount: intent.betslip?.legs?.length || 0,
+            hasOg: !!intent.og,
+          }
+        );
       } catch (e) {
         // best-effort only
         console.error(e);
       }
     },
-    [redirectPage, redirectProfileAnchor, shareIntent, wagmiAddress, wallets]
+    [
+      redirectPage,
+      redirectProfileAnchor,
+      currentShareIntent,
+      wagmiAddress,
+      wallets,
+    ]
   );
 
   // Helper to detect if this is a withdrawal operation that should trigger unwrapping
@@ -313,15 +397,17 @@ export function useSapienceWriteContract({
 
       maybeRedirect();
 
-      try {
-        toast({
-          title: successTitle,
-          description: formatSuccessDescription(successMessage),
-          duration: 5000,
-        });
-        didShowSuccessToastRef.current = true;
-      } catch (e) {
-        console.error(e);
+      if (!disableSuccessToast) {
+        try {
+          toast({
+            title: successTitle,
+            description: formatSuccessDescription(successMessage),
+            duration: 5000,
+          });
+          didShowSuccessToastRef.current = true;
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       setIsSubmitting(false);
@@ -334,6 +420,7 @@ export function useSapienceWriteContract({
       maybeRedirect,
       toast,
       successMessage,
+      disableSuccessToast,
     ]
   );
 
@@ -819,15 +906,17 @@ export function useSapienceWriteContract({
               // Redirect as soon as a tx hash is known
               maybeRedirect();
               // Show success toast after navigation so it appears on profile
-              try {
-                toast({
-                  title: successTitle,
-                  description: formatSuccessDescription(successMessage),
-                  duration: 5000,
-                });
-                didShowSuccessToastRef.current = true;
-              } catch (_e) {
-                // Error showing success toast
+              if (!disableSuccessToast) {
+                try {
+                  toast({
+                    title: successTitle,
+                    description: formatSuccessDescription(successMessage),
+                    duration: 5000,
+                  });
+                  didShowSuccessToastRef.current = true;
+                } catch (_e) {
+                  // Error showing success toast
+                }
               }
               onTxHash?.(transactionHash);
               setTxHash(transactionHash);
@@ -837,13 +926,15 @@ export function useSapienceWriteContract({
               // Redirect before showing success toast
               writeShareIntent(undefined);
               maybeRedirect();
-              toast({
-                title: successTitle,
-                description: formatSuccessDescription(successMessage),
-                duration: 5000,
-              });
+              if (!disableSuccessToast) {
+                toast({
+                  title: successTitle,
+                  description: formatSuccessDescription(successMessage),
+                  duration: 5000,
+                });
+                didShowSuccessToastRef.current = true;
+              }
               onSuccess?.(undefined as any);
-              didShowSuccessToastRef.current = true;
             }
           } else {
             // Embedded path or fallback path without aggregator id.
@@ -854,15 +945,17 @@ export function useSapienceWriteContract({
               // Redirect as soon as a tx hash is known
               maybeRedirect();
               // Show success toast after navigation so it appears on profile
-              try {
-                toast({
-                  title: successTitle,
-                  description: formatSuccessDescription(successMessage),
-                  duration: 5000,
-                });
-                didShowSuccessToastRef.current = true;
-              } catch (e) {
-                console.error(e);
+              if (!disableSuccessToast) {
+                try {
+                  toast({
+                    title: successTitle,
+                    description: formatSuccessDescription(successMessage),
+                    duration: 5000,
+                  });
+                  didShowSuccessToastRef.current = true;
+                } catch (e) {
+                  console.error(e);
+                }
               }
               onTxHash?.(transactionHash);
               setTxHash(transactionHash);
@@ -873,13 +966,15 @@ export function useSapienceWriteContract({
             // Redirect before showing success toast
             writeShareIntent(undefined);
             maybeRedirect();
-            toast({
-              title: successTitle,
-              description: formatSuccessDescription(successMessage),
-              duration: 5000,
-            });
+            if (!disableSuccessToast) {
+              toast({
+                title: successTitle,
+                description: formatSuccessDescription(successMessage),
+                duration: 5000,
+              });
+              didShowSuccessToastRef.current = true;
+            }
             onSuccess?.(undefined as any);
-            didShowSuccessToastRef.current = true;
             setIsSubmitting(false);
           }
         } catch (e) {
@@ -888,13 +983,15 @@ export function useSapienceWriteContract({
           // Redirect before showing success toast
           writeShareIntent(undefined);
           maybeRedirect();
-          toast({
-            title: successTitle,
-            description: formatSuccessDescription(successMessage),
-            duration: 5000,
-          });
+          if (!disableSuccessToast) {
+            toast({
+              title: successTitle,
+              description: formatSuccessDescription(successMessage),
+              duration: 5000,
+            });
+            didShowSuccessToastRef.current = true;
+          }
           onSuccess?.(undefined as any);
-          didShowSuccessToastRef.current = true;
           setIsSubmitting(false);
         }
       } catch (error) {
@@ -930,6 +1027,7 @@ export function useSapienceWriteContract({
       onSuccess,
       successMessage,
       pickFinalTransactionHash,
+      disableSuccessToast,
     ]
   );
 
@@ -937,7 +1035,7 @@ export function useSapienceWriteContract({
     (receipt: ReturnType<typeof useTransactionReceipt>['data']) => {
       if (!txHash) return;
       // Avoid duplicate success toast if already shown after redirect
-      if (!didShowSuccessToastRef.current) {
+      if (!disableSuccessToast && !didShowSuccessToastRef.current) {
         toast({
           title: successTitle,
           description: formatSuccessDescription(successMessage),
@@ -949,7 +1047,7 @@ export function useSapienceWriteContract({
       setIsSubmitting(false);
       didShowSuccessToastRef.current = false;
     },
-    [txHash, toast, successMessage, onSuccess]
+    [txHash, toast, successMessage, onSuccess, disableSuccessToast]
   );
 
   const handleTxError = useCallback(
@@ -988,6 +1086,7 @@ export function useSapienceWriteContract({
         isWritingContract || isSendingCalls || isMining || isSubmitting,
       reset: resetWrite,
       resetCalls,
+      updateShareIntent,
     }),
     [
       sapienceWriteContract,
@@ -998,6 +1097,7 @@ export function useSapienceWriteContract({
       isSubmitting,
       resetWrite,
       resetCalls,
+      updateShareIntent,
     ]
   );
 }
