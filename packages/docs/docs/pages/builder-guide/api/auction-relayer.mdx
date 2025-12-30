@@ -46,6 +46,8 @@ Requesters are auto-subscribed to their auction's bid stream.
 
 ### Requester: Start an Auction
 
+**Basic example (without signature):**
+
 ```ts
 import WebSocket from 'ws';
 
@@ -65,6 +67,47 @@ ws.on('open', () => {
     }
   }));
 });
+```
+
+**With signature (required by some market makers like the vault to respond with actionable bids):**
+
+```ts
+import WebSocket from 'ws';
+import { 
+  createAuctionStartSiweMessage, 
+  extractSiweDomainAndUri 
+} from '@sapience/sdk';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const ws = new WebSocket('wss://relayer.sapience.xyz/auction');
+const account = privateKeyToAccount('0xYourPrivateKey...');
+
+ws.on('open', async () => {
+  const payload = {
+    taker: account.address,
+    wager: '1000000000000000000',
+    resolver: '0xResolverContract...',
+    predictedOutcomes: ['0xEncodedPick1', '0xEncodedPick2'],
+    takerNonce: 1,
+    chainId: 42161
+  };
+
+  // Generate SIWE signature
+  const { domain, uri } = extractSiweDomainAndUri('wss://relayer.sapience.xyz/auction');
+  const issuedAt = new Date().toISOString();
+  const message = createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
+  const signature = await account.signMessage({ message });
+
+  ws.send(JSON.stringify({
+    type: 'auction.start',
+    payload: {
+      ...payload,
+      takerSignature: signature,
+      takerSignedAt: issuedAt
+    }
+  }));
+});
+```
 
 // Listen for bids
 ws.on('message', (data) => {
@@ -76,10 +119,15 @@ ws.on('message', (data) => {
   
   if (msg.type === 'auction.bids') {
     const bids = msg.payload.bids;
-    // Select best bid by highest makerWager among non-expired
-    const validBids = bids.filter(b => b.makerDeadline > Date.now() / 1000);
-    validBids.sort((a, b) => BigInt(b.makerWager) > BigInt(a.makerWager) ? 1 : -1);
-    console.log('Best bid:', validBids[0]);
+    // Filter out quote-only bids (zero address/signature) and expired bids
+    const actionableBids = bids.filter(b => 
+      b.maker !== '0x0000000000000000000000000000000000000000' &&
+      b.makerSignature !== '0x00000000...' &&
+      b.makerDeadline > Date.now() / 1000
+    );
+    // Select best bid by highest makerWager
+    actionableBids.sort((a, b) => BigInt(b.makerWager) > BigInt(a.makerWager) ? 1 : -1);
+    console.log('Best actionable bid:', actionableBids[0]);
   }
 });
 ```
@@ -126,12 +174,21 @@ ws.onmessage = (ev) => {
     resolver: string,           // Resolver contract address
     predictedOutcomes: string[], // Encoded picks (bytes strings)
     takerNonce: number,
-    chainId: number
+    chainId: number,
+    takerSignature?: string,    // Optional: EIP-191 signature of the taker (SIWE format)
+    takerSignedAt?: string      // Optional: ISO timestamp when signature was created (required if takerSignature is provided)
   }
 }
 ```
 
 If `id` is provided, it will be echoed back in the `auction.ack` response for client-side correlation.
+
+**Signature Requirements:**
+- `takerSignature` and `takerSignedAt` are **optional** fields
+- **Unsigned requests**: Used for price discovery/quoting only. Market makers may respond with quote-only bids (see below)
+- **Signed requests**: Required by some market makers (like the vault) to respond with actionable, signed bids that can be executed on-chain
+- When provided, the relayer verifies the signature to ensure the requester authorized the auction request
+- Use the SDK's `createAuctionStartSiweMessage` and `extractSiweDomainAndUri` helpers to generate the signature
 
 ### `bid.submit`
 
@@ -170,12 +227,18 @@ Streamed to auction subscribers:
 }
 ```
 
+**Quote-only vs Actionable Bids:**
+- **Quote-only bids**: When `maker` is `0x0000000000000000000000000000000000000000` and `makerSignature` is `0x00000000...`, this indicates a price quote only, not an actionable bid that can be executed on-chain. These are typically returned in response to unsigned auction requests.
+- **Actionable bids**: When `maker` is a valid address and `makerSignature` is a real signature, the bid can be accepted and executed on-chain. These are returned in response to signed auction requests (required by some market makers like the vault).
+
 ## Validation
 
 **Auction** (`auction.start`):
 - `predictedOutcomes` has ≥1 non-empty bytes string
 - `taker` is a valid address
 - `resolver` is provided
+- If `takerSignature` is provided, it must be a valid EIP-191 signature and `takerSignedAt` must be provided
+- If signature verification fails, the relayer returns `error: 'invalid_signature'` or `error: 'signature_verification_failed'`
 
 **Bid** (`bid.submit`):
 - `auctionId` matches an active auction
@@ -207,8 +270,13 @@ This is useful when a secondary client needs to monitor bids for an auction star
 
 ## Error Codes
 
-Returned in `bid.ack.payload.error`:
+Returned in `auction.ack.payload.error` or `bid.ack.payload.error`:
 
+**Auction errors:**
+- `invalid_signature` – Taker signature verification failed
+- `signature_verification_failed` – Error during signature verification process
+
+**Bid errors:**
 - `invalid_payload` – Malformed message structure
 - `auction_not_found_or_expired` – Unknown or expired auction
 - `quote_expired` – `makerDeadline` has passed

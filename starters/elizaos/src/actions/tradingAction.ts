@@ -197,15 +197,40 @@ async function startTradingAuction({
         const { RESOLVER } = getTradingContractAddresses();
         const predictedOutcomes = await encodeTradeOutcomes(markets, predictions);
 
+        // Prepare base auction payload
+        const payload = {
+          taker: walletAddress,
+          wager: wagerAmount,
+          resolver: RESOLVER,
+          predictedOutcomes,
+          takerNonce: contractNonce,
+          chainId: CHAIN_ID_ETHEREAL,
+        };
+
+        // OPTIONAL: Add signature to get actionable bids from market makers (like the vault)
+        // Unsigned requests return quote-only bids (maker = 0x0000..., signature = 0x0000...)
+        // Signed requests are required by some market makers to respond with actionable bids
+        // 
+        // To enable signatures:
+        // 1. Add these imports at the top of the file:
+        //    import { createAuctionStartSiweMessage, extractSiweDomainAndUri } from '@sapience/sdk';
+        //    import { privateKeyToAccount } from 'viem/accounts';
+        // 
+        // 2. Uncomment the following code:
+        // const account = privateKeyToAccount(getPrivateKey() as `0x${string}`);
+        // const { domain, uri } = extractSiweDomainAndUri(sapienceWs);
+        // const issuedAt = new Date().toISOString();
+        // const message = createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
+        // const takerSignature = await account.signMessage({ message });
+        // const takerSignedAt = issuedAt;
+
         const auctionMessage = {
           type: "auction.start",
           payload: {
-            taker: walletAddress,
-            wager: wagerAmount,
-            resolver: RESOLVER,
-            predictedOutcomes,
-            takerNonce: contractNonce,
-            chainId: CHAIN_ID_ETHEREAL,
+            ...payload,
+            // Uncomment to add signature for actionable bids:
+            // takerSignature,
+            // takerSignedAt,
           },
         };
 

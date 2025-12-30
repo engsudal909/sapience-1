@@ -219,16 +219,39 @@ async function main() {
 
   console.log('Starting auction...');
   const ws = createAuctionWs(WS_URL, {
-    onOpen: () => {
+    onOpen: async () => {
+      // Prepare auction payload
+      const payload = {
+        taker: account.address,
+        wager: WAGER,
+        resolver: RESOLVER,
+        predictedOutcomes: [encodedOutcomes],
+        takerNonce,
+        chainId: CHAIN_ID_ETHEREAL,
+      };
+
+      // Optional: Sign the auction request to get actionable bids
+      // Unsigned requests return quote-only bids (for price discovery)
+      // Signed requests are required by some market makers (like the vault) to respond with actionable bids
+      let takerSignature: string | undefined;
+      let takerSignedAt: string | undefined;
+      try {
+        const { createAuctionStartSiweMessage, extractSiweDomainAndUri } = await import('@sapience/sdk');
+        const { domain, uri } = extractSiweDomainAndUri(WS_URL);
+        const issuedAt = new Date().toISOString();
+        const message = createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
+        takerSignature = await account.signMessage({ message });
+        takerSignedAt = issuedAt;
+        console.log('Auction request signed');
+      } catch (err) {
+        console.warn('Failed to sign auction request, proceeding without signature:', err);
+      }
+
       ws.send(JSON.stringify({
         type: 'auction.start',
         payload: {
-          taker: account.address,
-          wager: WAGER,
-          resolver: RESOLVER,
-          predictedOutcomes: [encodedOutcomes],
-          takerNonce,
-          chainId: CHAIN_ID_ETHEREAL,
+          ...payload,
+          ...(takerSignature && takerSignedAt ? { takerSignature, takerSignedAt } : {}),
         },
       }));
     },
@@ -242,16 +265,22 @@ async function main() {
         const bids = msg.payload.bids.filter((b: any) => b.auctionId === auctionId);
         if (bids.length === 0) return;
         
-        // Select best bid (highest makerWager, not expired)
+        // Filter out quote-only bids (zero address/signature) and expired bids
         const now = Date.now() / 1000;
-        const validBids = bids.filter((b: any) => b.makerDeadline > now);
-        validBids.sort((a: any, b: any) => 
+        const actionableBids = bids.filter((b: any) => 
+          b.maker !== '0x0000000000000000000000000000000000000000' &&
+          b.makerSignature !== '0x00000000...' &&
+          b.makerDeadline > now
+        );
+        
+        // Select best bid (highest makerWager)
+        actionableBids.sort((a: any, b: any) => 
           BigInt(b.makerWager) > BigInt(a.makerWager) ? 1 : -1
         );
         
-        if (validBids.length > 0) {
-          const bestBid = validBids[0];
-          console.log(`Accepting bid from ${bestBid.maker}`);
+        if (actionableBids.length > 0) {
+          const bestBid = actionableBids[0];
+          console.log(`Accepting actionable bid from ${bestBid.maker}`);
           
           const txHash = await executeTrade(bestBid);
           console.log(`Trade executed! TX: ${txHash}`);
