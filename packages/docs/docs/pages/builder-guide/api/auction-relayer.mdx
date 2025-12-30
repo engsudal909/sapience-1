@@ -107,7 +107,6 @@ ws.on('open', async () => {
     }
   }));
 });
-```
 
 // Listen for bids
 ws.on('message', (data) => {
@@ -120,11 +119,11 @@ ws.on('message', (data) => {
   if (msg.type === 'auction.bids') {
     const bids = msg.payload.bids;
     // Filter out quote-only bids (zero address/signature) and expired bids
-    const actionableBids = bids.filter(b => 
-      b.maker !== '0x0000000000000000000000000000000000000000' &&
-      b.makerSignature !== '0x00000000...' &&
-      b.makerDeadline > Date.now() / 1000
-    );
+    const actionableBids = bids.filter(b => {
+      return b.maker !== '0x0000000000000000000000000000000000000000' &&
+             b.makerSignature !== '0x0000000000000000000000000000000000000000000000000000000000000000' &&
+             b.makerDeadline > Date.now() / 1000;
+    });
     // Select best bid by highest makerWager
     actionableBids.sort((a, b) => BigInt(b.makerWager) > BigInt(a.makerWager) ? 1 : -1);
     console.log('Best actionable bid:', actionableBids[0]);
@@ -228,7 +227,7 @@ Streamed to auction subscribers:
 ```
 
 **Quote-only vs Actionable Bids:**
-- **Quote-only bids**: When `maker` is `0x0000000000000000000000000000000000000000` and `makerSignature` is `0x00000000...`, this indicates a price quote only, not an actionable bid that can be executed on-chain. These are typically returned in response to unsigned auction requests.
+- **Quote-only bids**: When `maker` is `0x0000000000000000000000000000000000000000` and `makerSignature` is `0x0000...` (all zeros), this indicates a price quote only, not an actionable bid that can be executed on-chain. These are typically returned in response to unsigned auction requests.
 - **Actionable bids**: When `maker` is a valid address and `makerSignature` is a real signature, the bid can be accepted and executed on-chain. These are returned in response to signed auction requests (required by some market makers like the vault).
 
 ## Validation

@@ -267,11 +267,11 @@ async function main() {
         
         // Filter out quote-only bids (zero address/signature) and expired bids
         const now = Date.now() / 1000;
-        const actionableBids = bids.filter((b: any) => 
-          b.maker !== '0x0000000000000000000000000000000000000000' &&
-          b.makerSignature !== '0x00000000...' &&
-          b.makerDeadline > now
-        );
+        const actionableBids = bids.filter((b: any) => {
+          return b.maker !== '0x0000000000000000000000000000000000000000' &&
+                 b.makerSignature !== '0x0000000000000000000000000000000000000000000000000000000000000000' &&
+                 b.makerDeadline > now;
+        });
         
         // Select best bid (highest makerWager)
         actionableBids.sort((a: any, b: any) => 

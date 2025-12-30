@@ -63,7 +63,8 @@ socket.onopen = async () => {
   };
 
   // Generate SIWE signature for actionable bids
-  const account = privateKeyToAccount(getPrivateKey() as `0x${string}`);
+  // Note: getPrivateKey() returns a hex string (0x...)
+  const account = privateKeyToAccount(getPrivateKey());
   const { domain, uri } = extractSiweDomainAndUri(sapienceWs);
   const issuedAt = new Date().toISOString();
   const message = createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
