@@ -31,6 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
       similarMarkets,
       chainId,
       groupName,
+      resolver,
     } = req.body as {
       question?: string;
       shortName?: string;
@@ -43,10 +44,16 @@ router.post('/', async (req: Request, res: Response) => {
       similarMarkets?: string[];
       chainId?: number;
       groupName?: string;
+      resolver?: string;
     };
 
-    if (!question || !endTime || !claimStatement || !description) {
+    if (!question || !endTime || !claimStatement || !description || !resolver) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Validate resolver is a valid Ethereum address
+    if (typeof resolver !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(resolver)) {
+      return res.status(400).json({ message: 'Resolver must be a valid Ethereum address (0x...)' });
     }
 
     let resolvedCategoryId: number | null = null;
@@ -131,6 +138,7 @@ router.post('/', async (req: Request, res: Response) => {
           chainId: chainId ?? 42161, // Default to Arbitrum if not provided
           conditionGroupId: resolvedGroupId ?? undefined,
           displayOrder: resolvedGroupId ? 0 : undefined,
+          resolver: resolver.toLowerCase(),
         },
         include: { category: true, conditionGroup: true },
       });
