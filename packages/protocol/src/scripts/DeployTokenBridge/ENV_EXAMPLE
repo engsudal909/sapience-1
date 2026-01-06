@@ -1,0 +1,50 @@
+# TokenBridge Deployment Environment Variables
+# Copy this file to .env.deployments and fill in the values
+
+# ============================================
+# PM Side (Prediction Market) Configuration
+# ============================================
+PM_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000
+PM_RPC=https://pm-chain.rpc.url
+PM_LZ_ENDPOINT=0x0000000000000000000000000000000000000000
+PM_OWNER=0x0000000000000000000000000000000000000000
+PM_EID=12345
+
+# ============================================
+# SM Side (Secondary Market) Configuration
+# ============================================
+SM_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000
+SM_RPC=https://sm-chain.rpc.url
+SM_LZ_ENDPOINT=0x0000000000000000000000000000000000000000
+SM_OWNER=0x0000000000000000000000000000000000000000
+SM_EID=67890
+
+# ============================================
+# Test Token Parameters (Optional)
+# ============================================
+TEST_TOKEN_NAME=TestToken
+TEST_TOKEN_SYMBOL=TTK
+TEST_TOKEN_DECIMALS=18
+TEST_TOKEN_SALT=0x0000000000000000000000000000000000000000000000000000000000001234
+
+# ============================================
+# Wait Loop Parameters (Optional)
+# ============================================
+# MAX_WAIT_TIME=300        # Maximum wait time in seconds (default: 300 = 5 minutes)
+# CHECK_INTERVAL=10        # Check interval in seconds (default: 10 seconds)
+
+# ============================================
+# Example for Sepolia (PM) and Base Sepolia (SM)
+# ============================================
+# PM_PRIVATE_KEY=0x...
+# PM_RPC=https://sepolia.infura.io/v3/YOUR_KEY
+# PM_LZ_ENDPOINT=0x6EDCE65403992e310A62460808c4b910D972f10f
+# PM_OWNER=0x...
+# PM_EID=40161
+
+# SM_PRIVATE_KEY=0x...
+# SM_RPC=https://sepolia-base.infura.io/v3/YOUR_KEY
+# SM_LZ_ENDPOINT=0x6EDCE65403992e310A62460808c4b910D972f10f
+# SM_OWNER=0x...
+# SM_EID=40245
+
