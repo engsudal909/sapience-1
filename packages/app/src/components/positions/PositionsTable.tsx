@@ -169,6 +169,10 @@ export default function PositionsTable({
     // For Pyth legs only: maker-side prediction (true=Over, false=Under).
     // Used to render the correct side for counterparty rows (which take the opposite side).
     pythMakerPrediction?: boolean;
+    settled?: boolean;
+    resolvedToYes?: boolean;
+   
+    predictorBetYes?: boolean;
   };
   type UIPosition = {
     uniqueRowKey: string;
@@ -187,6 +191,8 @@ export default function PositionsTable({
     counterpartyAddress?: Address | null;
     chainId: number;
     marketAddress: Address;
+    allConditionsSettled?: boolean;
+    predictorWonFromDb?: boolean;
   };
 
   // Infinite scroll state
@@ -346,6 +352,9 @@ export default function PositionsTable({
             source: 'pyth' as const,
             pythPrediction,
             pythMakerPrediction: makerPrediction,
+            settled: o?.condition?.settled,
+            resolvedToYes: o?.condition?.resolvedToYes,
+            predictorBetYes: makerPrediction,
           };
         }
 
@@ -357,6 +366,9 @@ export default function PositionsTable({
           endTime: o?.condition?.endTime ?? null,
           description: desc,
           source: 'uma' as const,
+          settled: o?.condition?.settled,
+          resolvedToYes: o?.condition?.resolvedToYes,
+          predictorBetYes: o.outcomeYes,
         };
       });
       const endsAtSec =
@@ -476,9 +488,24 @@ export default function PositionsTable({
         // Create unique row key combining prediction id, role, and token id (stable + unique).
         const uniqueRowKey = `${p.id}-${role}-${positionId}`;
 
+        // Compute settlement status from database conditions
+        const allConditionsSettled =
+          legs.length > 0 && legs.every((leg) => leg.settled === true);
+
+        const predictorWonFromDb = allConditionsSettled
+          ? legs.every((leg) => {
+              const predictorBet = leg.predictorBetYes;
+              const resolved = leg.resolvedToYes;
+            
+              return predictorBet === resolved;
+            })
+          : undefined;
+
         return {
           uniqueRowKey,
           positionId,
+          allConditionsSettled,
+          predictorWonFromDb,
           legs: legs.map((leg) => {
             // Flip display sides for counterparty rows:
             // - Pyth: maker prediction is stored; counterparty is opposite
@@ -1066,10 +1093,14 @@ export default function PositionsTable({
           const totalPayout = Number(
             formatEther(row.original.totalPayoutWei || 0n)
           );
-          if (
-            row.original.status === 'lost' ||
-            rowKeyToResolution.get(row.original.positionId)?.state === 'lost'
-          ) {
+          const viewerLostFromDb =
+            row.original.allConditionsSettled &&
+            (row.original.addressRole === 'predictor'
+              ? row.original.predictorWonFromDb === false
+              : row.original.addressRole === 'counterparty'
+                ? row.original.predictorWonFromDb === true
+                : false);
+          if (row.original.status === 'lost' || viewerLostFromDb) {
             return (
               <div>
                 <div className="xl:hidden text-xs text-muted-foreground mb-1">
@@ -1133,9 +1164,16 @@ export default function PositionsTable({
         cell: ({ row }) => {
           const symbol = collateralSymbol;
           const isClosed = row.original.status !== 'active';
+         
+          const viewerLostFromDb =
+            row.original.allConditionsSettled &&
+            (row.original.addressRole === 'predictor'
+              ? row.original.predictorWonFromDb === false
+              : row.original.addressRole === 'counterparty'
+                ? row.original.predictorWonFromDb === true
+                : false);
           const lostPositionUnclaimed =
-            row.original.status === 'active' &&
-            rowKeyToResolution.get(row.original.positionId)?.state === 'lost';
+            row.original.status === 'active' && viewerLostFromDb;
 
           if (!isClosed && !lostPositionUnclaimed) {
             return (
@@ -1211,29 +1249,42 @@ export default function PositionsTable({
                 row.original.endsAt <= Date.now() &&
                 row.original.addressRole !== 'unknown' &&
                 (() => {
-                  const positionId = row.original.positionId;
-                  const res = rowKeyToResolution.get(positionId);
+                
+                  const { allConditionsSettled, predictorWonFromDb, addressRole, positionId } = row.original;
 
-                  if (!res) {
+                  // If conditions are not all settled, show awaiting badge
+                  if (!allConditionsSettled) {
                     return <AwaitingSettlementBadge />;
                   }
-                  if (res.state === 'awaiting') {
-                    return <AwaitingSettlementBadge />;
-                  }
-                  if (res.state === 'claim') {
+
+               
+                  const viewerWon =
+                    addressRole === 'predictor'
+                      ? predictorWonFromDb === true
+                      : addressRole === 'counterparty'
+                        ? predictorWonFromDb === false
+                        : false;
+
+                  if (viewerWon) {
+                    
+                    const tokenIdToClaim =
+                      addressRole === 'predictor'
+                        ? BigInt(positionId)
+                        : BigInt(positionId);
+
                     const isOwnerConnected =
                       connectedAddress &&
                       connectedAddress.toLowerCase() ===
                         String(account || '').toLowerCase();
                     const isThisTokenClaiming =
-                      isClaimPending && claimingTokenId === res.tokenId;
+                      isClaimPending && claimingTokenId === tokenIdToClaim;
 
                     return isOwnerConnected ? (
                       <Button
                         size="sm"
                         onClick={() => {
-                          setClaimingTokenId(res.tokenId);
-                          burn(res.tokenId, ZERO_REF_CODE);
+                          setClaimingTokenId(tokenIdToClaim);
+                          burn(tokenIdToClaim, ZERO_REF_CODE);
                         }}
                         disabled={isClaimPending}
                       >
@@ -1260,16 +1311,11 @@ export default function PositionsTable({
                       </TooltipProvider>
                     );
                   }
-                  if (res.state === 'lost') {
-                    return (
-                      <Button size="sm" variant="outline" disabled>
-                        Wager Lost
-                      </Button>
-                    );
-                  }
+
+                  // Viewer lost
                   return (
                     <Button size="sm" variant="outline" disabled>
-                      Claimed
+                      Wager Lost
                     </Button>
                   );
                 })()}
@@ -1332,9 +1378,15 @@ export default function PositionsTable({
               )}
               {(() => {
                 // Hide Share button when a lost state is displayed
-                const res = rowKeyToResolution.get(row.original.positionId);
+                const viewerLostFromDb =
+                  row.original.allConditionsSettled &&
+                  (row.original.addressRole === 'predictor'
+                    ? row.original.predictorWonFromDb === false
+                    : row.original.addressRole === 'counterparty'
+                      ? row.original.predictorWonFromDb === true
+                      : false);
                 const isLostDisplayed =
-                  row.original.status === 'lost' || res?.state === 'lost';
+                  row.original.status === 'lost' || viewerLostFromDb;
                 if (isLostDisplayed) return null;
                 return (
                   <button
@@ -1357,10 +1409,10 @@ export default function PositionsTable({
       isClaimPending,
       burn,
       account,
-      rowKeyToResolution,
       claimableTokenIds,
       connectedAddress,
       hasWallet,
+      collateralSymbol,
     ]
   );
 
