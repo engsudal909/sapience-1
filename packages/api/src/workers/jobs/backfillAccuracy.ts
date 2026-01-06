@@ -51,6 +51,4 @@ export async function backfillAccuracy(): Promise<void> {
       await computeAndStoreMarketTwErrors(marketAddress, c.id);
     }
   }
-
-
 }

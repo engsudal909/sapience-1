@@ -53,7 +53,9 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Validate resolver is a valid Ethereum address
     if (typeof resolver !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(resolver)) {
-      return res.status(400).json({ message: 'Resolver must be a valid Ethereum address (0x...)' });
+      return res
+        .status(400)
+        .json({ message: 'Resolver must be a valid Ethereum address (0x...)' });
     }
 
     let resolvedCategoryId: number | null = null;

@@ -307,7 +307,12 @@ export async function computeAndStoreMarketTwErrors(
 
     if (totalWeight > 0) {
       const twError = weightedSum / totalWeight;
-      await upsertAttesterMarketTwError(marketAddress, marketId, attester, twError);
+      await upsertAttesterMarketTwError(
+        marketAddress,
+        marketId,
+        attester,
+        twError
+      );
     }
   }
 }

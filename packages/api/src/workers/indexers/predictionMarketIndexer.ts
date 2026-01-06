@@ -1810,7 +1810,10 @@ class PredictionMarketIndexer implements IIndexer {
           const marketAddress = condition.resolver?.toLowerCase();
           if (marketAddress) {
             try {
-              await scoreSelectedForecastsForSettledMarket(marketAddress, condition.id);
+              await scoreSelectedForecastsForSettledMarket(
+                marketAddress,
+                condition.id
+              );
               await computeAndStoreMarketTwErrors(marketAddress, condition.id);
               console.log(
                 `[PredictionMarketIndexer] Scored forecasts and computed TW errors for ${eventData.marketId}`
