@@ -304,7 +304,7 @@ contract PredictionMarketLZConditionalTokensResolver is
         // Valid binary outcome
         condition.settled = true;
         condition.invalid = false;
-        condition.resolvedToYes = yesPayout > 0;
+        condition.resolvedToYes = yesPayout > noPayout;
         
         emit ConditionResolved(
             conditionId,
