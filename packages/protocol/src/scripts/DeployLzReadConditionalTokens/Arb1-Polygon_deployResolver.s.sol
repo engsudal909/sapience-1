@@ -54,13 +54,7 @@ contract DeployLzReadConditionalTokensResolver is Script {
             endpoint,
             owner,
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: maxMarkets,
-                readChannelEid: readChannelEid,
-                targetEid: polygonEid,
-                conditionalTokens: polygonCtf,
-                confirmations: confirmations,
-                lzReadGasLimit: lzReadGas,
-                lzReadResultSize: lzReadResultSize
+                maxPredictionMarkets: maxMarkets
             })
         );
 

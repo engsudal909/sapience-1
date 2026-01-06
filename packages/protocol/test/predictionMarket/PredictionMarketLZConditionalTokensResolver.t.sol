@@ -5,6 +5,8 @@ import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/
 import {PredictionMarketLZConditionalTokensResolver} from "../../src/predictionMarket/resolvers/PredictionMarketLZConditionalTokensResolver.sol";
 import {Origin} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {IPredictionMarketResolver} from "../../src/predictionMarket/interfaces/IPredictionMarketResolver.sol";
+import {Encoder} from "../../src/bridge/cmdEncoder.sol";
+import {BridgeTypes} from "../../src/bridge/BridgeTypes.sol";
 
 import "forge-std/Test.sol";
 
@@ -39,32 +41,6 @@ contract PredictionMarketLZConditionalTokensResolverTestWrapper is PredictionMar
     ) external {
         _finalizeResolution(conditionId, denom, noPayout, yesPayout);
     }
-
-    /// @notice Exposed buildSingleReadCommand for inspection
-    function exposed_buildSingleReadCommand(
-        bytes32 conditionId, 
-        ResponseType responseType
-    ) external view returns (bytes memory) {
-        return _buildSingleReadCommand(conditionId, responseType);
-    }
-
-    /// @notice Clear pending request for test setup
-    function clearPendingRequest(bytes32 conditionId) external {
-        pendingRequests[conditionId] = false;
-    }
-
-    /// @notice Set pending request for test setup
-    function setPendingRequest(bytes32 conditionId) external {
-        pendingRequests[conditionId] = true;
-    }
-
-    /// @notice Set pending read for test setup (guid correlation)
-    function setPendingRead(bytes32 guid, bytes32 conditionId, ResponseType responseType) external {
-        pendingReads[guid] = PendingRead({
-            conditionId: conditionId,
-            responseType: responseType
-        });
-    }
 }
 
 /**
@@ -75,32 +51,23 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     // Users
     address private owner = address(this);
     address private unauthorizedUser = address(0x1);
+    address private conditionalTokensReader = address(0x1234);
 
     // Contracts
     PredictionMarketLZConditionalTokensResolverTestWrapper private resolver;
 
     // LZ data
     uint32 private localEid = 1;
-    uint32 private readChannelEid = 2;
-    uint32 private targetEid = 3;
+    uint32 private remoteEid = 2; // Polygon EID
 
     address localEndpoint;
 
     // Test data
     uint256 public constant MAX_PREDICTION_MARKETS = 10;
-    uint16 public constant CONFIRMATIONS = 15;
-    uint128 public constant LZ_READ_GAS = 200_000;
-    uint32 public constant LZ_READ_RESULT_SIZE = 32; // uint256 is 32 bytes
-    address public constant CONDITIONAL_TOKENS = address(0xC0D1710A15);
     
     bytes32 public constant TEST_CONDITION_ID = keccak256("test-condition");
     bytes32 public constant TEST_CONDITION_ID_2 = keccak256("test-condition-2");
     bytes32 public constant TEST_CONDITION_ID_3 = keccak256("test-condition-3");
-
-    // Test guids for 3-part callback simulation
-    bytes32 public constant GUID_DENOM = keccak256("guid-denom");
-    bytes32 public constant GUID_NO_PAYOUT = keccak256("guid-no-payout");
-    bytes32 public constant GUID_YES_PAYOUT = keccak256("guid-yes-payout");
 
     function setUp() public override {
         vm.deal(owner, 100 ether);
@@ -118,13 +85,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
                         address(endpoints[localEid]),
                         owner,
                         PredictionMarketLZConditionalTokensResolver.Settings({
-                            maxPredictionMarkets: MAX_PREDICTION_MARKETS,
-                            readChannelEid: readChannelEid,
-                            targetEid: targetEid,
-                            conditionalTokens: CONDITIONAL_TOKENS,
-                            confirmations: CONFIRMATIONS,
-                            lzReadGasLimit: LZ_READ_GAS,
-                            lzReadResultSize: LZ_READ_RESULT_SIZE
+                            maxPredictionMarkets: MAX_PREDICTION_MARKETS
                         })
                     )
                 )
@@ -133,8 +94,14 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
 
         localEndpoint = address(resolver.endpoint());
 
-        // Enable the read channel
-        resolver.setReadChannel(readChannelEid, true);
+        // Set bridge config
+        resolver.setBridgeConfig(BridgeTypes.BridgeConfig({
+            remoteEid: remoteEid,
+            remoteBridge: conditionalTokensReader
+        }));
+
+        // Set peer for remote chain
+        resolver.setPeer(remoteEid, bytes32(uint256(uint160(conditionalTokensReader))));
 
         vm.deal(address(resolver), 100 ether);
     }
@@ -144,23 +111,8 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     function test_constructor_validParameters() public view {
         assertEq(address(resolver.owner()), owner, "Owner should be set");
         
-        (
-            uint256 maxPredictionMarkets,
-            uint32 configReadChannelEid,
-            uint32 configTargetEid,
-            address conditionalTokens,
-            uint16 confirmations,
-            uint128 lzReadGasLimit,
-            uint32 lzReadResultSize
-        ) = resolver.config();
-        
+        uint256 maxPredictionMarkets = resolver.config();
         assertEq(maxPredictionMarkets, MAX_PREDICTION_MARKETS, "Max markets should be set");
-        assertEq(configReadChannelEid, readChannelEid, "Read channel EID should be set");
-        assertEq(configTargetEid, targetEid, "Target EID should be set");
-        assertEq(conditionalTokens, CONDITIONAL_TOKENS, "ConditionalTokens should be set");
-        assertEq(confirmations, CONFIRMATIONS, "Confirmations should be set");
-        assertEq(lzReadGasLimit, LZ_READ_GAS, "LZ read gas should be set");
-        assertEq(lzReadResultSize, LZ_READ_RESULT_SIZE, "LZ read result size should be set");
     }
 
     // ============ Configuration Tests ============
@@ -168,34 +120,13 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     function test_setConfig() public {
         PredictionMarketLZConditionalTokensResolver.Settings memory newConfig =
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 20,
-                readChannelEid: 999,
-                targetEid: 888,
-                conditionalTokens: address(0x1234),
-                confirmations: 30,
-                lzReadGasLimit: 300_000,
-                lzReadResultSize: 64
+                maxPredictionMarkets: 20
             });
 
         resolver.setConfig(newConfig);
 
-        (
-            uint256 maxPredictionMarkets,
-            uint32 configReadChannelEid,
-            uint32 configTargetEid,
-            address conditionalTokens,
-            uint16 confirmations,
-            uint128 lzReadGasLimit,
-            uint32 lzReadResultSize
-        ) = resolver.config();
-
+        uint256 maxPredictionMarkets = resolver.config();
         assertEq(maxPredictionMarkets, 20, "Max markets should be updated");
-        assertEq(configReadChannelEid, 999, "Read channel EID should be updated");
-        assertEq(configTargetEid, 888, "Target EID should be updated");
-        assertEq(conditionalTokens, address(0x1234), "ConditionalTokens should be updated");
-        assertEq(confirmations, 30, "Confirmations should be updated");
-        assertEq(lzReadGasLimit, 300_000, "LZ read gas should be updated");
-        assertEq(lzReadResultSize, 64, "LZ read result size should be updated");
     }
 
     function test_setConfig_onlyOwner() public {
@@ -203,15 +134,23 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         vm.expectRevert();
         resolver.setConfig(
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 20,
-                readChannelEid: 999,
-                targetEid: 888,
-                conditionalTokens: address(0x1234),
-                confirmations: 30,
-                lzReadGasLimit: 300_000,
-                lzReadResultSize: 64
+                maxPredictionMarkets: 20
             })
         );
+    }
+
+    function test_setBridgeConfig() public {
+        address testBridge = address(0xABCD);
+        BridgeTypes.BridgeConfig memory newConfig = BridgeTypes.BridgeConfig({
+            remoteEid: 999,
+            remoteBridge: testBridge
+        });
+
+        resolver.setBridgeConfig(newConfig);
+
+        BridgeTypes.BridgeConfig memory config = resolver.getBridgeConfig();
+        assertEq(config.remoteEid, 999, "Remote EID should be updated");
+        assertEq(config.remoteBridge, testBridge, "Remote bridge should be updated");
     }
 
     // ============ Validation Tests ============
@@ -366,99 +305,118 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         assertTrue(condition.invalid, "Should be marked invalid");
     }
 
-    // ============ 3-Part Callback Flow Tests ============
+    // ============ lzReceive Tests (Single Message Flow) ============
 
-    function test_lzReceive_threePartCallback_settlesOnlyWhenComplete() public {
-        // Setup pending reads for all 3 response types
-        resolver.setPendingRead(GUID_DENOM, TEST_CONDITION_ID, PredictionMarketLZConditionalTokensResolver.ResponseType.DENOM);
-        resolver.setPendingRead(GUID_NO_PAYOUT, TEST_CONDITION_ID, PredictionMarketLZConditionalTokensResolver.ResponseType.NO_PAYOUT);
-        resolver.setPendingRead(GUID_YES_PAYOUT, TEST_CONDITION_ID, PredictionMarketLZConditionalTokensResolver.ResponseType.YES_PAYOUT);
-        resolver.setPendingRequest(TEST_CONDITION_ID);
-
+    function test_lzReceive_validMessage_settlesCondition() public {
         Origin memory origin = Origin({
-            srcEid: readChannelEid,
-            sender: bytes32(uint256(uint160(address(resolver)))),
+            srcEid: remoteEid,
+            sender: bytes32(uint256(uint160(conditionalTokensReader))), // Origin sender is bytes32
             nonce: 1
         });
 
-        // Simulate first callback (denom = 1)
-        resolver.exposed_lzReceive(origin, GUID_DENOM, abi.encode(uint256(1)), address(0), "");
+        // Encode resolution response message
+        bytes memory commandPayload = Encoder.encodeFromConditionalTokenReaderResolutionResponse(
+            TEST_CONDITION_ID,
+            1, // denom
+            0, // noPayout
+            1  // yesPayout
+        );
+        bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
+
+        // Simulate receiving the message
+        resolver.exposed_lzReceive(origin, bytes32(0), message, address(0), "");
+
+        // Condition should be settled
+        assertTrue(resolver.isConditionSettled(TEST_CONDITION_ID), "Should be settled");
         
-        // Check partial response
-        PredictionMarketLZConditionalTokensResolver.PartialResponse memory partialResp = resolver.getPartialResponse(TEST_CONDITION_ID);
-        assertTrue(partialResp.hasDenom, "Should have denom");
-        assertFalse(partialResp.hasNoPayout, "Should not have noPayout yet");
-        assertFalse(partialResp.hasYesPayout, "Should not have yesPayout yet");
-        assertEq(partialResp.denom, 1, "Denom should be 1");
-
-        // Condition should NOT be settled yet
-        assertFalse(resolver.isConditionSettled(TEST_CONDITION_ID), "Should not be settled after 1 callback");
-        assertTrue(resolver.isPendingRequest(TEST_CONDITION_ID), "Should still be pending");
-
-        // Simulate second callback (noPayout = 0)
-        resolver.exposed_lzReceive(origin, GUID_NO_PAYOUT, abi.encode(uint256(0)), address(0), "");
-        
-        partialResp = resolver.getPartialResponse(TEST_CONDITION_ID);
-        assertTrue(partialResp.hasDenom, "Should have denom");
-        assertTrue(partialResp.hasNoPayout, "Should have noPayout");
-        assertFalse(partialResp.hasYesPayout, "Should not have yesPayout yet");
-
-        // Condition should NOT be settled yet
-        assertFalse(resolver.isConditionSettled(TEST_CONDITION_ID), "Should not be settled after 2 callbacks");
-        assertTrue(resolver.isPendingRequest(TEST_CONDITION_ID), "Should still be pending");
-
-        // Simulate third callback (yesPayout = 1)
-        resolver.exposed_lzReceive(origin, GUID_YES_PAYOUT, abi.encode(uint256(1)), address(0), "");
-
-        // NOW condition should be settled
-        assertTrue(resolver.isConditionSettled(TEST_CONDITION_ID), "Should be settled after 3 callbacks");
-        assertFalse(resolver.isPendingRequest(TEST_CONDITION_ID), "Should no longer be pending");
-
         PredictionMarketLZConditionalTokensResolver.ConditionState memory condition = resolver.getCondition(TEST_CONDITION_ID);
-        assertTrue(condition.resolvedToYes, "Should resolve to YES (denom=1, no=0, yes=1)");
+        assertTrue(condition.resolvedToYes, "Should resolve to YES");
         assertFalse(condition.invalid, "Should not be invalid");
     }
 
-    function test_lzReceive_nonBinaryDoesNotRevert() public {
-        // Setup pending reads
-        resolver.setPendingRead(GUID_DENOM, TEST_CONDITION_ID, PredictionMarketLZConditionalTokensResolver.ResponseType.DENOM);
-        resolver.setPendingRead(GUID_NO_PAYOUT, TEST_CONDITION_ID, PredictionMarketLZConditionalTokensResolver.ResponseType.NO_PAYOUT);
-        resolver.setPendingRead(GUID_YES_PAYOUT, TEST_CONDITION_ID, PredictionMarketLZConditionalTokensResolver.ResponseType.YES_PAYOUT);
-        resolver.setPendingRequest(TEST_CONDITION_ID);
-
+    function test_lzReceive_invalidSourceChain() public {
         Origin memory origin = Origin({
-            srcEid: readChannelEid,
-            sender: bytes32(uint256(uint160(address(resolver)))),
+            srcEid: 999, // Wrong EID
+            sender: bytes32(uint256(uint160(conditionalTokensReader))),
+            nonce: 1
+        });
+
+        bytes memory commandPayload = Encoder.encodeFromConditionalTokenReaderResolutionResponse(
+            TEST_CONDITION_ID, 1, 0, 1
+        );
+        bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PredictionMarketLZConditionalTokensResolver.InvalidSourceChain.selector,
+                remoteEid,
+                999
+            )
+        );
+        resolver.exposed_lzReceive(origin, bytes32(0), message, address(0), "");
+    }
+
+    function test_lzReceive_invalidSender() public {
+        Origin memory origin = Origin({
+            srcEid: remoteEid,
+            sender: bytes32(uint256(uint160(address(0xBAD)))), // Wrong sender
+            nonce: 1
+        });
+
+        bytes memory commandPayload = Encoder.encodeFromConditionalTokenReaderResolutionResponse(
+            TEST_CONDITION_ID, 1, 0, 1
+        );
+        bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PredictionMarketLZConditionalTokensResolver.InvalidSender.selector,
+                bytes32(uint256(uint160(conditionalTokensReader))),
+                bytes32(uint256(uint160(address(0xBAD))))
+            )
+        );
+        resolver.exposed_lzReceive(origin, bytes32(0), message, address(0), "");
+    }
+
+    function test_lzReceive_invalidCommandType() public {
+        Origin memory origin = Origin({
+            srcEid: remoteEid,
+            sender: bytes32(uint256(uint160(conditionalTokensReader))), // Origin sender is bytes32
+            nonce: 1
+        });
+
+        // Wrong command type
+        bytes memory message = abi.encode(uint16(999), abi.encode(TEST_CONDITION_ID, 1, 0, 1));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PredictionMarketLZConditionalTokensResolver.InvalidCommandType.selector,
+                999
+            )
+        );
+        resolver.exposed_lzReceive(origin, bytes32(0), message, address(0), "");
+    }
+
+    function test_lzReceive_nonBinaryDoesNotRevert() public {
+        Origin memory origin = Origin({
+            srcEid: remoteEid,
+            sender: bytes32(uint256(uint160(conditionalTokensReader))), // Origin sender is bytes32
             nonce: 1
         });
 
         // Send non-binary: denom=2, no=1, yes=1 (split payout)
-        resolver.exposed_lzReceive(origin, GUID_DENOM, abi.encode(uint256(2)), address(0), "");
-        resolver.exposed_lzReceive(origin, GUID_NO_PAYOUT, abi.encode(uint256(1)), address(0), "");
+        bytes memory commandPayload = Encoder.encodeFromConditionalTokenReaderResolutionResponse(
+            TEST_CONDITION_ID, 2, 1, 1
+        );
+        bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
+
         // This should NOT revert
-        resolver.exposed_lzReceive(origin, GUID_YES_PAYOUT, abi.encode(uint256(1)), address(0), "");
+        resolver.exposed_lzReceive(origin, bytes32(0), message, address(0), "");
 
         // Should be marked invalid, not reverted
         PredictionMarketLZConditionalTokensResolver.ConditionState memory condition = resolver.getCondition(TEST_CONDITION_ID);
         assertFalse(condition.settled, "Should not be settled");
         assertTrue(condition.invalid, "Should be marked invalid");
-        assertFalse(resolver.isPendingRequest(TEST_CONDITION_ID), "Pending should be cleared");
-    }
-
-    function test_lzReceive_unknownGuidReverts() public {
-        Origin memory origin = Origin({
-            srcEid: readChannelEid,
-            sender: bytes32(uint256(uint160(address(resolver)))),
-            nonce: 1
-        });
-
-        bytes32 unknownGuid = keccak256("unknown-guid");
-        
-        vm.expectRevert(abi.encodeWithSelector(
-            PredictionMarketLZConditionalTokensResolver.UnknownGuid.selector,
-            unknownGuid
-        ));
-        resolver.exposed_lzReceive(origin, unknownGuid, abi.encode(uint256(100)), address(0), "");
     }
 
     // ============ Resolution Query Tests ============
@@ -692,98 +650,5 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     function test_getConditionResolution_revertIfNotSettled() public {
         vm.expectRevert("Condition not settled");
         resolver.getConditionResolution(TEST_CONDITION_ID);
-    }
-
-    function test_isPendingRequest() public {
-        assertFalse(resolver.isPendingRequest(TEST_CONDITION_ID), "Should not be pending initially");
-        
-        resolver.setPendingRequest(TEST_CONDITION_ID);
-        assertTrue(resolver.isPendingRequest(TEST_CONDITION_ID), "Should be pending after setting");
-        
-        resolver.clearPendingRequest(TEST_CONDITION_ID);
-        assertFalse(resolver.isPendingRequest(TEST_CONDITION_ID), "Should not be pending after clearing");
-    }
-
-    // ============ Request Resolution Tests ============
-
-    function test_requestResolution_revertOnZeroConditionId() public {
-        vm.expectRevert(PredictionMarketLZConditionalTokensResolver.InvalidConditionId.selector);
-        resolver.requestResolution{value: 1 ether}(bytes32(0), bytes32(0));
-    }
-
-    function test_requestResolution_revertOnAlreadySettled() public {
-        // Settle the condition
-        resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 0, 1);
-
-        vm.expectRevert(PredictionMarketLZConditionalTokensResolver.ConditionAlreadySettled.selector);
-        resolver.requestResolution{value: 1 ether}(TEST_CONDITION_ID, bytes32(0));
-    }
-
-    function test_requestResolution_revertOnPendingRequest() public {
-        resolver.setPendingRequest(TEST_CONDITION_ID);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                PredictionMarketLZConditionalTokensResolver.RequestAlreadyPending.selector,
-                TEST_CONDITION_ID
-            )
-        );
-        resolver.requestResolution{value: 1 ether}(TEST_CONDITION_ID, bytes32(0));
-    }
-
-    // ============ ETH Management Tests ============
-
-    function test_depositETH() public {
-        uint256 initialBalance = address(resolver).balance;
-        
-        (bool success, ) = address(resolver).call{value: 1 ether}("");
-        assertTrue(success, "ETH deposit should succeed");
-        
-        assertEq(address(resolver).balance, initialBalance + 1 ether, "Balance should increase");
-    }
-
-    function test_withdrawETH() public {
-        uint256 ownerInitialBalance = owner.balance;
-        
-        resolver.withdrawETH(1 ether);
-        
-        assertEq(owner.balance, ownerInitialBalance + 1 ether, "Owner should receive ETH");
-    }
-
-    function test_withdrawETH_onlyOwner() public {
-        vm.prank(unauthorizedUser);
-        vm.expectRevert();
-        resolver.withdrawETH(1 ether);
-    }
-
-    function test_getETHBalance() public view {
-        uint256 balance = resolver.getETHBalance();
-        assertEq(balance, 100 ether, "Should return correct balance");
-    }
-
-    // ============ Read Command Building Tests ============
-
-    function test_buildSingleReadCommand() public view {
-        bytes memory cmdDenom = resolver.exposed_buildSingleReadCommand(
-            TEST_CONDITION_ID, 
-            PredictionMarketLZConditionalTokensResolver.ResponseType.DENOM
-        );
-        bytes memory cmdNo = resolver.exposed_buildSingleReadCommand(
-            TEST_CONDITION_ID, 
-            PredictionMarketLZConditionalTokensResolver.ResponseType.NO_PAYOUT
-        );
-        bytes memory cmdYes = resolver.exposed_buildSingleReadCommand(
-            TEST_CONDITION_ID, 
-            PredictionMarketLZConditionalTokensResolver.ResponseType.YES_PAYOUT
-        );
-        
-        // Just verify they don't revert and return non-empty bytes
-        assertTrue(cmdDenom.length > 0, "Denom command should not be empty");
-        assertTrue(cmdNo.length > 0, "No payout command should not be empty");
-        assertTrue(cmdYes.length > 0, "Yes payout command should not be empty");
-        
-        // Commands should be different (different calldata/labels)
-        assertTrue(keccak256(cmdDenom) != keccak256(cmdNo), "Denom and No commands should differ");
-        assertTrue(keccak256(cmdNo) != keccak256(cmdYes), "No and Yes commands should differ");
     }
 }

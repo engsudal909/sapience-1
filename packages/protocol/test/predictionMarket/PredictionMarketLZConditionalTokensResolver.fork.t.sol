@@ -150,30 +150,14 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(mockEndpoint),
             owner,
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 10,
-                readChannelEid: 109, // Polygon EID for read channel
-                targetEid: 109,      // Polygon EID for target
-                conditionalTokens: CTF,
-                confirmations: 15,
-                lzReadGasLimit: 200_000,
-                lzReadResultSize: 32
+                maxPredictionMarkets: 10
             })
         );
 
         // Verify config was set correctly
-        (
-            uint256 maxPredictionMarkets,
-            uint32 readChannelEid,
-            uint32 targetEid,
-            address conditionalTokens,
-            ,
-            ,
-        ) = resolver.config();
+        uint256 maxPredictionMarkets = resolver.config();
         
         assertEq(maxPredictionMarkets, 10, "Max prediction markets should be 10");
-        assertEq(readChannelEid, 109, "Read channel EID should be Polygon");
-        assertEq(targetEid, 109, "Target EID should be Polygon");
-        assertEq(conditionalTokens, CTF, "ConditionalTokens should be CTF");
     }
 
     // ============ Full Resolver Integration with Test Wrapper ============
@@ -187,13 +171,7 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(mockEndpoint),
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 10,
-                readChannelEid: 109,
-                targetEid: 109,
-                conditionalTokens: CTF,
-                confirmations: 15,
-                lzReadGasLimit: 200_000,
-                lzReadResultSize: 32
+                maxPredictionMarkets: 10
             })
         );
 
@@ -239,13 +217,7 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(mockEndpoint),
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 10,
-                readChannelEid: 109,
-                targetEid: 109,
-                conditionalTokens: CTF,
-                confirmations: 15,
-                lzReadGasLimit: 200_000,
-                lzReadResultSize: 32
+                maxPredictionMarkets: 10
             })
         );
 
@@ -288,13 +260,7 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(mockEndpoint),
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 10,
-                readChannelEid: 109,
-                targetEid: 109,
-                conditionalTokens: CTF,
-                confirmations: 15,
-                lzReadGasLimit: 200_000,
-                lzReadResultSize: 32
+                maxPredictionMarkets: 10
             })
         );
 
@@ -330,13 +296,7 @@ contract PredictionMarketLZConditionalTokensResolverForkTest is Test {
             address(mockEndpoint),
             address(this),
             PredictionMarketLZConditionalTokensResolver.Settings({
-                maxPredictionMarkets: 10,
-                readChannelEid: 109,
-                targetEid: 109,
-                conditionalTokens: CTF,
-                confirmations: 15,
-                lzReadGasLimit: 200_000,
-                lzReadResultSize: 32
+                maxPredictionMarkets: 10
             })
         );
 
