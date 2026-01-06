@@ -33,6 +33,10 @@ export async function upsertAttestationScoreFromAttestation(
       probabilityFloat: normalized.probabilityFloat,
     },
     update: {
+      marketAddress,
+      marketId: att.conditionId ?? null,
+      questionId: att.conditionId ?? null,
+      resolver: att.resolver,
       probabilityD18: normalized.probabilityD18,
       probabilityFloat: normalized.probabilityFloat,
     },
@@ -147,6 +151,35 @@ export async function scoreSelectedForecastsForSettledMarket(
   );
 }
 
+// Upsert time-weighted error for a specific (attester, market) into AttesterMarketTwError table
+export async function upsertAttesterMarketTwError(
+  marketAddress: string,
+  marketId: string,
+  attester: string,
+  twError: number
+): Promise<void> {
+  const a = attester.toLowerCase();
+  const m = marketAddress.toLowerCase();
+  await prisma.attesterMarketTwError.upsert({
+    where: {
+      attester_marketAddress_marketId: {
+        attester: a,
+        marketAddress: m,
+        marketId,
+      },
+    },
+    create: {
+      attester: a,
+      marketAddress: m,
+      marketId,
+      twError,
+    },
+    update: {
+      twError,
+    },
+  });
+}
+
 // Horizon-weighted error (formerly HWBS): compute per-attester per-market (pure compute, no writes)
 export async function computeTimeWeightedForAttesterMarketValue(
   marketAddress: string,
@@ -202,6 +235,81 @@ export async function computeTimeWeightedForAttesterMarketValue(
   if (totalWeight <= 0) return null;
   const twError = weightedSum / totalWeight;
   return twError;
+}
+
+// Compute and persist TW errors for all attesters who forecasted on a settled market
+export async function computeAndStoreMarketTwErrors(
+  marketAddress: string,
+  marketId: string
+): Promise<void> {
+  const condition = await prisma.condition.findUnique({
+    where: { id: marketId },
+  });
+  if (!condition || condition.endTime == null) return;
+  const outcome = outcomeFromCondition(condition);
+  if (outcome === null) return; // Not settled
+
+  const end = condition.endTime;
+
+  // Get all unique attesters who have forecasts for this market
+  const distinctAttesters = await prisma.attestationScore.findMany({
+    where: {
+      marketAddress: marketAddress.toLowerCase(),
+      marketId,
+      madeAt: { lte: end },
+      probabilityFloat: { not: null },
+    },
+    select: { attester: true },
+    distinct: ['attester'],
+  });
+
+  if (distinctAttesters.length === 0) return;
+
+  const alphaEnv = process.env.HWBS_ALPHA;
+  const alpha =
+    Number.isFinite(Number(alphaEnv)) && Number(alphaEnv) > 0
+      ? Number(alphaEnv)
+      : 2;
+
+  // Compute TW error for each attester
+  for (const { attester } of distinctAttesters) {
+    const rows = await prisma.attestationScore.findMany({
+      where: {
+        marketAddress: marketAddress.toLowerCase(),
+        marketId,
+        attester,
+        madeAt: { lte: end },
+        probabilityFloat: { not: null },
+      },
+      orderBy: { madeAt: 'asc' },
+    });
+
+    if (rows.length === 0) continue;
+
+    const start = rows[0].madeAt;
+    if (end <= start) continue;
+
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const p = rows[i].probabilityFloat as number;
+      const t0 = i === 0 ? start : Math.max(rows[i].madeAt, start);
+      const t1 = i < rows.length - 1 ? Math.min(rows[i + 1].madeAt, end) : end;
+      const duration = Math.max(0, t1 - t0);
+      if (duration <= 0) continue;
+      const err = (p - outcome) * (p - outcome);
+      const midpoint = (t0 + t1) / 2;
+      const tau = Math.max(0, end - midpoint);
+      const weight = duration * Math.pow(tau, alpha);
+      weightedSum += err * weight;
+      totalWeight += weight;
+    }
+
+    if (totalWeight > 0) {
+      const twError = weightedSum / totalWeight;
+      await upsertAttesterMarketTwError(marketAddress, marketId, attester, twError);
+    }
+  }
 }
 
 // Batched horizon-weighted error across all markets for a single attester
