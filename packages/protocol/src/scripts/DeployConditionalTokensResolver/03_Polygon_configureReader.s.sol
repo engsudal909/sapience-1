@@ -49,6 +49,7 @@ contract ConfigurePolygonReader is Script {
         console.log("");
         console.log("=== Configuration Complete ===");
         console.log("Next step: Run script 04_Ethereal_configureResolver.s.sol");
+        console.log("Then: Run script 05_Polygon_setDVN.s.sol");
     }
 }
 

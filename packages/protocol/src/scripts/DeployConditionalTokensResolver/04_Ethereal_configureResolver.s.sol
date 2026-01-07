@@ -50,7 +50,7 @@ contract ConfigureEtherealResolver is Script {
 
         console.log("");
         console.log("=== Configuration Complete ===");
-        console.log("Next step: Run script 05_Polygon_testFlow.s.sol to test the flow");
+        console.log("Next step: Run script 05_Polygon_setDVN.s.sol to configure LayerZero DVNs");
     }
 }
 

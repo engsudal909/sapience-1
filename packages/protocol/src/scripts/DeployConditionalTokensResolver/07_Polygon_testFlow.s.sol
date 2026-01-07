@@ -20,7 +20,7 @@ import {MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
  *      - TEST_CONDITION_ID: bytes32 conditionId to test (hex format)
  *      
  *      Run with:
- *      forge script src/scripts/DeployConditionalTokensResolver/05_Polygon_testFlow.s.sol \
+ *      forge script src/scripts/DeployConditionalTokensResolver/07_Polygon_testFlow.s.sol \
  *        --rpc-url $POLYGON_RPC --broadcast --private-key $POLYGON_PRIVATE_KEY
  */
 contract TestConditionalTokensFlow is Script {
@@ -69,8 +69,8 @@ contract TestConditionalTokensFlow is Script {
         console.log("");
         console.log("Next steps:");
         console.log("1. Wait ~30-60 seconds for LayerZero message delivery");
-        console.log("2. Run script 06_Ethereal_verifyResolution.s.sol to check resolver state:");
-        console.log("   forge script src/scripts/DeployConditionalTokensResolver/06_Ethereal_verifyResolution.s.sol \\");
+        console.log("2. Run script 08_Ethereal_verifyResolution.s.sol to check resolver state:");
+        console.log("   forge script src/scripts/DeployConditionalTokensResolver/08_Ethereal_verifyResolution.s.sol \\");
         console.log("     --rpc-url $ETHEREAL_RPC");
         console.log("     -vvvv");
     }

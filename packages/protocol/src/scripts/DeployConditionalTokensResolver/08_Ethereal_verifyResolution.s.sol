@@ -14,7 +14,7 @@ import {PredictionMarketLZConditionalTokensResolver} from "../../predictionMarke
  *      - TEST_CONDITION_ID: bytes32 conditionId to check (hex format)
  *      
  *      Run with:
- *      forge script src/scripts/DeployConditionalTokensResolver/06_Ethereal_verifyResolution.s.sol \
+ *      forge script src/scripts/DeployConditionalTokensResolver/08_Ethereal_verifyResolution.s.sol \
  *        --rpc-url $ETHEREAL_RPC
  */
 contract VerifyResolution is Script {
