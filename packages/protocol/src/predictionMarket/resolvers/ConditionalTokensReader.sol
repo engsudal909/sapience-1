@@ -11,6 +11,7 @@ import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 
 /// @notice Minimal subset of Gnosis ConditionalTokens we need for resolution
 interface IConditionalTokens {
+    function getOutcomeSlotCount(bytes32 conditionId) external view returns (uint256);
     function payoutDenominator(bytes32 conditionId) external view returns (uint256);
     function payoutNumerators(bytes32 conditionId, uint256 index) external view returns (uint256);
 }
@@ -33,6 +34,9 @@ contract ConditionalTokensReader is
     error InvalidConditionId();
     error InsufficientETHForFee(uint256 required, uint256 available);
     error InsufficientBalance(uint256 required, uint256 available);
+    error ConditionIsNotBinary(bytes32 conditionId);
+    error ConditionNotResolved(bytes32 conditionId);
+    error InvalidPayout(bytes32 conditionId);
 
     // ============ Settings ============
     struct Settings {
@@ -96,9 +100,13 @@ contract ConditionalTokensReader is
         if (conditionId == bytes32(0)) revert InvalidConditionId();
         
         // Read ConditionalTokens data
+        uint256 slotCount = IConditionalTokens(config.conditionalTokens).getOutcomeSlotCount(conditionId);
         uint256 payoutDenominator = IConditionalTokens(config.conditionalTokens).payoutDenominator(conditionId);
         uint256 noPayout = IConditionalTokens(config.conditionalTokens).payoutNumerators(conditionId, 0);
         uint256 yesPayout = IConditionalTokens(config.conditionalTokens).payoutNumerators(conditionId, 1);
+
+        // Validate condition and resolved state and revert fast if invalid 
+        _validateConditionAndResolvedState(conditionId, slotCount, payoutDenominator, noPayout, yesPayout);
         
         // Encode resolution response
         bytes memory commandPayload = Encoder.encodeFromConditionalTokenReaderResolutionResponse(
@@ -183,6 +191,15 @@ contract ConditionalTokensReader is
      * @notice Receive ETH
      */
     receive() external payable {}
+
+    // ============ Internal Functions ============
+
+    function _validateConditionAndResolvedState(bytes32 conditionId, uint256 slotCount, uint256 payoutDenominator, uint256 noPayout, uint256 yesPayout) internal pure {
+        if (slotCount != 2) revert ConditionIsNotBinary(conditionId);
+        if (payoutDenominator == 0) revert ConditionNotResolved(conditionId);
+        if (noPayout + yesPayout != payoutDenominator) revert InvalidPayout(conditionId);
+        if (noPayout == yesPayout) revert InvalidPayout(conditionId);
+    }
 }
 
 
