@@ -75,10 +75,8 @@ export class ScoreResolver {
       0
     );
     const mean = sumTimeWeightedError / numTimeWeighted;
-    // Convert to 0-100 scale: 100 = perfect, 0 = worst
-    const accuracyScore = (1 - Math.min(mean, 1)) * 100;
+    const accuracyScore = 1 / Math.max(mean, 0.0001);
 
-    // Legacy fields retained for schema compatibility
     return {
       attester: a,
       numScored: 0,
@@ -104,8 +102,7 @@ export class ScoreResolver {
 
     const results = agg.map((row) => {
       const mean = (row._avg.twError as number | null) ?? 0;
-      // Convert to 0-100 scale: 100 = perfect, 0 = worst
-      const score = (1 - Math.min(mean, 1)) * 100;
+      const score = 1 / Math.max(mean, 0.0001);
       return {
         attester: (row.attester as string).toLowerCase(),
         numScored: 0,
@@ -134,8 +131,7 @@ export class ScoreResolver {
 
     const scores = agg.map((row) => {
       const mean = (row._avg.twError as number | null) ?? 0;
-      // Convert to 0-100 scale: 100 = perfect, 0 = worst
-      const accuracyScore = (1 - Math.min(mean, 1)) * 100;
+      const accuracyScore = 1 / Math.max(mean, 0.0001);
       return {
         attester: (row.attester as string).toLowerCase(),
         accuracyScore,
