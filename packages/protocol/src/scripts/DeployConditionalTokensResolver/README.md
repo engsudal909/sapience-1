@@ -1,0 +1,235 @@
+# ConditionalTokens Resolver Deployment & Testing Guide
+
+This directory contains scripts for deploying and testing the ConditionalTokens resolution system between Polygon and Ethereal networks.
+
+## Architecture
+
+- **Polygon**: `ConditionalTokensReader` - Reads ConditionalTokens and sends resolution data
+- **Ethereal**: `PredictionMarketLZConditionalTokensResolver` - Receives resolution data and caches outcomes
+
+## Prerequisites
+
+### Environment Variables
+
+Create a `.env` file with the following variables:
+
+```bash
+# Polygon Configuration
+POLYGON_LZ_ENDPOINT=0x1a44076050125825900e736c501f859c50fE728c
+POLYGON_OWNER=0x...
+POLYGON_PRIVATE_KEY=0x...
+POLYGON_RPC=https://polygon-rpc.com
+POLYGON_CONDITIONAL_TOKENS=0x4D97DCd97eC945f40cF65F87097ACe5EA0476045
+POLYGON_EID=30109
+
+# Ethereal Configuration  
+ETHEREAL_LZ_ENDPOINT=0x6F475642a6e85809B1c36Fa62763669b1b48DD5B
+ETHEREAL_OWNER=0x...
+ETHEREAL_PRIVATE_KEY=0x...
+ETHEREAL_RPC=https://rpc.ethereal.trade
+ETHEREAL_EID=30391  # Verify this EID
+
+# After Deployment
+POLYGON_CONDITIONAL_TOKENS_READER=0x...
+ETHEREAL_CONDITIONAL_TOKENS_RESOLVER=0x...
+
+# For Testing
+TEST_CONDITION_ID=0x67903aa8fb5c90e936777cebd9c6570cb70dfeb1128008c04f11ae8e162111bc
+PM_MAX_MARKETS=20
+```
+
+### Finding LayerZero Endpoint IDs
+
+You can find LayerZero endpoint IDs (EIDs) at:
+- LayerZero Docs: https://layerzero.gitbook.io/docs/technical-reference/mainnet/supported-chain-ids
+- Or check the endpoint contract directly
+
+## Deployment Steps
+
+### Step 1: Deploy ConditionalTokensReader on Polygon
+
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/01_Polygon_deployReader.s.sol \
+  --rpc-url $POLYGON_RPC \
+  --broadcast \
+  --private-key $POLYGON_PRIVATE_KEY \
+  -vvvv
+```
+
+**Save the deployed address** and set:
+```bash
+export POLYGON_CONDITIONAL_TOKENS_READER=0x...
+```
+
+### Step 2: Deploy Resolver on Ethereal
+
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/02_Ethereal_deployResolver.s.sol \
+  --rpc-url $ETHEREAL_RPC \
+  --broadcast \
+  --private-key $ETHEREAL_PRIVATE_KEY \
+  -vvvv
+```
+
+**Save the deployed address** and set:
+```bash
+export ETHEREAL_CONDITIONAL_TOKENS_RESOLVER=0x...
+```
+
+### Step 3: Configure Both Contracts
+
+Configure Polygon reader (sets Ethereal resolver as remote):
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/03_Polygon_configureReader.s.sol \
+  --rpc-url $POLYGON_RPC \
+  --broadcast \
+  --private-key $POLYGON_PRIVATE_KEY \
+  -vvvv
+```
+
+Configure Ethereal resolver (sets Polygon reader as remote):
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/04_Ethereal_configureResolver.s.sol \
+  --rpc-url $ETHEREAL_RPC \
+  --broadcast \
+  --private-key $ETHEREAL_PRIVATE_KEY \
+  -vvvv
+```
+
+## Testing
+
+### Test the Full Flow
+
+1. **Request Resolution** (on Polygon):
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/05_Polygon_testFlow.s.sol \
+  --rpc-url $POLYGON_RPC \
+  --broadcast \
+  --private-key $POLYGON_PRIVATE_KEY \
+  -vvvv
+```
+
+This will:
+- Quote the fee for sending resolution data
+- Call `requestResolution()` which:
+  - Reads ConditionalTokens data (denom, noPayout, yesPayout)
+  - Validates it's binary and resolved
+  - Sends data to Ethereal resolver via LayerZero
+
+2. **Wait for Message Delivery** (~30-60 seconds)
+
+3. **Verify Resolution** (on Ethereal):
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/06_Ethereal_verifyResolution.s.sol \
+  --rpc-url $ETHEREAL_RPC \
+  -vvvv
+```
+
+This will show:
+- Whether the condition was received
+- If it's settled
+- The resolution outcome (YES/NO)
+- Payout values
+
+## Manual Testing with cast
+
+### Quote Fee (read-only)
+```bash
+cast call $POLYGON_CONDITIONAL_TOKENS_READER \
+  "quoteResolution(bytes32)((uint256,uint256))" \
+  $TEST_CONDITION_ID \
+  --rpc-url $POLYGON_RPC
+```
+
+### Request Resolution
+```bash
+# First get the fee
+FEE=$(cast call $POLYGON_CONDITIONAL_TOKENS_READER \
+  "quoteResolution(bytes32)((uint256,uint256))" \
+  $TEST_CONDITION_ID \
+  --rpc-url $POLYGON_RPC | head -1)
+
+# Send request with fee
+cast send $POLYGON_CONDITIONAL_TOKENS_READER \
+  "requestResolution(bytes32)" \
+  $TEST_CONDITION_ID \
+  --value $FEE \
+  --private-key $POLYGON_PRIVATE_KEY \
+  --rpc-url $POLYGON_RPC
+```
+
+### Check Resolver State
+```bash
+cast call $ETHEREAL_CONDITIONAL_TOKENS_RESOLVER \
+  "getCondition(bytes32)((bytes32,bool,bool,bool,uint256,uint256,uint256,uint64))" \
+  $TEST_CONDITION_ID \
+  --rpc-url $ETHEREAL_RPC
+```
+
+## Troubleshooting
+
+### Message Not Received
+
+1. **Check Peer Configuration**:
+```bash
+# On Polygon - check peer for Ethereal EID
+cast call $POLYGON_CONDITIONAL_TOKENS_READER \
+  "peers(uint32)(bytes32)" \
+  $ETHEREAL_EID \
+  --rpc-url $POLYGON_RPC
+
+# On Ethereal - check peer for Polygon EID  
+cast call $ETHEREAL_CONDITIONAL_TOKENS_RESOLVER \
+  "peers(uint32)(bytes32)" \
+  $POLYGON_EID \
+  --rpc-url $ETHEREAL_RPC
+```
+
+2. **Check Bridge Config**:
+```bash
+# Polygon reader bridge config
+cast call $POLYGON_CONDITIONAL_TOKENS_READER \
+  "getBridgeConfig()((uint32,address))" \
+  --rpc-url $POLYGON_RPC
+
+# Ethereal resolver bridge config
+cast call $ETHEREAL_CONDITIONAL_TOKENS_RESOLVER \
+  "getBridgeConfig()((uint32,address))" \
+  --rpc-url $ETHEREAL_RPC
+```
+
+3. **Verify LayerZero Message Status**:
+   - Check LayerZero scan: https://layerzeroscan.com/
+   - Look up the transaction hash from `requestResolution()`
+
+### Invalid Condition Errors
+
+If you get `ConditionIsNotBinary`, `ConditionNotResolved`, or `InvalidPayout`:
+- The condition must have exactly 2 outcomes (binary)
+- The condition must be resolved on Polygon (`payoutDenominator > 0`)
+- Payouts must sum to denominator and be different (strict binary)
+
+### Fee Issues
+
+- Make sure you send enough ETH with `requestResolution()`
+- Use `quoteResolution()` to get the exact fee needed
+- Fees are paid in native token (MATIC on Polygon, USDe on Ethereal)
+
+## Expected Flow
+
+1. User calls `ConditionalTokensReader.requestResolution(conditionId)` on Polygon with ETH
+2. Reader validates condition is binary and resolved
+3. Reader reads payoutDenominator, noPayout, yesPayout from ConditionalTokens
+4. Reader sends encoded message to Ethereal resolver via LayerZero
+5. Ethereal resolver receives message in `_lzReceive()`
+6. Resolver validates sender and decodes resolution data
+7. Resolver calls `_finalizeResolution()` to cache the outcome
+8. Resolver can now answer `getPredictionResolution()` queries
+
+## Next Steps
+
+After successful testing:
+- Deploy to production networks
+- Set up monitoring for resolution requests
+- Consider adding rate limiting or access controls if needed
+
