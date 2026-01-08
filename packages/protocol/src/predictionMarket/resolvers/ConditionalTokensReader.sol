@@ -8,6 +8,7 @@ import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Option
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Encoder} from "../../bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
+import {IConditionalTokensReader} from "./interfaces/IConditionalTokensReader.sol";
 
 /// @notice Minimal subset of Gnosis ConditionalTokens we need for resolution
 interface IConditionalTokens {
@@ -24,54 +25,15 @@ interface IConditionalTokens {
  */
 contract ConditionalTokensReader is
     OAppSender,
-    ReentrancyGuard
+    ReentrancyGuard,
+    IConditionalTokensReader
 {
     using OptionsBuilder for bytes;
     using Encoder for bytes;
     using BridgeTypes for BridgeTypes.BridgeConfig;
 
-    // ============ Custom Errors ============
-    error InvalidConditionId();
-    error InsufficientETHForFee(uint256 required, uint256 available);
-    error InsufficientBalance(uint256 required, uint256 available);
-    error ConditionIsNotBinary(bytes32 conditionId);
-    error ConditionNotResolved(bytes32 conditionId);
-    error InvalidPayout(bytes32 conditionId);
-
-    // ============ Settings ============
-    struct Settings {
-        address conditionalTokens;  // Address of ConditionalTokens contract on Polygon
-    }
-
-    /// @notice Encapsulates condition data from ConditionalTokens
-    struct ConditionData {
-        uint256 slotCount;
-        uint256 payoutDenominator;
-        uint256 noPayout;
-        uint256 yesPayout;
-    }
-
     Settings public config;
     BridgeTypes.BridgeConfig private bridgeConfig;
-
-    // ============ Events ============
-    event ResolutionRequested(
-        bytes32 indexed conditionId,
-        bytes32 guid,
-        uint256 timestamp
-    );
-
-    event ResolutionSent(
-        bytes32 indexed conditionId,
-        uint256 payoutDenominator,
-        uint256 noPayout,
-        uint256 yesPayout,
-        bytes32 guid,
-        uint256 timestamp
-    );
-
-    event ConfigUpdated(address conditionalTokens);
-    event BridgeConfigUpdated(BridgeTypes.BridgeConfig bridgeConfig);
 
     // ============ Constructor ============
     constructor(

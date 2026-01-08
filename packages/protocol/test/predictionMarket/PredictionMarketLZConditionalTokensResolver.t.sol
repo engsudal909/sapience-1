@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {PredictionMarketLZConditionalTokensResolver} from "../../src/predictionMarket/resolvers/PredictionMarketLZConditionalTokensResolver.sol";
+import {IPredictionMarketLZConditionalTokensResolver} from "../../src/predictionMarket/resolvers/interfaces/IPredictionMarketLZConditionalTokensResolver.sol";
 import {Origin} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {IPredictionMarketResolver} from "../../src/predictionMarket/interfaces/IPredictionMarketResolver.sol";
 import {Encoder} from "../../src/bridge/cmdEncoder.sol";
@@ -84,7 +85,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
                     abi.encode(
                         address(endpoints[localEid]),
                         owner,
-                        PredictionMarketLZConditionalTokensResolver.Settings({
+                        IPredictionMarketLZConditionalTokensResolver.Settings({
                             maxPredictionMarkets: MAX_PREDICTION_MARKETS
                         })
                     )
@@ -118,8 +119,8 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     // ============ Configuration Tests ============
 
     function test_setConfig() public {
-        PredictionMarketLZConditionalTokensResolver.Settings memory newConfig =
-            PredictionMarketLZConditionalTokensResolver.Settings({
+        IPredictionMarketLZConditionalTokensResolver.Settings memory newConfig =
+            IPredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 20
             });
 
@@ -133,7 +134,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         vm.prank(unauthorizedUser);
         vm.expectRevert();
         resolver.setConfig(
-            PredictionMarketLZConditionalTokensResolver.Settings({
+            IPredictionMarketLZConditionalTokensResolver.Settings({
                 maxPredictionMarkets: 20
             })
         );
@@ -156,9 +157,9 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     // ============ Validation Tests ============
 
     function test_validatePredictionMarkets_success() public view {
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID,
             prediction: true
         });
@@ -172,19 +173,19 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     }
 
     function test_validatePredictionMarkets_noMarkets() public {
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](0);
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](0);
         bytes memory encodedOutcomes = abi.encode(outcomes);
 
-        vm.expectRevert(PredictionMarketLZConditionalTokensResolver.MustHaveAtLeastOneMarket.selector);
+        vm.expectRevert(IPredictionMarketLZConditionalTokensResolver.MustHaveAtLeastOneMarket.selector);
         resolver.validatePredictionMarkets(encodedOutcomes);
     }
 
     function test_validatePredictionMarkets_tooManyMarkets() public {
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](MAX_PREDICTION_MARKETS + 1);
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](MAX_PREDICTION_MARKETS + 1);
         for (uint256 i = 0; i < MAX_PREDICTION_MARKETS + 1; i++) {
-            outcomes[i] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+            outcomes[i] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
                 marketId: keccak256(abi.encodePacked("condition", i)),
                 prediction: true
             });
@@ -192,14 +193,14 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
 
         bytes memory encodedOutcomes = abi.encode(outcomes);
 
-        vm.expectRevert(PredictionMarketLZConditionalTokensResolver.TooManyMarkets.selector);
+        vm.expectRevert(IPredictionMarketLZConditionalTokensResolver.TooManyMarkets.selector);
         resolver.validatePredictionMarkets(encodedOutcomes);
     }
 
     function test_validatePredictionMarkets_invalidConditionId() public view {
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: bytes32(0),
             prediction: true
         });
@@ -218,7 +219,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=1, no=0, yes=1 => YES wins
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 0, 1);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertTrue(condition.settled, "Should be settled");
@@ -233,7 +234,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=1, no=1, yes=0 => NO wins
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 1, 0);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertTrue(condition.settled, "Should be settled");
@@ -248,7 +249,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=100, no=0, yes=100 => YES wins
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 100, 0, 100);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertTrue(condition.settled, "Should be settled");
@@ -260,7 +261,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=100, no=100, yes=0 => NO wins
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 100, 100, 0);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertTrue(condition.settled, "Should be settled");
@@ -272,7 +273,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=0 means unresolved
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 0, 0, 0);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertFalse(condition.settled, "Should not be settled");
@@ -284,7 +285,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=2, no=1, yes=1 => Split payout (ambiguous) => marks invalid, does NOT revert
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 2, 1, 1);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertFalse(condition.settled, "Should not be settled");
@@ -298,7 +299,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // denom=100, no=50, yes=30 => Sum != denom => marks invalid, does NOT revert
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 100, 50, 30);
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertFalse(condition.settled, "Should not be settled");
@@ -329,7 +330,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // Condition should be settled
         assertTrue(resolver.isConditionSettled(TEST_CONDITION_ID), "Should be settled");
         
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition = resolver.getCondition(TEST_CONDITION_ID);
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition = resolver.getCondition(TEST_CONDITION_ID);
         assertTrue(condition.resolvedToYes, "Should resolve to YES");
         assertFalse(condition.invalid, "Should not be invalid");
     }
@@ -348,7 +349,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                PredictionMarketLZConditionalTokensResolver.InvalidSourceChain.selector,
+                IPredictionMarketLZConditionalTokensResolver.InvalidSourceChain.selector,
                 remoteEid,
                 999
             )
@@ -370,7 +371,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                PredictionMarketLZConditionalTokensResolver.InvalidSender.selector,
+                IPredictionMarketLZConditionalTokensResolver.InvalidSender.selector,
                 bytes32(uint256(uint160(conditionalTokensReader))),
                 bytes32(uint256(uint160(address(0xBAD))))
             )
@@ -390,7 +391,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                PredictionMarketLZConditionalTokensResolver.InvalidCommandType.selector,
+                IPredictionMarketLZConditionalTokensResolver.InvalidCommandType.selector,
                 999
             )
         );
@@ -414,7 +415,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         resolver.exposed_lzReceive(origin, bytes32(0), message, address(0), "");
 
         // Should be marked invalid, not reverted
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition = resolver.getCondition(TEST_CONDITION_ID);
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition = resolver.getCondition(TEST_CONDITION_ID);
         assertFalse(condition.settled, "Should not be settled");
         assertTrue(condition.invalid, "Should be marked invalid");
     }
@@ -422,9 +423,9 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     // ============ Resolution Query Tests ============
 
     function test_getPredictionResolution_notQueried() public view {
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID,
             prediction: true
         });
@@ -443,9 +444,9 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // Settle condition to YES
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 0, 1);
 
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID,
             prediction: true // Correct prediction
         });
@@ -464,9 +465,9 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // Settle condition to YES
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 0, 1);
 
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID,
             prediction: false // Wrong prediction
         });
@@ -485,9 +486,9 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // Mark condition as invalid (non-binary)
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 2, 1, 1);
 
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID,
             prediction: true
         });
@@ -509,15 +510,15 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID_2, 1, 1, 0);   // NO
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID_3, 1, 0, 1);   // YES
 
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](3);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](3);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID, prediction: true
         });
-        outcomes[1] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[1] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID_2, prediction: false
         });
-        outcomes[2] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[2] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID_3, prediction: true
         });
 
@@ -536,12 +537,12 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 0, 1);
         // Second condition not settled
 
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID, prediction: false // Wrong
         });
-        outcomes[1] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[1] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID_2, prediction: true
         });
 
@@ -560,12 +561,12 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         // Only settle first condition
         resolver.exposed_finalizeResolution(TEST_CONDITION_ID, 1, 0, 1); // YES
 
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID, prediction: true // Correct
         });
-        outcomes[1] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[1] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID_2, prediction: true // Not settled
         });
 
@@ -583,13 +584,13 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     // ============ Encoding/Decoding Tests ============
 
     function test_encodePredictionOutcomes() public view {
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID,
             prediction: true
         });
-        outcomes[1] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[1] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: TEST_CONDITION_ID_2,
             prediction: false
         });
@@ -597,7 +598,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
         bytes memory encoded = resolver.encodePredictionOutcomes(outcomes);
 
         // Decode and verify
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory decoded =
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory decoded =
             resolver.decodePredictionOutcomes(encoded);
 
         assertEq(decoded.length, 2, "Length should match");
@@ -610,7 +611,7 @@ contract PredictionMarketLZConditionalTokensResolverTest is TestHelperOz5 {
     // ============ View Functions Tests ============
 
     function test_getCondition() public view {
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolver.getCondition(TEST_CONDITION_ID);
 
         assertEq(condition.conditionId, bytes32(0), "Condition should not exist initially");

@@ -3,6 +3,7 @@ pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {ConditionalTokensReader} from "../../predictionMarket/resolvers/ConditionalTokensReader.sol";
+import {IConditionalTokensReader} from "../../predictionMarket/resolvers/interfaces/IConditionalTokensReader.sol";
 
 /**
  * @title DeployAndVerifyConditionalTokensReader
@@ -32,7 +33,7 @@ contract DeployAndVerifyConditionalTokensReader is Script {
         ConditionalTokensReader reader = new ConditionalTokensReader(
             endpoint,
             owner,
-            ConditionalTokensReader.Settings({
+            IConditionalTokensReader.Settings({
                 conditionalTokens: conditionalTokens
             })
         );
@@ -63,7 +64,7 @@ contract DeployAndVerifyConditionalTokensReader is Script {
         bytes memory encoded = abi.encode(
             endpoint,
             owner,
-            ConditionalTokensReader.Settings({
+            IConditionalTokensReader.Settings({
                 conditionalTokens: conditionalTokens
             })
         );

@@ -3,6 +3,7 @@ pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {PredictionMarketLZConditionalTokensResolver} from "../../predictionMarket/resolvers/PredictionMarketLZConditionalTokensResolver.sol";
+import {IPredictionMarketLZConditionalTokensResolver} from "../../predictionMarket/resolvers/interfaces/IPredictionMarketLZConditionalTokensResolver.sol";
 import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 
 /**
@@ -47,7 +48,7 @@ contract ConfigureResolverScript is Script {
         vm.startBroadcast(vm.envUint("ARB_PRIVATE_KEY"));
 
         // Update config
-        resolver.setConfig(PredictionMarketLZConditionalTokensResolver.Settings({
+        resolver.setConfig(IPredictionMarketLZConditionalTokensResolver.Settings({
             maxPredictionMarkets: maxMarkets
         }));
         console.log("Config updated");

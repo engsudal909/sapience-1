@@ -5,6 +5,7 @@ import {OAppReceiver, Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OAppR
 import {OAppCore} from "@layerzerolabs/oapp-evm/contracts/oapp/OAppCore.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IPredictionMarketResolver} from "../interfaces/IPredictionMarketResolver.sol";
+import {IPredictionMarketLZConditionalTokensResolver} from "./interfaces/IPredictionMarketLZConditionalTokensResolver.sol";
 import {Encoder} from "../../bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../bridge/BridgeTypes.sol";
 
@@ -23,60 +24,16 @@ interface IConditionalTokens {
  */
 contract PredictionMarketLZConditionalTokensResolver is
     OAppReceiver,
-    IPredictionMarketResolver
+    IPredictionMarketLZConditionalTokensResolver
 {
     using Encoder for bytes;
     using BridgeTypes for BridgeTypes.BridgeConfig;
 
-    // ============ Custom Errors ============
-    error MustHaveAtLeastOneMarket();
-    error TooManyMarkets();
-    error InvalidSourceChain(uint32 expectedEid, uint32 actualEid);
-    error InvalidSender(address expectedBridge, address actualSender);
-    error InvalidCommandType(uint16 commandType);
-
-    // ============ Settings ============
-    struct Settings {
-        uint256 maxPredictionMarkets;
-    }
-
     Settings public config;
     BridgeTypes.BridgeConfig private bridgeConfig;
 
-    // ============ Condition State ============
-    struct ConditionState {
-        bytes32 conditionId;
-        bool settled;
-        bool resolvedToYes;
-        bool invalid;              // True if non-binary or other invalid state
-        uint256 payoutDenominator;
-        uint256 noPayout;
-        uint256 yesPayout;
-        uint64 updatedAt;
-    }
-
-    /// @dev Predicted outcome struct matching existing resolver pattern
-    struct PredictedOutcome {
-        bytes32 marketId;   // == conditionId for this resolver
-        bool prediction;    // true for YES, false for NO
-    }
-
     /// @dev Mapping from conditionId to its cached state
     mapping(bytes32 => ConditionState) public conditions;
-
-    // ============ Events ============
-    event ConditionResolved(
-        bytes32 indexed conditionId,
-        bool resolvedToYes,
-        bool invalid,
-        uint256 payoutDenominator,
-        uint256 noPayout,
-        uint256 yesPayout,
-        uint256 timestamp
-    );
-    
-    event ConfigUpdated(uint256 maxPredictionMarkets);
-    event BridgeConfigUpdated(BridgeTypes.BridgeConfig bridgeConfig);
 
     // ============ Constructor ============
     constructor(

@@ -3,7 +3,9 @@ pragma solidity ^0.8.20;
 
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {PredictionMarketLZConditionalTokensResolver} from "../../src/predictionMarket/resolvers/PredictionMarketLZConditionalTokensResolver.sol";
+import {IPredictionMarketLZConditionalTokensResolver} from "../../src/predictionMarket/resolvers/interfaces/IPredictionMarketLZConditionalTokensResolver.sol";
 import {ConditionalTokensReader} from "../../src/predictionMarket/resolvers/ConditionalTokensReader.sol";
+import {IConditionalTokensReader} from "../../src/predictionMarket/resolvers/interfaces/IConditionalTokensReader.sol";
 import {IPredictionMarketResolver} from "../../src/predictionMarket/interfaces/IPredictionMarketResolver.sol";
 import {Encoder} from "../../src/bridge/cmdEncoder.sol";
 import {BridgeTypes} from "../../src/bridge/BridgeTypes.sol";
@@ -62,7 +64,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
                     abi.encode(
                         address(endpoints[POLYGON_EID]),
                         owner,
-                        ConditionalTokensReader.Settings({
+                        IConditionalTokensReader.Settings({
                             conditionalTokens: address(mockCTF)
                         })
                     )
@@ -78,7 +80,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
                     abi.encode(
                         address(endpoints[ETHEREAL_EID]),
                         owner,
-                        PredictionMarketLZConditionalTokensResolver.Settings({
+                        IPredictionMarketLZConditionalTokensResolver.Settings({
                             maxPredictionMarkets: 10
                         })
                     )
@@ -125,7 +127,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         verifyPackets(ETHEREAL_EID, addressToBytes32(address(etherealResolver)));
 
         // Step 4: Verify resolver state on Ethereal
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             etherealResolver.getCondition(CONDITION_YES);
 
         assertTrue(condition.settled, "Condition should be settled");
@@ -136,9 +138,9 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         assertEq(condition.yesPayout, 1, "Yes payout should be 1");
 
         // Step 5: Test prediction resolution
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: CONDITION_YES,
             prediction: true
         });
@@ -164,7 +166,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
 
         verifyPackets(ETHEREAL_EID, addressToBytes32(address(etherealResolver)));
 
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             etherealResolver.getCondition(CONDITION_NO);
 
         assertTrue(condition.settled, "Condition should be settled");
@@ -188,9 +190,9 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         verifyPackets(ETHEREAL_EID, addressToBytes32(address(etherealResolver)));
 
         // Predict NO when actual is YES
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](1);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: CONDITION_YES,
             prediction: false
         });
@@ -220,13 +222,13 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         verifyPackets(ETHEREAL_EID, addressToBytes32(address(etherealResolver)));
 
         // Create parlay with both conditions
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: CONDITION_YES,
             prediction: true
         });
-        outcomes[1] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[1] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: CONDITION_NO,
             prediction: false
         });
@@ -255,13 +257,13 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         verifyPackets(ETHEREAL_EID, addressToBytes32(address(etherealResolver)));
 
         // First prediction correct, second wrong
-        PredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
-            new PredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
-        outcomes[0] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[] memory outcomes =
+            new IPredictionMarketLZConditionalTokensResolver.PredictedOutcome[](2);
+        outcomes[0] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: CONDITION_YES,
             prediction: true
         });
-        outcomes[1] = PredictionMarketLZConditionalTokensResolver.PredictedOutcome({
+        outcomes[1] = IPredictionMarketLZConditionalTokensResolver.PredictedOutcome({
             marketId: CONDITION_NO,
             prediction: true // Wrong!
         });
@@ -284,7 +286,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         vm.startPrank(user);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ConditionalTokensReader.ConditionNotResolved.selector,
+                IConditionalTokensReader.ConditionNotResolved.selector,
                 CONDITION_UNRESOLVED
             )
         );
@@ -304,7 +306,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         vm.startPrank(user);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ConditionalTokensReader.ConditionIsNotBinary.selector,
+                IConditionalTokensReader.ConditionIsNotBinary.selector,
                 nonBinaryCondition
             )
         );
@@ -324,7 +326,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         vm.startPrank(user);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ConditionalTokensReader.InvalidPayout.selector,
+                IConditionalTokensReader.InvalidPayout.selector,
                 splitCondition
             )
         );
@@ -364,7 +366,7 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         vm.startPrank(user);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ConditionalTokensReader.InsufficientETHForFee.selector,
+                IConditionalTokensReader.InsufficientETHForFee.selector,
                 fee.nativeFee,
                 insufficientAmount
             )
