@@ -566,15 +566,6 @@ const Header = () => {
                       <span>Docs</span>
                     </a>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/settings"
-                      className="group cursor-pointer flex items-center transition-colors hover:text-accent-gold data-[highlighted]:text-accent-gold hover:bg-transparent data-[highlighted]:bg-transparent"
-                    >
-                      <Settings className="mr-px h-4 w-4 opacity-75 transition-colors group-hover:opacity-100 data-[highlighted]:opacity-100" />
-                      <span>Settings</span>
-                    </Link>
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </nav>
@@ -623,6 +614,15 @@ const Header = () => {
                       >
                         <Users className="mr-0.5 opacity-75 h-4 w-4" />
                         <span>Referrals</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href="/settings"
+                          className="flex items-center cursor-pointer"
+                        >
+                          <Settings className="mr-0.5 opacity-75 h-4 w-4" />
+                          <span>Settings</span>
+                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={handleLogout}

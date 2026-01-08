@@ -26,6 +26,9 @@ import { useChainValidation } from '~/hooks/blockchain/useChainValidation';
 import { useMonitorTxStatus } from '~/hooks/blockchain/useMonitorTxStatus';
 import { getPublicClientForChainId } from '~/lib/utils/util';
 import { CreatePositionContext } from '~/lib/context/CreatePositionContext';
+import { useSession } from '~/lib/context/SessionContext';
+import { ethereal } from '~/lib/session/sessionKeyManager';
+import { arbitrum } from 'viem/chains';
 
 // Ethereal chain configuration
 const CHAIN_ID_ETHEREAL = 5064014;
@@ -94,6 +97,31 @@ export function useSapienceWriteContract({
   disableSuccessToast = false,
 }: useSapienceWriteContractProps) {
   const { data: client } = useConnectorClient();
+
+  // Session key support for gasless transactions
+  const { isSessionActive, chainClients, sessionConfig } = useSession();
+
+  // Check if session can handle a specific chain
+  const canUseSessionForChain = useCallback(
+    (chainId: number): boolean => {
+      if (!isSessionActive || !sessionConfig) return false;
+      if (Date.now() > sessionConfig.expiresAt) return false;
+      if (chainId === ethereal.id && chainClients.ethereal) return true;
+      if (chainId === arbitrum.id && chainClients.arbitrum) return true;
+      return false;
+    },
+    [isSessionActive, sessionConfig, chainClients]
+  );
+
+  // Get the session client for a chain
+  const getSessionClient = useCallback(
+    (chainId: number) => {
+      if (chainId === ethereal.id) return chainClients.ethereal;
+      if (chainId === arbitrum.id) return chainClients.arbitrum;
+      return null;
+    },
+    [chainClients]
+  );
   const [txHash, setTxHash] = useState<Hash | undefined>(undefined);
   const { toast } = useToast();
   const [chainId, setChainId] = useState<number | undefined>(undefined);
@@ -364,7 +392,10 @@ export function useSapienceWriteContract({
           createPositionContext.clearSelections();
         }
       } else if (shouldRedirectToProfile) {
-        const connectedAddress = wagmiAddress || (wallets?.[0] as any)?.address;
+        // When session is active, redirect to smart account profile since that's where the attestation appears
+        const connectedAddress = (isSessionActive && sessionConfig?.smartAccountAddress)
+          ? sessionConfig.smartAccountAddress
+          : (wagmiAddress || (wallets?.[0] as any)?.address);
         if (!connectedAddress) return; // No address available yet
         const addressLower = String(connectedAddress).toLowerCase();
         const redirectUrl = `/${redirectPage}/${addressLower}#${redirectProfileAnchor}`;
@@ -381,6 +412,8 @@ export function useSapienceWriteContract({
     wagmiAddress,
     router,
     createPositionContext,
+    isSessionActive,
+    sessionConfig,
   ]);
 
   // Common success handler
@@ -554,7 +587,80 @@ export function useSapienceWriteContract({
         didRedirectRef.current = false;
         didShowSuccessToastRef.current = false;
 
-        // Validate and switch chain if needed
+        // SESSION KEY PATH: If session is active and supports this chain, use gasless execution
+        const sessionClient = canUseSessionForChain(_chainId)
+          ? getSessionClient(_chainId)
+          : null;
+
+        if (sessionClient) {
+          setIsSubmitting(true);
+          const params = args[0];
+          const {
+            address,
+            abi,
+            functionName,
+            args: fnArgs,
+            value,
+          } = params as any;
+
+          console.debug('[Session] Using session key for gasless transaction on chain', _chainId);
+          console.debug('[Session] Target contract:', address);
+          console.debug('[Session] Function:', functionName);
+          console.debug('[Session] Smart account:', sessionClient.account.address);
+
+          try {
+            // Encode the function call
+            const calldata = encodeFunctionData({
+              abi,
+              functionName,
+              args: fnArgs,
+            });
+
+            // Build calls array - session keys don't need wrapping on Ethereal
+            // since the smart account handles token interactions directly
+            const calls = [
+              {
+                to: address as `0x${string}`,
+                data: calldata,
+                value: value ? BigInt(value) : BigInt(0),
+              },
+            ];
+
+            // Encode and send via ZeroDev bundler (gasless, no wallet signature)
+            console.debug('[Session] Encoding calls...');
+            const encodedCalls = await sessionClient.account.encodeCalls(calls);
+
+            console.debug('[Session] Sending UserOperation...');
+            const userOpHash = await sessionClient.sendUserOperation({
+              callData: encodedCalls,
+            });
+            console.debug('[Session] UserOperation hash:', userOpHash);
+
+            // Wait for the UserOperation receipt
+            console.debug('[Session] Waiting for receipt...');
+            const receipt = await sessionClient.waitForUserOperationReceipt({
+              hash: userOpHash,
+            });
+
+            const txHashFromSession = receipt.receipt.transactionHash as Hash;
+            console.debug('[Session] Transaction hash:', txHashFromSession);
+            handleTransactionSuccess(txHashFromSession);
+            return;
+          } catch (sessionError: any) {
+            console.error('[Session] UserOperation failed:', sessionError);
+            console.error('[Session] Error details:', {
+              message: sessionError?.message,
+              cause: sessionError?.cause,
+              details: sessionError?.details,
+              shortMessage: sessionError?.shortMessage,
+            });
+            // Re-throw with more context
+            const errorMessage = sessionError?.shortMessage || sessionError?.message || 'Session transaction failed';
+            throw new Error(`Session key transaction failed: ${errorMessage}`);
+          }
+        }
+
+        // Validate and switch chain if needed (only for non-session paths)
         await validateAndSwitchChain(_chainId);
 
         // If using an embedded wallet, route via backend sponsorship endpoint as a single-call batch
@@ -816,6 +922,8 @@ export function useSapienceWriteContract({
       isEtherealChain,
       sendCallsAsync,
       pickFinalTransactionHash,
+      canUseSessionForChain,
+      getSessionClient,
     ]
   );
 
@@ -835,7 +943,82 @@ export function useSapienceWriteContract({
         didRedirectRef.current = false;
         didShowSuccessToastRef.current = false;
 
-        // Validate and switch chain if needed
+        // SESSION KEY PATH: If session is active and supports this chain, use gasless execution
+        const sessionClient = canUseSessionForChain(_chainId)
+          ? getSessionClient(_chainId)
+          : null;
+
+        if (sessionClient) {
+          setIsSubmitting(true);
+          const body = (args[0] as any) ?? {};
+          const calls = Array.isArray(body?.calls) ? body.calls : [];
+
+          if (calls.length === 0) {
+            throw new Error('No calls to execute');
+          }
+
+          console.debug('[Session] Using session key for gasless batch transaction on chain', _chainId, 'with', calls.length, 'calls');
+          console.debug('[Session] Smart account:', sessionClient.account.address);
+
+          try {
+            // Convert calls to format expected by encodeCalls
+            const formattedCalls = calls.map((call: any) => ({
+              to: call.to as `0x${string}`,
+              data: call.data as `0x${string}`,
+              value: call.value ? BigInt(call.value) : BigInt(0),
+            }));
+
+            // Encode and send via ZeroDev bundler (gasless, no wallet signature)
+            console.debug('[Session] Encoding calls...');
+            const encodedCalls = await sessionClient.account.encodeCalls(formattedCalls);
+
+            console.debug('[Session] Sending UserOperation...');
+            const userOpHash = await sessionClient.sendUserOperation({
+              callData: encodedCalls,
+            });
+            console.debug('[Session] UserOperation hash:', userOpHash);
+
+            // Wait for the UserOperation receipt
+            console.debug('[Session] Waiting for receipt...');
+            const receipt = await sessionClient.waitForUserOperationReceipt({
+              hash: userOpHash,
+            });
+
+            const txHashFromSession = receipt.receipt.transactionHash as Hash;
+            console.debug('[Session] Transaction hash:', txHashFromSession);
+
+            // Write share intent and redirect
+            writeShareIntent(txHashFromSession);
+            maybeRedirect();
+
+            if (!disableSuccessToast) {
+              toast({
+                title: successTitle,
+                description: formatSuccessDescription(successMessage),
+                duration: 5000,
+              });
+              didShowSuccessToastRef.current = true;
+            }
+
+            onTxHash?.(txHashFromSession);
+            setTxHash(txHashFromSession);
+            setIsSubmitting(false);
+            return;
+          } catch (sessionError: any) {
+            console.error('[Session] UserOperation failed:', sessionError);
+            console.error('[Session] Error details:', {
+              message: sessionError?.message,
+              cause: sessionError?.cause,
+              details: sessionError?.details,
+              shortMessage: sessionError?.shortMessage,
+            });
+            // Re-throw with more context
+            const errorMessage = sessionError?.shortMessage || sessionError?.message || 'Session transaction failed';
+            throw new Error(`Session key transaction failed: ${errorMessage}`);
+          }
+        }
+
+        // Validate and switch chain if needed (only for non-session paths)
         await validateAndSwitchChain(_chainId);
         // Execute the batch calls
         const data = isEmbeddedWallet
@@ -1028,6 +1211,8 @@ export function useSapienceWriteContract({
       successMessage,
       pickFinalTransactionHash,
       disableSuccessToast,
+      canUseSessionForChain,
+      getSessionClient,
     ]
   );
 

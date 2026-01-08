@@ -44,28 +44,32 @@ const ENTRY_POINT = getEntryPoint('0.7');
 const KERNEL_VERSION = KERNEL_V3_1;
 
 // Get bundler/paymaster URLs from environment
-const getZeroDevUrls = (chainId: number) => {
+// ZeroDev v3 API format: https://rpc.zerodev.app/api/v3/{projectId}/chain/{chainId}
+const getZeroDevUrls = (chainId: number): { bundlerUrl: string; paymasterUrl: string } | null => {
   const projectId = process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID;
   if (!projectId) {
     throw new Error('NEXT_PUBLIC_ZERODEV_PROJECT_ID is not set');
   }
 
-  // Use environment-specific URLs if available, otherwise construct from project ID
+  // ZeroDev v3 uses a unified RPC endpoint for both bundler and paymaster
+  const baseUrl = `https://rpc.zerodev.app/api/v3/${projectId}/chain/${chainId}`;
+
+  // Ethereal requires custom bundler/paymaster URLs (not supported by ZeroDev by default)
   if (chainId === ethereal.id) {
-    return {
-      bundlerUrl: process.env.NEXT_PUBLIC_ZERODEV_BUNDLER_URL_ETHEREAL ||
-        `https://rpc.zerodev.app/api/v2/bundler/${projectId}?chainId=${chainId}`,
-      paymasterUrl: process.env.NEXT_PUBLIC_ZERODEV_PAYMASTER_URL_ETHEREAL ||
-        `https://rpc.zerodev.app/api/v2/paymaster/${projectId}?chainId=${chainId}`,
-    };
+    const bundlerUrl = process.env.NEXT_PUBLIC_ZERODEV_BUNDLER_URL_ETHEREAL;
+    const paymasterUrl = process.env.NEXT_PUBLIC_ZERODEV_PAYMASTER_URL_ETHEREAL;
+    // Return null if Ethereal URLs not configured - Ethereal session will be skipped
+    if (!bundlerUrl || !paymasterUrl) {
+      console.debug('[SessionKeyManager] Ethereal bundler/paymaster URLs not configured, skipping Ethereal session');
+      return null;
+    }
+    return { bundlerUrl, paymasterUrl };
   }
 
   if (chainId === arbitrum.id) {
     return {
-      bundlerUrl: process.env.NEXT_PUBLIC_ZERODEV_BUNDLER_URL_ARBITRUM ||
-        `https://rpc.zerodev.app/api/v2/bundler/${projectId}?chainId=${chainId}`,
-      paymasterUrl: process.env.NEXT_PUBLIC_ZERODEV_PAYMASTER_URL_ARBITRUM ||
-        `https://rpc.zerodev.app/api/v2/paymaster/${projectId}?chainId=${chainId}`,
+      bundlerUrl: process.env.NEXT_PUBLIC_ZERODEV_BUNDLER_URL_ARBITRUM || baseUrl,
+      paymasterUrl: process.env.NEXT_PUBLIC_ZERODEV_PAYMASTER_URL_ARBITRUM || baseUrl,
     };
   }
 
@@ -89,14 +93,15 @@ export interface SerializedSession {
   sessionKeyAddress: Address; // Public address of the session key
   createdAt: number;
   // ZeroDev approval strings (includes owner's enable signature)
-  etherealApproval: string;
+  // Ethereal is optional (only if bundler/paymaster configured)
+  etherealApproval?: string;
   arbitrumApproval: string;
 }
 
 // Session result with chain clients
 export interface SessionResult {
   config: SessionConfig;
-  etherealClient: KernelAccountClient<any, any, any>;
+  etherealClient: KernelAccountClient<any, any, any> | null; // null if Ethereal not configured
   arbitrumClient: KernelAccountClient<any, any, any>;
   serialized: SerializedSession;
 }
@@ -107,6 +112,8 @@ export interface OwnerSigner {
   address: Address;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   provider: any; // EIP-1193 provider - ZeroDev accepts this via toSigner
+  // Function to switch chains - needed for multi-chain session creation
+  switchChain: (chainId: number) => Promise<void>;
 }
 
 /**
@@ -179,31 +186,97 @@ export async function createSession(
   // Get public clients
   const { etherealPublicClient, arbitrumPublicClient } = getPublicClients();
 
-  // Create ECDSA validators for owner on both chains
-  // Use the EIP-1193 provider so ZeroDev can request signatures
-  const etherealOwnerValidator = await signerToEcdsaValidator(etherealPublicClient, {
-    signer: ownerSigner.provider,
-    entryPoint: ENTRY_POINT,
-    kernelVersion: KERNEL_VERSION,
-  });
+  // Create sudo policy (allow all operations - spending limit hook will restrict)
+  const sudoPolicy = toSudoPolicy({});
 
+  // Import serialization function
+  const { serializePermissionAccount } = await import('@zerodev/permissions');
+
+  // Check which chains have bundler/paymaster URLs configured
+  const etherealUrls = getZeroDevUrls(ethereal.id);
+  const arbitrumUrls = getZeroDevUrls(arbitrum.id);
+
+  let etherealApproval: string | undefined;
+  let etherealClient: KernelAccountClient<any, any, any> | null = null;
+  let smartAccountAddress: Address;
+
+  // --- ETHEREAL CHAIN SETUP (optional) ---
+  if (etherealUrls) {
+    console.debug('[SessionKeyManager] Setting up Ethereal session...');
+
+    // Create spending limit hook for WUSDe on Ethereal
+    const spendingLimitHook = await toSpendingLimitHook({
+      limits: [
+        {
+          token: WUSDE_ADDRESS_ETHEREAL,
+          allowance: maxSpendUSDe,
+        },
+      ],
+    });
+
+    // Switch to Ethereal chain
+    console.debug('[SessionKeyManager] Switching to Ethereal chain...');
+    await ownerSigner.switchChain(ethereal.id);
+
+    // Create ECDSA validator for owner on Ethereal
+    const etherealOwnerValidator = await signerToEcdsaValidator(etherealPublicClient, {
+      signer: ownerSigner.provider,
+      entryPoint: ENTRY_POINT,
+      kernelVersion: KERNEL_VERSION,
+    });
+
+    // Create permission plugin for Ethereal
+    const etherealPermissionPlugin = await toPermissionValidator(etherealPublicClient, {
+      entryPoint: ENTRY_POINT,
+      signer: sessionKeySigner,
+      policies: [sudoPolicy],
+      kernelVersion: KERNEL_VERSION,
+    });
+
+    // Create Ethereal kernel account
+    const etherealAccount = await createKernelAccount(etherealPublicClient, {
+      entryPoint: ENTRY_POINT,
+      plugins: {
+        sudo: etherealOwnerValidator,
+        regular: etherealPermissionPlugin,
+        hook: spendingLimitHook,
+      },
+      kernelVersion: KERNEL_VERSION,
+    });
+
+    smartAccountAddress = etherealAccount.address;
+    console.debug('[SessionKeyManager] Smart account address:', smartAccountAddress);
+
+    // Serialize Ethereal account (triggers EIP-712 signature)
+    console.debug('[SessionKeyManager] Requesting owner approval for Ethereal session key...');
+    etherealApproval = await serializePermissionAccount(
+      etherealAccount,
+      sessionPrivateKey
+    );
+
+    // Create Ethereal client
+    etherealClient = await createChainClient(ethereal, etherealAccount);
+  } else {
+    console.debug('[SessionKeyManager] Skipping Ethereal session (not configured)');
+  }
+
+  // --- ARBITRUM CHAIN SETUP (required) ---
+  if (!arbitrumUrls) {
+    throw new Error('Arbitrum bundler/paymaster URLs are required');
+  }
+
+  // Switch to Arbitrum chain
+  console.debug('[SessionKeyManager] Switching to Arbitrum chain...');
+  await ownerSigner.switchChain(arbitrum.id);
+
+  // Create ECDSA validator for owner on Arbitrum
   const arbitrumOwnerValidator = await signerToEcdsaValidator(arbitrumPublicClient, {
     signer: ownerSigner.provider,
     entryPoint: ENTRY_POINT,
     kernelVersion: KERNEL_VERSION,
   });
 
-  // Create sudo policy (allow all operations - spending limit hook will restrict)
-  const sudoPolicy = toSudoPolicy({});
-
-  // Create permission plugins for both chains
-  const etherealPermissionPlugin = await toPermissionValidator(etherealPublicClient, {
-    entryPoint: ENTRY_POINT,
-    signer: sessionKeySigner,
-    policies: [sudoPolicy],
-    kernelVersion: KERNEL_VERSION,
-  });
-
+  // Create permission plugin for Arbitrum
   const arbitrumPermissionPlugin = await toPermissionValidator(arbitrumPublicClient, {
     entryPoint: ENTRY_POINT,
     signer: sessionKeySigner,
@@ -211,27 +284,7 @@ export async function createSession(
     kernelVersion: KERNEL_VERSION,
   });
 
-  // Create spending limit hook for WUSDe on Ethereal
-  const spendingLimitHook = await toSpendingLimitHook({
-    limits: [
-      {
-        token: WUSDE_ADDRESS_ETHEREAL,
-        allowance: maxSpendUSDe,
-      },
-    ],
-  });
-
-  // Create kernel accounts with session keys
-  const etherealAccount = await createKernelAccount(etherealPublicClient, {
-    entryPoint: ENTRY_POINT,
-    plugins: {
-      sudo: etherealOwnerValidator,
-      regular: etherealPermissionPlugin,
-      hook: spendingLimitHook,
-    },
-    kernelVersion: KERNEL_VERSION,
-  });
-
+  // Create Arbitrum kernel account
   const arbitrumAccount = await createKernelAccount(arbitrumPublicClient, {
     entryPoint: ENTRY_POINT,
     plugins: {
@@ -241,20 +294,14 @@ export async function createSession(
     kernelVersion: KERNEL_VERSION,
   });
 
-  const smartAccountAddress = etherealAccount.address;
-  console.debug('[SessionKeyManager] Smart account address:', smartAccountAddress);
+  // Use Arbitrum account address if Ethereal wasn't created
+  if (!smartAccountAddress!) {
+    smartAccountAddress = arbitrumAccount.address;
+    console.debug('[SessionKeyManager] Smart account address (from Arbitrum):', smartAccountAddress);
+  }
 
-  // Serialize accounts with approval - triggers owner's EIP-712 signature for each chain
-  console.debug('[SessionKeyManager] Requesting owner approval for session keys...');
-
-  // Serialize each chain's account separately (owner will sign for each)
-  const { serializePermissionAccount } = await import('@zerodev/permissions');
-
-  const etherealApproval = await serializePermissionAccount(
-    etherealAccount,
-    sessionPrivateKey
-  );
-
+  // Serialize Arbitrum account (triggers EIP-712 signature)
+  console.debug('[SessionKeyManager] Requesting owner approval for Arbitrum session key...');
   const arbitrumApproval = await serializePermissionAccount(
     arbitrumAccount,
     sessionPrivateKey
@@ -262,8 +309,7 @@ export async function createSession(
 
   console.debug('[SessionKeyManager] Owner approval obtained, session created');
 
-  // Create kernel clients for immediate use
-  const etherealClient = await createChainClient(ethereal, etherealAccount);
+  // Create Arbitrum client
   const arbitrumClient = await createChainClient(arbitrum, arbitrumAccount);
 
   const config: SessionConfig = {
@@ -320,16 +366,24 @@ export async function restoreSession(serialized: SerializedSession): Promise<Ses
     signer: sessionKeyAccount,
   });
 
-  // Deserialize accounts from stored approvals
-  // ZeroDev validates the enable signature internally
-  const etherealAccount = await deserializePermissionAccount(
-    etherealPublicClient,
-    ENTRY_POINT,
-    KERNEL_VERSION,
-    serialized.etherealApproval,
-    sessionKeySigner
-  );
+  // Restore Ethereal session (optional)
+  let etherealClient: KernelAccountClient<any, any, any> | null = null;
+  if (serialized.etherealApproval) {
+    const etherealUrls = getZeroDevUrls(ethereal.id);
+    if (etherealUrls) {
+      const etherealAccount = await deserializePermissionAccount(
+        etherealPublicClient,
+        ENTRY_POINT,
+        KERNEL_VERSION,
+        serialized.etherealApproval,
+        sessionKeySigner
+      );
+      etherealClient = await createChainClient(ethereal, etherealAccount);
+      console.debug('[SessionKeyManager] Ethereal session restored');
+    }
+  }
 
+  // Restore Arbitrum session (required)
   const arbitrumAccount = await deserializePermissionAccount(
     arbitrumPublicClient,
     ENTRY_POINT,
@@ -337,11 +391,6 @@ export async function restoreSession(serialized: SerializedSession): Promise<Ses
     serialized.arbitrumApproval,
     sessionKeySigner
   );
-
-  console.debug('[SessionKeyManager] Session restored, creating clients...');
-
-  // Create kernel clients
-  const etherealClient = await createChainClient(ethereal, etherealAccount);
   const arbitrumClient = await createChainClient(arbitrum, arbitrumAccount);
 
   console.debug('[SessionKeyManager] Session restoration complete');
@@ -361,7 +410,15 @@ async function createChainClient(
   chain: Chain,
   account: Awaited<ReturnType<typeof createKernelAccount>>
 ): Promise<KernelAccountClient<any, any, any>> {
-  const { bundlerUrl, paymasterUrl } = getZeroDevUrls(chain.id);
+  const urls = getZeroDevUrls(chain.id);
+  if (!urls) {
+    throw new Error(`No bundler/paymaster URLs configured for chain ${chain.id}`);
+  }
+  const { bundlerUrl, paymasterUrl } = urls;
+
+  console.debug(`[SessionKeyManager] Creating client for chain ${chain.id} (${chain.name})`);
+  console.debug(`[SessionKeyManager] Bundler URL: ${bundlerUrl}`);
+  console.debug(`[SessionKeyManager] Paymaster URL: ${paymasterUrl}`);
 
   const paymasterClient = createZeroDevPaymasterClient({
     chain,
@@ -374,7 +431,15 @@ async function createChainClient(
     bundlerTransport: http(bundlerUrl),
     paymaster: {
       getPaymasterData: async (userOperation) => {
-        return paymasterClient.sponsorUserOperation({ userOperation });
+        console.debug(`[SessionKeyManager] Requesting paymaster sponsorship for chain ${chain.id}...`);
+        try {
+          const result = await paymasterClient.sponsorUserOperation({ userOperation });
+          console.debug(`[SessionKeyManager] Paymaster sponsorship received`);
+          return result;
+        } catch (error: any) {
+          console.error(`[SessionKeyManager] Paymaster error:`, error?.message || error);
+          throw error;
+        }
       },
     },
   });
@@ -413,8 +478,9 @@ export function loadSession(): SerializedSession | null {
 
     // Migration: Clear old sessions without ZeroDev approval
     // Old sessions used ownerSignature instead of approval strings
-    if (!parsed.etherealApproval || !parsed.arbitrumApproval) {
-      console.debug('[SessionKeyManager] Clearing old session format (missing approvals)');
+    // Arbitrum approval is required, Ethereal is optional
+    if (!parsed.arbitrumApproval) {
+      console.debug('[SessionKeyManager] Clearing old session format (missing Arbitrum approval)');
       clearSession();
       return null;
     }

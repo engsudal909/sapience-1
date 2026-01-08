@@ -278,11 +278,27 @@ export function SessionProvider({ children }: SessionProviderProps) {
         // ZeroDev will use this provider to request signatures via EIP-1193
         const provider = await connectedWallet.getEthereumProvider();
 
-        // Create owner signer with the EIP-1193 provider
+        // Create a chain switcher function for multi-chain session creation
+        const switchChain = async (chainId: number) => {
+          try {
+            await connectedWallet.switchChain(chainId);
+          } catch (error: any) {
+            // If chain doesn't exist, try to add it first (for Ethereal)
+            if (error?.code === 4902 || error?.message?.includes('Unrecognized chain')) {
+              // Chain not added to wallet, need to add it
+              // For now, just re-throw - user needs to add the chain manually
+              throw new Error(`Please add chain ${chainId} to your wallet first`);
+            }
+            throw error;
+          }
+        };
+
+        // Create owner signer with the EIP-1193 provider and chain switcher
         // ZeroDev's signerToEcdsaValidator accepts EIP-1193 providers directly
         const ownerSigner: OwnerSigner = {
           address: connectedWallet.address as Address,
           provider,
+          switchChain,
         };
 
         const result = await createSession(
