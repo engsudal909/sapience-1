@@ -394,14 +394,38 @@ bash src/scripts/DeployConditionalTokensResolver/verify_polygon.sh
 
 **Note**: Polygon Mainnet chain ID is `137`. Make sure you have a Polygonscan API key (not Etherscan).
 
-### Ethereal (Manual)
+### Ethereal (Blockscout)
 
-Ethereal uses a custom explorer at https://explorer.ethereal.trade. The deployment script (Step 2) outputs the encoded constructor arguments needed for verification.
+Ethereal uses Blockscout explorer at https://explorer.ethereal.trade. You can verify contracts using forge with the Blockscout verifier:
 
-1. Visit https://explorer.ethereal.trade/address/<CONTRACT_ADDRESS>
-2. Click "Verify Contract"
-3. Use the encoded constructor args (hex) printed by the deployment script
-4. Follow the explorer's instructions for verification
+**Automatic verification during deployment:**
+```bash
+forge script src/scripts/DeployConditionalTokensResolver/02_Ethereal_deployResolver.s.sol \
+  --rpc-url $ETHEREAL_RPC \
+  --broadcast \
+  --private-key $ETHEREAL_PRIVATE_KEY \
+  --verify \
+  --verifier blockscout \
+  --verifier-url https://explorer.ethereal.trade/api/ \
+  -vvvv
+```
+
+**Manual verification after deployment:**
+```bash
+# Get the constructor args from the deployment script output or broadcast JSON
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address,(uint256))" $ENDPOINT $OWNER "($MAX_MARKETS)")
+
+forge verify-contract \
+  $ETHEREAL_CONDITIONAL_TOKENS_RESOLVER \
+  src/predictionMarket/resolvers/PredictionMarketLZConditionalTokensResolver.sol:PredictionMarketLZConditionalTokensResolver \
+  --chain-id 5066318 \
+  --constructor-args $CONSTRUCTOR_ARGS \
+  --verifier blockscout \
+  --verifier-url https://explorer.ethereal.trade/api/ \
+  --watch
+```
+
+**Note**: Always include `--verifier blockscout --verifier-url https://explorer.ethereal.trade/api/` when verifying on Ethereal.
 
 ## Next Steps
 

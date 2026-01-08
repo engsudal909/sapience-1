@@ -3,6 +3,7 @@ pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {PredictionMarketLZConditionalTokensResolver} from "../../predictionMarket/resolvers/PredictionMarketLZConditionalTokensResolver.sol";
+import {IPredictionMarketLZConditionalTokensResolver} from "../../predictionMarket/resolvers/interfaces/IPredictionMarketLZConditionalTokensResolver.sol";
 
 /**
  * @title VerifyResolution
@@ -38,7 +39,7 @@ contract VerifyResolution is Script {
             PredictionMarketLZConditionalTokensResolver(resolver);
 
         // Get condition state
-        PredictionMarketLZConditionalTokensResolver.ConditionState memory condition = 
+        IPredictionMarketLZConditionalTokensResolver.ConditionState memory condition =
             resolverContract.getCondition(conditionId);
 
         console.log("Condition State:");
