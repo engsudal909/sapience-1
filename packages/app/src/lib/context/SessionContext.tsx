@@ -45,10 +45,10 @@ interface SignTypedDataParams {
 }
 
 // Session metadata for relayer verification
+// Note: ZeroDev approval handles owner authorization, so ownerSignature is no longer needed
 export interface SessionMetadata {
   ownerAddress: Address;
   sessionKeyAddress: Address;
-  ownerSignature: Hex;
   sessionExpiresAt: number;
   maxSpendUSDe: string;
 }
@@ -82,7 +82,6 @@ interface SessionContextValue {
 
   // Session metadata for relayer verification (available when session is active)
   sessionKeyAddress: Address | null;
-  ownerSignature: Hex | null;
 
   // Get full session metadata for including in requests
   getSessionMetadata: (() => SessionMetadata) | null;
@@ -123,7 +122,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   // Session metadata for relayer verification
   const [sessionKeyAddress, setSessionKeyAddress] = useState<Address | null>(null);
-  const [ownerSignature, setOwnerSignature] = useState<Hex | null>(null);
 
   // Sign message with session key
   const signMessage = useCallback(
@@ -151,17 +149,16 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   // Get session metadata for including in requests to the relayer
   const getSessionMetadata = useCallback((): SessionMetadata => {
-    if (!sessionConfig || !sessionKeyAddress || !ownerSignature) {
+    if (!sessionConfig || !sessionKeyAddress) {
       throw new Error('No active session');
     }
     return {
       ownerAddress: sessionConfig.ownerAddress,
       sessionKeyAddress,
-      ownerSignature,
       sessionExpiresAt: sessionConfig.expiresAt,
       maxSpendUSDe: sessionConfig.maxSpendUSDe.toString(),
     };
-  }, [sessionConfig, sessionKeyAddress, ownerSignature]);
+  }, [sessionConfig, sessionKeyAddress]);
 
   // Calculate smart account address when wallet connects
   useEffect(() => {
@@ -221,7 +218,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
         });
         setSessionPrivateKey(stored.sessionPrivateKey);
         setSessionKeyAddress(stored.sessionKeyAddress);
-        setOwnerSignature(stored.ownerSignature);
         setIsSessionActive(true);
         setTimeRemainingMs(result.config.expiresAt - Date.now());
       } catch (error) {
@@ -262,7 +258,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
     setChainClients({ ethereal: null, arbitrum: null });
     setSessionPrivateKey(null);
     setSessionKeyAddress(null);
-    setOwnerSignature(null);
     setTimeRemainingMs(0);
     clearSession();
     console.debug('[SessionContext] Session cleared');
@@ -280,20 +275,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
       try {
         // Get the Ethereum provider from the connected wallet
+        // ZeroDev will use this provider to request signatures via EIP-1193
         const provider = await connectedWallet.getEthereumProvider();
 
-        // Create owner signer that uses the wallet to sign messages
+        // Create owner signer with the EIP-1193 provider
+        // ZeroDev's signerToEcdsaValidator accepts EIP-1193 providers directly
         const ownerSigner: OwnerSigner = {
           address: connectedWallet.address as Address,
-          signMessage: async ({ message }) => {
-            // Use personal_sign via the wallet's provider
-            const messageStr = typeof message === 'string' ? message : message.raw;
-            const signature = await provider.request({
-              method: 'personal_sign',
-              params: [messageStr, connectedWallet.address],
-            });
-            return signature as Hex;
-          },
+          provider,
         };
 
         const result = await createSession(
@@ -314,7 +303,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
         });
         setSessionPrivateKey(result.serialized.sessionPrivateKey);
         setSessionKeyAddress(result.serialized.sessionKeyAddress);
-        setOwnerSignature(result.serialized.ownerSignature);
         setIsSessionActive(true);
         setTimeRemainingMs(result.config.expiresAt - Date.now());
         console.debug('[SessionContext] Session active, smart account:', result.config.smartAccountAddress);
@@ -357,7 +345,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
       signMessage: sessionPrivateKey ? signMessage : null,
       signTypedData: sessionPrivateKey ? signTypedData : null,
       sessionKeyAddress,
-      ownerSignature,
       getSessionMetadata: isSessionActive ? getSessionMetadata : null,
     }),
     [
@@ -376,7 +363,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
       signMessage,
       signTypedData,
       sessionKeyAddress,
-      ownerSignature,
       getSessionMetadata,
     ]
   );

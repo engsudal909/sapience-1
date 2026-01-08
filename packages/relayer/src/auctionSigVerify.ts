@@ -74,40 +74,11 @@ async function verifySmartAccountSignature(
 }
 
 /**
- * Create the session authorization message that the owner signed.
- * MUST match exactly what the app creates in sessionKeyManager.ts
- */
-export function createSessionAuthMessage(params: {
-  sessionKeyAddress: string;
-  smartAccountAddress: string;
-  ownerAddress: string;
-  maxSpendUSDe: string; // wei string
-  expiresAt: number; // ms since epoch
-}): string {
-  const { sessionKeyAddress, smartAccountAddress, ownerAddress, maxSpendUSDe, expiresAt } = params;
-  const expiresDate = new Date(expiresAt).toISOString();
-  // Convert wei to whole USDe units (18 decimals)
-  const spendLimit = (BigInt(maxSpendUSDe) / BigInt(10 ** 18)).toString();
-
-  return `Sapience Session Authorization
-
-I authorize this session key to act on behalf of my smart account.
-
-Session Key: ${sessionKeyAddress}
-Smart Account: ${smartAccountAddress}
-Owner Wallet: ${ownerAddress}
-Spending Limit: ${spendLimit} USDe
-Expires: ${expiresDate}
-
-This signature proves I control the owner wallet and authorize this session.`;
-}
-
-/**
  * Verify a session signature for an auction request.
- * This works for counterfactual (undeployed) smart accounts by verifying:
+ * ZeroDev's enable signature handles owner->session authorization,
+ * so we only need to verify:
  * 1. Session not expired
- * 2. Owner signature proves authorization of (smartAccount, sessionKey) pair
- * 3. Session key signed the request
+ * 2. Session key signed the request
  */
 async function verifySessionSignature(
   payload: AuctionRequestPayload,
@@ -121,39 +92,9 @@ async function verifySessionSignature(
     return false;
   }
 
-  // 2. Verify owner authorized this (smartAccount, sessionKey) pair
-  // The auth message includes the smart account address, so if owner signed it,
-  // they authorized this specific smart account to be controlled by this session key
-  const authMessage = createSessionAuthMessage({
-    sessionKeyAddress: sessionMetadata.sessionKeyAddress,
-    smartAccountAddress: payload.taker, // The claimed smart account
-    ownerAddress: sessionMetadata.ownerAddress,
-    maxSpendUSDe: sessionMetadata.maxSpendUSDe,
-    expiresAt: sessionMetadata.sessionExpiresAt,
-  });
-
-  try {
-    const ownerValid = await verifyMessage({
-      address: sessionMetadata.ownerAddress as Address,
-      message: authMessage,
-      signature: sessionMetadata.ownerSignature as Hex,
-    });
-
-    if (!ownerValid) {
-      console.warn('[Session-Sig] Owner signature invalid - could not verify wallet authorization');
-      return false;
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('[Session-Sig] Owner signature valid - wallet ownership verified');
-    }
-  } catch (error) {
-    console.error('[Session-Sig] Owner signature verification failed:', error);
-    return false;
-  }
-
-  // 3. Verify session key signed the request
-  // Reconstruct the SIWE message that the session key should have signed
+  // 2. Verify session key signed the request
+  // Note: Owner authorization is handled by ZeroDev's enable signature,
+  // which is validated when the session key submits UserOperations
   const signingPayload: AuctionStartSigningPayload = {
     wager: payload.wager,
     predictedOutcomes: payload.predictedOutcomes,

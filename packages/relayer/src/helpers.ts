@@ -7,12 +7,10 @@ import {
   createPublicClient,
   http,
   getAddress,
-  verifyMessage,
   type Address,
   type Hex,
 } from 'viem';
 import { arbitrum } from 'viem/chains';
-import { createSessionAuthMessage } from './auctionSigVerify';
 
 // EIP-1271 magic value for valid signatures
 const EIP1271_MAGIC_VALUE = '0x1626ba7e';
@@ -278,10 +276,10 @@ export function verifyMakerBid(params: {
 
 /**
  * Verify a session-based maker bid signature.
- * This works for counterfactual (undeployed) smart accounts by verifying:
+ * ZeroDev's enable signature handles owner->session authorization,
+ * so we only need to verify:
  * 1. Session not expired
- * 2. Owner signature proves authorization of (smartAccount, sessionKey) pair
- * 3. Session key signed the typed data
+ * 2. Session key signed the typed data
  */
 async function verifySessionMakerBid(params: {
   bid: BidPayload;
@@ -302,36 +300,9 @@ async function verifySessionMakerBid(params: {
     return { ok: false, reason: 'session_expired' };
   }
 
-  // 2. Verify owner authorized this (smartAccount, sessionKey) pair
-  const authMessage = createSessionAuthMessage({
-    sessionKeyAddress: sessionMetadata.sessionKeyAddress,
-    smartAccountAddress: bid.maker, // The claimed smart account
-    ownerAddress: sessionMetadata.ownerAddress,
-    maxSpendUSDe: sessionMetadata.maxSpendUSDe,
-    expiresAt: sessionMetadata.sessionExpiresAt,
-  });
-
-  try {
-    const ownerValid = await verifyMessage({
-      address: sessionMetadata.ownerAddress as Address,
-      message: authMessage,
-      signature: sessionMetadata.ownerSignature as Hex,
-    });
-
-    if (!ownerValid) {
-      console.warn('[Helpers-Session] Owner signature invalid');
-      return { ok: false, reason: 'invalid_owner_signature' };
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('[Helpers-Session] Owner signature valid');
-    }
-  } catch (error) {
-    console.error('[Helpers-Session] Owner signature verification failed:', error);
-    return { ok: false, reason: 'owner_verification_failed' };
-  }
-
-  // 3. Verify session key signed the typed data
+  // 2. Verify session key signed the typed data
+  // Note: Owner authorization is handled by ZeroDev's enable signature,
+  // which is validated when the session key submits UserOperations
   try {
     const sessionKeyValid = await verifyTypedData({
       address: sessionMetadata.sessionKeyAddress as Address,

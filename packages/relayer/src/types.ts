@@ -1,12 +1,13 @@
 export type HexString = `0x${string}`;
 
 /** Session metadata for verifying signatures from counterfactual smart accounts */
+// Note: ZeroDev approval handles owner authorization via enable signature,
+// so we no longer need ownerSignature for relayer verification
 export interface SessionMetadata {
   ownerAddress: string; // EOA that owns the smart account
   sessionKeyAddress: string; // Session key that signed the request
-  ownerSignature: string; // Owner's authorization signature
   sessionExpiresAt: number; // Expiration timestamp (ms since epoch)
-  maxSpendUSDe: string; // Spending limit in wei (for auth message reconstruction)
+  maxSpendUSDe: string; // Spending limit in wei
 }
 
 export interface AuctionRequestPayload {

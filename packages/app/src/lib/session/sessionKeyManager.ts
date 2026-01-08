@@ -11,11 +11,14 @@ import {
   createKernelAccount,
   createKernelAccountClient,
   createZeroDevPaymasterClient,
-  addressToEmptyAccount,
+  addressToEmptyAccount, // Still needed for getSmartAccountAddress
   type KernelAccountClient,
 } from '@zerodev/sdk';
 import { signerToEcdsaValidator } from '@zerodev/ecdsa-validator';
-import { toPermissionValidator } from '@zerodev/permissions';
+import {
+  toPermissionValidator,
+  deserializePermissionAccount,
+} from '@zerodev/permissions';
 import { toECDSASigner } from '@zerodev/permissions/signers';
 import { toSudoPolicy } from '@zerodev/permissions/policies';
 import { toSpendingLimitHook } from '@zerodev/hooks';
@@ -79,13 +82,15 @@ export interface SessionConfig {
 }
 
 // Serialized session for localStorage
-// We only store the session private key and config - accounts are recreated on restore
+// We store ZeroDev approval strings which embed owner's EIP-712 signature
 export interface SerializedSession {
   config: Omit<SessionConfig, 'maxSpendUSDe'> & { maxSpendUSDe: string };
   sessionPrivateKey: Hex;
   sessionKeyAddress: Address; // Public address of the session key
-  ownerSignature: Hex; // Proves wallet ownership and session authorization
   createdAt: number;
+  // ZeroDev approval strings (includes owner's enable signature)
+  etherealApproval: string;
+  arbitrumApproval: string;
 }
 
 // Session result with chain clients
@@ -97,15 +102,11 @@ export interface SessionResult {
 }
 
 // Owner signer interface (what we get from connected wallet)
+// The provider should be an EIP-1193 compatible Ethereum provider
 export interface OwnerSigner {
   address: Address;
-  signMessage: (args: { message: string | { raw: Hex } }) => Promise<Hex>;
-  signTypedData?: (args: {
-    domain: any;
-    types: any;
-    primaryType: string;
-    message: any;
-  }) => Promise<Hex>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  provider: any; // EIP-1193 provider - ZeroDev accepts this via toSigner
 }
 
 /**
@@ -136,27 +137,8 @@ export async function getSmartAccountAddress(ownerAddress: Address): Promise<Add
   return account.address;
 }
 
-/**
- * Helper to create session accounts and clients from a private key and owner address.
- * Used by both createSession and restoreSession.
- */
-async function buildSessionClients(
-  sessionPrivateKey: Hex,
-  ownerAddress: Address,
-  maxSpendUSDe: bigint
-): Promise<{
-  etherealClient: KernelAccountClient<any, any, any>;
-  arbitrumClient: KernelAccountClient<any, any, any>;
-  smartAccountAddress: Address;
-}> {
-  const sessionKeyAccount = privateKeyToAccount(sessionPrivateKey);
-
-  // Create session key signer
-  const sessionKeySigner = await toECDSASigner({
-    signer: sessionKeyAccount,
-  });
-
-  // Create public clients for both chains
+// Public clients are created once and reused
+function getPublicClients() {
   const etherealPublicClient = createPublicClient({
     transport: http(ethereal.rpcUrls.default.http[0]),
     chain: ethereal,
@@ -167,18 +149,46 @@ async function buildSessionClients(
     chain: arbitrum,
   });
 
-  // For omnichain session keys, we use addressToEmptyAccount for the sudo validator
-  const emptyOwnerAccount = addressToEmptyAccount(ownerAddress);
+  return { etherealPublicClient, arbitrumPublicClient };
+}
+
+/**
+ * Create a new session with spending limits.
+ * Uses ZeroDev's serializePermissionAccount to capture owner's EIP-712 approval.
+ * The owner will be prompted to sign EIP-712 typed data messages for each chain.
+ */
+export async function createSession(
+  ownerSigner: OwnerSigner,
+  durationHours: number,
+  maxSpendUSDe: bigint
+): Promise<SessionResult> {
+  console.debug('[SessionKeyManager] Creating new session...');
+
+  // Generate session private key
+  const sessionPrivateKey = generatePrivateKey();
+  const sessionKeyAccount = privateKeyToAccount(sessionPrivateKey);
+
+  // Create session key signer for ZeroDev
+  const sessionKeySigner = await toECDSASigner({
+    signer: sessionKeyAccount,
+  });
+
+  // Calculate expiration
+  const expiresAt = Date.now() + durationHours * 60 * 60 * 1000;
+
+  // Get public clients
+  const { etherealPublicClient, arbitrumPublicClient } = getPublicClients();
 
   // Create ECDSA validators for owner on both chains
-  const etherealEcdsaValidator = await signerToEcdsaValidator(etherealPublicClient, {
-    signer: emptyOwnerAccount,
+  // Use the EIP-1193 provider so ZeroDev can request signatures
+  const etherealOwnerValidator = await signerToEcdsaValidator(etherealPublicClient, {
+    signer: ownerSigner.provider,
     entryPoint: ENTRY_POINT,
     kernelVersion: KERNEL_VERSION,
   });
 
-  const arbitrumEcdsaValidator = await signerToEcdsaValidator(arbitrumPublicClient, {
-    signer: emptyOwnerAccount,
+  const arbitrumOwnerValidator = await signerToEcdsaValidator(arbitrumPublicClient, {
+    signer: ownerSigner.provider,
     entryPoint: ENTRY_POINT,
     kernelVersion: KERNEL_VERSION,
   });
@@ -212,103 +222,49 @@ async function buildSessionClients(
   });
 
   // Create kernel accounts with session keys
-  const etherealSessionAccount = await createKernelAccount(etherealPublicClient, {
+  const etherealAccount = await createKernelAccount(etherealPublicClient, {
     entryPoint: ENTRY_POINT,
     plugins: {
-      sudo: etherealEcdsaValidator,
+      sudo: etherealOwnerValidator,
       regular: etherealPermissionPlugin,
       hook: spendingLimitHook,
     },
     kernelVersion: KERNEL_VERSION,
   });
 
-  const arbitrumSessionAccount = await createKernelAccount(arbitrumPublicClient, {
+  const arbitrumAccount = await createKernelAccount(arbitrumPublicClient, {
     entryPoint: ENTRY_POINT,
     plugins: {
-      sudo: arbitrumEcdsaValidator,
+      sudo: arbitrumOwnerValidator,
       regular: arbitrumPermissionPlugin,
     },
     kernelVersion: KERNEL_VERSION,
   });
 
-  // Create kernel clients
-  const etherealClient = await createChainClient(ethereal, etherealSessionAccount);
-  const arbitrumClient = await createChainClient(arbitrum, arbitrumSessionAccount);
+  const smartAccountAddress = etherealAccount.address;
+  console.debug('[SessionKeyManager] Smart account address:', smartAccountAddress);
 
-  return {
-    etherealClient,
-    arbitrumClient,
-    smartAccountAddress: etherealSessionAccount.address,
-  };
-}
+  // Serialize accounts with approval - triggers owner's EIP-712 signature for each chain
+  console.debug('[SessionKeyManager] Requesting owner approval for session keys...');
 
-/**
- * Create a session authorization message for the owner to sign.
- * This proves the owner controls the wallet and authorizes the session.
- */
-export function createSessionAuthMessage(params: {
-  sessionKeyAddress: Address;
-  smartAccountAddress: Address;
-  ownerAddress: Address;
-  maxSpendUSDe: bigint;
-  expiresAt: number;
-}): string {
-  const { sessionKeyAddress, smartAccountAddress, ownerAddress, maxSpendUSDe, expiresAt } = params;
-  const expiresDate = new Date(expiresAt).toISOString();
-  const spendLimit = (maxSpendUSDe / BigInt(10 ** 18)).toString();
+  // Serialize each chain's account separately (owner will sign for each)
+  const { serializePermissionAccount } = await import('@zerodev/permissions');
 
-  return `Sapience Session Authorization
-
-I authorize this session key to act on behalf of my smart account.
-
-Session Key: ${sessionKeyAddress}
-Smart Account: ${smartAccountAddress}
-Owner Wallet: ${ownerAddress}
-Spending Limit: ${spendLimit} USDe
-Expires: ${expiresDate}
-
-This signature proves I control the owner wallet and authorize this session.`;
-}
-
-/**
- * Create a new session with spending limits.
- * Requires the owner to sign a message proving they control the wallet.
- */
-export async function createSession(
-  ownerSigner: OwnerSigner,
-  durationHours: number,
-  maxSpendUSDe: bigint
-): Promise<SessionResult> {
-  // Generate session private key
-  const sessionPrivateKey = generatePrivateKey();
-  const sessionKeyAccount = privateKeyToAccount(sessionPrivateKey);
-
-  // Calculate expiration
-  const expiresAt = Date.now() + durationHours * 60 * 60 * 1000;
-
-  // Get smart account address first (needed for the auth message)
-  const smartAccountAddress = await getSmartAccountAddress(ownerSigner.address);
-
-  // Create authorization message
-  const authMessage = createSessionAuthMessage({
-    sessionKeyAddress: sessionKeyAccount.address,
-    smartAccountAddress,
-    ownerAddress: ownerSigner.address,
-    maxSpendUSDe,
-    expiresAt,
-  });
-
-  // Request owner signature to prove wallet ownership and authorize session
-  console.debug('[SessionKeyManager] Requesting owner signature for session authorization...');
-  const ownerSignature = await ownerSigner.signMessage({ message: authMessage });
-  console.debug('[SessionKeyManager] Owner signature obtained');
-
-  // Build session clients
-  const { etherealClient, arbitrumClient } = await buildSessionClients(
-    sessionPrivateKey,
-    ownerSigner.address,
-    maxSpendUSDe
+  const etherealApproval = await serializePermissionAccount(
+    etherealAccount,
+    sessionPrivateKey
   );
+
+  const arbitrumApproval = await serializePermissionAccount(
+    arbitrumAccount,
+    sessionPrivateKey
+  );
+
+  console.debug('[SessionKeyManager] Owner approval obtained, session created');
+
+  // Create kernel clients for immediate use
+  const etherealClient = await createChainClient(ethereal, etherealAccount);
+  const arbitrumClient = await createChainClient(arbitrum, arbitrumAccount);
 
   const config: SessionConfig = {
     durationHours,
@@ -325,8 +281,9 @@ export async function createSession(
     },
     sessionPrivateKey,
     sessionKeyAddress: sessionKeyAccount.address,
-    ownerSignature,
     createdAt: Date.now(),
+    etherealApproval,
+    arbitrumApproval,
   };
 
   return {
@@ -339,6 +296,7 @@ export async function createSession(
 
 /**
  * Restore a session from serialized data.
+ * Uses ZeroDev's deserializePermissionAccount to restore accounts from approval strings.
  */
 export async function restoreSession(serialized: SerializedSession): Promise<SessionResult> {
   // Check if session has expired
@@ -346,17 +304,47 @@ export async function restoreSession(serialized: SerializedSession): Promise<Ses
     throw new Error('Session has expired');
   }
 
+  console.debug('[SessionKeyManager] Restoring session...');
+
   const config: SessionConfig = {
     ...serialized.config,
     maxSpendUSDe: BigInt(serialized.config.maxSpendUSDe),
   };
 
-  // Rebuild session clients from stored private key
-  const { etherealClient, arbitrumClient } = await buildSessionClients(
-    serialized.sessionPrivateKey,
-    config.ownerAddress,
-    config.maxSpendUSDe
+  // Get public clients
+  const { etherealPublicClient, arbitrumPublicClient } = getPublicClients();
+
+  // Recreate session key signer from stored private key
+  const sessionKeyAccount = privateKeyToAccount(serialized.sessionPrivateKey);
+  const sessionKeySigner = await toECDSASigner({
+    signer: sessionKeyAccount,
+  });
+
+  // Deserialize accounts from stored approvals
+  // ZeroDev validates the enable signature internally
+  const etherealAccount = await deserializePermissionAccount(
+    etherealPublicClient,
+    ENTRY_POINT,
+    KERNEL_VERSION,
+    serialized.etherealApproval,
+    sessionKeySigner
   );
+
+  const arbitrumAccount = await deserializePermissionAccount(
+    arbitrumPublicClient,
+    ENTRY_POINT,
+    KERNEL_VERSION,
+    serialized.arbitrumApproval,
+    sessionKeySigner
+  );
+
+  console.debug('[SessionKeyManager] Session restored, creating clients...');
+
+  // Create kernel clients
+  const etherealClient = await createChainClient(ethereal, etherealAccount);
+  const arbitrumClient = await createChainClient(arbitrum, arbitrumAccount);
+
+  console.debug('[SessionKeyManager] Session restoration complete');
 
   return {
     config,
@@ -419,6 +407,14 @@ export function loadSession(): SerializedSession | null {
 
     // Check if expired
     if (Date.now() > parsed.config.expiresAt) {
+      clearSession();
+      return null;
+    }
+
+    // Migration: Clear old sessions without ZeroDev approval
+    // Old sessions used ownerSignature instead of approval strings
+    if (!parsed.etherealApproval || !parsed.arbitrumApproval) {
+      console.debug('[SessionKeyManager] Clearing old session format (missing approvals)');
       clearSession();
       return null;
     }
