@@ -117,8 +117,8 @@ contract ConditionalTokensReader is
         );
         bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
         
-        // Build options
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(0, 0);
+        // Build options - 200k gas should be enough for _lzReceive + _finalizeResolution
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
         // Quote fee
         MessagingFee memory fee = _quote(bridgeConfig.remoteEid, message, options, false);
@@ -162,7 +162,7 @@ contract ConditionalTokensReader is
             0
         );
         bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(0, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         return _quote(bridgeConfig.remoteEid, message, options, false);
     }
 
