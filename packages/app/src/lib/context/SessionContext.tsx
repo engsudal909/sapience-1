@@ -23,7 +23,34 @@ import {
   type SessionConfig,
   type SessionResult,
   type OwnerSigner,
+  type EnableTypedData,
+  type SerializedSession,
 } from '~/lib/session/sessionKeyManager';
+
+// Helper to strip private key from approval for safe transport
+function extractApprovalForTransport(serializedApproval: string): string | null {
+  try {
+    const jsonString = atob(serializedApproval);
+    const params = JSON.parse(jsonString);
+
+    // Remove the private key before transport
+    const safeParams = {
+      enableSignature: params.enableSignature,
+      accountParams: params.accountParams,
+      permissionParams: params.permissionParams,
+      action: params.action,
+      kernelVersion: params.kernelVersion,
+      validatorData: params.validatorData,
+      hookData: params.hookData,
+      // Explicitly exclude: privateKey, eip7702Auth
+    };
+
+    const safeJsonString = JSON.stringify(safeParams);
+    return btoa(safeJsonString);
+  } catch {
+    return null;
+  }
+}
 
 // Chain clients type
 interface ChainClients {
@@ -44,13 +71,12 @@ interface SignTypedDataParams {
   message: Record<string, unknown>;
 }
 
-// Session metadata for relayer verification
-// Note: ZeroDev approval handles owner authorization, so ownerSignature is no longer needed
-export interface SessionMetadata {
-  ownerAddress: Address;
-  sessionKeyAddress: Address;
-  sessionExpiresAt: number;
-  maxSpendUSDe: string;
+// Session approval data for relayer authentication
+interface SessionApprovalData {
+  // The ZeroDev approval string with private key stripped (base64)
+  approval: string;
+  // The EIP-712 typed data captured during session creation
+  typedData: EnableTypedData;
 }
 
 // Session context value
@@ -77,14 +103,17 @@ interface SessionContextValue {
   isCalculatingAddress: boolean;
 
   // Session signing functions (available when session is active)
+  // Note: These are used for on-chain UserOperations via ZeroDev, not for relayer auth
   signMessage: ((message: string) => Promise<Hex>) | null;
   signTypedData: ((params: SignTypedDataParams) => Promise<Hex>) | null;
 
-  // Session metadata for relayer verification (available when session is active)
+  // Session key address (for reference, but relayer auth uses owner's wallet signature)
   sessionKeyAddress: Address | null;
 
-  // Get full session metadata for including in requests
-  getSessionMetadata: (() => SessionMetadata) | null;
+  // Session approval data for relayer authentication (per chain)
+  // Use Arbitrum for most relayer requests
+  arbitrumSessionApproval: SessionApprovalData | null;
+  etherealSessionApproval: SessionApprovalData | null;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -123,6 +152,43 @@ export function SessionProvider({ children }: SessionProviderProps) {
   // Session metadata for relayer verification
   const [sessionKeyAddress, setSessionKeyAddress] = useState<Address | null>(null);
 
+  // Session approval data for relayer authentication (per chain)
+  const [arbitrumSessionApproval, setArbitrumSessionApproval] = useState<SessionApprovalData | null>(null);
+  const [etherealSessionApproval, setEtherealSessionApproval] = useState<SessionApprovalData | null>(null);
+
+  // Helper to extract session approval data from serialized session
+  const extractSessionApprovalData = useCallback((serialized: SerializedSession): {
+    arbitrum: SessionApprovalData | null;
+    ethereal: SessionApprovalData | null;
+  } => {
+    let arbitrum: SessionApprovalData | null = null;
+    let ethereal: SessionApprovalData | null = null;
+
+    // Extract Arbitrum approval
+    if (serialized.arbitrumApproval && serialized.arbitrumEnableTypedData) {
+      const safeApproval = extractApprovalForTransport(serialized.arbitrumApproval);
+      if (safeApproval) {
+        arbitrum = {
+          approval: safeApproval,
+          typedData: serialized.arbitrumEnableTypedData,
+        };
+      }
+    }
+
+    // Extract Ethereal approval
+    if (serialized.etherealApproval && serialized.etherealEnableTypedData) {
+      const safeApproval = extractApprovalForTransport(serialized.etherealApproval);
+      if (safeApproval) {
+        ethereal = {
+          approval: safeApproval,
+          typedData: serialized.etherealEnableTypedData,
+        };
+      }
+    }
+
+    return { arbitrum, ethereal };
+  }, []);
+
   // Sign message with session key
   const signMessage = useCallback(
     async (message: string): Promise<Hex> => {
@@ -146,19 +212,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
     },
     [sessionPrivateKey]
   );
-
-  // Get session metadata for including in requests to the relayer
-  const getSessionMetadata = useCallback((): SessionMetadata => {
-    if (!sessionConfig || !sessionKeyAddress) {
-      throw new Error('No active session');
-    }
-    return {
-      ownerAddress: sessionConfig.ownerAddress,
-      sessionKeyAddress,
-      sessionExpiresAt: sessionConfig.expiresAt,
-      maxSpendUSDe: sessionConfig.maxSpendUSDe.toString(),
-    };
-  }, [sessionConfig, sessionKeyAddress]);
 
   // Calculate smart account address when wallet connects
   useEffect(() => {
@@ -218,6 +271,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
         });
         setSessionPrivateKey(stored.sessionPrivateKey);
         setSessionKeyAddress(stored.sessionKeyAddress);
+        // Extract session approval data for relayer authentication
+        const approvalData = extractSessionApprovalData(stored);
+        setArbitrumSessionApproval(approvalData.arbitrum);
+        setEtherealSessionApproval(approvalData.ethereal);
         setIsSessionActive(true);
         setTimeRemainingMs(result.config.expiresAt - Date.now());
       } catch (error) {
@@ -258,6 +315,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
     setChainClients({ ethereal: null, arbitrum: null });
     setSessionPrivateKey(null);
     setSessionKeyAddress(null);
+    setArbitrumSessionApproval(null);
+    setEtherealSessionApproval(null);
     setTimeRemainingMs(0);
     clearSession();
     console.debug('[SessionContext] Session cleared');
@@ -319,6 +378,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
         });
         setSessionPrivateKey(result.serialized.sessionPrivateKey);
         setSessionKeyAddress(result.serialized.sessionKeyAddress);
+        // Extract session approval data for relayer authentication
+        const approvalData = extractSessionApprovalData(result.serialized);
+        setArbitrumSessionApproval(approvalData.arbitrum);
+        setEtherealSessionApproval(approvalData.ethereal);
         setIsSessionActive(true);
         setTimeRemainingMs(result.config.expiresAt - Date.now());
         console.debug('[SessionContext] Session active, smart account:', result.config.smartAccountAddress);
@@ -361,7 +424,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
       signMessage: sessionPrivateKey ? signMessage : null,
       signTypedData: sessionPrivateKey ? signTypedData : null,
       sessionKeyAddress,
-      getSessionMetadata: isSessionActive ? getSessionMetadata : null,
+      arbitrumSessionApproval,
+      etherealSessionApproval,
     }),
     [
       isSessionActive,
@@ -379,7 +443,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
       signMessage,
       signTypedData,
       sessionKeyAddress,
-      getSessionMetadata,
+      arbitrumSessionApproval,
+      etherealSessionApproval,
     ]
   );
 

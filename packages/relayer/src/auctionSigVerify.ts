@@ -1,140 +1,30 @@
 import {
   verifyMessage,
-  createPublicClient,
-  http,
-  hashMessage,
+  recoverMessageAddress,
   type Address,
   type Hex,
 } from 'viem';
-import { arbitrum } from 'viem/chains';
 import {
   createAuctionStartSiweMessage,
   type AuctionStartSigningPayload,
 } from '@sapience/sdk';
-import { AuctionRequestPayload, SessionMetadata } from './types';
-
-// EIP-1271 magic value for valid signatures
-const EIP1271_MAGIC_VALUE = '0x1626ba7e';
-
-// EIP-1271 ABI for isValidSignature
-const EIP1271_ABI = [
-  {
-    name: 'isValidSignature',
-    type: 'function',
-    inputs: [
-      { name: 'hash', type: 'bytes32' },
-      { name: 'signature', type: 'bytes' },
-    ],
-    outputs: [{ name: 'magicValue', type: 'bytes4' }],
-  },
-] as const;
+import { AuctionRequestPayload } from './types';
+import { computeSmartAccountAddress } from './smartAccount';
+import { verifySessionApproval, type SessionApprovalPayload } from './sessionAuth';
 
 /**
- * Check if an address is a smart contract (has bytecode)
- */
-async function isContract(address: Address): Promise<boolean> {
-  const client = createPublicClient({
-    chain: arbitrum,
-    transport: http(process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc'),
-  });
-
-  try {
-    const code = await client.getBytecode({ address });
-    return code !== undefined && code !== '0x';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Verify a signature using EIP-1271 smart contract verification
- */
-async function verifySmartAccountSignature(
-  contractAddress: Address,
-  messageHash: Hex,
-  signature: Hex
-): Promise<boolean> {
-  const client = createPublicClient({
-    chain: arbitrum,
-    transport: http(process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc'),
-  });
-
-  try {
-    const result = await client.readContract({
-      address: contractAddress,
-      abi: EIP1271_ABI,
-      functionName: 'isValidSignature',
-      args: [messageHash, signature],
-    });
-    return result === EIP1271_MAGIC_VALUE;
-  } catch (error) {
-    console.error('[Auction-Sig] EIP-1271 verification failed:', error);
-    return false;
-  }
-}
-
-/**
- * Verify a session signature for an auction request.
- * ZeroDev's enable signature handles owner->session authorization,
- * so we only need to verify:
- * 1. Session not expired
- * 2. Session key signed the request
- */
-async function verifySessionSignature(
-  payload: AuctionRequestPayload,
-  domain: string,
-  uri: string,
-  sessionMetadata: SessionMetadata
-): Promise<boolean> {
-  // 1. Check session not expired
-  if (Date.now() > sessionMetadata.sessionExpiresAt) {
-    console.warn('[Session-Sig] Session expired');
-    return false;
-  }
-
-  // 2. Verify session key signed the request
-  // Note: Owner authorization is handled by ZeroDev's enable signature,
-  // which is validated when the session key submits UserOperations
-  const signingPayload: AuctionStartSigningPayload = {
-    wager: payload.wager,
-    predictedOutcomes: payload.predictedOutcomes,
-    resolver: payload.resolver,
-    taker: payload.taker,
-    takerNonce: payload.takerNonce,
-    chainId: payload.chainId,
-  };
-  const reconstructedMessage = createAuctionStartSiweMessage(
-    signingPayload,
-    domain,
-    uri,
-    payload.takerSignedAt!
-  );
-
-  try {
-    const sessionKeyValid = await verifyMessage({
-      address: sessionMetadata.sessionKeyAddress as Address,
-      message: reconstructedMessage,
-      signature: payload.takerSignature as Hex,
-    });
-
-    if (!sessionKeyValid) {
-      console.warn('[Session-Sig] Session key signature invalid');
-      return false;
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('[Session-Sig] Session key signature valid for smart account:', payload.taker);
-    }
-
-    return true;
-  } catch (error) {
-    console.error('[Session-Sig] Session key signature verification failed:', error);
-    return false;
-  }
-}
-
-/**
- * Verifies the taker signature for an auction request
+ * Verifies the taker signature for an auction request.
+ *
+ * Verification flow:
+ * 1. If sessionApproval is present: verify the ZeroDev session approval
+ * 2. Try direct EOA verification (taker signed with their own key)
+ * 3. If fails, assume smart account owner signed: recover signer, compute their smart account, verify match
+ *
+ * This approach:
+ * - Requires no on-chain calls (fully deterministic)
+ * - Works for EOAs, deployed smart accounts, and counterfactual smart accounts
+ * - Supports ZeroDev session keys for smart account authentication
+ *
  * @param payload - The auction request payload including the signature
  * @param domain - The domain that was used in the original message
  * @param uri - The URI that was used in the original message
@@ -149,15 +39,8 @@ export async function verifyAuctionSignature(
     return false;
   }
 
-  // If session metadata is present, use session verification path
-  // This handles counterfactual smart accounts that aren't deployed yet
-  if (payload.sessionMetadata) {
-    return verifySessionSignature(payload, domain, uri, payload.sessionMetadata);
-  }
-
   try {
-    // Reconstruct the message that should have been signed using the payload data + timestamp
-    // This matches exactly what the client creates and signs
+    // Reconstruct the message that should have been signed
     const signingPayload: AuctionStartSigningPayload = {
       wager: payload.wager,
       predictedOutcomes: payload.predictedOutcomes,
@@ -173,49 +56,70 @@ export async function verifyAuctionSignature(
       payload.takerSignedAt
     );
 
-    // Check if taker is a smart contract (for EIP-1271 verification)
     const takerAddress = payload.taker.toLowerCase() as Address;
-    const takerIsContract = await isContract(takerAddress);
+    const signature = payload.takerSignature as Hex;
 
-    let isValid: boolean;
-    if (takerIsContract) {
-      // EIP-1271 smart contract signature verification
-      const messageHash = hashMessage(reconstructedMessage);
-      isValid = await verifySmartAccountSignature(
-        takerAddress,
-        messageHash,
-        payload.takerSignature as Hex
+    // Path 1: If session approval is present, verify via ZeroDev session
+    if (payload.sessionApproval) {
+      const sessionApprovalPayload: SessionApprovalPayload = {
+        approval: payload.sessionApproval,
+        chainId: payload.chainId,
+        typedData: payload.sessionTypedData,
+      };
+
+      const sessionResult = await verifySessionApproval(
+        sessionApprovalPayload,
+        takerAddress
       );
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[Auction-Sig] Using EIP-1271 verification for smart account');
+
+      if (sessionResult.valid) {
+        // Session approval is valid - the session key signed the request
+        // The session approval proves the owner authorized this session for this account
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[Auction-Sig] Valid session approval for account:', takerAddress);
+        }
+        return true;
+      } else {
+        console.warn('[Auction-Sig] Session approval verification failed:', sessionResult.error);
+        // Fall through to try other verification methods
       }
-    } else {
-      // EOA signature verification (EIP-191)
-      isValid = await verifyMessage({
+    }
+
+    // Path 2: Try direct EOA verification
+    try {
+      const isValidEOA = await verifyMessage({
         address: takerAddress,
         message: reconstructedMessage,
-        signature: payload.takerSignature as `0x${string}`,
+        signature,
       });
+
+      if (isValidEOA) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[Auction-Sig] Valid EOA signature');
+        }
+        return true;
+      }
+    } catch {
+      // EOA verification failed, continue to smart account check
     }
 
-    if (!isValid) {
-      console.warn('[Auction-Sig] Signature verification failed');
-      return false;
+    // Path 3: Recover signer and verify they own the smart account
+    const recoveredOwner = await recoverMessageAddress({
+      message: reconstructedMessage,
+      signature,
+    });
+
+    const expectedSmartAccount = await computeSmartAccountAddress(recoveredOwner);
+
+    if (expectedSmartAccount.toLowerCase() === takerAddress.toLowerCase()) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[Auction-Sig] Valid smart account owner signature, owner:', recoveredOwner);
+      }
+      return true;
     }
 
-    // Additional validation: verify the message contains expected values
-    // We can do basic string checks since we constructed the message
-    if (!reconstructedMessage.includes(`Nonce: ${payload.takerNonce}`)) {
-      console.warn('[Auction-Sig] Nonce mismatch in signed message');
-      return false;
-    }
-
-    if (!reconstructedMessage.includes(`Chain ID: ${payload.chainId}`)) {
-      console.warn('[Auction-Sig] Chain ID mismatch in signed message');
-      return false;
-    }
-
-    return true;
+    console.warn('[Auction-Sig] Signature verification failed: recovered owner does not match taker smart account');
+    return false;
   } catch (error) {
     console.error('[Auction-Sig] Verification failed:', error);
     return false;
@@ -223,11 +127,11 @@ export async function verifyAuctionSignature(
 }
 
 /**
- * Helper to generate a message for the client to sign
- * This can be used by clients to know what to sign
+ * Helper to generate a message for the client to sign.
+ * This can be used by clients to know what to sign.
  */
 export function generateSigningMessage(
-  payload: Omit<AuctionRequestPayload, 'takerSignature' | 'takerSignedAt'>,
+  payload: Omit<AuctionRequestPayload, 'takerSignature' | 'takerSignedAt' | 'sessionApproval'>,
   domain: string,
   uri: string,
   issuedAt?: string

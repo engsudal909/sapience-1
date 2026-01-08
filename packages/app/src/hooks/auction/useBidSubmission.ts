@@ -14,6 +14,8 @@ import { predictionMarket } from '@sapience/sdk/contracts';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { useSession } from '~/lib/context/SessionContext';
 import { toAuctionWsUrl } from '~/lib/ws';
+// Note: Owner's wallet signs bid requests (not session key) so relayer can verify
+// smart account ownership by computing the smart account address from the recovered signer.
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
 
@@ -80,7 +82,7 @@ export function useBidSubmission(
   const { signTypedDataAsync } = useSignTypedData();
   const chainId = useChainIdFromLocalStorage();
   const { apiBaseUrl } = useSettings();
-  const { isSessionActive, smartAccountAddress, signTypedData: sessionSignTypedData, getSessionMetadata } = useSession();
+  const { isSessionActive, smartAccountAddress, arbitrumSessionApproval } = useSession();
 
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
 
@@ -215,26 +217,16 @@ export function useBidSubmission(
         owner: getAddress(signerAddress),
       } as const;
 
-      // Sign typed data via session key or wagmi/viem
+      // Always use owner's wallet for signing (even when session is active)
+      // Relayer verifies ownership by computing smart account from recovered signer
       let makerSignature: `0x${string}`;
       try {
-        if (isSessionActive && sessionSignTypedData) {
-          // Use session key for signing
-          makerSignature = await sessionSignTypedData({
-            domain,
-            types,
-            primaryType: 'Approve',
-            message,
-          });
-        } else {
-          // Use wallet for signing
-          makerSignature = await signTypedDataAsync({
-            domain,
-            types,
-            primaryType: 'Approve',
-            message,
-          });
-        }
+        makerSignature = await signTypedDataAsync({
+          domain,
+          types,
+          primaryType: 'Approve',
+          message,
+        });
       } catch (e: any) {
         const error =
           e instanceof Error ? e : new Error(String(e?.message || e));
@@ -249,20 +241,28 @@ export function useBidSubmission(
         return { success: false, error: 'No signature returned' };
       }
 
-      // Build bid payload with optional session metadata for relayer verification
-      const sessionMetadata = isSessionActive && sessionSignTypedData && getSessionMetadata
-        ? getSessionMetadata()
-        : undefined;
-
-      const payload = {
+      // Build bid payload
+      let payload: Record<string, unknown> = {
         auctionId,
         maker: signerAddress,
         makerDeadline,
         makerNonce: takerNonce,
         makerSignature,
         makerWager: makerWager.toString(),
-        ...(sessionMetadata && { sessionMetadata }),
       };
+
+      // Add session approval data for smart account authentication
+      // This allows the relayer to verify ownership without additional RPC calls
+      if (isSessionActive && arbitrumSessionApproval) {
+        payload = {
+          ...payload,
+          sessionApproval: arbitrumSessionApproval.approval,
+          sessionTypedData: arbitrumSessionApproval.typedData,
+        };
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug('[BidSubmission] Including session approval for smart account auth');
+        }
+      }
 
       // Send over shared Auction WS (fire and forget - no ack wait)
       const client = getSharedAuctionWsClient(wsUrl);
@@ -291,8 +291,7 @@ export function useBidSubmission(
       onSignatureRejected,
       isSessionActive,
       smartAccountAddress,
-      sessionSignTypedData,
-      getSessionMetadata,
+      arbitrumSessionApproval,
     ]
   );
 

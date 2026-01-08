@@ -1,13 +1,26 @@
 export type HexString = `0x${string}`;
 
-/** Session metadata for verifying signatures from counterfactual smart accounts */
-// Note: ZeroDev approval handles owner authorization via enable signature,
-// so we no longer need ownerSignature for relayer verification
-export interface SessionMetadata {
-  ownerAddress: string; // EOA that owns the smart account
-  sessionKeyAddress: string; // Session key that signed the request
-  sessionExpiresAt: number; // Expiration timestamp (ms since epoch)
-  maxSpendUSDe: string; // Spending limit in wei
+// EIP-712 typed data for enable signature verification
+// This is captured during session creation and passed to the relayer
+export interface EnableTypedData {
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: string;
+  };
+  types: {
+    Enable: readonly { name: string; type: string }[];
+  };
+  primaryType: 'Enable';
+  message: {
+    validationId: string;
+    nonce: number;
+    hook: string;
+    validatorData: string;
+    hookData: string;
+    selectorData: string;
+  };
 }
 
 export interface AuctionRequestPayload {
@@ -19,7 +32,8 @@ export interface AuctionRequestPayload {
   chainId: number; // chain ID for the auction (e.g., 42161 for Arbitrum)
   takerSignature?: string; // EIP-191 signature of the taker (optional for price discovery)
   takerSignedAt?: string; // ISO timestamp when the signature was created (required if takerSignature is provided)
-  sessionMetadata?: SessionMetadata; // Present when using session keys with smart accounts
+  sessionApproval?: string; // ZeroDev session approval (base64) for smart account session authentication
+  sessionTypedData?: EnableTypedData; // EIP-712 typed data for enable signature verification
 }
 
 export interface BidQuote {
@@ -61,7 +75,8 @@ export interface BidPayload {
   makerDeadline: number; // unix seconds
   makerSignature: string; // Maker's signature authorizing this specific bid over the typed payload
   makerNonce: number; // nonce for the maker (bidding party)
-  sessionMetadata?: SessionMetadata; // Present when using session keys with smart accounts
+  sessionApproval?: string; // ZeroDev session approval (base64) for smart account session authentication
+  sessionTypedData?: EnableTypedData; // EIP-712 typed data for enable signature verification
 }
 
 export type ValidatedBid = BidPayload;
@@ -85,9 +100,9 @@ export type BotToServerMessage = { type: 'bid.submit'; payload: BidPayload };
 export type ServerToClientMessage =
   | {
       type: 'auction.ack';
-      payload: { 
-        auctionId?: string; 
-        id?: string; 
+      payload: {
+        auctionId?: string;
+        id?: string;
         error?: string;
         subscribed?: boolean;
         unsubscribed?: boolean;
@@ -102,4 +117,3 @@ export type ServerToClientMessage =
       type: 'auction.started';
       payload: AuctionRequestPayload & { auctionId: string };
     };
-

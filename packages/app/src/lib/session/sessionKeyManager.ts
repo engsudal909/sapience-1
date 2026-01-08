@@ -85,6 +85,29 @@ export interface SessionConfig {
   smartAccountAddress: Address;
 }
 
+// EIP-712 typed data for enable signature verification
+// This is captured during session creation for relayer verification
+export interface EnableTypedData {
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: Address;
+  };
+  types: {
+    Enable: readonly { name: string; type: string }[];
+  };
+  primaryType: 'Enable';
+  message: {
+    validationId: Hex;
+    nonce: number;
+    hook: Address;
+    validatorData: Hex;
+    hookData: Hex;
+    selectorData: Hex;
+  };
+}
+
 // Serialized session for localStorage
 // We store ZeroDev approval strings which embed owner's EIP-712 signature
 export interface SerializedSession {
@@ -96,6 +119,10 @@ export interface SerializedSession {
   // Ethereal is optional (only if bundler/paymaster configured)
   etherealApproval?: string;
   arbitrumApproval: string;
+  // EIP-712 typed data for relayer verification (captured during session creation)
+  // This allows the relayer to verify the enable signature without reconstructing typed data
+  arbitrumEnableTypedData?: EnableTypedData;
+  etherealEnableTypedData?: EnableTypedData;
 }
 
 // Session result with chain clients
@@ -199,6 +226,8 @@ export async function createSession(
   let etherealApproval: string | undefined;
   let etherealClient: KernelAccountClient<any, any, any> | null = null;
   let smartAccountAddress: Address;
+  let etherealEnableTypedData: EnableTypedData | undefined;
+  let arbitrumEnableTypedData: EnableTypedData | undefined;
 
   // --- ETHEREAL CHAIN SETUP (optional) ---
   if (etherealUrls) {
@@ -246,6 +275,17 @@ export async function createSession(
 
     smartAccountAddress = etherealAccount.address;
     console.debug('[SessionKeyManager] Smart account address:', smartAccountAddress);
+
+    // Capture typed data BEFORE serialization (needed for relayer verification)
+    try {
+      const typedData = await etherealAccount.kernelPluginManager.getPluginsEnableTypedData(
+        etherealAccount.address
+      );
+      etherealEnableTypedData = typedData as EnableTypedData;
+      console.debug('[SessionKeyManager] Captured Ethereal enable typed data');
+    } catch (e) {
+      console.warn('[SessionKeyManager] Failed to capture Ethereal typed data:', e);
+    }
 
     // Serialize Ethereal account (triggers EIP-712 signature)
     console.debug('[SessionKeyManager] Requesting owner approval for Ethereal session key...');
@@ -300,6 +340,17 @@ export async function createSession(
     console.debug('[SessionKeyManager] Smart account address (from Arbitrum):', smartAccountAddress);
   }
 
+  // Capture typed data BEFORE serialization (needed for relayer verification)
+  try {
+    const typedData = await arbitrumAccount.kernelPluginManager.getPluginsEnableTypedData(
+      arbitrumAccount.address
+    );
+    arbitrumEnableTypedData = typedData as EnableTypedData;
+    console.debug('[SessionKeyManager] Captured Arbitrum enable typed data');
+  } catch (e) {
+    console.warn('[SessionKeyManager] Failed to capture Arbitrum typed data:', e);
+  }
+
   // Serialize Arbitrum account (triggers EIP-712 signature)
   console.debug('[SessionKeyManager] Requesting owner approval for Arbitrum session key...');
   const arbitrumApproval = await serializePermissionAccount(
@@ -330,6 +381,9 @@ export async function createSession(
     createdAt: Date.now(),
     etherealApproval,
     arbitrumApproval,
+    // Include typed data for relayer verification
+    arbitrumEnableTypedData,
+    etherealEnableTypedData,
   };
 
   return {
