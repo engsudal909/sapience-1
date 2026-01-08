@@ -1,10 +1,78 @@
-import type { AuctionRequestPayload, BidPayload } from './types';
+import type { AuctionRequestPayload, BidPayload, SessionMetadata } from './types';
 import {
   encodeAbiParameters,
   keccak256,
   verifyTypedData,
+  hashTypedData,
+  createPublicClient,
+  http,
   getAddress,
+  verifyMessage,
+  type Address,
+  type Hex,
 } from 'viem';
+import { arbitrum } from 'viem/chains';
+import { createSessionAuthMessage } from './auctionSigVerify';
+
+// EIP-1271 magic value for valid signatures
+const EIP1271_MAGIC_VALUE = '0x1626ba7e';
+
+// EIP-1271 ABI for isValidSignature
+const EIP1271_ABI = [
+  {
+    name: 'isValidSignature',
+    type: 'function',
+    inputs: [
+      { name: 'hash', type: 'bytes32' },
+      { name: 'signature', type: 'bytes' },
+    ],
+    outputs: [{ name: 'magicValue', type: 'bytes4' }],
+  },
+] as const;
+
+/**
+ * Check if an address is a smart contract (has bytecode)
+ */
+async function isContract(address: Address): Promise<boolean> {
+  const client = createPublicClient({
+    chain: arbitrum,
+    transport: http(process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc'),
+  });
+
+  try {
+    const code = await client.getBytecode({ address });
+    return code !== undefined && code !== '0x';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify a signature using EIP-1271 smart contract verification
+ */
+async function verifySmartAccountSignature(
+  contractAddress: Address,
+  messageHash: Hex,
+  signature: Hex
+): Promise<boolean> {
+  const client = createPublicClient({
+    chain: arbitrum,
+    transport: http(process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc'),
+  });
+
+  try {
+    const result = await client.readContract({
+      address: contractAddress,
+      abi: EIP1271_ABI,
+      functionName: 'isValidSignature',
+      args: [messageHash, signature],
+    });
+    return result === EIP1271_MAGIC_VALUE;
+  } catch (error) {
+    console.error('[Helpers] EIP-1271 verification failed:', error);
+    return false;
+  }
+}
 
 /**
  * Helper function to create MintParlayRequestData for the ParlayPool.mint() function
@@ -208,6 +276,88 @@ export function verifyMakerBid(params: {
   }
 }
 
+/**
+ * Verify a session-based maker bid signature.
+ * This works for counterfactual (undeployed) smart accounts by verifying:
+ * 1. Session not expired
+ * 2. Owner signature proves authorization of (smartAccount, sessionKey) pair
+ * 3. Session key signed the typed data
+ */
+async function verifySessionMakerBid(params: {
+  bid: BidPayload;
+  sessionMetadata: SessionMetadata;
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: `0x${string}`;
+  };
+  types: { Approve: readonly { name: string; type: string }[] };
+  message: { messageHash: Hex; owner: Address };
+}): Promise<{ ok: boolean; reason?: string }> {
+  const { bid, sessionMetadata, domain, types, message } = params;
+
+  // 1. Check session not expired
+  if (Date.now() > sessionMetadata.sessionExpiresAt) {
+    return { ok: false, reason: 'session_expired' };
+  }
+
+  // 2. Verify owner authorized this (smartAccount, sessionKey) pair
+  const authMessage = createSessionAuthMessage({
+    sessionKeyAddress: sessionMetadata.sessionKeyAddress,
+    smartAccountAddress: bid.maker, // The claimed smart account
+    ownerAddress: sessionMetadata.ownerAddress,
+    maxSpendUSDe: sessionMetadata.maxSpendUSDe,
+    expiresAt: sessionMetadata.sessionExpiresAt,
+  });
+
+  try {
+    const ownerValid = await verifyMessage({
+      address: sessionMetadata.ownerAddress as Address,
+      message: authMessage,
+      signature: sessionMetadata.ownerSignature as Hex,
+    });
+
+    if (!ownerValid) {
+      console.warn('[Helpers-Session] Owner signature invalid');
+      return { ok: false, reason: 'invalid_owner_signature' };
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[Helpers-Session] Owner signature valid');
+    }
+  } catch (error) {
+    console.error('[Helpers-Session] Owner signature verification failed:', error);
+    return { ok: false, reason: 'owner_verification_failed' };
+  }
+
+  // 3. Verify session key signed the typed data
+  try {
+    const sessionKeyValid = await verifyTypedData({
+      address: sessionMetadata.sessionKeyAddress as Address,
+      domain,
+      primaryType: 'Approve',
+      types,
+      message,
+      signature: bid.makerSignature as Hex,
+    });
+
+    if (!sessionKeyValid) {
+      console.warn('[Helpers-Session] Session key signature invalid');
+      return { ok: false, reason: 'invalid_session_signature' };
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[Helpers-Session] Session key signature valid for smart account:', bid.maker);
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.error('[Helpers-Session] Session key signature verification failed:', error);
+    return { ok: false, reason: 'session_verification_failed' };
+  }
+}
+
 export async function verifyMakerBidStrict(params: {
   auction: AuctionRequestPayload;
   bid: BidPayload;
@@ -267,14 +417,50 @@ export async function verifyMakerBidStrict(params: {
       owner: getAddress(bid.maker),
     } as const;
 
-    const ok = await verifyTypedData({
-      address: getAddress(bid.maker),
-      domain,
-      primaryType: 'Approve',
-      types,
-      message,
-      signature: bid.makerSignature as `0x${string}`,
-    });
+    // If session metadata is present, use session verification path
+    // This handles counterfactual smart accounts that aren't deployed yet
+    if (bid.sessionMetadata) {
+      return verifySessionMakerBid({
+        bid,
+        sessionMetadata: bid.sessionMetadata,
+        domain,
+        types,
+        message,
+      });
+    }
+
+    // Check if maker is a smart contract (for EIP-1271 verification)
+    const makerAddress = getAddress(bid.maker) as Address;
+    const makerIsContract = await isContract(makerAddress);
+
+    let ok: boolean;
+    if (makerIsContract) {
+      // EIP-1271 smart contract signature verification
+      const typedDataHash = hashTypedData({
+        domain,
+        types,
+        primaryType: 'Approve',
+        message,
+      });
+      ok = await verifySmartAccountSignature(
+        makerAddress,
+        typedDataHash,
+        bid.makerSignature as Hex
+      );
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[Helpers] Using EIP-1271 verification for smart account maker');
+      }
+    } else {
+      // EOA signature verification
+      ok = await verifyTypedData({
+        address: makerAddress,
+        domain,
+        primaryType: 'Approve',
+        types,
+        message,
+        signature: bid.makerSignature as `0x${string}`,
+      });
+    }
 
     return ok ? { ok: true } : { ok: false, reason: 'invalid_signature' };
   } catch {

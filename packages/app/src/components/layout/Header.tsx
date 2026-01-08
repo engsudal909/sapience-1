@@ -3,6 +3,15 @@
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Button } from '@sapience/ui/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@sapience/ui/components/ui/dialog';
+import { Input } from '@sapience/ui/components/ui/input';
+import { Label } from '@sapience/ui/components/ui/label';
+import { useToast } from '@sapience/ui/hooks/use-toast';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,6 +35,7 @@ import {
   Bot,
   Trophy,
   Users,
+  Copy,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -44,6 +54,8 @@ import ReferralsDialog from '~/components/shared/ReferralsDialog';
 import RequiredReferralCodeDialog from '~/components/shared/RequiredReferralCodeDialog';
 import { useConnectDialog } from '~/lib/context/ConnectDialogContext';
 import { useAuth } from '~/lib/context/AuthContext';
+import { useSession } from '~/lib/context/SessionContext';
+import { parseEther } from 'viem';
 
 const USER_REFERRAL_STATUS_QUERY = `
   query UserReferralStatus($wallet: String!) {
@@ -174,10 +186,7 @@ const NavLinks = ({
               </Link>
             </Button>
           </div>
-          <CollateralBalanceButton
-            className="md:hidden mt-2 ml-4"
-            onClick={handleLinkClick}
-          />
+          <CollateralBalanceButton className="md:hidden mt-2 ml-4" />
         </>
       )}
     </>
@@ -192,12 +201,26 @@ const Header = () => {
   const { setLoggedOut } = useAuth();
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
   const { disconnect } = useDisconnect();
+  const { toast } = useToast();
   const [isScrolled, setIsScrolled] = useState(false);
   const thresholdRef = useRef(12);
   const headerRef = useRef<HTMLElement | null>(null);
   const [isReferralsOpen, setIsReferralsOpen] = useState(false);
   const [isReferralRequiredOpen, setIsReferralRequiredOpen] = useState(false);
+  const [isStartSessionOpen, setIsStartSessionOpen] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState('24');
+  const [approvedSpend, setApprovedSpend] = useState('1000');
   const lastWalletAddressRef = useRef<string | null>(null);
+
+  // Session context for smart account sessions
+  const {
+    isSessionActive,
+    startSession,
+    endSession,
+    isStartingSession,
+    smartAccountAddress,
+    isCalculatingAddress,
+  } = useSession();
 
   useEffect(() => {
     const recalcThreshold = () => {
@@ -338,12 +361,54 @@ const Header = () => {
     };
   }, [ready, hasConnectedWallet, connectedWallet?.address]);
 
+  // Handle start session
+  const handleStartSession = async () => {
+    try {
+      await startSession({
+        durationHours: parseInt(sessionDuration, 10) || 24,
+        maxSpendUSDe: parseEther(approvedSpend || '1000'),
+      });
+      setIsStartSessionOpen(false);
+      toast({
+        title: 'Session Started',
+        description: 'You can now use the app without signing transactions.',
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      toast({
+        title: 'Failed to Start Session',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    if (!smartAccountAddress) return;
+    await navigator.clipboard.writeText(smartAccountAddress);
+    toast({
+      title: 'Copied to clipboard',
+      description: 'Smart account address copied successfully',
+      duration: 2000,
+    });
+  };
+
   const hasDisconnect = (
     x: unknown
   ): x is { disconnect: () => Promise<void> | void } =>
     typeof (x as { disconnect?: unknown }).disconnect === 'function';
 
   const handleLogout = async () => {
+    // End any active session first
+    if (isSessionActive) {
+      console.debug('[Header] Ending active session before logout');
+      endSession();
+    } else {
+      console.debug('[Header] No active session to end');
+    }
+
     // Clear app-specific localStorage items first
     try {
       if (typeof window !== 'undefined') {
@@ -521,36 +586,29 @@ const Header = () => {
               )}
               {ready && hasConnectedWallet && (
                 <>
+                  {!isSessionActive && (
+                    <Button
+                      className="rounded-md h-10 md:h-9 px-4"
+                      onClick={() => setIsStartSessionOpen(true)}
+                    >
+                      Start Session
+                    </Button>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className="rounded-md h-10 w-10 md:h-9 md:w-auto ml-1.5 md:ml-0 gap-2 p-0 md:pl-2 md:pr-3 overflow-hidden bg-brand-black text-brand-white border border-brand-white/10 hover:bg-brand-black/90 font-mono"
+                        className="rounded-md h-9 w-9 p-0 overflow-hidden bg-brand-black text-brand-white border border-brand-white/10 hover:bg-brand-black/90"
                       >
-                        {connectedWallet?.address ? (
-                          <>
-                            {/* Mobile: avatar fills the entire circular button */}
-                            <EnsAvatar
-                              address={connectedWallet.address}
-                              className="h-8 w-8 rounded-sm ring-inset md:hidden"
-                              width={32}
-                              height={32}
-                            />
-                            {/* Desktop: small avatar next to address */}
-                            <EnsAvatar
-                              address={connectedWallet.address}
-                              className="hidden md:inline-flex h-6 w-6 rounded-sm"
-                              width={20}
-                              height={20}
-                            />
-                          </>
+                        {(isSessionActive && smartAccountAddress) || connectedWallet?.address ? (
+                          <EnsAvatar
+                            address={(isSessionActive && smartAccountAddress) ? smartAccountAddress : connectedWallet!.address}
+                            className="h-9 w-9 rounded-md"
+                            width={36}
+                            height={36}
+                          />
                         ) : (
                           <User className="h-5 w-5" />
-                        )}
-                        {connectedWallet?.address && (
-                          <span className="hidden md:inline text-sm font-normal">
-                            {ensName || shortenAddress(connectedWallet.address)}
-                          </span>
                         )}
                         <span className="sr-only">User Menu</span>
                       </Button>
@@ -580,6 +638,88 @@ const Header = () => {
                     onOpenChange={setIsReferralsOpen}
                     walletAddress={connectedWallet?.address}
                   />
+                  <Dialog open={isStartSessionOpen} onOpenChange={setIsStartSessionOpen}>
+                    <DialogContent className="sm:max-w-[480px]">
+                      <DialogHeader>
+                        <DialogTitle>Log in</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-6">
+                        <p className="text-base text-foreground/90 leading-relaxed">
+                          You will sign one transaction to start a session in this browser. Then you will be able to use the app with no further authentication/signing required.
+                        </p>
+
+                        <hr className="gold-hr" />
+
+                        <div className="space-y-3">
+                          <p className="text-base text-foreground/90 leading-relaxed">
+                            To start a session, you will use a smart account owned by your wallet deployed at:
+                          </p>
+                          <div className="flex items-center gap-2 py-3 px-4 rounded-md bg-brand-black border border-border/50">
+                            <span className="font-mono text-sm flex-1 break-all text-brand-white">
+                              {isCalculatingAddress ? 'Calculating...' : (smartAccountAddress || 'Connect wallet')}
+                            </span>
+                            {smartAccountAddress && (
+                              <button
+                                type="button"
+                                onClick={handleCopyAddress}
+                                className="text-muted-foreground hover:text-brand-white transition-colors shrink-0"
+                                title="Copy smart account address"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-base text-foreground/90 leading-relaxed">
+                            This will need to be funded with USDe for use in the markets.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="duration">Maximum Duration</Label>
+                            <div className="relative">
+                              <Input
+                                id="duration"
+                                type="number"
+                                value={sessionDuration}
+                                onChange={(e) => setSessionDuration(e.target.value)}
+                                className="pr-16"
+                                placeholder="24"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                hours
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="approvedSpend">Maximum Spend</Label>
+                            <div className="relative">
+                              <Input
+                                id="approvedSpend"
+                                type="number"
+                                value={approvedSpend}
+                                onChange={(e) => setApprovedSpend(e.target.value)}
+                                className="pr-16"
+                                placeholder="1000"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                USDe
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          className="w-full mb-0 h-12 text-base"
+                          onClick={handleStartSession}
+                          disabled={isStartingSession || !smartAccountAddress}
+                        >
+                          {isStartingSession ? 'Starting Session...' : 'Start Session'}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </>
               )}
               {/* Address now displayed inside the black default button on desktop */}

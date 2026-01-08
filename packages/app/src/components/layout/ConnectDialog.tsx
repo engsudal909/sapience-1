@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useMemo } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useAccount, useConnect } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import {
@@ -11,8 +10,22 @@ import {
   DialogTitle,
 } from '@sapience/ui/components/ui/dialog';
 import { Button } from '@sapience/ui/components/ui/button';
-import { Mail, Wallet } from 'lucide-react';
+import { Input } from '@sapience/ui/components/ui/input';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@sapience/ui/components/ui/tabs';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@sapience/ui/components/ui/popover';
+import { Wallet } from 'lucide-react';
 import { useAuth } from '~/lib/context/AuthContext';
+import { useSession } from '~/lib/context/SessionContext';
+import { parseUnits } from 'viem';
 
 // EIP-6963 types
 interface EIP6963ProviderInfo {
@@ -50,18 +63,39 @@ const FEATURED_WALLETS = [
     matchIds: ['io.metamask', 'metamask'],
     icon: '/wallet-icons/metamask.svg',
   },
+  {
+    id: 'coinbase',
+    name: 'Coinbase Wallet',
+    matchIds: ['com.coinbase', 'coinbase'],
+    icon: '/wallet-icons/coinbase-wallet.png',
+  },
+  {
+    id: 'walletconnect',
+    name: 'WalletConnect',
+    matchIds: [],
+    icon: '/wallet-icons/walletconnect.svg',
+  },
 ] as const;
 
 export default function ConnectDialog({
   open,
   onOpenChange,
 }: ConnectDialogProps) {
-  const { login } = usePrivy();
   const { isConnected } = useAccount();
   const [isClient, setIsClient] = useState(false);
   const { clearLoggedOut } = useAuth();
+  const { startSession } = useSession();
 
-  const { connect, isPending } = useConnect();
+  // Spending limit state
+  const [spendingLimit, setSpendingLimit] = useState('1000');
+  const [duration, setDuration] = useState('24');
+
+  // Track if we just connected a wallet (to trigger auto-session)
+  // Use a ref to track previous connection state to avoid race conditions
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const prevConnectedRef = useRef(isConnected);
+
+  const { connect, isPending, connectors } = useConnect();
   const [connectingId, setConnectingId] = useState<string | null>(null);
 
   // EIP-6963 wallet discovery (Privy disables wagmi's built-in discovery)
@@ -100,19 +134,38 @@ export default function ConnectDialog({
     setIsClient(true);
   }, []);
 
-  // Close dialog when connected and clear logged out state
+  // Auto-create session when wallet connects, then close dialog
   useEffect(() => {
-    if (isConnected && open) {
-      clearLoggedOut();
-      onOpenChange(false);
-    }
-  }, [isConnected, open, onOpenChange, clearLoggedOut]);
+    const wasConnected = prevConnectedRef.current;
+    prevConnectedRef.current = isConnected;
 
-  const handleEmailLogin = useCallback(() => {
-    clearLoggedOut();
-    onOpenChange(false);
-    login();
-  }, [login, onOpenChange, clearLoggedOut]);
+    // Detect fresh wallet connection (went from disconnected to connected while dialog is open)
+    if (isConnected && !wasConnected && open) {
+      console.debug('[ConnectDialog] Fresh wallet connection detected, creating session...');
+      setIsCreatingSession(true);
+      clearLoggedOut();
+
+      const createSessionAsync = async () => {
+        try {
+          // Parse spending limit and create session
+          const maxSpendUSDe = parseUnits(spendingLimit || '1000', 18);
+          const durationHours = parseInt(duration || '24', 10);
+
+          console.debug('[ConnectDialog] Starting session with:', { durationHours, maxSpendUSDe: maxSpendUSDe.toString() });
+          await startSession({ durationHours, maxSpendUSDe });
+          console.debug('[ConnectDialog] Session created successfully');
+        } catch (error) {
+          console.error('[ConnectDialog] Failed to auto-create session:', error);
+          // Still close the dialog even if session creation fails
+        } finally {
+          setIsCreatingSession(false);
+          onOpenChange(false);
+        }
+      };
+
+      void createSessionAsync();
+    }
+  }, [isConnected, open, onOpenChange, clearLoggedOut, startSession, spendingLimit, duration]);
 
   const handleEIP6963Connect = useCallback(
     (wallet: EIP6963ProviderDetail) => {
@@ -137,13 +190,33 @@ export default function ConnectDialog({
     [connect, clearLoggedOut]
   );
 
+  const handleWalletConnectClick = useCallback(() => {
+    clearLoggedOut();
+    setConnectingId('walletconnect');
+
+    const walletConnectConnector = connectors.find(
+      (connector) => connector.id === 'walletConnect'
+    );
+
+    if (walletConnectConnector) {
+      connect(
+        { connector: walletConnectConnector },
+        {
+          onSettled: () => setConnectingId(null),
+        }
+      );
+    }
+  }, [connect, connectors, clearLoggedOut]);
+
   const handleWalletClick = useCallback(
     (wallet: { eip6963Provider?: EIP6963ProviderDetail; id: string }) => {
-      if (wallet.eip6963Provider) {
+      if (wallet.id === 'walletconnect') {
+        handleWalletConnectClick();
+      } else if (wallet.eip6963Provider) {
         handleEIP6963Connect(wallet.eip6963Provider);
       }
     },
-    [handleEIP6963Connect]
+    [handleEIP6963Connect, handleWalletConnectClick]
   );
 
   // Build wallet list: featured wallets first, then other detected wallets
@@ -180,11 +253,7 @@ export default function ConnectDialog({
       const name = wallet.info.name.toLowerCase();
 
       // Skip Phantom
-      if (
-        name.includes('phantom') ||
-        rdns.includes('walletconnect') ||
-        name.includes('walletconnect')
-      ) {
+      if (name.includes('phantom')) {
         continue;
       }
 
@@ -218,26 +287,46 @@ export default function ConnectDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Email/SMS Login Button */}
-        <Button
-          variant="outline"
-          className="w-full h-14 justify-start gap-3 px-4 text-base font-medium bg-[hsl(var(--muted)/0.3)] border-border/50 hover:bg-[hsl(var(--muted)/0.5)]"
-          onClick={handleEmailLogin}
-        >
-          <div className="flex items-center justify-center w-8 h-8 rounded bg-muted/50">
-            <Mail className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <span>Log in with Email or SMS</span>
-        </Button>
+        {/* Email/SMS Login Tabs */}
+        <Tabs defaultValue="email" className="w-full">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="email" className="text-sm font-medium">
+              EMAIL
+            </TabsTrigger>
+            <TabsTrigger value="sms" className="text-sm font-medium">
+              SMS
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="email" className="mt-4 space-y-2">
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                className="flex-1"
+              />
+              <Button type="submit">Log in</Button>
+            </div>
+          </TabsContent>
+          <TabsContent value="sms" className="mt-4 space-y-2">
+            <div className="flex gap-2">
+              <Input
+                type="tel"
+                placeholder="Enter your phone number"
+                className="flex-1"
+              />
+              <Button type="submit">Log in</Button>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Divider */}
-        <div className="relative my-4">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-border/50" />
           </div>
           <div className="relative flex justify-center text-xs">
             <span className="bg-background px-3 text-muted-foreground uppercase tracking-wide">
-              or
+              or connect an ethereum wallet
             </span>
           </div>
         </div>
@@ -255,7 +344,8 @@ export default function ConnectDialog({
           {isClient &&
             walletOptions.map((wallet) => {
               const isThisConnecting = connectingId === wallet.id;
-              const isInstalled = Boolean(wallet.eip6963Provider);
+              const isWalletConnect = wallet.id === 'walletconnect';
+              const isInstalled = isWalletConnect || Boolean(wallet.eip6963Provider);
 
               return (
                 <Button
@@ -285,6 +375,71 @@ export default function ConnectDialog({
               );
             })}
         </div>
+
+        {/* Session creating overlay */}
+        {isCreatingSession && (
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            Creating session...
+          </div>
+        )}
+
+        {/* Spending limit - at the bottom */}
+        <p className="text-xs text-muted-foreground text-center mt-6">
+          Spend maximum{' '}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="underline decoration-dotted underline-offset-2 hover:opacity-80"
+              >
+                {spendingLimit} USDe
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2">
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Spending Limit</label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={spendingLimit}
+                    onChange={(e) => setSpendingLimit(e.target.value)}
+                    className="w-full pr-16"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    USDe
+                  </span>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>{' '}
+          for{' '}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="underline decoration-dotted underline-offset-2 hover:opacity-80"
+              >
+                {duration} hours
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2">
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Duration</label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    className="w-full pr-16"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    hours
+                  </span>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </p>
       </DialogContent>
     </Dialog>
   );

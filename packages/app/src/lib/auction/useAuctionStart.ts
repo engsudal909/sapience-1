@@ -8,6 +8,7 @@ import {
   type AuctionStartSigningPayload,
 } from '@sapience/sdk';
 import { useSettings } from '~/lib/context/SettingsContext';
+import { useSession } from '~/lib/context/SessionContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 
@@ -74,6 +75,7 @@ export function useAuctionStart() {
   // `apiBaseUrl` is the auction relayer base URL (http(s), typically includes `/auction`)
   const { apiBaseUrl } = useSettings();
   const { signMessageAsync } = useSignMessage();
+  const { isSessionActive, smartAccountAddress, signMessage: sessionSignMessage, getSessionMetadata } = useSession();
   const relayerBase = useMemo(() => {
     if (apiBaseUrl && apiBaseUrl.length > 0) return apiBaseUrl;
     const explicitRelayer = process.env.NEXT_PUBLIC_FOIL_RELAYER_URL;
@@ -167,11 +169,17 @@ export function useAuctionStart() {
       options?: { forceRefresh?: boolean; requireSignature?: boolean }
     ) => {
       if (!params || !wsUrl) return;
+
+      // Use smart account address as taker when session is active
+      const effectiveTaker = isSessionActive && smartAccountAddress
+        ? smartAccountAddress
+        : params.taker;
+
       const requestPayload = {
         wager: params.wager,
         resolver: params.resolver,
         predictedOutcomes: params.predictedOutcomes,
-        taker: params.taker,
+        taker: effectiveTaker,
         takerNonce: params.takerNonce,
         chainId: params.chainId,
       };
@@ -198,11 +206,12 @@ export function useAuctionStart() {
           try {
             const { domain, uri } = extractSiweDomainAndUri(wsUrl);
             const issuedAt = new Date().toISOString();
+
             const signingPayload: AuctionStartSigningPayload = {
               wager: params.wager,
               predictedOutcomes: params.predictedOutcomes,
               resolver: params.resolver,
-              taker: params.taker,
+              taker: effectiveTaker,
               takerNonce: params.takerNonce,
               chainId: params.chainId,
             };
@@ -212,11 +221,20 @@ export function useAuctionStart() {
               uri,
               issuedAt
             );
-            takerSignature = await signMessageAsync({ message });
-            takerSignedAt = issuedAt;
-            if (process.env.NODE_ENV !== 'production') {
-              console.debug('[AuctionStart] Generated SIWE signature');
+
+            // Use session signing when active, otherwise use wallet
+            if (isSessionActive && sessionSignMessage) {
+              takerSignature = await sessionSignMessage(message);
+              if (process.env.NODE_ENV !== 'production') {
+                console.debug('[AuctionStart] Generated SIWE signature with session key');
+              }
+            } else {
+              takerSignature = await signMessageAsync({ message });
+              if (process.env.NODE_ENV !== 'production') {
+                console.debug('[AuctionStart] Generated SIWE signature with wallet');
+              }
             }
+            takerSignedAt = issuedAt;
           } catch (signError) {
             // If signature is required and fails, log and return early
             console.warn(
@@ -228,9 +246,19 @@ export function useAuctionStart() {
         }
 
         // Add signature and timestamp to request payload if available
+        // Include session metadata when using session signing for relayer verification
+        const sessionMetadata = isSessionActive && sessionSignMessage && getSessionMetadata
+          ? getSessionMetadata()
+          : undefined;
+
         const payloadWithSignature =
           takerSignature && takerSignedAt
-            ? { ...requestPayload, takerSignature, takerSignedAt }
+            ? {
+                ...requestPayload,
+                takerSignature,
+                takerSignedAt,
+                ...(sessionMetadata && { sessionMetadata }),
+              }
             : requestPayload;
 
         // Clear previous auction state
@@ -261,7 +289,7 @@ export function useAuctionStart() {
         }
       }, 400);
     },
-    [wsUrl, signMessageAsync]
+    [wsUrl, signMessageAsync, isSessionActive, smartAccountAddress, sessionSignMessage, getSessionMetadata]
   );
 
   const acceptBid = useCallback(

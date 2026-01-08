@@ -6,7 +6,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import type { HttpTransport } from 'viem';
 import { sepolia, base, cannon, type Chain, arbitrum } from 'viem/chains';
 import { http } from 'wagmi';
-import { injected, coinbaseWallet } from 'wagmi/connectors';
+import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors';
 
 import type React from 'react';
 import { useMemo } from 'react';
@@ -19,6 +19,7 @@ import { SettingsProvider } from '~/lib/context/SettingsContext';
 import { useSettings } from '~/lib/context/SettingsContext';
 import { ConnectDialogProvider } from '~/lib/context/ConnectDialogContext';
 import { AuthProvider } from '~/lib/context/AuthContext';
+import { SessionProvider } from '~/lib/context/SessionContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -121,6 +122,16 @@ const useWagmiConfig = () => {
         coinbaseWallet({
           appName: 'Sapience',
         }),
+        walletConnect({
+          projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',
+          metadata: {
+            name: 'Sapience',
+            description: 'Prediction markets on Ethereum',
+            url: 'https://sapience.xyz',
+            icons: ['https://sapience.xyz/logo.svg'],
+          },
+          showQrModal: true,
+        }),
       ],
       transports,
     });
@@ -169,13 +180,15 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 
           <SettingsProvider>
             <AuthProvider>
-              <WagmiRoot>
-                <SapienceProvider>
-                  <ConnectDialogProvider>
-                    <CreatePositionProvider>{children}</CreatePositionProvider>
-                  </ConnectDialogProvider>
-                </SapienceProvider>
-              </WagmiRoot>
+              <SessionProvider>
+                <WagmiRoot>
+                  <SapienceProvider>
+                    <ConnectDialogProvider>
+                      <CreatePositionProvider>{children}</CreatePositionProvider>
+                    </ConnectDialogProvider>
+                  </SapienceProvider>
+                </WagmiRoot>
+              </SessionProvider>
             </AuthProvider>
           </SettingsProvider>
         </QueryClientProvider>

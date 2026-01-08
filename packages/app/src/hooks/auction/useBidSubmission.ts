@@ -12,6 +12,7 @@ import {
 } from 'viem';
 import { predictionMarket } from '@sapience/sdk/contracts';
 import { useSettings } from '~/lib/context/SettingsContext';
+import { useSession } from '~/lib/context/SessionContext';
 import { toAuctionWsUrl } from '~/lib/ws';
 import { getSharedAuctionWsClient } from '~/lib/ws/AuctionWsClient';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
@@ -79,6 +80,7 @@ export function useBidSubmission(
   const { signTypedDataAsync } = useSignTypedData();
   const chainId = useChainIdFromLocalStorage();
   const { apiBaseUrl } = useSettings();
+  const { isSessionActive, smartAccountAddress, signTypedData: sessionSignTypedData, getSessionMetadata } = useSession();
 
   const wsUrl = useMemo(() => toAuctionWsUrl(apiBaseUrl), [apiBaseUrl]);
 
@@ -125,8 +127,13 @@ export function useBidSubmission(
         maxEndTimeSec,
       } = params;
 
+      // Use smart account address as maker when session is active
+      const signerAddress = isSessionActive && smartAccountAddress
+        ? smartAccountAddress
+        : address;
+
       // Validate required data
-      if (!address) {
+      if (!signerAddress) {
         return { success: false, error: 'Wallet not connected' };
       }
 
@@ -205,18 +212,29 @@ export function useBidSubmission(
 
       const message = {
         messageHash: innerMessageHash,
-        owner: getAddress(address),
+        owner: getAddress(signerAddress),
       } as const;
 
-      // Sign typed data via wagmi/viem
+      // Sign typed data via session key or wagmi/viem
       let makerSignature: `0x${string}`;
       try {
-        makerSignature = await signTypedDataAsync({
-          domain,
-          types,
-          primaryType: 'Approve',
-          message,
-        });
+        if (isSessionActive && sessionSignTypedData) {
+          // Use session key for signing
+          makerSignature = await sessionSignTypedData({
+            domain,
+            types,
+            primaryType: 'Approve',
+            message,
+          });
+        } else {
+          // Use wallet for signing
+          makerSignature = await signTypedDataAsync({
+            domain,
+            types,
+            primaryType: 'Approve',
+            message,
+          });
+        }
       } catch (e: any) {
         const error =
           e instanceof Error ? e : new Error(String(e?.message || e));
@@ -231,14 +249,19 @@ export function useBidSubmission(
         return { success: false, error: 'No signature returned' };
       }
 
-      // Build bid payload
+      // Build bid payload with optional session metadata for relayer verification
+      const sessionMetadata = isSessionActive && sessionSignTypedData && getSessionMetadata
+        ? getSessionMetadata()
+        : undefined;
+
       const payload = {
         auctionId,
-        maker: address,
+        maker: signerAddress,
         makerDeadline,
         makerNonce: takerNonce,
         makerSignature,
         makerWager: makerWager.toString(),
+        ...(sessionMetadata && { sessionMetadata }),
       };
 
       // Send over shared Auction WS (fire and forget - no ack wait)
@@ -266,6 +289,10 @@ export function useBidSubmission(
       wsUrl,
       signTypedDataAsync,
       onSignatureRejected,
+      isSessionActive,
+      smartAccountAddress,
+      sessionSignTypedData,
+      getSessionMetadata,
     ]
   );
 
