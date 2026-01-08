@@ -66,7 +66,42 @@ You can find LayerZero endpoint IDs (EIDs) at:
 
 ## Deployment Steps
 
-### Step 1: Deploy and Verify ConditionalTokensReader on Polygon
+### Quick Start: Automated Deployment Script
+
+For convenience, you can use the orchestration script to deploy and configure everything in one go:
+
+```bash
+bash src/scripts/DeployConditionalTokensResolver/00_deploy_and_configure.sh
+```
+
+**With automatic verification:**
+```bash
+bash src/scripts/DeployConditionalTokensResolver/00_deploy_and_configure.sh --verify
+```
+
+**Skip steps if contracts already deployed:**
+```bash
+# Skip Polygon deployment (use existing POLYGON_CONDITIONAL_TOKENS_READER)
+bash src/scripts/DeployConditionalTokensResolver/00_deploy_and_configure.sh --skip-polygon
+
+# Skip Ethereal deployment (use existing ETHEREAL_CONDITIONAL_TOKENS_RESOLVER)
+bash src/scripts/DeployConditionalTokensResolver/00_deploy_and_configure.sh --skip-ethereal
+
+# Skip configuration (only deploy)
+bash src/scripts/DeployConditionalTokensResolver/00_deploy_and_configure.sh --skip-config
+```
+
+The script will:
+1. Check all required environment variables
+2. Deploy ConditionalTokensReader on Polygon
+3. Deploy Resolver on Ethereal
+4. Configure both contracts
+
+### Manual Deployment Steps
+
+If you prefer to run each step manually:
+
+#### Step 1: Deploy and Verify ConditionalTokensReader on Polygon
 
 ```bash
 forge script src/scripts/DeployConditionalTokensResolver/01_Polygon_deployReader.s.sol \
