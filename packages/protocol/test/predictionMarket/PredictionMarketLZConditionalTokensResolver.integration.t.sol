@@ -373,6 +373,83 @@ contract PredictionMarketLZConditionalTokensResolverIntegrationTest is TestHelpe
         vm.stopPrank();
     }
 
+    // ============ canRequestResolution Tests ============
+
+    /**
+     * @notice Test canRequestResolution returns true for valid YES condition
+     */
+    function test_canRequestResolution_validYesCondition() public view {
+        bool canRequest = polygonReader.canRequestResolution(CONDITION_YES);
+        assertTrue(canRequest, "Should be able to request resolution for valid YES condition");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns true for valid NO condition
+     */
+    function test_canRequestResolution_validNoCondition() public view {
+        bool canRequest = polygonReader.canRequestResolution(CONDITION_NO);
+        assertTrue(canRequest, "Should be able to request resolution for valid NO condition");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns false for zero conditionId
+     */
+    function test_canRequestResolution_zeroConditionId() public view {
+        bool canRequest = polygonReader.canRequestResolution(bytes32(0));
+        assertFalse(canRequest, "Should not be able to request resolution for zero conditionId");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns false for unresolved condition
+     */
+    function test_canRequestResolution_unresolvedCondition() public view {
+        bool canRequest = polygonReader.canRequestResolution(CONDITION_UNRESOLVED);
+        assertFalse(canRequest, "Should not be able to request resolution for unresolved condition");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns false for non-binary condition
+     */
+    function test_canRequestResolution_nonBinaryCondition() public {
+        bytes32 nonBinaryCondition = keccak256("non-binary");
+        mockCTF.setCondition(nonBinaryCondition, 3, 1, 1, 0); // 3 outcomes
+
+        bool canRequest = polygonReader.canRequestResolution(nonBinaryCondition);
+        assertFalse(canRequest, "Should not be able to request resolution for non-binary condition");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns false for split payout (invalid)
+     */
+    function test_canRequestResolution_splitPayout() public {
+        bytes32 splitCondition = keccak256("split");
+        mockCTF.setCondition(splitCondition, 2, 2, 1, 1); // Split: both get 1/2
+
+        bool canRequest = polygonReader.canRequestResolution(splitCondition);
+        assertFalse(canRequest, "Should not be able to request resolution for split payout");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns false for invalid payout sum
+     */
+    function test_canRequestResolution_invalidPayoutSum() public {
+        bytes32 invalidCondition = keccak256("invalid-sum");
+        mockCTF.setCondition(invalidCondition, 2, 100, 50, 30); // Sum != denom
+
+        bool canRequest = polygonReader.canRequestResolution(invalidCondition);
+        assertFalse(canRequest, "Should not be able to request resolution for invalid payout sum");
+    }
+
+    /**
+     * @notice Test canRequestResolution returns false for non-existent condition
+     */
+    function test_canRequestResolution_nonExistentCondition() public view {
+        bytes32 nonExistent = keccak256("does-not-exist");
+
+        bool canRequest = polygonReader.canRequestResolution(nonExistent);
+        assertFalse(canRequest, "Should not be able to request resolution for non-existent condition");
+    }
+
 }
 
 /**

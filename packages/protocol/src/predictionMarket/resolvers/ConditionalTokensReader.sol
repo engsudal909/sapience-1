@@ -43,6 +43,14 @@ contract ConditionalTokensReader is
         address conditionalTokens;  // Address of ConditionalTokens contract on Polygon
     }
 
+    /// @notice Encapsulates condition data from ConditionalTokens
+    struct ConditionData {
+        uint256 slotCount;
+        uint256 payoutDenominator;
+        uint256 noPayout;
+        uint256 yesPayout;
+    }
+
     Settings public config;
     BridgeTypes.BridgeConfig private bridgeConfig;
 
@@ -98,22 +106,19 @@ contract ConditionalTokensReader is
      */
     function requestResolution(bytes32 conditionId) external payable nonReentrant {
         if (conditionId == bytes32(0)) revert InvalidConditionId();
-        
-        // Read ConditionalTokens data
-        uint256 slotCount = IConditionalTokens(config.conditionalTokens).getOutcomeSlotCount(conditionId);
-        uint256 payoutDenominator = IConditionalTokens(config.conditionalTokens).payoutDenominator(conditionId);
-        uint256 noPayout = IConditionalTokens(config.conditionalTokens).payoutNumerators(conditionId, 0);
-        uint256 yesPayout = IConditionalTokens(config.conditionalTokens).payoutNumerators(conditionId, 1);
 
-        // Validate condition and resolved state and revert fast if invalid 
-        _validateConditionAndResolvedState(conditionId, slotCount, payoutDenominator, noPayout, yesPayout);
-        
+        // Read ConditionalTokens data
+        ConditionData memory data = _readConditionData(conditionId);
+
+        // Validate condition and resolved state and revert fast if invalid
+        _validateConditionAndResolvedState(conditionId, data);
+
         // Encode resolution response
         bytes memory commandPayload = Encoder.encodeFromConditionalTokenReaderResolutionResponse(
             conditionId,
-            payoutDenominator,
-            noPayout,
-            yesPayout
+            data.payoutDenominator,
+            data.noPayout,
+            data.yesPayout
         );
         bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
         
@@ -145,7 +150,7 @@ contract ConditionalTokensReader is
         }
         
         emit ResolutionRequested(conditionId, receipt.guid, block.timestamp);
-        emit ResolutionSent(conditionId, payoutDenominator, noPayout, yesPayout, receipt.guid, block.timestamp);
+        emit ResolutionSent(conditionId, data.payoutDenominator, data.noPayout, data.yesPayout, receipt.guid, block.timestamp);
     }
 
     /**
@@ -164,6 +169,23 @@ contract ConditionalTokensReader is
         bytes memory message = abi.encode(Encoder.CMD_FROM_CONDITIONAL_TOKEN_READER_RESOLUTION_RESPONSE, commandPayload);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         return _quote(bridgeConfig.remoteEid, message, options, false);
+    }
+
+    /**
+     * @notice Check if a condition can be requested for resolution
+     * @param conditionId The ConditionalTokens conditionId to check
+     * @return bool True if the condition is valid and resolved, false otherwise
+     * @dev Returns true if all of the following are met:
+     *      - Condition is binary (2 outcomes)
+     *      - Condition is resolved (payoutDenominator > 0)
+     *      - Payouts sum to denominator (noPayout + yesPayout == payoutDenominator)
+     *      - Payouts are not equal (not a split)
+     */
+    function canRequestResolution(bytes32 conditionId) external view returns (bool) {
+        if (conditionId == bytes32(0)) return false;
+
+        ConditionData memory data = _readConditionData(conditionId);
+        return _isConditionValidAndResolved(data);
     }
 
     // ============ ETH Management ============
@@ -194,11 +216,44 @@ contract ConditionalTokensReader is
 
     // ============ Internal Functions ============
 
-    function _validateConditionAndResolvedState(bytes32 conditionId, uint256 slotCount, uint256 payoutDenominator, uint256 noPayout, uint256 yesPayout) internal pure {
-        if (slotCount != 2) revert ConditionIsNotBinary(conditionId);
-        if (payoutDenominator == 0) revert ConditionNotResolved(conditionId);
-        if (noPayout + yesPayout != payoutDenominator) revert InvalidPayout(conditionId);
-        if (noPayout == yesPayout) revert InvalidPayout(conditionId);
+    /**
+     * @notice Read condition data from ConditionalTokens contract
+     * @param conditionId The conditionId to read
+     * @return ConditionData struct with all condition information
+     * @dev Performs 4 external calls to ConditionalTokens contract
+     */
+    function _readConditionData(bytes32 conditionId) internal view returns (ConditionData memory) {
+        return ConditionData({
+            slotCount: IConditionalTokens(config.conditionalTokens).getOutcomeSlotCount(conditionId),
+            payoutDenominator: IConditionalTokens(config.conditionalTokens).payoutDenominator(conditionId),
+            noPayout: IConditionalTokens(config.conditionalTokens).payoutNumerators(conditionId, 0),
+            yesPayout: IConditionalTokens(config.conditionalTokens).payoutNumerators(conditionId, 1)
+        });
+    }
+
+    /**
+     * @notice Check if condition data is valid and resolved without reverting
+     * @param data ConditionData struct to validate
+     * @return bool True if valid and resolved, false otherwise
+     */
+    function _isConditionValidAndResolved(ConditionData memory data) internal pure returns (bool) {
+        if (data.slotCount != 2) return false;
+        if (data.payoutDenominator == 0) return false;
+        if (data.noPayout + data.yesPayout != data.payoutDenominator) return false;
+        if (data.noPayout == data.yesPayout) return false;
+        return true;
+    }
+
+    /**
+     * @notice Validate condition and resolved state, reverts with specific error if invalid
+     * @param conditionId The conditionId being validated
+     * @param data ConditionData struct to validate
+     */
+    function _validateConditionAndResolvedState(bytes32 conditionId, ConditionData memory data) internal pure {
+        if (data.slotCount != 2) revert ConditionIsNotBinary(conditionId);
+        if (data.payoutDenominator == 0) revert ConditionNotResolved(conditionId);
+        if (data.noPayout + data.yesPayout != data.payoutDenominator) revert InvalidPayout(conditionId);
+        if (data.noPayout == data.yesPayout) revert InvalidPayout(conditionId);
     }
 }
 
