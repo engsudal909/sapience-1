@@ -38,90 +38,67 @@ contract SetDVNForPolygonReader is Script {
     uint32 constant ULN_CONFIG_TYPE = 2;
 
     function run() external {
-        // address reader = 0x26DB702647e56B230E15687bFbC48b526E131dAe;
-        address endpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-        // address sendLib = 0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3;
-        // address dvn1 = 0x23DE2FE932d9043291f870324B74F820e11dc81A;
-        // address dvn2 = 0xD56e4eAb23cb81f43168F9F45211Eb027b9aC7cc;
-        address executor = 0xCd3F213AD101472e1713C72B1697E727C803885b; 
-        uint32 etherealEid = uint32(30110);
-        // address reader = vm.envAddress("POLYGON_CONDITIONAL_TOKENS_READER");
-        // address endpoint = vm.envAddress("POLYGON_LZ_ENDPOINT");
-        // address sendLib = vm.envAddress("POLYGON_SEND_LIB");
-        // address dvn = vm.envAddress("POLYGON_DVN");
-        // address executor = vm.envOr("POLYGON_EXECUTOR", address(0)); // Default to 0x0 for LayerZero default
-        // uint32 etherealEid = uint32(vm.envUint("ETHEREAL_EID"));
-        
-        uint64 confirmations = uint64(20);
-        uint8 requiredDvnCount = uint8(2);
-        uint32 maxMessageSize = uint32(10000);
-        // uint32 gracePeriod = uint32(0);
-        // uint64 confirmations = uint64(vm.envOr("ULN_CONFIRMATIONS", uint256(20)));
-        // uint8 requiredDvnCount = uint8(vm.envOr("REQUIRED_DVN_COUNT", uint256(1)));
-        // uint32 maxMessageSize = uint32(vm.envOr("MAX_MESSAGE_SIZE", uint256(10000)));
-        // uint32 gracePeriod = uint32(vm.envOr("GRACE_PERIOD", uint256(0)));
+        // LayerZero addresses for Polygon → Ethereal
+        address reader = vm.envAddress("POLYGON_CONDITIONAL_TOKENS_READER");
+        address endpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Polygon Endpoint V2
+        address sendLib = 0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3; // Polygon SendLib302
+        address dvn = 0x43CFcc293CdF99F7D021F21FfD443f174AB0e843; // LZDeadDVN
+        address executor = 0xCd3F213AD101472e1713C72B1697E727C803885b; // Polygon Executor
+        uint32 etherealEid = 30391; // Ethereal EID
+
+        // LayerZero config from https://layerzeroscan.com/tools/defaults
+        uint64 confirmations = 512; // Send confirmations for Polygon → Ethereal
+        uint8 requiredDvnCount = 1;
+        uint32 maxMessageSize = uint32(vm.envOr("MAX_MESSAGE_SIZE", uint256(10000)));
 
         console.log("=== Configuring LayerZero DVN for Polygon Reader (SEND) ===");
-        console.log("Reader:", 0x26DB702647e56B230E15687bFbC48b526E131dAe);
+        console.log("Reader:", reader);
         console.log("Endpoint:", endpoint);
-        console.log("Send Library:", 0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3);
-        console.log("DVN1:", 0x23DE2FE932d9043291f870324B74F820e11dc81A);
-        console.log("DVN2:", 0xD56e4eAb23cb81f43168F9F45211Eb027b9aC7cc);
-        console.log("Executor:", executor == address(0) ? "0x0 (default)" : vm.toString(executor));
+        console.log("Send Library:", sendLib);
+        console.log("DVN (LZDeadDVN):", dvn);
+        console.log("Executor:", executor);
         console.log("Destination EID (Ethereal):", etherealEid);
         console.log("Confirmations:", confirmations);
         console.log("Required DVN Count:", requiredDvnCount);
         console.log("Max Message Size:", maxMessageSize);
         console.log("");
 
-        // Hardcode private key or use --private-key flag
-        // Option 1: Hardcode here (replace with your actual private key)
-        // uint256 privateKey = 0xYOUR_PRIVATE_KEY_HERE;
-        // vm.startBroadcast(privateKey);
-        
-        // Option 2: Use --private-key flag (recommended)
-        // Run: forge script ... --private-key 0x... (no vm.envUint call needed)
         vm.startBroadcast();
-
-        address oapp = 0x26DB702647e56B230E15687bFbC48b526E131dAe;
 
         // Set send library for outbound messages (Polygon → Ethereal)
         console.log("Setting send library...");
         ILayerZeroEndpointV2(endpoint).setSendLibrary(
-            oapp,
-            etherealEid,  // Destination chain EID
-            0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3
+            reader,
+            etherealEid,
+            sendLib
         );
         console.log("Send library set");
 
         // Configure ULN (DVNs + confirmations) for sending
-        address[] memory requiredDVNs = new address[](2);
-        requiredDVNs[0] = 0x23DE2FE932d9043291f870324B74F820e11dc81A;
-        requiredDVNs[1] = 0xD56e4eAb23cb81f43168F9F45211Eb027b9aC7cc;
+        address[] memory requiredDVNs = new address[](1);
+        requiredDVNs[0] = dvn;
         UlnConfig memory uln = UlnConfig({
-            confirmations: confirmations,           // Block confirmations required before sending
-            requiredDVNCount: requiredDvnCount,    // Number of required DVNs
-            optionalDVNCount: type(uint8).max,     // No optional DVNs
+            confirmations: confirmations,
+            requiredDVNCount: requiredDvnCount,
+            optionalDVNCount: 0, // No optional DVNs
             optionalDVNThreshold: 0,
             requiredDVNs: requiredDVNs,
             optionalDVNs: new address[](0)
         });
 
-        // Configure executor
-        ExecutorConfig memory exec = ExecutorConfig({
-            maxMessageSize: maxMessageSize,
-            executor: executor  // address(0) uses LayerZero default executor
-        });
-
-        bytes memory encodedUln = abi.encode(uln);
-        bytes memory encodedExec = abi.encode(exec);
-
+        // Configure executor and create params in single scope to avoid stack too deep
         SetConfigParam[] memory params = new SetConfigParam[](2);
-        params[0] = SetConfigParam(etherealEid, EXECUTOR_CONFIG_TYPE, encodedExec);
-        params[1] = SetConfigParam(etherealEid, ULN_CONFIG_TYPE, encodedUln);
+        {
+            ExecutorConfig memory exec = ExecutorConfig({
+                maxMessageSize: maxMessageSize,
+                executor: executor
+            });
+            params[0] = SetConfigParam(etherealEid, EXECUTOR_CONFIG_TYPE, abi.encode(exec));
+        }
+        params[1] = SetConfigParam(etherealEid, ULN_CONFIG_TYPE, abi.encode(uln));
 
         console.log("Setting send config (executor + DVN)...");
-        ILayerZeroEndpointV2(endpoint).setConfig(oapp, 0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3, params);
+        ILayerZeroEndpointV2(endpoint).setConfig(reader, sendLib, params);
         console.log("Send config set");
 
         vm.stopBroadcast();
