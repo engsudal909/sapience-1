@@ -29,6 +29,7 @@ import ConditionTitleLink from '~/components/markets/ConditionTitleLink';
 import { useRestrictedJurisdiction } from '~/hooks/useRestrictedJurisdiction';
 import RestrictedJurisdictionBanner from '~/components/shared/RestrictedJurisdictionBanner';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { useSession } from '~/lib/context/SessionContext';
 import { getCategoryIcon } from '~/lib/theme/categoryIcons';
 import { getCategoryStyle } from '~/lib/utils/categoryStyle';
 import {
@@ -109,6 +110,7 @@ export default function PositionForm({
   const [validBids, setValidBids] = useState<QuoteBid[]>([]);
 
   const { isRestricted, isPermitLoading } = useRestrictedJurisdiction();
+  const { isSessionActive } = useSession();
 
   // Use zero address as the guest taker address when the user is logged out
   const guestTakerAddress: `0x${string}` =
@@ -419,6 +421,38 @@ export default function PositionForm({
     }
     triggerAuctionRequest({ forceRefresh: true });
   }, [hasConnectedWallet, openConnectDialog, triggerAuctionRequest]);
+
+  // Auto-initiate auction when session is active and content (predictions/wager) changes
+  // We debounce this to avoid spamming the auction endpoint while the user is typing
+  const autoAuctionDebounceRef = useRef<number | null>(null);
+  useEffect(() => {
+    // Only auto-trigger when session is active
+    if (!isSessionActive) return;
+
+    // Must have at least one prediction
+    const hasPredictions = selections.length > 0 || pythPredictions.length > 0;
+    if (!hasPredictions) return;
+
+    // Must have a valid wager amount
+    const wagerNum = Number(parlayWagerAmount || '0');
+    if (wagerNum <= 0 || Number.isNaN(wagerNum)) return;
+
+    // Clear previous debounce timer
+    if (autoAuctionDebounceRef.current) {
+      window.clearTimeout(autoAuctionDebounceRef.current);
+    }
+
+    // Debounce for 300ms to let user finish typing/selecting
+    autoAuctionDebounceRef.current = window.setTimeout(() => {
+      triggerAuctionRequest({ forceRefresh: true });
+    }, 300);
+
+    return () => {
+      if (autoAuctionDebounceRef.current) {
+        window.clearTimeout(autoAuctionDebounceRef.current);
+      }
+    };
+  }, [isSessionActive, predictionsKey, parlayWagerAmount, triggerAuctionRequest, selections.length, pythPredictions.length]);
 
   // Show "Request Bids" button when:
   // 1. No valid bids exist (never received or all expired)

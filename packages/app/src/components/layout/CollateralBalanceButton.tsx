@@ -16,8 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sapience/ui/components/ui/dialog';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { parseEther, toHex } from 'viem';
+import { useToast } from '@sapience/ui/hooks/use-toast';
+import { CHAIN_ID_ETHEREAL } from '@sapience/sdk/constants';
 import { useChainIdFromLocalStorage } from '~/hooks/blockchain/useChainIdFromLocalStorage';
+import { ethereal } from '~/lib/session/sessionKeyManager';
 import { useCollateralBalance } from '~/hooks/blockchain/useCollateralBalance';
 import { useSession } from '~/lib/context/SessionContext';
 import { STARGATE_DEPOSIT_URL } from '~/lib/constants';
@@ -91,13 +95,13 @@ export default function CollateralBalanceButton({
   const { smartAccountAddress, isCalculatingAddress } = useSession();
 
   // Get EOA balance (connected wallet)
-  const { balance: eoaBalance, symbol } = useCollateralBalance({
+  const { balance: eoaBalance, symbol, refetch: refetchEoaBalance } = useCollateralBalance({
     address: eoaAddress,
     chainId,
   });
 
   // Get smart account balance
-  const { balance: smartAccountBalance } = useCollateralBalance({
+  const { balance: smartAccountBalance, refetch: refetchSmartAccountBalance } = useCollateralBalance({
     address: smartAccountAddress as `0x${string}` | undefined,
     chainId,
     enabled: Boolean(smartAccountAddress),
@@ -106,6 +110,128 @@ export default function CollateralBalanceButton({
   const formattedBalance = `${formatDollarLikeBalance(smartAccountBalance)} ${symbol}`;
   const [nextDistribution, setNextDistribution] = useState(getNextDistributionCountdown());
   const [isGetUsdeOpen, setIsGetUsdeOpen] = useState(false);
+  const [isTransferLoading, setIsTransferLoading] = useState(false);
+  const { toast } = useToast();
+
+  // Handle transfer from wallet using the wallet provider directly
+  const handleTransferFromWallet = async () => {
+    console.log('[Transfer] handleTransferFromWallet called', {
+      smartAccountAddress,
+      eoaAddress,
+      eoaBalance,
+      connectedWallet: !!connectedWallet,
+    });
+
+    if (!smartAccountAddress || !eoaAddress || eoaBalance <= 0) {
+      toast({
+        title: 'Cannot transfer',
+        description: !smartAccountAddress
+          ? 'Smart account address not available'
+          : eoaBalance <= 0
+            ? 'No USDe balance in your wallet'
+            : 'Wallet not connected',
+        variant: 'destructive',
+        duration: 5000,
+      });
+      return;
+    }
+
+    if (!connectedWallet) {
+      toast({
+        title: 'Cannot transfer',
+        description: 'No wallet connected',
+        variant: 'destructive',
+        duration: 5000,
+      });
+      return;
+    }
+
+    setIsTransferLoading(true);
+
+    try {
+      // Get the wallet provider
+      const provider = await connectedWallet.getEthereumProvider();
+
+      // Add Ethereal chain to wallet and switch to it
+      console.log('[Transfer] Adding/switching to Ethereal chain:', CHAIN_ID_ETHEREAL);
+      try {
+        // Always try to add the chain first (will be ignored if already exists)
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: toHex(CHAIN_ID_ETHEREAL),
+            chainName: ethereal.name,
+            nativeCurrency: ethereal.nativeCurrency,
+            rpcUrls: [ethereal.rpcUrls.default.http[0]],
+          }],
+        });
+        console.log('[Transfer] Chain added/confirmed');
+      } catch (addError: any) {
+        // Ignore "already exists" errors
+        console.log('[Transfer] Add chain result:', addError?.message || 'success');
+      }
+
+      // Now switch to the chain
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: toHex(CHAIN_ID_ETHEREAL) }],
+        });
+        console.log('[Transfer] Chain switch successful');
+      } catch (switchError: any) {
+        console.error('[Transfer] Switch chain error:', switchError);
+        throw new Error(`Failed to switch to Ethereal chain: ${switchError?.message || 'Unknown error'}`);
+      }
+
+      // Transfer the EOA balance (which already has GAS_RESERVE subtracted)
+      const amountToTransfer = parseEther(eoaBalance.toString());
+      console.log('[Transfer] Sending transaction:', {
+        from: eoaAddress,
+        to: smartAccountAddress,
+        value: amountToTransfer.toString(),
+      });
+
+      // Send transaction using the wallet provider
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: eoaAddress,
+          to: smartAccountAddress,
+          value: toHex(amountToTransfer),
+        }],
+      });
+      console.log('[Transfer] Transaction hash:', txHash);
+
+      toast({
+        title: 'Transfer submitted',
+        description: 'Your transfer is being processed...',
+        duration: 3000,
+      });
+
+      // Wait a bit for the transaction to be mined, then refetch balances
+      setTimeout(() => {
+        refetchEoaBalance();
+        refetchSmartAccountBalance();
+      }, 5000);
+
+      toast({
+        title: 'Transfer successful',
+        description: 'USDe has been transferred to your Ethereal Predict account.',
+        duration: 5000,
+      });
+
+    } catch (error: any) {
+      console.error('Transfer failed:', error);
+      toast({
+        title: 'Transfer failed',
+        description: error?.message || 'Failed to transfer USDe',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    } finally {
+      setIsTransferLoading(false);
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -223,8 +349,11 @@ export default function CollateralBalanceButton({
               <Button
                 variant="outline"
                 className="flex-1 h-11 text-sm"
+                onClick={handleTransferFromWallet}
+                disabled={isTransferLoading || !smartAccountAddress || eoaBalance <= 0}
               >
-                Transfer from Wallet
+                <ArrowUpRight className="h-4 w-4" />
+                {isTransferLoading ? 'Transferring...' : 'Transfer to Predict'}
               </Button>
             </div>
 
