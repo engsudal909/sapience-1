@@ -205,10 +205,7 @@ export async function computeTimeWeightedForAttesterMarketValue(
   });
   if (rows.length === 0) return null;
 
-  // Build intervals from each forecast to next or end
-  const start = rows[0].madeAt;
   const end = condition.endTime;
-  if (end <= start) return null;
 
   const alphaEnv = process.env.HWBS_ALPHA;
   const alpha =
@@ -220,14 +217,11 @@ export async function computeTimeWeightedForAttesterMarketValue(
   let totalWeight = 0;
   for (let i = 0; i < rows.length; i++) {
     const p = rows[i].probabilityFloat as number;
-    const t0 = i === 0 ? start : Math.max(rows[i].madeAt, start);
-    const t1 = i < rows.length - 1 ? Math.min(rows[i + 1].madeAt, end) : end;
-    const duration = Math.max(0, t1 - t0);
-    if (duration <= 0) continue;
+    const madeAt = rows[i].madeAt;
+    const tau = Math.max(0, end - madeAt); // time from forecast to resolution
+    if (tau <= 0) continue;
     const err = (p - outcome) * (p - outcome);
-    const midpoint = (t0 + t1) / 2;
-    const tau = Math.max(0, end - midpoint);
-    const weight = duration * Math.pow(tau, alpha);
+    const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
     weightedSum += err * weight;
     totalWeight += weight;
   }
@@ -286,21 +280,15 @@ export async function computeAndStoreMarketTwErrors(
 
     if (rows.length === 0) continue;
 
-    const start = rows[0].madeAt;
-    if (end <= start) continue;
-
     let weightedSum = 0;
     let totalWeight = 0;
     for (let i = 0; i < rows.length; i++) {
       const p = rows[i].probabilityFloat as number;
-      const t0 = i === 0 ? start : Math.max(rows[i].madeAt, start);
-      const t1 = i < rows.length - 1 ? Math.min(rows[i + 1].madeAt, end) : end;
-      const duration = Math.max(0, t1 - t0);
-      if (duration <= 0) continue;
+      const madeAt = rows[i].madeAt;
+      const tau = Math.max(0, end - madeAt); // time from forecast to resolution
+      if (tau <= 0) continue;
       const err = (p - outcome) * (p - outcome);
-      const midpoint = (t0 + t1) / 2;
-      const tau = Math.max(0, end - midpoint);
-      const weight = duration * Math.pow(tau, alpha);
+      const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
       weightedSum += err * weight;
       totalWeight += weight;
     }
@@ -408,23 +396,15 @@ export async function computeTimeWeightedForAttesterSummary(
   for (const [k, seq] of byMarket.entries()) {
     const m = meta.get(k)!;
     if (seq.length === 0) continue;
-    const rowsAsc = seq.sort((a, b) => a.madeAt - b.madeAt);
-    const start = rowsAsc[0].madeAt;
     const end = m.end as number;
-    if (end <= start) continue;
     let weightedSum = 0;
     let totalWeight = 0;
-    for (let i = 0; i < rowsAsc.length; i++) {
-      const p = rowsAsc[i].p;
-      const t0 = i === 0 ? start : Math.max(rowsAsc[i].madeAt, start);
-      const t1 =
-        i < rowsAsc.length - 1 ? Math.min(rowsAsc[i + 1].madeAt, end) : end;
-      const duration = Math.max(0, t1 - t0);
-      if (duration <= 0) continue;
+    for (const row of seq) {
+      const p = row.p;
+      const tau = Math.max(0, end - row.madeAt); // time from forecast to resolution
+      if (tau <= 0) continue;
       const err = (p - (m.outcome as number)) * (p - (m.outcome as number));
-      const midpoint = (t0 + t1) / 2;
-      const tau = Math.max(0, end - midpoint);
-      const weight = duration * Math.pow(tau, alpha);
+      const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
       weightedSum += err * weight;
       totalWeight += weight;
     }
@@ -557,22 +537,15 @@ export async function computeTimeWeightedForAttestersSummary(
 
   for (const value of groups.values()) {
     if (value.seq.length === 0) continue;
-    const seq = value.seq.sort((a, b) => a.t - b.t);
-    const start = seq[0].t;
     const end = value.end;
-    if (end <= start) continue;
     let weightedSum = 0;
     let totalWeight = 0;
-    for (let i = 0; i < seq.length; i++) {
-      const p = seq[i].p;
-      const t0 = i === 0 ? start : Math.max(seq[i].t, start);
-      const t1 = i < seq.length - 1 ? Math.min(seq[i + 1].t, end) : end;
-      const duration = Math.max(0, t1 - t0);
-      if (duration <= 0) continue;
+    for (const item of value.seq) {
+      const p = item.p;
+      const tau = Math.max(0, end - item.t); // time from forecast to resolution
+      if (tau <= 0) continue;
       const err = (p - value.outcome) * (p - value.outcome);
-      const midpoint = (t0 + t1) / 2;
-      const tau = Math.max(0, end - midpoint);
-      const weight = duration * Math.pow(tau, alpha);
+      const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
       weightedSum += err * weight;
       totalWeight += weight;
     }
