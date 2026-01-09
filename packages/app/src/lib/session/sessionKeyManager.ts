@@ -288,11 +288,6 @@ export async function createSession(
         abi: predictionMarketAbi,
         functionName: 'consolidatePrediction',
       },
-      {
-        target: EAS_ETHEREAL,
-        abi: EAS_ABI,
-        functionName: 'attest',
-      },
     ],
   });
 
