@@ -16,7 +16,6 @@ import {
 } from 'wagmi';
 import type { Hash } from 'viem';
 import { encodeFunctionData, parseAbi } from 'viem';
-import { useWallets, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 
 import { useToast } from '@sapience/ui/hooks/use-toast';
@@ -151,21 +150,12 @@ export function useSapienceWriteContract({
       currentShareIntentRef.current = shareIntent;
     }
   }, [shareIntent]);
-  const { wallets } = useWallets();
-  const { user, login } = usePrivy();
   const { address: wagmiAddress } = useAccount();
   const router = useRouter();
   const didRedirectRef = useRef(false);
   const didShowSuccessToastRef = useRef(false);
   // Get betslip context - may be undefined if not within provider
   const createPositionContext = useContext(CreatePositionContext);
-  const embeddedWallet = useMemo(() => {
-    const match = wallets?.find(
-      (wallet: any) => wallet?.walletClientType === 'privy'
-    );
-    return match;
-  }, [wallets]);
-  const isEmbeddedWallet = Boolean(embeddedWallet);
 
   // Helper to check if we're on Ethereal chain
   const isEtherealChain = useCallback((chainId: number) => {
@@ -257,13 +247,7 @@ export function useSapienceWriteContract({
           currentShareIntentRef.current ?? currentShareIntent;
         if (latestIntent === undefined) return; // only write when caller explicitly opts-in
 
-        const connectedAddress = (
-          wagmiAddress ||
-          (wallets?.[0] as any)?.address ||
-          ''
-        )
-          .toString()
-          .toLowerCase();
+        const connectedAddress = (wagmiAddress || '').toString().toLowerCase();
         if (!connectedAddress) return;
 
         // Determine anchor: use redirectProfileAnchor for profile, 'positions' for markets
@@ -302,13 +286,7 @@ export function useSapienceWriteContract({
         console.error(e);
       }
     },
-    [
-      redirectPage,
-      redirectProfileAnchor,
-      currentShareIntent,
-      wagmiAddress,
-      wallets,
-    ]
+    [redirectPage, redirectProfileAnchor, currentShareIntent, wagmiAddress]
   );
 
   // Helper to detect if this is a withdrawal operation that should trigger unwrapping
@@ -393,9 +371,10 @@ export function useSapienceWriteContract({
         }
       } else if (shouldRedirectToProfile) {
         // When session is active, redirect to smart account profile since that's where the attestation appears
-        const connectedAddress = (isSessionActive && sessionConfig?.smartAccountAddress)
-          ? sessionConfig.smartAccountAddress
-          : (wagmiAddress || (wallets?.[0] as any)?.address);
+        const connectedAddress =
+          isSessionActive && sessionConfig?.smartAccountAddress
+            ? sessionConfig.smartAccountAddress
+            : wagmiAddress;
         if (!connectedAddress) return; // No address available yet
         const addressLower = String(connectedAddress).toLowerCase();
         const redirectUrl = `/${redirectPage}/${addressLower}#${redirectProfileAnchor}`;
@@ -408,7 +387,6 @@ export function useSapienceWriteContract({
   }, [
     redirectPage,
     redirectProfileAnchor,
-    wallets,
     wagmiAddress,
     router,
     createPositionContext,
@@ -456,49 +434,6 @@ export function useSapienceWriteContract({
       disableSuccessToast,
     ]
   );
-
-  // Execute unwrap for embedded wallets
-  const executeEmbeddedUnwrap = useCallback(
-    async (walletId: string, chainId: number, balanceBefore: bigint) => {
-      try {
-        const unwrapTx = await executeAutoUnwrap(balanceBefore);
-        if (unwrapTx) {
-          const response = await fetch('/api/privy/send-calls', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              walletId,
-              chainId,
-              to: unwrapTx.to,
-              data: unwrapTx.data,
-              value: unwrapTx.value,
-              sponsor: true,
-            }),
-          });
-          if (response.ok) {
-            console.log('Auto-unwrap completed successfully');
-          }
-        }
-      } catch (error) {
-        console.error('Auto-unwrap failed:', error);
-      }
-    },
-    [executeAutoUnwrap]
-  );
-
-  const ensureEmbeddedAuth = useCallback(async () => {
-    if (!isEmbeddedWallet) return true;
-    if (user?.wallet?.id) return true;
-    try {
-      if (!login) return false;
-      await Promise.resolve(login());
-      return Boolean(user?.wallet?.id);
-    } catch (e) {
-      console.error(e);
-      return false;
-    }
-  }, [isEmbeddedWallet, login, user?.wallet?.id]);
 
   // Unified success toast formatting
   const successTitle = 'Transaction successfully submitted.';
@@ -663,131 +598,8 @@ export function useSapienceWriteContract({
         // Validate and switch chain if needed (only for non-session paths)
         await validateAndSwitchChain(_chainId);
 
-        // If using an embedded wallet, route via backend sponsorship endpoint as a single-call batch
-        if (isEmbeddedWallet) {
-          setIsSubmitting(true);
-          const params = args[0];
-          const {
-            address,
-            abi,
-            functionName,
-            args: fnArgs,
-            value,
-          } = params as any;
-
-          // Handle WUSDe wrapping on Ethereal chain
-          const callsToExecute: Array<{
-            to: `0x${string}`;
-            data: string;
-            value: bigint;
-          }> = [];
-
-          if (isEtherealChain(_chainId)) {
-            if (value && BigInt(value) > 0n) {
-              // On Ethereal, check existing WUSDe balance and only wrap the difference
-              const requiredAmount = BigInt(value);
-              const currentBalance = await getUserWUSDEBalance();
-              const amountToWrap =
-                requiredAmount > currentBalance
-                  ? requiredAmount - currentBalance
-                  : 0n;
-
-              if (amountToWrap > 0n) {
-                const wrapTx = createWrapTransaction(amountToWrap);
-                callsToExecute.push({
-                  to: wrapTx.to,
-                  data: wrapTx.data,
-                  value: wrapTx.value,
-                });
-              }
-            }
-          }
-
-          // Add the main transaction
-          const calldata = encodeFunctionData({
-            abi,
-            functionName,
-            args: fnArgs,
-          });
-          callsToExecute.push({
-            to: address,
-            data: calldata,
-            value: isEtherealChain(_chainId)
-              ? ('0x0' as any)
-              : (value ?? '0x0'), // No value on Ethereal since we wrapped
-          });
-
-          // Check if we need to add unwrapping based on the function being called
-          const needsUnwrap = shouldAutoUnwrap(functionName);
-
-          // Get balance before transaction if unwrapping might be needed
-          let balanceBeforeTransaction = 0n;
-          if (needsUnwrap && isEtherealChain(_chainId)) {
-            balanceBeforeTransaction = await getUserWUSDEBalance();
-          }
-
-          const ok = await ensureEmbeddedAuth();
-          const walletId = user?.wallet?.id;
-          if (!ok || !walletId) {
-            throw new Error('Authentication required. Please try again.');
-          }
-          // Execute calls sequentially (wrapping first, then main tx)
-          let lastResult: any = undefined;
-          for (const call of callsToExecute) {
-            const response = await fetch('/api/privy/send-calls', {
-              method: 'POST',
-              headers: {
-                'content-type': 'application/json',
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                walletId,
-                chainId: Number(_chainId),
-                to: call.to,
-                data: call.data,
-                value: call.value,
-                sponsor: true,
-              }),
-            });
-            if (!response.ok) {
-              const errText = await response.text();
-              // Minimal debug info to help diagnose missing fields during development
-              if (
-                typeof console !== 'undefined' &&
-                typeof console.warn === 'function'
-              ) {
-                console.warn('[Privy send-calls] request body', {
-                  walletId,
-                  chainId: _chainId,
-                  to: call.to,
-                  hasData: Boolean(call.data),
-                });
-              }
-              throw new Error(
-                errText || 'Sponsored transaction request failed'
-              );
-            }
-            lastResult = await response.json();
-          }
-          const data = lastResult;
-          const maybeHash: string | undefined =
-            data?.receipts?.[0]?.transactionHash ||
-            data?.transactionHash ||
-            data?.txHash;
-
-          handleTransactionSuccess(maybeHash as Hash);
-
-          // Execute auto-unwrap if this was a withdrawal operation
-          if (needsUnwrap) {
-            await executeEmbeddedUnwrap(
-              walletId,
-              Number(_chainId),
-              balanceBeforeTransaction
-            );
-          }
-        } else {
-          // For non-embedded wallets, use sendCalls if on Ethereal and wrapping is needed
-          if (isEtherealChain(_chainId)) {
+        // For external wallets, use sendCalls if on Ethereal and wrapping is needed
+        if (isEtherealChain(_chainId)) {
             const params = args[0];
             const { value } = params as any;
 
@@ -887,10 +699,9 @@ export function useSapienceWriteContract({
               }
             }
           } else {
-            // Execute the transaction normally for non-Ethereal chains
-            const hash = await writeContractAsync(...args);
-            handleTransactionSuccess(hash);
-          }
+          // Execute the transaction normally for non-Ethereal chains
+          const hash = await writeContractAsync(...args);
+          handleTransactionSuccess(hash);
         }
       } catch (error) {
         setIsSubmitting(false);
@@ -907,16 +718,12 @@ export function useSapienceWriteContract({
       resetWrite,
       validateAndSwitchChain,
       writeContractAsync,
-      isEmbeddedWallet,
       toast,
       fallbackErrorMessage,
       onError,
-      user,
       shouldAutoUnwrap,
-      executeEmbeddedUnwrap,
       executeNonEmbeddedUnwrap,
       handleTransactionSuccess,
-      ensureEmbeddedAuth,
       createWrapTransaction,
       getUserWUSDEBalance,
       isEtherealChain,
@@ -1020,67 +827,15 @@ export function useSapienceWriteContract({
 
         // Validate and switch chain if needed (only for non-session paths)
         await validateAndSwitchChain(_chainId);
-        // Execute the batch calls
-        const data = isEmbeddedWallet
-          ? // Route via backend sponsorship endpoint for embedded wallets
-            await (async () => {
-              setIsSubmitting(true);
-              const body = (args[0] as any) ?? {};
-              const calls = Array.isArray(body?.calls) ? body.calls : [];
-              let lastResult: any = undefined;
-              const ok = await ensureEmbeddedAuth();
-              const walletId = user?.wallet?.id;
-              if (!ok || !walletId) {
-                throw new Error('Authentication required. Please try again.');
-              }
-              // Execute each call sequentially as individual sponsored txs
-              for (const call of calls) {
-                const response = await fetch('/api/privy/send-calls', {
-                  method: 'POST',
-                  headers: {
-                    'content-type': 'application/json',
-                  },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    walletId,
-                    chainId: Number(_chainId),
-                    to: call.to,
-                    data: call.data,
-                    value: call.value ?? '0x0',
-                    sponsor: true,
-                  }),
-                });
-                if (!response.ok) {
-                  const errText = await response.text();
-                  if (
-                    typeof console !== 'undefined' &&
-                    typeof console.warn === 'function'
-                  ) {
-                    console.warn('[Privy send-calls batch] request body', {
-                      walletId,
-                      chainId: _chainId,
-                      to: call.to,
-                      hasData: Boolean(call.data),
-                    });
-                  }
-                  throw new Error(
-                    errText || 'Sponsored transaction request failed'
-                  );
-                }
-                lastResult = await response.json();
-              }
-              setIsSubmitting(false);
-              return lastResult;
-            })()
-          : // Use wallet_sendCalls with fallback for non-embedded wallets
-            await sendCallsAsync({
-              ...(args[0] as any),
-              experimental_fallback: true,
-            });
+        // Execute the batch calls using wallet_sendCalls with fallback
+        const data = await sendCallsAsync({
+          ...(args[0] as any),
+          experimental_fallback: true,
+        });
         // If the wallet supports EIP-5792, we can poll for calls status using the returned id.
         // If it does not (fallback path), `waitForCallsStatus` may throw or `id` may be unusable.
         try {
-          if (!isEmbeddedWallet && data?.id) {
+          if (data?.id) {
             const result = await waitForCallsStatus(client!, { id: data.id });
             const transactionHash = pickFinalTransactionHash(result);
             if (transactionHash) {
@@ -1120,7 +875,7 @@ export function useSapienceWriteContract({
               onSuccess?.(undefined as any);
             }
           } else {
-            // Embedded path or fallback path without aggregator id.
+            // Fallback path without aggregator id.
             const transactionHash = pickFinalTransactionHash(data);
             if (transactionHash) {
               // Persist share intent before redirect
@@ -1193,20 +948,12 @@ export function useSapienceWriteContract({
       validateAndSwitchChain,
       sendCallsAsync,
       client,
-      embeddedWallet,
       toast,
       fallbackErrorMessage,
       onError,
       onTxHash,
-      isEmbeddedWallet,
-      user,
       maybeRedirect,
       writeShareIntent,
-      shouldAutoUnwrap,
-      executeAutoUnwrap,
-      ensureEmbeddedAuth,
-      redirectPage,
-      shareIntent,
       onSuccess,
       successMessage,
       pickFinalTransactionHash,

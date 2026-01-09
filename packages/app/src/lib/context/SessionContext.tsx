@@ -9,7 +9,7 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
-import { useWallets } from '@privy-io/react-auth';
+import { useAccount, useSwitchChain } from 'wagmi';
 import type { Address, Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { KernelAccountClient } from '@zerodev/sdk';
@@ -123,8 +123,8 @@ interface SessionProviderProps {
 }
 
 export function SessionProvider({ children }: SessionProviderProps) {
-  const { wallets } = useWallets();
-  const connectedWallet = wallets[0];
+  const { address: walletAddress, connector } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
 
   // Session state
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -215,7 +215,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   // Calculate smart account address when wallet connects
   useEffect(() => {
-    if (!connectedWallet?.address) {
+    if (!walletAddress) {
       setSmartAccountAddress(null);
       return;
     }
@@ -225,7 +225,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     const calculateAddress = async () => {
       setIsCalculatingAddress(true);
       try {
-        const address = await getSmartAccountAddress(connectedWallet.address as Address);
+        const address = await getSmartAccountAddress(walletAddress);
         if (!cancelled) {
           setSmartAccountAddress(address);
         }
@@ -246,7 +246,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [connectedWallet?.address]);
+  }, [walletAddress]);
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -256,7 +256,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       if (!stored) return;
 
       // Check if the stored session matches the current wallet
-      if (connectedWallet?.address?.toLowerCase() !== stored.config.ownerAddress.toLowerCase()) {
+      if (walletAddress?.toLowerCase() !== stored.config.ownerAddress.toLowerCase()) {
         clearSession();
         return;
       }
@@ -285,10 +285,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
       }
     };
 
-    if (connectedWallet?.address) {
+    if (walletAddress) {
       void restore();
     }
-  }, [connectedWallet?.address]);
+  }, [walletAddress]);
 
   // Update time remaining every second
   useEffect(() => {
@@ -325,7 +325,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
   // Start a new session
   const startSession = useCallback(
     async (params: { durationHours: number; maxSpendUSDe: bigint }) => {
-      if (!connectedWallet?.address) {
+      if (!walletAddress || !connector) {
         throw new Error('No wallet connected');
       }
 
@@ -333,14 +333,14 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setSessionError(null);
 
       try {
-        // Get the Ethereum provider from the connected wallet
+        // Get the Ethereum provider from the connected wallet's connector
         // ZeroDev will use this provider to request signatures via EIP-1193
-        const provider = await connectedWallet.getEthereumProvider();
+        const provider = await connector.getProvider();
 
         // Create a chain switcher function for multi-chain session creation
         const switchChain = async (chainId: number) => {
           try {
-            await connectedWallet.switchChain(chainId);
+            await switchChainAsync({ chainId });
           } catch (error: any) {
             // If chain doesn't exist, try to add it first (for Ethereal)
             if (error?.code === 4902 || error?.message?.includes('Unrecognized chain')) {
@@ -355,7 +355,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
         // Create owner signer with the EIP-1193 provider and chain switcher
         // ZeroDev's signerToEcdsaValidator accepts EIP-1193 providers directly
         const ownerSigner: OwnerSigner = {
-          address: connectedWallet.address as Address,
+          address: walletAddress,
           provider,
           switchChain,
         };
@@ -393,7 +393,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
         setIsStartingSession(false);
       }
     },
-    [connectedWallet]
+    [walletAddress, connector, switchChainAsync]
   );
 
   // End the current session
@@ -403,10 +403,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   // Clear session when wallet disconnects
   useEffect(() => {
-    if (!connectedWallet?.address && isSessionActive) {
+    if (!walletAddress && isSessionActive) {
       endSessionInternal();
     }
-  }, [connectedWallet?.address, isSessionActive, endSessionInternal]);
+  }, [walletAddress, isSessionActive, endSessionInternal]);
 
   const value = useMemo(
     () => ({

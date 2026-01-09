@@ -12,12 +12,6 @@ import {
 import { Button } from '@sapience/ui/components/ui/button';
 import { Input } from '@sapience/ui/components/ui/input';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@sapience/ui/components/ui/tabs';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -98,7 +92,7 @@ export default function ConnectDialog({
   const { connect, isPending, connectors } = useConnect();
   const [connectingId, setConnectingId] = useState<string | null>(null);
 
-  // EIP-6963 wallet discovery (Privy disables wagmi's built-in discovery)
+  // EIP-6963 wallet discovery
   const [discoveredWallets, setDiscoveredWallets] = useState<
     EIP6963ProviderDetail[]
   >([]);
@@ -286,50 +280,6 @@ export default function ConnectDialog({
             Log in
           </DialogTitle>
         </DialogHeader>
-
-        {/* Email/SMS Login Tabs */}
-        <Tabs defaultValue="email" className="w-full">
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="email" className="text-sm font-medium">
-              EMAIL
-            </TabsTrigger>
-            <TabsTrigger value="sms" className="text-sm font-medium">
-              SMS
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="email" className="mt-4 space-y-2">
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1"
-              />
-              <Button type="submit">Log in</Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="sms" className="mt-4 space-y-2">
-            <div className="flex gap-2">
-              <Input
-                type="tel"
-                placeholder="Enter your phone number"
-                className="flex-1"
-              />
-              <Button type="submit">Log in</Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Divider */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border/50" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-background px-3 text-muted-foreground uppercase tracking-wide">
-              or connect an ethereum wallet
-            </span>
-          </div>
-        </div>
 
         {/* Wallet Options */}
         <div className="flex flex-col gap-3">

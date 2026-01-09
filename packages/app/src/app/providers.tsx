@@ -1,7 +1,6 @@
 'use client';
 
-import { PrivyProvider } from '@privy-io/react-auth';
-import { WagmiProvider, createConfig } from '@privy-io/wagmi';
+import { WagmiProvider, createConfig } from 'wagmi';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import type { HttpTransport } from 'viem';
 import { sepolia, base, cannon, type Chain, arbitrum } from 'viem/chains';
@@ -147,53 +146,32 @@ const WagmiRoot = ({ children }: { children: React.ReactNode }) => {
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
-    <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-      clientId={process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID}
-      config={{
-        defaultChain: arbitrum,
-        embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
-        },
-        appearance: {
-          walletChainType: 'ethereum-only',
-          walletList: [
-            'rabby_wallet',
-            'metamask',
-            'coinbase_wallet',
-            'rainbow',
-            'safe',
-          ],
-        },
-      }}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      forcedTheme="dark"
+      disableTransitionOnChange
     >
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="dark"
-        forcedTheme="dark"
-        disableTransitionOnChange
-      >
-        <QueryClientProvider client={queryClient}>
-          {process.env.NEXT_PUBLIC_SHOW_REACT_QUERY_DEVTOOLS === 'true' ? (
-            <ReactQueryDevtools initialIsOpen={false} />
-          ) : null}
+      <QueryClientProvider client={queryClient}>
+        {process.env.NEXT_PUBLIC_SHOW_REACT_QUERY_DEVTOOLS === 'true' ? (
+          <ReactQueryDevtools initialIsOpen={false} />
+        ) : null}
 
-          <SettingsProvider>
-            <AuthProvider>
-              <SessionProvider>
-                <WagmiRoot>
-                  <SapienceProvider>
-                    <ConnectDialogProvider>
-                      <CreatePositionProvider>{children}</CreatePositionProvider>
-                    </ConnectDialogProvider>
-                  </SapienceProvider>
-                </WagmiRoot>
-              </SessionProvider>
-            </AuthProvider>
-          </SettingsProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-    </PrivyProvider>
+        <SettingsProvider>
+          <AuthProvider>
+            <SessionProvider>
+              <WagmiRoot>
+                <SapienceProvider>
+                  <ConnectDialogProvider>
+                    <CreatePositionProvider>{children}</CreatePositionProvider>
+                  </ConnectDialogProvider>
+                </SapienceProvider>
+              </WagmiRoot>
+            </SessionProvider>
+          </AuthProvider>
+        </SettingsProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 };
 

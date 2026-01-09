@@ -1,6 +1,5 @@
 'use client';
 
-import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Button } from '@sapience/ui/components/ui/button';
 import {
   Dialog,
@@ -195,8 +194,6 @@ const NavLinks = ({
 
 const Header = () => {
   const { ready, hasConnectedWallet, connectedWallet } = useConnectedWallet();
-  const { wallets } = useWallets();
-  const { logout } = usePrivy();
   const { openConnectDialog } = useConnectDialog();
   const { setLoggedOut } = useAuth();
   const { data: ensName } = useEnsName(connectedWallet?.address || '');
@@ -395,12 +392,7 @@ const Header = () => {
     });
   };
 
-  const hasDisconnect = (
-    x: unknown
-  ): x is { disconnect: () => Promise<void> | void } =>
-    typeof (x as { disconnect?: unknown }).disconnect === 'function';
-
-  const handleLogout = async () => {
+  const handleLogout = () => {
     // End any active session first
     if (isSessionActive) {
       console.debug('[Header] Ending active session before logout');
@@ -420,29 +412,11 @@ const Header = () => {
       // localStorage not available
     }
 
-    // Disconnect Privy wallets (external wallets detected by Privy)
-    for (const wallet of wallets) {
-      try {
-        if (hasDisconnect(wallet)) {
-          wallet.disconnect();
-        }
-      } catch {
-        // Some wallets don't support programmatic disconnect (e.g., Frame)
-      }
-    }
-
     // Disconnect wagmi connections
     try {
       disconnect?.();
     } catch {
       // Ignore disconnect errors
-    }
-
-    // Privy logout
-    try {
-      await logout();
-    } catch {
-      // Ignore logout errors
     }
 
     // Mark as logged out in app state

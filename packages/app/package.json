@@ -24,9 +24,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.0",
-    "@privy-io/react-auth": "2.22.0",
-    "@privy-io/server-auth": "1.32.0",
-    "@privy-io/wagmi": "1.0.6",
     "@sapience/sdk": "workspace:*",
     "@sapience/ui": "workspace:*",
     "@sentry/nextjs": "8.49.0",

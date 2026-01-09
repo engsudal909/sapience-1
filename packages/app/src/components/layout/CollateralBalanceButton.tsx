@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { useWallets } from '@privy-io/react-auth';
+import { useAccount } from 'wagmi';
 import { Button } from '@sapience/ui/components/ui/button';
 import { Badge } from '@sapience/ui/components/ui/badge';
 import {
@@ -86,10 +86,8 @@ export default function CollateralBalanceButton({
   className,
   buttonClassName,
 }: CollateralBalanceButtonProps) {
-  const { wallets } = useWallets();
-  const connectedWallet = wallets[0];
+  const { address: eoaAddress, connector } = useAccount();
   const chainId = useChainIdFromLocalStorage();
-  const eoaAddress = connectedWallet?.address as `0x${string}` | undefined;
 
   // Get smart account address from session context
   const { smartAccountAddress, isCalculatingAddress } = useSession();
@@ -119,7 +117,7 @@ export default function CollateralBalanceButton({
       smartAccountAddress,
       eoaAddress,
       eoaBalance,
-      connectedWallet: !!connectedWallet,
+      connector: !!connector,
     });
 
     if (!smartAccountAddress || !eoaAddress || eoaBalance <= 0) {
@@ -136,7 +134,7 @@ export default function CollateralBalanceButton({
       return;
     }
 
-    if (!connectedWallet) {
+    if (!connector) {
       toast({
         title: 'Cannot transfer',
         description: 'No wallet connected',
@@ -149,8 +147,10 @@ export default function CollateralBalanceButton({
     setIsTransferLoading(true);
 
     try {
-      // Get the wallet provider
-      const provider = await connectedWallet.getEthereumProvider();
+      // Get the wallet provider from the connector
+      const provider = (await connector.getProvider()) as {
+        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      };
 
       // Add Ethereal chain to wallet and switch to it
       console.log('[Transfer] Adding/switching to Ethereal chain:', CHAIN_ID_ETHEREAL);
