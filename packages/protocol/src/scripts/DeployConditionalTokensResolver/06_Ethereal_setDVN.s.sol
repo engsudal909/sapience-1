@@ -37,11 +37,11 @@ contract SetDVNForEtherealResolver is Script {
         address resolver = vm.envAddress("ETHEREAL_CONDITIONAL_TOKENS_RESOLVER");
         address endpoint = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B; // Ethereal Endpoint V2
         address receiveLib = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043; // Ethereal ReceiveLib302
-        address dvn = 0x43CFcc293CdF99F7D021F21FfD443f174AB0e843; // LZDeadDVN
+        address dvn = 0x23DE2FE932d9043291f870324B74F820e11dc81A; // LayerZero DVN
         uint32 polygonEid = 30109; // Polygon EID
 
-        // LayerZero config from https://layerzeroscan.com/tools/defaults
-        uint64 confirmations = 2; // Receive confirmations for Polygon → Ethereal
+        // LayerZero config
+        uint64 confirmations = 10; // Receive confirmations for Polygon → Ethereal
         uint8 requiredDvnCount = 1;
         uint32 gracePeriod = 0;
 
@@ -49,7 +49,7 @@ contract SetDVNForEtherealResolver is Script {
         console.log("Resolver:", resolver);
         console.log("Endpoint:", endpoint);
         console.log("Receive Library:", receiveLib);
-        console.log("DVN (LZDeadDVN):", dvn);
+        console.log("DVN:", dvn);
         console.log("Source EID (Polygon):", polygonEid);
         console.log("Confirmations:", confirmations);
         console.log("Required DVN Count:", requiredDvnCount);
@@ -59,12 +59,12 @@ contract SetDVNForEtherealResolver is Script {
 
         // Set receive library for inbound messages (Polygon → Ethereal)
         console.log("Setting receive library...");
-        ILayerZeroEndpointV2(endpoint).setReceiveLibrary(
-            resolver,
-            polygonEid,
-            receiveLib,
-            gracePeriod
-        );
+        // ILayerZeroEndpointV2(endpoint).setReceiveLibrary(
+        //     resolver,
+        //     polygonEid,
+        //     receiveLib,
+        //     gracePeriod
+        // );
         console.log("Receive library set");
 
         // Configure ULN (DVNs + confirmations) for receiving

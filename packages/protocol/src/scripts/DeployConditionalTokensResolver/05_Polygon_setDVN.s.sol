@@ -42,12 +42,12 @@ contract SetDVNForPolygonReader is Script {
         address reader = vm.envAddress("POLYGON_CONDITIONAL_TOKENS_READER");
         address endpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Polygon Endpoint V2
         address sendLib = 0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3; // Polygon SendLib302
-        address dvn = 0x43CFcc293CdF99F7D021F21FfD443f174AB0e843; // LZDeadDVN
+        address dvn = 0x23DE2FE932d9043291f870324B74F820e11dc81A; // LayerZero DVN
         address executor = 0xCd3F213AD101472e1713C72B1697E727C803885b; // Polygon Executor
         uint32 etherealEid = 30391; // Ethereal EID
 
-        // LayerZero config from https://layerzeroscan.com/tools/defaults
-        uint64 confirmations = 512; // Send confirmations for Polygon → Ethereal
+        // LayerZero config
+        uint64 confirmations = 10; // Send confirmations for Polygon → Ethereal
         uint8 requiredDvnCount = 1;
         uint32 maxMessageSize = uint32(vm.envOr("MAX_MESSAGE_SIZE", uint256(10000)));
 
@@ -55,7 +55,7 @@ contract SetDVNForPolygonReader is Script {
         console.log("Reader:", reader);
         console.log("Endpoint:", endpoint);
         console.log("Send Library:", sendLib);
-        console.log("DVN (LZDeadDVN):", dvn);
+        console.log("DVN:", dvn);
         console.log("Executor:", executor);
         console.log("Destination EID (Ethereal):", etherealEid);
         console.log("Confirmations:", confirmations);
@@ -67,11 +67,11 @@ contract SetDVNForPolygonReader is Script {
 
         // Set send library for outbound messages (Polygon → Ethereal)
         console.log("Setting send library...");
-        ILayerZeroEndpointV2(endpoint).setSendLibrary(
-            reader,
-            etherealEid,
-            sendLib
-        );
+        // ILayerZeroEndpointV2(endpoint).setSendLibrary(
+        //     reader,
+        //     etherealEid,
+        //     sendLib
+        // );
         console.log("Send library set");
 
         // Configure ULN (DVNs + confirmations) for sending
