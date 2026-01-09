@@ -2,6 +2,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import {
   createPublicClient,
   http,
+  parseAbi,
   type Address,
   type Hex,
   type Chain,
@@ -20,9 +21,24 @@ import {
   deserializePermissionAccount,
 } from '@zerodev/permissions';
 import { toECDSASigner } from '@zerodev/permissions/signers';
-import { toSudoPolicy } from '@zerodev/permissions/policies';
+import {
+  toCallPolicy,
+  CallPolicyVersion,
+  ParamCondition,
+} from '@zerodev/permissions/policies';
 import { toSpendingLimitHook } from '@zerodev/hooks';
 import { getEntryPoint, KERNEL_V3_1 } from '@zerodev/sdk/constants';
+import {
+  predictionMarketAbi,
+  collateralTokenAbi,
+} from '@sapience/sdk/abis';
+import {
+  predictionMarket as predictionMarketAddresses,
+  collateralToken as collateralTokenAddresses,
+  eas as easAddresses,
+  passiveLiquidityVault as vaultAddresses,
+} from '@sapience/sdk/contracts';
+import { CHAIN_ID_ETHEREAL, CHAIN_ID_ARBITRUM } from '@sapience/sdk/constants';
 
 // Ethereal chain definition
 export const ethereal: Chain = {
@@ -34,10 +50,25 @@ export const ethereal: Chain = {
   },
 };
 
-// Contract addresses
-export const WUSDE_ADDRESS_ETHEREAL = '0xB6fC4B1BFF391e5F6b4a3D2C7Bda1FeE3524692D' as Address;
-export const PREDICTION_MARKET_ETHEREAL = '0xAcD757322df2A1A0B3283c851380f3cFd4882cB4' as Address;
-export const EAS_ARBITRUM = '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458' as Address;
+export const WUSDE_ADDRESS_ETHEREAL = collateralTokenAddresses[CHAIN_ID_ETHEREAL].address;
+export const PREDICTION_MARKET_ETHEREAL = predictionMarketAddresses[CHAIN_ID_ETHEREAL].address;
+export const EAS_ETHEREAL = easAddresses[CHAIN_ID_ETHEREAL].address;
+export const VAULT_ETHEREAL = vaultAddresses[CHAIN_ID_ETHEREAL].address;
+
+export const COLLATERAL_ARBITRUM = collateralTokenAddresses[CHAIN_ID_ARBITRUM].address;
+export const PREDICTION_MARKET_ARBITRUM = predictionMarketAddresses[CHAIN_ID_ARBITRUM].address;
+export const EAS_ARBITRUM = easAddresses[CHAIN_ID_ARBITRUM].address;
+export const VAULT_ARBITRUM = vaultAddresses[CHAIN_ID_ARBITRUM].address;
+
+const WUSDE_ABI = parseAbi([
+  'function deposit() payable',
+  'function withdraw(uint256 amount)',
+]);
+
+// EAS ABI for attestations
+const EAS_ABI = parseAbi([
+  'function attest((bytes32 schema, (address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data) request) payable returns (bytes32)',
+]);
 
 // ZeroDev constants
 const ENTRY_POINT = getEntryPoint('0.7');
@@ -213,8 +244,74 @@ export async function createSession(
   // Get public clients
   const { etherealPublicClient, arbitrumPublicClient } = getPublicClients();
 
-  // Create sudo policy (allow all operations - spending limit hook will restrict)
-  const sudoPolicy = toSudoPolicy({});
+
+  const etherealCallPolicy = toCallPolicy({
+    policyVersion: CallPolicyVersion.V0_0_4,
+    permissions: [
+      {
+        target: WUSDE_ADDRESS_ETHEREAL,
+        abi: WUSDE_ABI,
+        functionName: 'deposit',
+      },
+      {
+        target: WUSDE_ADDRESS_ETHEREAL,
+        abi: collateralTokenAbi,
+        functionName: 'approve',
+        args: [
+          {
+            condition: ParamCondition.EQUAL,
+            value: PREDICTION_MARKET_ETHEREAL, 
+          },
+          null, 
+        ],
+      },
+      {
+        target: WUSDE_ADDRESS_ETHEREAL,
+        abi: collateralTokenAbi,
+        functionName: 'approve',
+        args: [
+          {
+            condition: ParamCondition.EQUAL,
+            value: VAULT_ETHEREAL, 
+          },
+          null,
+        ],
+      },
+      {
+        target: PREDICTION_MARKET_ETHEREAL,
+        abi: predictionMarketAbi,
+        functionName: 'mint',
+      },
+      {
+        target: PREDICTION_MARKET_ETHEREAL,
+        abi: predictionMarketAbi,
+        functionName: 'burn',
+      },
+      {
+        target: PREDICTION_MARKET_ETHEREAL,
+        abi: predictionMarketAbi,
+        functionName: 'consolidatePrediction',
+      },
+      {
+        target: EAS_ETHEREAL,
+        abi: EAS_ABI,
+        functionName: 'attest',
+      },
+    ],
+  });
+
+
+  const arbitrumCallPolicy = toCallPolicy({
+    policyVersion: CallPolicyVersion.V0_0_4,
+    permissions: [
+      
+      {
+        target: EAS_ARBITRUM,
+        abi: EAS_ABI,
+        functionName: 'attest',
+      },
+    ],
+  });
 
   // Import serialization function
   const { serializePermissionAccount } = await import('@zerodev/permissions');
@@ -254,11 +351,11 @@ export async function createSession(
       kernelVersion: KERNEL_VERSION,
     });
 
-    // Create permission plugin for Ethereal
+    // Create permission plugin for Ethereal with call policy
     const etherealPermissionPlugin = await toPermissionValidator(etherealPublicClient, {
       entryPoint: ENTRY_POINT,
       signer: sessionKeySigner,
-      policies: [sudoPolicy],
+      policies: [etherealCallPolicy],
       kernelVersion: KERNEL_VERSION,
     });
 
@@ -316,11 +413,10 @@ export async function createSession(
     kernelVersion: KERNEL_VERSION,
   });
 
-  // Create permission plugin for Arbitrum
   const arbitrumPermissionPlugin = await toPermissionValidator(arbitrumPublicClient, {
     entryPoint: ENTRY_POINT,
     signer: sessionKeySigner,
-    policies: [sudoPolicy],
+    policies: [arbitrumCallPolicy],
     kernelVersion: KERNEL_VERSION,
   });
 
