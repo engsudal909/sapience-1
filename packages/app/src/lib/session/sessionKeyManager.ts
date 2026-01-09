@@ -50,15 +50,11 @@ export const ethereal: Chain = {
   },
 };
 
-export const WUSDE_ADDRESS_ETHEREAL = collateralTokenAddresses[CHAIN_ID_ETHEREAL].address;
-export const PREDICTION_MARKET_ETHEREAL = predictionMarketAddresses[CHAIN_ID_ETHEREAL].address;
-export const EAS_ETHEREAL = easAddresses[CHAIN_ID_ETHEREAL].address;
-export const VAULT_ETHEREAL = vaultAddresses[CHAIN_ID_ETHEREAL].address;
-
-export const COLLATERAL_ARBITRUM = collateralTokenAddresses[CHAIN_ID_ARBITRUM].address;
-export const PREDICTION_MARKET_ARBITRUM = predictionMarketAddresses[CHAIN_ID_ARBITRUM].address;
-export const EAS_ARBITRUM = easAddresses[CHAIN_ID_ARBITRUM].address;
-export const VAULT_ARBITRUM = vaultAddresses[CHAIN_ID_ARBITRUM].address;
+const WUSDE_ADDRESS_ETHEREAL = collateralTokenAddresses[CHAIN_ID_ETHEREAL].address;
+const PREDICTION_MARKET_ETHEREAL = predictionMarketAddresses[CHAIN_ID_ETHEREAL].address;
+const EAS_ETHEREAL = easAddresses[CHAIN_ID_ETHEREAL].address;
+const VAULT_ETHEREAL = vaultAddresses[CHAIN_ID_ETHEREAL].address;
+const EAS_ARBITRUM = easAddresses[CHAIN_ID_ARBITRUM].address;
 
 const WUSDE_ABI = parseAbi([
   'function deposit() payable',
