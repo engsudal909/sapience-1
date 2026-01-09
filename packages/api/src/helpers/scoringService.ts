@@ -180,7 +180,8 @@ export async function upsertAttesterMarketTwError(
   });
 }
 
-// Horizon-weighted error (formerly HWBS): compute per-attester per-market (pure compute, no writes)
+// Inverted Horizon-Weighted Brier: compute per-attester per-market accuracy score (pure compute, no writes)
+// Formula: score = avg((1 - brierScore) * tau) where tau = seconds from forecast to resolution
 export async function computeTimeWeightedForAttesterMarketValue(
   marketAddress: string,
   marketId: string,
@@ -207,31 +208,26 @@ export async function computeTimeWeightedForAttesterMarketValue(
 
   const end = condition.endTime;
 
-  const alphaEnv = process.env.HWBS_ALPHA;
-  const alpha =
-    Number.isFinite(Number(alphaEnv)) && Number(alphaEnv) > 0
-      ? Number(alphaEnv)
-      : 2;
-
-  let weightedSum = 0;
-  let totalWeight = 0;
+  let scoreSum = 0;
+  let count = 0;
   for (let i = 0; i < rows.length; i++) {
     const p = rows[i].probabilityFloat as number;
     const madeAt = rows[i].madeAt;
-    const tau = Math.max(0, end - madeAt); // time from forecast to resolution
+    const tau = Math.max(0, end - madeAt); // seconds from forecast to resolution
     if (tau <= 0) continue;
-    const err = (p - outcome) * (p - outcome);
-    const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
-    weightedSum += err * weight;
-    totalWeight += weight;
+    const brierScore = (p - outcome) * (p - outcome);
+    const forecastScore = (1 - brierScore) * tau;
+    scoreSum += forecastScore;
+    count += 1;
   }
 
-  if (totalWeight <= 0) return null;
-  const twError = weightedSum / totalWeight;
-  return twError;
+  if (count <= 0) return null;
+  const accuracyScore = scoreSum / count;
+  return accuracyScore;
 }
 
-// Compute and persist TW errors for all attesters who forecasted on a settled market
+// Compute and persist accuracy scores for all attesters who forecasted on a settled market
+// Formula: score = avg((1 - brierScore) * tau) where tau = seconds from forecast to resolution
 export async function computeAndStoreMarketTwErrors(
   marketAddress: string,
   marketId: string
@@ -259,13 +255,7 @@ export async function computeAndStoreMarketTwErrors(
 
   if (distinctAttesters.length === 0) return;
 
-  const alphaEnv = process.env.HWBS_ALPHA;
-  const alpha =
-    Number.isFinite(Number(alphaEnv)) && Number(alphaEnv) > 0
-      ? Number(alphaEnv)
-      : 2;
-
-  // Compute TW error for each attester
+  // Compute accuracy score for each attester
   for (const { attester } of distinctAttesters) {
     const rows = await prisma.attestationScore.findMany({
       where: {
@@ -280,32 +270,33 @@ export async function computeAndStoreMarketTwErrors(
 
     if (rows.length === 0) continue;
 
-    let weightedSum = 0;
-    let totalWeight = 0;
+    let scoreSum = 0;
+    let count = 0;
     for (let i = 0; i < rows.length; i++) {
       const p = rows[i].probabilityFloat as number;
       const madeAt = rows[i].madeAt;
-      const tau = Math.max(0, end - madeAt); // time from forecast to resolution
+      const tau = Math.max(0, end - madeAt); // seconds from forecast to resolution
       if (tau <= 0) continue;
-      const err = (p - outcome) * (p - outcome);
-      const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
-      weightedSum += err * weight;
-      totalWeight += weight;
+      const brierScore = (p - outcome) * (p - outcome);
+      const forecastScore = (1 - brierScore) * tau;
+      scoreSum += forecastScore;
+      count += 1;
     }
 
-    if (totalWeight > 0) {
-      const twError = weightedSum / totalWeight;
+    if (count > 0) {
+      const accuracyScore = scoreSum / count;
       await upsertAttesterMarketTwError(
         marketAddress,
         marketId,
         attester,
-        twError
+        accuracyScore
       );
     }
   }
 }
 
-// Batched horizon-weighted error across all markets for a single attester
+// Batched accuracy score across all markets for a single attester
+// Formula: score = avg((1 - brierScore) * tau) where tau = seconds from forecast to resolution
 export async function computeTimeWeightedForAttesterSummary(
   attester: string
 ): Promise<{ sumTimeWeightedError: number; numTimeWeighted: number }> {
@@ -370,7 +361,7 @@ export async function computeTimeWeightedForAttesterSummary(
     },
   });
 
-  // 4) Group rows by market and compute time-weighted error per market
+  // 4) Group rows by market and compute accuracy score per market
   const byMarket = new Map<MarketKey, { madeAt: number; p: number }[]>();
   for (const r of rows) {
     if (!r.marketId) continue;
@@ -384,12 +375,7 @@ export async function computeTimeWeightedForAttesterSummary(
     byMarket.get(k)!.push({ madeAt: r.madeAt, p });
   }
 
-  const alphaEnv = process.env.HWBS_ALPHA;
-  const alpha =
-    Number.isFinite(Number(alphaEnv)) && Number(alphaEnv) > 0
-      ? Number(alphaEnv)
-      : 2;
-
+  // Note: sumTimeWeightedError now stores sum of accuracy scores (higher is better)
   let sumTimeWeightedError = 0;
   let numTimeWeighted = 0;
 
@@ -397,19 +383,20 @@ export async function computeTimeWeightedForAttesterSummary(
     const m = meta.get(k)!;
     if (seq.length === 0) continue;
     const end = m.end as number;
-    let weightedSum = 0;
-    let totalWeight = 0;
+    let scoreSum = 0;
+    let count = 0;
     for (const row of seq) {
       const p = row.p;
-      const tau = Math.max(0, end - row.madeAt); // time from forecast to resolution
+      const tau = Math.max(0, end - row.madeAt); // seconds from forecast to resolution
       if (tau <= 0) continue;
-      const err = (p - (m.outcome as number)) * (p - (m.outcome as number));
-      const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
-      weightedSum += err * weight;
-      totalWeight += weight;
+      const brierScore =
+        (p - (m.outcome as number)) * (p - (m.outcome as number));
+      const forecastScore = (1 - brierScore) * tau;
+      scoreSum += forecastScore;
+      count += 1;
     }
-    if (totalWeight > 0) {
-      sumTimeWeightedError += weightedSum / totalWeight;
+    if (count > 0) {
+      sumTimeWeightedError += scoreSum / count;
       numTimeWeighted += 1;
     }
   }
@@ -417,8 +404,9 @@ export async function computeTimeWeightedForAttesterSummary(
   return { sumTimeWeightedError, numTimeWeighted };
 }
 
-// Batched horizon-weighted error across all markets for multiple attesters
+// Batched accuracy score across all markets for multiple attesters
 // Returns a map of attester -> { sumTimeWeightedError, numTimeWeighted }
+// Note: sumTimeWeightedError now stores sum of accuracy scores (higher is better)
 export async function computeTimeWeightedForAttestersSummary(
   attesters: string[]
 ): Promise<
@@ -495,12 +483,6 @@ export async function computeTimeWeightedForAttestersSummary(
     },
   });
 
-  const alphaEnv = process.env.HWBS_ALPHA;
-  const alpha =
-    Number.isFinite(Number(alphaEnv)) && Number(alphaEnv) > 0
-      ? Number(alphaEnv)
-      : 2;
-
   const byAttester = new Map<string, { sum: number; n: number }>();
 
   // Group and compute per (attester, market)
@@ -538,21 +520,24 @@ export async function computeTimeWeightedForAttestersSummary(
   for (const value of groups.values()) {
     if (value.seq.length === 0) continue;
     const end = value.end;
-    let weightedSum = 0;
-    let totalWeight = 0;
+    let scoreSum = 0;
+    let count = 0;
     for (const item of value.seq) {
       const p = item.p;
-      const tau = Math.max(0, end - item.t); // time from forecast to resolution
+      const tau = Math.max(0, end - item.t); // seconds from forecast to resolution
       if (tau <= 0) continue;
-      const err = (p - value.outcome) * (p - value.outcome);
-      const weight = Math.pow(tau, alpha); // τ² (time from forecast to resolution)
-      weightedSum += err * weight;
-      totalWeight += weight;
+      const brierScore = (p - value.outcome) * (p - value.outcome);
+      const forecastScore = (1 - brierScore) * tau;
+      scoreSum += forecastScore;
+      count += 1;
     }
-    if (totalWeight > 0) {
-      const twError = weightedSum / totalWeight;
+    if (count > 0) {
+      const accuracyScore = scoreSum / count;
       const prev = byAttester.get(value.att) || { sum: 0, n: 0 };
-      byAttester.set(value.att, { sum: prev.sum + twError, n: prev.n + 1 });
+      byAttester.set(value.att, {
+        sum: prev.sum + accuracyScore,
+        n: prev.n + 1,
+      });
     }
   }
 
