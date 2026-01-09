@@ -75,7 +75,7 @@ export class ScoreResolver {
       0
     );
     const mean = sumTimeWeightedError / numTimeWeighted;
-    const accuracyScore = mean === 0 ? Infinity : 1 / mean;
+    const accuracyScore = mean === 0 ? 0 : 1 / mean;
 
     return {
       attester: a,
@@ -102,7 +102,7 @@ export class ScoreResolver {
 
     const results = agg.map((row) => {
       const mean = (row._avg.twError as number | null) ?? 0;
-      const score = mean === 0 ? Infinity : 1 / mean;
+      const score = mean === 0 ? 0 : 1 / mean;
       return {
         attester: (row.attester as string).toLowerCase(),
         numScored: 0,
@@ -131,7 +131,7 @@ export class ScoreResolver {
 
     const scores = agg.map((row) => {
       const mean = (row._avg.twError as number | null) ?? 0;
-      const accuracyScore = mean === 0 ? Infinity : 1 / mean;
+      const accuracyScore = mean === 0 ? 0 : 1 / mean;
       return {
         attester: (row.attester as string).toLowerCase(),
         accuracyScore,
