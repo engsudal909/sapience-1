@@ -37,7 +37,9 @@ contract SetDVNForEtherealResolver is Script {
         address resolver = vm.envAddress("ETHEREAL_CONDITIONAL_TOKENS_RESOLVER");
         address endpoint = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B; // Ethereal Endpoint V2
         address receiveLib = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043; // Ethereal ReceiveLib302
-        address dvn = 0x23DE2FE932d9043291f870324B74F820e11dc81A; // LayerZero DVN
+        // address dvn = 0x2afa3787cd95fee5D5753cd717EF228eb259f4ea; // Horizen DVN
+        address dvn = 0x56053A8f4db677e5774F8Ee5BdD9D2dC270075f3; // Canary DVN
+        
         uint32 polygonEid = 30109; // Polygon EID
 
         // LayerZero config

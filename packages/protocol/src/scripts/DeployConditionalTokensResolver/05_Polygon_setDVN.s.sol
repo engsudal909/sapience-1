@@ -42,8 +42,10 @@ contract SetDVNForPolygonReader is Script {
         address reader = vm.envAddress("POLYGON_CONDITIONAL_TOKENS_READER");
         address endpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Polygon Endpoint V2
         address sendLib = 0x6c26c61a97006888ea9E4FA36584c7df57Cd9dA3; // Polygon SendLib302
-        address dvn = 0x23DE2FE932d9043291f870324B74F820e11dc81A; // LayerZero DVN
+        // address dvn = 0x25e0e650a78e6304A3983Fc4b7Ffc6544b1bEea6; // Horizen DVN
+        address dvn = 0x13feb7234Ff60A97af04477d6421415766753Ba3; // Canary DVN
         address executor = 0xCd3F213AD101472e1713C72B1697E727C803885b; // Polygon Executor
+        // address executor = 0x4208D6E27538189bB48E603D6123A94b8Abe0A0b; // Ethereal Executor
         uint32 etherealEid = 30391; // Ethereal EID
 
         // LayerZero config
