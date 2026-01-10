@@ -55,3 +55,15 @@ temp/
 .elizadb/
 pglite/
 cache/
+
+# Frontend build
+src/frontend/dist/
+
+# Lock files (optional, can be included)
+bun.lock
+
+# Source maps
+*.map
+
+# PM2 logs
+.pm2/

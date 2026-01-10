@@ -90,19 +90,25 @@ export class TradingMarketService {
 
   private filterActiveConditions(conditions: any[]): any[] {
     const now = Math.floor(Date.now() / 1000);
+    const maxMarketHours = parseInt(process.env.MAX_MARKET_HOURS || "48");
+    const maxEndTime = now + (maxMarketHours * 60 * 60); // Convert hours to seconds
+    
     const activeConditions = conditions.filter((condition: any) => {
-      // Must be public, not expired, and have at least one similar market to trade (most likely to attract bids)
+      // Must be public, not expired, within time limit, and have at least one similar market to trade
       const hasSimilarMarkets = condition.similarMarkets && 
                                 Array.isArray(condition.similarMarkets) && 
                                 condition.similarMarkets.length > 0;
       
+      const withinTimeLimit = condition.endTime <= maxEndTime;
+      
       return condition.public && 
              condition.endTime && 
              condition.endTime > now &&
+             withinTimeLimit &&
              hasSimilarMarkets;
     });
 
-    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} tradeable conditions out of ${conditions.length} total (filtered for similarMarkets)`);
+    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} tradeable conditions out of ${conditions.length} total (filtered for similarMarkets & within ${maxMarketHours}h)`);
     
     if (activeConditions.length > 0) {
       elizaLogger.info(`[TradingMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
@@ -185,13 +191,15 @@ Focus on objective factors and data-driven analysis.`;
   }
 
   selectTradingLegs(predictions: TradingPrediction[]): TradingPrediction[] {
-    // Filter to high-confidence predictions
+    // Filter to high-confidence predictions (confidence >= 85%)
     const eligible = predictions.filter(p => p.confidence >= this.MIN_CONFIDENCE_THRESHOLD);
     
     if (eligible.length < 2) {
-      elizaLogger.info("[TradingMarket] Not enough predictions meet confidence threshold (need at least 2)");
+      elizaLogger.info(`[TradingMarket] Not enough predictions meet confidence threshold ${this.MIN_CONFIDENCE_THRESHOLD} (need at least 2, got ${eligible.length})`);
       return [];
     }
+
+    elizaLogger.info(`[TradingMarket] ${eligible.length} predictions meet confidence threshold (${this.MIN_CONFIDENCE_THRESHOLD})`);
 
     // Group by category
     const byCategory = new Map<number, TradingPrediction[]>();
@@ -207,22 +215,21 @@ Focus on objective factors and data-driven analysis.`;
       return [];
     }
 
-    // Pick one random prediction from two different categories
-    const categories = [...byCategory.keys()];
-    const shuffled = categories.sort(() => Math.random() - 0.5);
-    const cat1 = shuffled[0];
-    const cat2 = shuffled[1];
+    // Sort each category by confidence (highest first) and pick the best from each
+    const bestByCategory: TradingPrediction[] = [];
+    for (const [catId, catPredictions] of byCategory) {
+      // Sort by confidence descending, then pick the highest
+      const sorted = catPredictions.sort((a, b) => b.confidence - a.confidence);
+      bestByCategory.push(sorted[0]);
+      elizaLogger.info(`[TradingMarket] Category ${catId}: Best prediction has confidence ${sorted[0].confidence}`);
+    }
 
-    const cat1Predictions = byCategory.get(cat1)!;
-    const cat2Predictions = byCategory.get(cat2)!;
-    
-    const pick1 = cat1Predictions[Math.floor(Math.random() * cat1Predictions.length)];
-    const pick2 = cat2Predictions[Math.floor(Math.random() * cat2Predictions.length)];
+    // Sort all best predictions by confidence and pick top 2
+    const sortedBest = bestByCategory.sort((a, b) => b.confidence - a.confidence);
+    const selected = sortedBest.slice(0, 2);
 
-    const selected = [pick1, pick2];
-
-    elizaLogger.info(`[TradingMarket] Selected 2 legs for trade from different categories:
-${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${p.confidence})`).join('\n')}`);
+    elizaLogger.info(`[TradingMarket] Selected 2 HIGHEST CONFIDENCE legs for trade from different categories:
+${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${(p.confidence * 100).toFixed(1)}%)`).join('\n')}`);
 
     return selected;
   }
