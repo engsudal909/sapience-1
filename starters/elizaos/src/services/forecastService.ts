@@ -447,15 +447,24 @@ export class ForecastService {
       const endDate = condition.endTime
         ? new Date(condition.endTime * 1000).toISOString()
         : "Unknown";
-      const predictionPrompt = `Condition:
-Question: ${condition.question}
-End Date: ${endDate}
+      const now = new Date();
+      const hoursUntilEnd = condition.endTime ? Math.round((condition.endTime * 1000 - now.getTime()) / (1000 * 60 * 60)) : 0;
+      
+      const predictionPrompt = `PREDICTION MARKET ANALYSIS
 
-Analyze and respond with ONLY valid JSON:
+CURRENT TIME: ${now.toISOString()}
+MARKET END: ${endDate}
+HOURS REMAINING: ${hoursUntilEnd} hours
+
+Question: ${condition.question}
+
+This market resolves in ${hoursUntilEnd} hours. Analyze using available data and provide your prediction.
+
+Respond with ONLY valid JSON:
 {
   "probability": <number 0-100>,
   "reasoning": "<analysis under 180 chars>",
-  "confidence": <number 0.0-1.0>
+  "confidence": <number 0.5-1.0>
 }`;
       const response = await this.runtime.useModel(ModelType.TEXT_LARGE, {
         prompt: predictionPrompt,

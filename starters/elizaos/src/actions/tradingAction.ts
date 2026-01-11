@@ -26,6 +26,7 @@ import {
   selectBestBid, 
   formatWagerAmount 
 } from "../utils/trading.js";
+import { privateKeyToAccount } from "viem/accounts";
 
 interface Bid {
   auctionId: string;
@@ -207,30 +208,48 @@ async function startTradingAuction({
           chainId: CHAIN_ID_ETHEREAL,
         };
 
-        // OPTIONAL: Add signature to get actionable bids from market makers (like the vault)
-        // Unsigned requests return quote-only bids (maker = 0x0000..., signature = 0x0000...)
+        // Add signature to get actionable bids from market makers (like the vault)
         // Signed requests are required by some market makers to respond with actionable bids
-        // 
-        // To enable signatures:
-        // 1. Add these imports at the top of the file:
-        //    import { createAuctionStartSiweMessage, extractSiweDomainAndUri } from '@sapience/sdk';
-        //    import { privateKeyToAccount } from 'viem/accounts';
-        // 
-        // 2. Uncomment the following code:
-        // const account = privateKeyToAccount(getPrivateKey() as `0x${string}`);
-        // const { domain, uri } = extractSiweDomainAndUri(sapienceWs);
-        // const issuedAt = new Date().toISOString();
-        // const message = createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
-        // const takerSignature = await account.signMessage({ message });
-        // const takerSignedAt = issuedAt;
+        let takerSignature: string | undefined;
+        let takerSignedAt: string | undefined;
+        
+        try {
+          const privateKey = getPrivateKey();
+          if (privateKey) {
+            const account = privateKeyToAccount(privateKey as `0x${string}`);
+            const issuedAt = new Date().toISOString();
+            
+            // Create SIWE-style message for signing
+            const wsUrl = new URL(sapienceWs);
+            const domain = wsUrl.hostname;
+            const uri = sapienceWs;
+            
+            const message = `${domain} wants you to sign in with your Ethereum account:
+${walletAddress}
+
+Sapience Trading Auction Request
+
+URI: ${uri}
+Version: 1
+Chain ID: ${CHAIN_ID_ETHEREAL}
+Nonce: ${contractNonce}
+Issued At: ${issuedAt}
+Wager: ${wagerAmount}
+Resolver: ${RESOLVER}`;
+
+            takerSignature = await account.signMessage({ message });
+            takerSignedAt = issuedAt;
+            elizaLogger.info(`[Trading] Signed auction request for actionable bids`);
+          }
+        } catch (signError) {
+          elizaLogger.warn(`[Trading] Failed to sign auction request, continuing without signature:`, signError);
+        }
 
         const auctionMessage = {
           type: "auction.start",
           payload: {
             ...payload,
-            // Uncomment to add signature for actionable bids:
-            // takerSignature,
-            // takerSignedAt,
+            ...(takerSignature && takerSignedAt ? { takerSignature, takerSignedAt } : {}),
           },
         };
 

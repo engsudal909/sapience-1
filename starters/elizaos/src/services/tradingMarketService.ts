@@ -90,25 +90,21 @@ export class TradingMarketService {
 
   private filterActiveConditions(conditions: any[]): any[] {
     const now = Math.floor(Date.now() / 1000);
-    const maxMarketHours = parseInt(process.env.MAX_MARKET_HOURS || "48");
+    const maxMarketHours = parseInt(process.env.MAX_MARKET_HOURS || "168"); // Default 7 days
     const maxEndTime = now + (maxMarketHours * 60 * 60); // Convert hours to seconds
     
     const activeConditions = conditions.filter((condition: any) => {
-      // Must be public, not expired, within time limit, and have at least one similar market to trade
-      const hasSimilarMarkets = condition.similarMarkets && 
-                                Array.isArray(condition.similarMarkets) && 
-                                condition.similarMarkets.length > 0;
-      
+      // Must be public, not expired, and within time limit
+      // Removed similarMarkets filter to allow more markets
       const withinTimeLimit = condition.endTime <= maxEndTime;
       
       return condition.public && 
              condition.endTime && 
              condition.endTime > now &&
-             withinTimeLimit &&
-             hasSimilarMarkets;
+             withinTimeLimit;
     });
 
-    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} tradeable conditions out of ${conditions.length} total (filtered for similarMarkets & within ${maxMarketHours}h)`);
+    elizaLogger.info(`[TradingMarket] Found ${activeConditions.length} tradeable conditions out of ${conditions.length} total (within ${maxMarketHours}h)`);
     
     if (activeConditions.length > 0) {
       elizaLogger.info(`[TradingMarket] Sample condition: ${JSON.stringify(activeConditions[0], null, 2)}`);
@@ -137,28 +133,43 @@ export class TradingMarketService {
   private async generateSinglePrediction(condition: any): Promise<TradingPrediction | null> {
     try {
       const endDate = condition.endTime ? new Date(condition.endTime * 1000).toISOString() : "Unknown";
+      const now = new Date();
+      const hoursUntilEnd = condition.endTime ? Math.round((condition.endTime * 1000 - now.getTime()) / (1000 * 60 * 60)) : 0;
       
       const predictionPrompt = `
-You are analyzing a prediction condition for trading. Provide a focused analysis.
+You are analyzing a prediction market. This market HAS BEEN PRE-FILTERED to resolve within 48 hours.
+
+CURRENT TIME: ${now.toISOString()}
+MARKET END: ${endDate}
+HOURS REMAINING: ${hoursUntilEnd} hours (CONFIRMED within 48h limit)
 
 Question: ${condition.question}
 Claim Statement: ${condition.claimStatement}
 Description: ${condition.description || "No additional description"}
-End Date: ${endDate}
 Category: ${condition.category?.name || "Unknown"}
 
-Analyze this condition and respond with ONLY valid JSON:
+IMPORTANT: This market resolves in ${hoursUntilEnd} hours. You MUST provide a prediction.
+Use historical data, statistics, and current information to make your prediction.
+
+Respond with ONLY valid JSON:
 {
-  "probability": <number 0-100>,
-  "confidence": <number 0.0-1.0>,
-  "reasoning": "<concise analysis under 100 characters>"
+  "probability": <number 0-100 - your predicted likelihood>,
+  "confidence": <number 0.5-1.0 - how confident you are in your prediction>,
+  "reasoning": "<brief analysis under 100 chars>"
 }
 
-Focus on objective factors and data-driven analysis.`;
+Base your prediction on available data and evidence.`;
 
-      const response = await this.runtime.useModel(ModelType.TEXT_SMALL, { 
+      const response = await this.runtime.useModel(ModelType.TEXT_LARGE, { 
         prompt: predictionPrompt 
       });
+      
+      // Debug: Log the raw API response
+      elizaLogger.info(`[TradingMarket] Raw API response for ${condition.id}:`, typeof response, response?.substring?.(0, 200) || response);
+      
+      if (!response || response.trim() === '') {
+        throw new Error("Empty API response");
+      }
       
       let predictionData;
       try {
@@ -168,11 +179,13 @@ Focus on objective factors and data-driven analysis.`;
         if (jsonMatch) {
           predictionData = JSON.parse(jsonMatch[0]);
         } else {
+          elizaLogger.error(`[TradingMarket] Could not parse JSON from response:`, response);
           throw new Error("Invalid JSON response");
         }
       }
 
       if (!predictionData.probability || predictionData.confidence === undefined || !predictionData.reasoning) {
+        elizaLogger.error(`[TradingMarket] Incomplete data:`, predictionData);
         throw new Error("Incomplete prediction data");
       }
 
@@ -191,45 +204,31 @@ Focus on objective factors and data-driven analysis.`;
   }
 
   selectTradingLegs(predictions: TradingPrediction[]): TradingPrediction[] {
-    // Filter to high-confidence predictions (confidence >= 85%)
-    const eligible = predictions.filter(p => p.confidence >= this.MIN_CONFIDENCE_THRESHOLD);
+    // Filter to predictions with any reasonable confidence (minimum 0.5)
+    const eligible = predictions.filter(p => p.confidence >= 0.5);
     
     if (eligible.length < 2) {
-      elizaLogger.info(`[TradingMarket] Not enough predictions meet confidence threshold ${this.MIN_CONFIDENCE_THRESHOLD} (need at least 2, got ${eligible.length})`);
+      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 2, got ${eligible.length})`);
       return [];
     }
 
-    elizaLogger.info(`[TradingMarket] ${eligible.length} predictions meet confidence threshold (${this.MIN_CONFIDENCE_THRESHOLD})`);
+    elizaLogger.info(`[TradingMarket] ${eligible.length} eligible predictions found`);
 
-    // Group by category
-    const byCategory = new Map<number, TradingPrediction[]>();
-    for (const p of eligible) {
-      const catId = p.market.category?.id ?? -1;
-      if (!byCategory.has(catId)) byCategory.set(catId, []);
-      byCategory.get(catId)!.push(p);
-    }
+    // Sort by probability strength (how far from 50%)
+    // Higher probability strength = more confident prediction
+    const withStrength = eligible.map(p => ({
+      ...p,
+      probabilityStrength: Math.abs(p.probability - 50) // Distance from 50%
+    }));
 
-    // Need at least 2 different categories
-    if (byCategory.size < 2) {
-      elizaLogger.info("[TradingMarket] Not enough different categories for trade (need at least 2)");
-      return [];
-    }
+    // Sort by probability strength (highest first = most decisive predictions)
+    const sorted = withStrength.sort((a, b) => b.probabilityStrength - a.probabilityStrength);
 
-    // Sort each category by confidence (highest first) and pick the best from each
-    const bestByCategory: TradingPrediction[] = [];
-    for (const [catId, catPredictions] of byCategory) {
-      // Sort by confidence descending, then pick the highest
-      const sorted = catPredictions.sort((a, b) => b.confidence - a.confidence);
-      bestByCategory.push(sorted[0]);
-      elizaLogger.info(`[TradingMarket] Category ${catId}: Best prediction has confidence ${sorted[0].confidence}`);
-    }
+    // Pick top 2 with highest probability strength (most decisive predictions)
+    const selected = sorted.slice(0, 2);
 
-    // Sort all best predictions by confidence and pick top 2
-    const sortedBest = bestByCategory.sort((a, b) => b.confidence - a.confidence);
-    const selected = sortedBest.slice(0, 2);
-
-    elizaLogger.info(`[TradingMarket] Selected 2 HIGHEST CONFIDENCE legs for trade from different categories:
-${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, confidence: ${(p.confidence * 100).toFixed(1)}%)`).join('\n')}`);
+    elizaLogger.info(`[TradingMarket] Selected 2 HIGHEST PROBABILITY legs for trade:
+${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, strength: ${p.probabilityStrength}%)`).join('\n')}`);
 
     return selected;
   }
@@ -263,7 +262,7 @@ ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.qu
         return {
           predictions: [],
           canTrade: false,
-          reason: "Not enough high-confidence predictions from different categories (need 2)",
+          reason: "Not enough predictions available (need at least 2)",
         };
       }
 
