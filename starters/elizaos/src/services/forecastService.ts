@@ -4,8 +4,9 @@ import type { SapienceService } from "./sapienceService.js";
 import { loadSdk } from "../utils/sdk.js";
 import { getWalletAddress, hasPrivateKey } from "../utils/blockchain.js";
 import TradingMarketService from "./tradingMarketService.js";
+import { MarketMakerService } from "./marketMakerService.js";
 
-type AutonomousMode = "forecast" | "trade";
+type AutonomousMode = "forecast" | "trade" | "marketmaker";
 
 interface ServiceConfig {
   modes: AutonomousMode[];
@@ -30,7 +31,7 @@ function parseAutonomousModes(): AutonomousMode[] {
   
   for (const part of envValue.split(",")) {
     const trimmed = part.trim().toLowerCase();
-    if (trimmed === "forecast" || trimmed === "trade") {
+    if (trimmed === "forecast" || trimmed === "trade" || trimmed === "marketmaker") {
       modes.push(trimmed);
     }
   }
@@ -44,6 +45,7 @@ export class ForecastService {
   private intervalId?: NodeJS.Timeout;
   private isRunning: boolean = false;
   private tradingService?: TradingMarketService;
+  private marketMakerService?: MarketMakerService;
 
   constructor(runtime: IAgentRuntime) {
     if (globalInstance) {
@@ -66,6 +68,12 @@ export class ForecastService {
     if (this.config.modes.includes("trade")) {
       this.tradingService = new TradingMarketService(runtime);
       elizaLogger.info("[ForecastService] Trade mode enabled - initialized TradingMarketService");
+    }
+    
+    // Initialize Market Maker service if enabled
+    if (process.env.MARKET_MAKER_ENABLED === "true") {
+      this.marketMakerService = new MarketMakerService(runtime);
+      elizaLogger.info("[ForecastService] Market Maker mode enabled - initialized MarketMakerService");
     }
     
     this.initializeService().catch((error) => {

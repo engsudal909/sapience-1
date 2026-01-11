@@ -101,6 +101,8 @@ const COLLATERAL_TOKEN = (process.env.COLLATERAL_TOKEN || (addressBook.collatera
 const BID_AMOUNT_DEC = process.env.BID_AMOUNT || '0.01';
 const MIN_MAKER_WAGER_DEC = process.env.MIN_MAKER_WAGER || '10';
 const DEADLINE_SECONDS = Number(process.env.DEADLINE_SECONDS || '60');
+const MIN_PROBABILITY = Number(process.env.MIN_PROBABILITY || '60'); // 60% 이상만 입찰
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
 const BID_AMOUNT = parseEther(BID_AMOUNT_DEC);
 const MIN_MAKER_WAGER = parseEther(MIN_MAKER_WAGER_DEC);
@@ -123,7 +125,7 @@ function formatAddress(addr: Address | string): string {
 // Simple in-memory cache for condition metadata to avoid repeated API calls
 const conditionCache = new Map<string, { shortName?: string | null; question?: string | null }>();
 
-async function getConditionsByIds(ids: string[]): Promise<Map<string, { shortName?: string | null; question?: string | null }>> {
+async function getConditionsByIds(ids: string[]): Promise<Map<string, { shortName?: string | null; question?: string | null; endTime?: number | null; description?: string | null; category?: { name?: string | null } | null }>> {
   const uniqueIds = Array.from(new Set(ids)).filter((id) => typeof id === 'string' && id.length > 0);
   const missing = uniqueIds.filter((id) => !conditionCache.has(id));
   if (missing.length > 0) {
@@ -133,27 +135,130 @@ async function getConditionsByIds(ids: string[]): Promise<Map<string, { shortNam
           id
           shortName
           question
+          endTime
+          description
+          category {
+            name
+          }
         }
       }
     `;
     try {
-      const resp = await graphqlRequest<{ conditions: { id: string; shortName?: string | null; question?: string | null }[] }>(
+      const resp = await graphqlRequest<{ conditions: { id: string; shortName?: string | null; question?: string | null; endTime?: number | null; description?: string | null; category?: { name?: string | null } | null }[] }>(
         QUERY,
         { ids: missing }
       );
       for (const row of resp?.conditions ?? []) {
-        conditionCache.set(row.id, { shortName: row.shortName ?? null, question: row.question ?? null });
+        conditionCache.set(row.id, { 
+          shortName: row.shortName ?? null, 
+          question: row.question ?? null,
+          endTime: row.endTime ?? null,
+          description: row.description ?? null,
+          category: row.category ?? null
+        });
       }
     } catch (e) {
       logger.warn('Condition fetch failed:', e);
     }
   }
-  const out = new Map<string, { shortName?: string | null; question?: string | null }>();
+  const out = new Map<string, { shortName?: string | null; question?: string | null; endTime?: number | null; description?: string | null; category?: { name?: string | null } | null }>();
   for (const id of uniqueIds) {
-    const cached = conditionCache.get(id) || { shortName: null, question: null };
+    const cached = conditionCache.get(id) || { shortName: null, question: null, endTime: null, description: null, category: null };
     out.set(id, cached);
   }
   return out;
+}
+
+/**
+ * AI로 마켓 조건 분석 (OpenRouter API 사용)
+ */
+async function predictCondition(condition: { 
+  question?: string | null; 
+  shortName?: string | null; 
+  description?: string | null; 
+  endTime?: number | null;
+  category?: { name?: string | null } | null;
+}): Promise<{ probability: number; confidence: number; reasoning: string } | null> {
+  if (!OPENROUTER_API_KEY) {
+    logger.warn('[AI] OpenRouter API key not set, skipping prediction');
+    return null;
+  }
+
+  try {
+    const now = new Date();
+    const endDate = condition.endTime ? new Date(condition.endTime * 1000).toISOString() : "Unknown";
+    const hoursUntilEnd = condition.endTime ? Math.round((condition.endTime * 1000 - now.getTime()) / (1000 * 60 * 60)) : 0;
+    
+    const prompt = `PREDICTION MARKET ANALYSIS
+
+CURRENT TIME: ${now.toISOString()}
+MARKET END: ${endDate}
+HOURS REMAINING: ${hoursUntilEnd} hours
+
+Question: ${condition.question || condition.shortName || "Unknown"}
+Description: ${condition.description || "No additional description"}
+Category: ${condition.category?.name || "Unknown"}
+
+This market resolves in ${hoursUntilEnd} hours. Analyze using available data and provide your prediction.
+
+Respond with ONLY valid JSON:
+{
+  "probability": <number 0-100>,
+  "confidence": <number 0.5-1.0>,
+  "reasoning": "<analysis under 100 chars>"
+}`;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://sapience.xyz',
+        'X-Title': 'Sapience Market Maker'
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter API error: ${response.status}`);
+    }
+
+    const data = await response.json() as any;
+    const content = data?.choices?.[0]?.message?.content || '';
+    
+    if (!content) {
+      throw new Error('Empty API response');
+    }
+
+    let prediction;
+    try {
+      prediction = JSON.parse(content);
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        prediction = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Invalid JSON response');
+      }
+    }
+
+    if (!prediction.probability || prediction.probability < 0 || prediction.probability > 100) {
+      throw new Error('Invalid probability');
+    }
+
+    return {
+      probability: prediction.probability,
+      confidence: prediction.confidence || 0.5,
+      reasoning: prediction.reasoning || 'AI analysis'
+    };
+  } catch (e: any) {
+    logger.error('[AI] Prediction failed:', e);
+    return null;
+  }
 }
 
 /**
@@ -266,6 +371,10 @@ function start() {
         }
 
         // Decode first predictedOutcomes blob to extract conditionIds and yes/no
+        let shouldBid = false;
+        let conditionInfo: { shortName?: string | null; question?: string | null; endTime?: number | null; description?: string | null; category?: { name?: string | null } | null } | null = null;
+        let aiPrediction: { probability: number; confidence: number; reasoning: string } | null = null;
+        
         try {
           const arr = Array.isArray(auction.predictedOutcomes) ? (auction.predictedOutcomes as string[]) : [];
           if (arr.length > 0) {
@@ -285,6 +394,8 @@ function start() {
             const legs = (decodedArr || []) as { marketId: `0x${string}`; prediction: boolean }[];
             const conditionIds = legs.map((l) => l.marketId as string);
             const idToCond = await getConditionsByIds(conditionIds);
+            
+            // Log auction details
             const legLines = legs
               .map((l) => {
                 const c = idToCond.get(l.marketId) || {};
@@ -294,11 +405,45 @@ function start() {
               })
               .join('\n');
             logger.info([`🎯 Auction started ${fmt.id(auctionId)}`, legLines].join('\n'));
+
+            // AI 예측: 첫 번째 조건만 분석 (multi-leg는 복잡하므로)
+            if (legs.length > 0) {
+              const firstCondition = idToCond.get(legs[0].marketId);
+              if (firstCondition) {
+                conditionInfo = firstCondition;
+                aiPrediction = await predictCondition(firstCondition);
+                
+                if (aiPrediction) {
+                  logger.info([
+                    `🤖 AI Analysis:`,
+                    fmt.bullet(fmt.field('probability', fmt.value(`${aiPrediction.probability}%`))),
+                    fmt.bullet(fmt.field('confidence', fmt.value(`${(aiPrediction.confidence * 100).toFixed(0)}%`))),
+                    fmt.bullet(fmt.field('reasoning', aiPrediction.reasoning)),
+                  ].join('\n'));
+
+                  // 확률이 60% 이상이면 입찰
+                  if (aiPrediction.probability >= MIN_PROBABILITY) {
+                    shouldBid = true;
+                    logger.success(`✅ Probability ${aiPrediction.probability}% >= ${MIN_PROBABILITY}% → Will bid!`);
+                  } else {
+                    logger.warn(`❌ Probability ${aiPrediction.probability}% < ${MIN_PROBABILITY}% → Skipping`);
+                  }
+                } else {
+                  logger.warn(`⚠️ AI prediction failed → Skipping for safety`);
+                }
+              }
+            }
           } else {
             logger.info(`🎯 Auction started ${fmt.id(auctionId)}`);
           }
-        } catch {
+        } catch (e: any) {
+          logger.error(`Failed to decode/analyze auction:`, e);
           logger.info(`🎯 Auction started ${fmt.id(auctionId)}`);
+        }
+
+        // AI가 승인하지 않으면 스킵
+        if (!shouldBid) {
+          return;
         }
 
         const makerWager = BID_AMOUNT;

@@ -204,31 +204,64 @@ Base your prediction on available data and evidence.`;
   }
 
   selectTradingLegs(predictions: TradingPrediction[]): TradingPrediction[] {
-    // Filter to predictions with any reasonable confidence (minimum 0.5)
-    const eligible = predictions.filter(p => p.confidence >= 0.5);
+    // Filter to predictions that meet minimum confidence from .env
+    const minConfidence = this.MIN_CONFIDENCE_THRESHOLD;
+    const eligible = predictions.filter(p => p.confidence >= minConfidence);
     
     if (eligible.length < 2) {
-      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 2, got ${eligible.length})`);
+      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 2 with confidence >= ${minConfidence}, got ${eligible.length})`);
       return [];
     }
 
     elizaLogger.info(`[TradingMarket] ${eligible.length} eligible predictions found`);
 
-    // Sort by probability strength (how far from 50%)
-    // Higher probability strength = more confident prediction
-    const withStrength = eligible.map(p => ({
-      ...p,
-      probabilityStrength: Math.abs(p.probability - 50) // Distance from 50%
-    }));
+    // Popular categories that tend to have higher liquidity
+    const popularCategories = [
+      'crypto', 'cryptocurrency', 'bitcoin', 'ethereum',
+      'politics', 'election', 'president',
+      'sports', 'nba', 'nfl', 'soccer', 'football',
+      'finance', 'stocks', 'market',
+      'tech', 'technology', 'ai'
+    ];
 
-    // Sort by probability strength (highest first = most decisive predictions)
-    const sorted = withStrength.sort((a, b) => b.probabilityStrength - a.probabilityStrength);
+    // Calculate market score - MAXIMIZING TRADING OPPORTUNITIES
+    // Priority: Confidence > Category > Urgency (NO probability bias)
+    const now = Math.floor(Date.now() / 1000);
+    const withScore = eligible.map(p => {
+      // Confidence score: 0-100 (most important factor)
+      const confidenceScore = p.confidence * 100;
+      
+      // Category bonus: +20 points for popular categories
+      const categoryName = (p.market.category?.name || '').toLowerCase();
+      const categoryBonus = popularCategories.some(cat => categoryName.includes(cat)) ? 20 : 0;
+      
+      // Time urgency bonus: +10 points for markets ending within 3 days
+      const hoursUntilEnd = (p.market.endTime - now) / 3600;
+      const urgencyBonus = hoursUntilEnd <= 72 ? 10 : 0;
+      
+      // Total score = confidence + category + urgency
+      // NO probability strength bias - ALL probabilities are equal
+      const score = confidenceScore + categoryBonus + urgencyBonus;
+      
+      return {
+        ...p,
+        confidenceScore,
+        categoryBonus,
+        urgencyBonus,
+        score,
+        hoursUntilEnd: Math.round(hoursUntilEnd)
+      };
+    });
 
-    // Pick top 2 with highest probability strength (most decisive predictions)
+    // Sort by total score (highest first)
+    const sorted = withScore.sort((a, b) => b.score - a.score);
+
+    // Pick top 2 with highest score
     const selected = sorted.slice(0, 2);
 
-    elizaLogger.info(`[TradingMarket] Selected 2 HIGHEST PROBABILITY legs for trade:
-${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 50)}... (${p.probability}% ${p.outcome ? 'YES' : 'NO'}, strength: ${p.probabilityStrength}%)`).join('\n')}`);
+    elizaLogger.info(`[TradingMarket] Selected 2 BEST SCORED legs for trade (AGGRESSIVE MODE - ALL PROBABILITIES):
+${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 60)}...
+    Prob: ${p.probability}% ${p.outcome ? 'YES' : 'NO'} | Conf: ${(p.confidence * 100).toFixed(0)}% | Score: ${p.score.toFixed(1)} (conf:${p.confidenceScore.toFixed(1)} cat:${p.categoryBonus} urgency:${p.urgencyBonus}) | Ends in ${p.hoursUntilEnd}h`).join('\n')}`);
 
     return selected;
   }

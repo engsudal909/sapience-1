@@ -62,13 +62,38 @@ export async function encodeTradeOutcomes(markets: any[], predictions: any[]): P
  */
 export function selectBestBid(bids: Bid[]): Bid {
   const now = Date.now() / 1000;
-  const validBids = bids.filter((bid) => bid.makerDeadline > now);
   
-  if (validBids.length === 0) {
-    throw new Error("No valid bids available");
+  // Filter out quote-only bids (maker: 0x0000... or signature: 0x0000...)
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const ZERO_SIGNATURE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  
+  const actionableBids = bids.filter((bid) => {
+    // Must have valid deadline
+    if (bid.makerDeadline <= now) return false;
+    
+    // Must NOT be quote-only (maker address must not be 0x0000...)
+    if (bid.maker === ZERO_ADDRESS || bid.maker.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+      elizaLogger.info(`[Trading] Filtering out quote-only bid (maker: ${bid.maker})`);
+      return false;
+    }
+    
+    // Must have valid signature (not 0x0000...)
+    if (bid.makerSignature === ZERO_SIGNATURE || bid.makerSignature.toLowerCase() === ZERO_SIGNATURE.toLowerCase()) {
+      elizaLogger.info(`[Trading] Filtering out bid with zero signature`);
+      return false;
+    }
+    
+    return true;
+  });
+  
+  if (actionableBids.length === 0) {
+    elizaLogger.warn(`[Trading] No actionable bids found. Total bids: ${bids.length}, Quote-only bids filtered.`);
+    throw new Error("No actionable bids available - only quote-only bids received");
   }
 
-  const sortedBids = validBids.sort((a, b) => {
+  elizaLogger.info(`[Trading] Found ${actionableBids.length} actionable bids (filtered ${bids.length - actionableBids.length} quote-only bids)`);
+
+  const sortedBids = actionableBids.sort((a, b) => {
     const wagerA = parseFloat(a.makerWager || '0');
     const wagerB = parseFloat(b.makerWager || '0');
     return wagerB - wagerA;
