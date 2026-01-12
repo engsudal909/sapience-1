@@ -6,6 +6,7 @@ import {
   State,
   elizaLogger,
 } from "@elizaos/core";
+import { privateKeyToAccount } from "viem/accounts";
 import { loadSdk } from "../utils/sdk.js";
 import { 
   getPrivateKey, 
@@ -26,130 +27,6 @@ import {
   selectBestBid, 
   formatWagerAmount 
 } from "../utils/trading.js";
-import { privateKeyToAccount } from "viem/accounts";
-
-interface AuctionStartedPayload {
-  taker: string;
-  wager: string;
-  resolver: string;
-  predictedOutcomes: string[];
-  takerNonce: number;
-  chainId: number;
-  auctionId: string;
-}
-
-/**
- * Handle auction.started events from other users (Market Maker mode)
- */
-async function handleOthersAuction(
-  auction: AuctionStartedPayload,
-  socket: WebSocket
-): Promise<void> {
-  try {
-    elizaLogger.info(`[MarketMaker] 🔔 Received auction.started event!`);
-    elizaLogger.info(`[MarketMaker] Taker: ${auction.taker}, Wager: ${auction.wager}`);
-    
-    // Skip if Market Maker is disabled
-    if (process.env.MARKET_MAKER_ENABLED !== "true") {
-      elizaLogger.info(`[MarketMaker] Skipping: Market Maker disabled`);
-      return;
-    }
-
-    // Skip if it's our own auction
-    const ourAddress = getWalletAddress().toLowerCase();
-    if (auction.taker.toLowerCase() === ourAddress) {
-      elizaLogger.info(`[MarketMaker] Skipping: Our own auction`);
-      return;
-    }
-
-    // Skip if wrong chain
-    if (auction.chainId !== CHAIN_ID_ETHEREAL) {
-      elizaLogger.info(`[MarketMaker] Skipping: wrong chain (${auction.chainId})`);
-      return;
-    }
-
-    // Check wager limit
-    const takerWager = BigInt(auction.wager);
-    const maxWager = BigInt(process.env.MARKET_MAKER_MAX_WAGER || "500000000000000000");
-
-    if (takerWager > maxWager) {
-      elizaLogger.info(`[MarketMaker] Skipping: Taker wager too high (${formatWagerAmount(auction.wager)} > ${formatWagerAmount(maxWager.toString())} USDe)`);
-      return;
-    }
-
-    elizaLogger.info(`[MarketMaker] 💰 NEW OPPORTUNITY from ${auction.taker.slice(0, 10)}...`);
-    elizaLogger.info(`[MarketMaker] Wager: ${formatWagerAmount(auction.wager)} USDe`);
-    elizaLogger.info(`[MarketMaker] Auction ID: ${auction.auctionId}`);
-
-    // Calculate our bid (taker's wager + edge)
-    const minEdge = parseFloat(process.env.MARKET_MAKER_MIN_EDGE || "0.05");
-    const auctionTakerWager = BigInt(auction.wager);
-    const makerWager = auctionTakerWager + BigInt(Math.floor(Number(auctionTakerWager) * minEdge));
-
-    elizaLogger.info(`[MarketMaker] Our bid: ${formatWagerAmount(makerWager.toString())} USDe (${(minEdge * 100).toFixed(1)}% edge)`);
-
-    // Get our nonce
-    const walletAddress = getWalletAddress();
-    const makerNonce = await getCurrentMakerNonce(walletAddress);
-    
-    // Get contract addresses
-    const { RESOLVER } = getTradingContractAddresses();
-
-    // Prepare bid payload
-    const bidPayload = {
-      auctionId: auction.auctionId,
-      maker: walletAddress,
-      makerWager: makerWager.toString(),
-      makerDeadline: Math.floor(Date.now() / 1000) + 300, // 5 minutes
-      makerNonce,
-      taker: auction.taker,
-      takerCollateral: auction.wager,
-      resolver: auction.resolver || RESOLVER,
-      encodedPredictedOutcomes: auction.predictedOutcomes[0] || "0x",
-      predictedOutcomes: auction.predictedOutcomes,
-      chainId: CHAIN_ID_ETHEREAL,
-    };
-
-    // Sign the bid
-    const privateKey = getPrivateKey();
-    if (!privateKey) {
-      elizaLogger.error("[MarketMaker] No private key available");
-      return;
-    }
-
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const sdk = await loadSdk();
-    let makerSignature: string;
-
-    if (sdk.createBidSiweMessage && sdk.extractSiweDomainAndUri) {
-      const { sapienceWs } = getApiEndpoints();
-      const { domain, uri } = sdk.extractSiweDomainAndUri(sapienceWs);
-      const issuedAt = new Date().toISOString();
-      const message = sdk.createBidSiweMessage(bidPayload, domain, uri, issuedAt);
-      makerSignature = await account.signMessage({ message });
-      elizaLogger.info("[MarketMaker] Bid signed with SIWE");
-    } else {
-      const message = `Bid for auction ${auction.auctionId}`;
-      makerSignature = await account.signMessage({ message });
-      elizaLogger.warn("[MarketMaker] Using fallback signature (no SDK)");
-    }
-
-    // Send bid via WebSocket
-    const bidMessage = {
-      type: "auction.bid",
-      payload: {
-        ...bidPayload,
-        makerSignature,
-      },
-    };
-
-    socket.send(JSON.stringify(bidMessage));
-    elizaLogger.info(`[MarketMaker] ✅ BID SUBMITTED! Auction: ${auction.auctionId}`);
-    elizaLogger.info(`[MarketMaker] Our wager: ${formatWagerAmount(makerWager.toString())} vs Taker: ${formatWagerAmount(auction.wager)}`);
-  } catch (error: any) {
-    elizaLogger.error("[MarketMaker] Error:", error?.message || error);
-  }
-}
 
 interface Bid {
   auctionId: string;
@@ -331,37 +208,22 @@ async function startTradingAuction({
           chainId: CHAIN_ID_ETHEREAL,
         };
 
-        // Optional: Sign the auction request to get actionable bids
-        // Unsigned requests return quote-only bids (for price discovery)
-        // Signed requests are required by some market makers (like the vault) to respond with actionable bids
-        let takerSignature: string | undefined;
-        let takerSignedAt: string | undefined;
-        
-        try {
-          const privateKey = getPrivateKey();
-          if (privateKey) {
-            const account = privateKeyToAccount(privateKey as `0x${string}`);
-            const sdk = await loadSdk();
-            if (sdk.createAuctionStartSiweMessage && sdk.extractSiweDomainAndUri) {
-              const { domain, uri } = sdk.extractSiweDomainAndUri(sapienceWs);
-              const issuedAt = new Date().toISOString();
-              const message = sdk.createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
-              takerSignature = await account.signMessage({ message });
-              takerSignedAt = issuedAt;
-              elizaLogger.info(`[Trading] Auction request signed for actionable bids`);
-            } else {
-              elizaLogger.warn(`[Trading] SDK functions not available, proceeding without signature`);
-            }
-          }
-        } catch (err) {
-          elizaLogger.warn(`[Trading] Failed to sign auction request, proceeding without signature:`, err);
-        }
+        // Sign the auction request to get actionable bids from market makers (like the vault)
+        // Unsigned requests return quote-only bids (maker = 0x0000..., signature = 0x0000...)
+        const sdk = await loadSdk();
+        const account = privateKeyToAccount(getPrivateKey() as `0x${string}`);
+        const { domain, uri } = sdk.extractSiweDomainAndUri(sapienceWs);
+        const issuedAt = new Date().toISOString();
+        const message = sdk.createAuctionStartSiweMessage(payload, domain, uri, issuedAt);
+        const takerSignature = await account.signMessage({ message });
+        const takerSignedAt = issuedAt;
 
         const auctionMessage = {
           type: "auction.start",
           payload: {
             ...payload,
-            ...(takerSignature && takerSignedAt ? { takerSignature, takerSignedAt } : {}),
+            takerSignature,
+            takerSignedAt,
           },
         };
 
@@ -421,7 +283,6 @@ async function startTradingAuction({
                 bid: bestBid,
                 privateKey,
                 rpcUrl,
-                requesterWager: wagerAmount,
               });
 
               resolveOnce({ success: true, txHash });
@@ -429,11 +290,6 @@ async function startTradingAuction({
           } else if (message.type === "auction.error") {
             elizaLogger.error("[Trading] Auction error:", message.payload);
             resolveOnce({ success: false, error: message.payload?.message || "Auction error" });
-          } else if (message.type === "auction.started") {
-            // Handle other people's auctions (Market Maker mode)
-            handleOthersAuction(message.payload, socket).catch((error) => {
-              elizaLogger.error("[Trading] Error handling others' auction:", error);
-            });
           } else {
             elizaLogger.info(`[Trading] Unhandled message type: ${message.type}`);
           }
@@ -470,12 +326,10 @@ async function acceptBid({
   bid,
   privateKey,
   rpcUrl,
-  requesterWager,
 }: {
   bid: Bid;
   privateKey: string;
   rpcUrl: string;
-  requesterWager: string;
 }): Promise<string> {
   try {
     const { submitTransaction } = await loadSdk();
@@ -494,19 +348,18 @@ async function acceptBid({
       bid,
       requester: requesterAddress,
       requesterNonce,
-      requesterWager,
     });
     
     await ensureTokenApproval({
       privateKey: privateKey as `0x${string}`,
       rpcUrl,
-      amount: requesterWager, // Use our original wager, not bid value
+      amount: bid.takerCollateral || bid.wager || '0',
     });
 
     elizaLogger.info("[Trading] Executing trade mint transaction on Ethereal...");
     elizaLogger.info(`[Trading] Requester (auction creator): ${requesterAddress}`);
     elizaLogger.info(`[Trading] Responder (bidder): ${bid.maker}`);
-    elizaLogger.info(`[Trading] Collateral - Requester: ${requesterWager}, Responder: ${bid.makerWager}`);
+    elizaLogger.info(`[Trading] Collateral - Requester: ${bid.takerCollateral || bid.wager}, Responder: ${bid.makerWager}`);
     elizaLogger.info(`[Trading] Requester nonce: ${requesterNonce}`);
     
     const mintTx = await submitTransaction({

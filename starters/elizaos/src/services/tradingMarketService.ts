@@ -225,10 +225,16 @@ Base your prediction on available data and evidence.`;
     ];
 
     // Calculate market score - MAXIMIZING TRADING OPPORTUNITIES
-    // Priority: Confidence > Category > Urgency (NO probability bias)
+    // Priority: 50:50 Closeness > Confidence > Category > Urgency
+    // Strategy: Pick markets close to 50:50 to attract counter-bets!
     const now = Math.floor(Date.now() / 1000);
     const withScore = eligible.map(p => {
-      // Confidence score: 0-100 (most important factor)
+      // 50:50 closeness score: 0-100 (MOST IMPORTANT for attracting bids!)
+      // Markets at 50% = 100 points, 60% or 40% = 80 points, 70% or 30% = 60 points
+      const distanceFrom50 = Math.abs(50 - p.probability);
+      const closenessScore = (50 - distanceFrom50) * 2; // Max 100 points at 50%
+      
+      // Confidence score: 0-100 (still important for quality)
       const confidenceScore = p.confidence * 100;
       
       // Category bonus: +20 points for popular categories
@@ -239,12 +245,13 @@ Base your prediction on available data and evidence.`;
       const hoursUntilEnd = (p.market.endTime - now) / 3600;
       const urgencyBonus = hoursUntilEnd <= 72 ? 10 : 0;
       
-      // Total score = confidence + category + urgency
-      // NO probability strength bias - ALL probabilities are equal
-      const score = confidenceScore + categoryBonus + urgencyBonus;
+      // Total score = 50:50 closeness + confidence + category + urgency
+      // This attracts MORE bids by offering competitive markets!
+      const score = closenessScore + confidenceScore + categoryBonus + urgencyBonus;
       
       return {
         ...p,
+        closenessScore,
         confidenceScore,
         categoryBonus,
         urgencyBonus,
@@ -259,9 +266,9 @@ Base your prediction on available data and evidence.`;
     // Pick top 2 with highest score
     const selected = sorted.slice(0, 2);
 
-    elizaLogger.info(`[TradingMarket] Selected 2 BEST SCORED legs for trade (AGGRESSIVE MODE - ALL PROBABILITIES):
+    elizaLogger.info(`[TradingMarket] Selected 2 BEST SCORED legs for trade (50:50 STRATEGY - ATTRACT BIDS!):
 ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 60)}...
-    Prob: ${p.probability}% ${p.outcome ? 'YES' : 'NO'} | Conf: ${(p.confidence * 100).toFixed(0)}% | Score: ${p.score.toFixed(1)} (conf:${p.confidenceScore.toFixed(1)} cat:${p.categoryBonus} urgency:${p.urgencyBonus}) | Ends in ${p.hoursUntilEnd}h`).join('\n')}`);
+    Prob: ${p.probability}% ${p.outcome ? 'YES' : 'NO'} | Conf: ${(p.confidence * 100).toFixed(0)}% | Score: ${p.score.toFixed(1)} (50:50:${p.closenessScore.toFixed(1)} conf:${p.confidenceScore.toFixed(1)} cat:${p.categoryBonus} urgency:${p.urgencyBonus}) | Ends in ${p.hoursUntilEnd}h`).join('\n')}`);
 
     return selected;
   }

@@ -116,12 +116,10 @@ export async function buildMintCalldata({
   bid,
   requester,
   requesterNonce,
-  requesterWager,
 }: {
   bid: Bid;
   requester: string;
   requesterNonce: bigint;
-  requesterWager: string;
 }): Promise<`0x${string}`> {
   const { encodeFunctionData } = await import("viem");
   const { RESOLVER } = getTradingContractAddresses();
@@ -131,7 +129,7 @@ export async function buildMintCalldata({
   const mintRequest = {
     encodedPredictedOutcomes: bid.encodedPredictedOutcomes || "0x",
     resolver: bid.resolver || RESOLVER,
-    makerCollateral: BigInt(requesterWager), // Requester's original wager from auction
+    makerCollateral: BigInt(bid.takerCollateral || bid.wager || '0'), // Requester's original wager from auction
     takerCollateral: BigInt(bid.makerWager || '0'), // Responder's stake from bid
     maker: requester, // Requester - must match msg.sender
     taker: bid.maker, // Responder (bidder address from API)
