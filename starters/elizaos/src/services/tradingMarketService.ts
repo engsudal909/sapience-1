@@ -211,19 +211,12 @@ Base your prediction on available data and evidence.`;
     const minConfidence = this.MIN_CONFIDENCE_THRESHOLD;
     const eligible = predictions.filter(p => p.confidence >= minConfidence);
     
-    // STRICT 50:50 FILTER: Only select markets between 40-60% probability
-    // This ensures people will actually bid against us!
-    const fiftyFiftyFiltered = eligible.filter(p => {
-      const prob = p.probability;
-      return prob >= 40 && prob <= 60; // Only 40-60% range
-    });
-    
-    if (fiftyFiftyFiltered.length < 2) {
-      elizaLogger.info(`[TradingMarket] Not enough 50:50 predictions (need at least 2 with 40-60% probability, got ${fiftyFiftyFiltered.length} out of ${eligible.length} eligible)`);
+    if (eligible.length < 2) {
+      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 2 with confidence >= ${minConfidence}, got ${eligible.length})`);
       return [];
     }
 
-    elizaLogger.info(`[TradingMarket] ${fiftyFiftyFiltered.length} eligible 50:50 predictions found (40-60% range) out of ${eligible.length} total eligible`);
+    elizaLogger.info(`[TradingMarket] ${eligible.length} eligible predictions found (will prioritize 50:50 markets via scoring)`);
 
     // Popular categories that tend to have higher liquidity
     const popularCategories = [
@@ -237,9 +230,9 @@ Base your prediction on available data and evidence.`;
     // Calculate market score - MAXIMIZING TRADING OPPORTUNITIES
     // Priority: 50:50 Closeness > Confidence > Category > Urgency
     // Strategy: Pick markets close to 50:50 to attract counter-bets!
-    // Already filtered to 40-60% range above
+    // No hard filter - let scoring prioritize 50:50 markets naturally
     const now = Math.floor(Date.now() / 1000);
-    const withScore = fiftyFiftyFiltered.map(p => {
+    const withScore = eligible.map(p => {
       // 50:50 closeness score: 0-100 (MOST IMPORTANT for attracting bids!)
       // Markets at 50% = 100 points, 60% or 40% = 80 points, 70% or 30% = 60 points
       const distanceFrom50 = Math.abs(50 - p.probability);
@@ -277,7 +270,7 @@ Base your prediction on available data and evidence.`;
     // Pick top 2 with highest score
     const selected = sorted.slice(0, 2);
 
-    elizaLogger.info(`[TradingMarket] Selected 2 BEST SCORED legs for trade (50:50 STRATEGY - ATTRACT BIDS!):
+    elizaLogger.info(`[TradingMarket] Selected 2 BEST SCORED legs for trade (50:50 PRIORITY - ATTRACT BIDS!):
 ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 60)}...
     Prob: ${p.probability}% ${p.outcome ? 'YES' : 'NO'} | Conf: ${(p.confidence * 100).toFixed(0)}% | Score: ${p.score.toFixed(1)} (50:50:${p.closenessScore.toFixed(1)} conf:${p.confidenceScore.toFixed(1)} cat:${p.categoryBonus} urgency:${p.urgencyBonus}) | Ends in ${p.hoursUntilEnd}h`).join('\n')}`);
 
