@@ -365,7 +365,7 @@ export class ForecastService {
       console.log("🎯 Analyzing trading opportunities...");
 
       const analysis = await this.tradingService.analyzeTradingOpportunity();
-      result.marketsAnalyzed = analysis.predictions.length;
+      result.marketsAnalyzed = analysis.marketsAnalyzed;
 
       if (!analysis.canTrade) {
         elizaLogger.info(`[Trade] Skipped: ${analysis.reason}`);

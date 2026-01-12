@@ -90,7 +90,10 @@ export class TradingMarketService {
 
   private filterActiveConditions(conditions: any[]): any[] {
     const now = Math.floor(Date.now() / 1000);
-    const maxMarketHours = parseInt(process.env.MAX_MARKET_HOURS || "168"); // Default 7 days
+    // Trading uses separate limit (default 7 days) - we want volume, not fast resolution!
+    // Forecast uses MAX_MARKET_HOURS (24h) for fast resolution
+    // Trading should NOT use MAX_MARKET_HOURS - use TRADING_MAX_MARKET_HOURS or default 168h
+    const maxMarketHours = parseInt(process.env.TRADING_MAX_MARKET_HOURS || "168"); // Always 7 days for trading (ignore MAX_MARKET_HOURS)
     const maxEndTime = now + (maxMarketHours * 60 * 60); // Convert hours to seconds
     
     const activeConditions = conditions.filter((condition: any) => {
@@ -208,12 +211,19 @@ Base your prediction on available data and evidence.`;
     const minConfidence = this.MIN_CONFIDENCE_THRESHOLD;
     const eligible = predictions.filter(p => p.confidence >= minConfidence);
     
-    if (eligible.length < 2) {
-      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 2 with confidence >= ${minConfidence}, got ${eligible.length})`);
+    // STRICT 50:50 FILTER: Only select markets between 40-60% probability
+    // This ensures people will actually bid against us!
+    const fiftyFiftyFiltered = eligible.filter(p => {
+      const prob = p.probability;
+      return prob >= 40 && prob <= 60; // Only 40-60% range
+    });
+    
+    if (fiftyFiftyFiltered.length < 2) {
+      elizaLogger.info(`[TradingMarket] Not enough 50:50 predictions (need at least 2 with 40-60% probability, got ${fiftyFiftyFiltered.length} out of ${eligible.length} eligible)`);
       return [];
     }
 
-    elizaLogger.info(`[TradingMarket] ${eligible.length} eligible predictions found`);
+    elizaLogger.info(`[TradingMarket] ${fiftyFiftyFiltered.length} eligible 50:50 predictions found (40-60% range) out of ${eligible.length} total eligible`);
 
     // Popular categories that tend to have higher liquidity
     const popularCategories = [
@@ -227,8 +237,9 @@ Base your prediction on available data and evidence.`;
     // Calculate market score - MAXIMIZING TRADING OPPORTUNITIES
     // Priority: 50:50 Closeness > Confidence > Category > Urgency
     // Strategy: Pick markets close to 50:50 to attract counter-bets!
+    // Already filtered to 40-60% range above
     const now = Math.floor(Date.now() / 1000);
-    const withScore = eligible.map(p => {
+    const withScore = fiftyFiftyFiltered.map(p => {
       // 50:50 closeness score: 0-100 (MOST IMPORTANT for attracting bids!)
       // Markets at 50% = 100 points, 60% or 40% = 80 points, 70% or 30% = 60 points
       const distanceFrom50 = Math.abs(50 - p.probability);
@@ -277,32 +288,45 @@ ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.qu
     predictions: TradingPrediction[];
     canTrade: boolean;
     reason: string;
+    marketsAnalyzed: number;
   }> {
     try {
       const conditions = await this.fetchTradingMarkets();
+      const marketsAnalyzed = conditions.length;
+      
       if (conditions.length === 0) {
+        elizaLogger.warn(`[TradingMarket] No markets found. Check MAX_MARKET_HOURS filter (current: ${process.env.MAX_MARKET_HOURS || '168'})`);
         return {
           predictions: [],
           canTrade: false,
           reason: "No eligible conditions available",
+          marketsAnalyzed: 0,
         };
       }
 
+      elizaLogger.info(`[TradingMarket] Found ${conditions.length} eligible markets, generating predictions...`);
       const allPredictions = await this.generateTradingPredictions(conditions);
+      
       if (allPredictions.length === 0) {
+        elizaLogger.warn(`[TradingMarket] Failed to generate predictions from ${conditions.length} markets`);
         return {
           predictions: [],
           canTrade: false,
           reason: "Failed to generate predictions",
+          marketsAnalyzed,
         };
       }
 
+      elizaLogger.info(`[TradingMarket] Generated ${allPredictions.length} predictions, selecting best legs...`);
       const selectedPredictions = this.selectTradingLegs(allPredictions);
+      
       if (selectedPredictions.length < 2) {
+        elizaLogger.warn(`[TradingMarket] Only ${selectedPredictions.length} predictions passed filters (need at least 2)`);
         return {
           predictions: [],
           canTrade: false,
           reason: "Not enough predictions available (need at least 2)",
+          marketsAnalyzed,
         };
       }
 
@@ -310,6 +334,7 @@ ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.qu
         predictions: selectedPredictions,
         canTrade: true,
         reason: `Found ${selectedPredictions.length} high-confidence predictions from different categories`,
+        marketsAnalyzed,
       };
     } catch (error) {
       elizaLogger.error("[TradingMarket] Error analyzing trading opportunity:", error);
@@ -317,6 +342,7 @@ ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.qu
         predictions: [],
         canTrade: false,
         reason: `Error: ${(error as Error).message}`,
+        marketsAnalyzed: 0,
       };
     }
   }
