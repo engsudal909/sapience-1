@@ -101,7 +101,8 @@ const COLLATERAL_TOKEN = (process.env.COLLATERAL_TOKEN || (addressBook.collatera
 const BID_AMOUNT_DEC = process.env.BID_AMOUNT || '0.01';
 const MIN_MAKER_WAGER_DEC = process.env.MIN_MAKER_WAGER || '10';
 const DEADLINE_SECONDS = Number(process.env.DEADLINE_SECONDS || '60');
-const MIN_PROBABILITY = Number(process.env.MIN_PROBABILITY || '60'); // 60% 이상만 입찰
+const MIN_PROBABILITY = Number(process.env.MIN_PROBABILITY || '40'); // 40% 이상만 입찰
+const MIN_CONFIDENCE = Number(process.env.MIN_CONFIDENCE || '0.6'); // confidence 60% 이상만 입찰
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
 const BID_AMOUNT = parseEther(BID_AMOUNT_DEC);
@@ -421,12 +422,16 @@ function start() {
                     fmt.bullet(fmt.field('reasoning', aiPrediction.reasoning)),
                   ].join('\n'));
 
-                  // 확률이 60% 이상이면 입찰
-                  if (aiPrediction.probability >= MIN_PROBABILITY) {
+                  // 확률이 40% 이상이고 confidence가 50% 이상이면 입찰
+                  if (aiPrediction.probability >= MIN_PROBABILITY && aiPrediction.confidence >= MIN_CONFIDENCE) {
                     shouldBid = true;
-                    logger.success(`✅ Probability ${aiPrediction.probability}% >= ${MIN_PROBABILITY}% → Will bid!`);
+                    logger.success(`✅ Probability ${aiPrediction.probability}% >= ${MIN_PROBABILITY}% AND Confidence ${(aiPrediction.confidence * 100).toFixed(0)}% >= ${(MIN_CONFIDENCE * 100).toFixed(0)}% → Will bid!`);
                   } else {
-                    logger.warn(`❌ Probability ${aiPrediction.probability}% < ${MIN_PROBABILITY}% → Skipping`);
+                    if (aiPrediction.probability < MIN_PROBABILITY) {
+                      logger.warn(`❌ Probability ${aiPrediction.probability}% < ${MIN_PROBABILITY}% → Skipping`);
+                    } else {
+                      logger.warn(`❌ Confidence ${(aiPrediction.confidence * 100).toFixed(0)}% < ${(MIN_CONFIDENCE * 100).toFixed(0)}% → Skipping`);
+                    }
                   }
                 } else {
                   logger.warn(`⚠️ AI prediction failed → Skipping for safety`);

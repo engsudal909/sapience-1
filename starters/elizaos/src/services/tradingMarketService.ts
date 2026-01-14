@@ -12,7 +12,7 @@ interface TradingPrediction {
 
 export class TradingMarketService {
   private runtime: IAgentRuntime;
-  private readonly MIN_CONFIDENCE_THRESHOLD = parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.6");
+  private readonly MIN_CONFIDENCE_THRESHOLD = parseFloat(process.env.MIN_TRADING_CONFIDENCE || "0.4");
   
   constructor(runtime: IAgentRuntime) {
     this.runtime = runtime;
@@ -209,10 +209,15 @@ Base your prediction on available data and evidence.`;
   selectTradingLegs(predictions: TradingPrediction[]): TradingPrediction[] {
     // Filter to predictions that meet minimum confidence from .env
     const minConfidence = this.MIN_CONFIDENCE_THRESHOLD;
-    const eligible = predictions.filter(p => p.confidence >= minConfidence);
+    // Filter by probability (chance) - must be at least 40% to ensure win rate
+    const MIN_PROBABILITY = 40; // probability must be >= 40% (chance)
+    const eligible = predictions.filter(p => 
+      p.confidence >= minConfidence && 
+      p.probability >= MIN_PROBABILITY
+    );
     
-    if (eligible.length < 2) {
-      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 2 with confidence >= ${minConfidence}, got ${eligible.length})`);
+    if (eligible.length < 1) {
+      elizaLogger.info(`[TradingMarket] Not enough predictions (need at least 1 with confidence >= ${minConfidence} AND probability >= ${MIN_PROBABILITY}%, got ${eligible.length})`);
       return [];
     }
 
@@ -267,10 +272,10 @@ Base your prediction on available data and evidence.`;
     // Sort by total score (highest first)
     const sorted = withScore.sort((a, b) => b.score - a.score);
 
-    // Pick top 2 with highest score
-    const selected = sorted.slice(0, 2);
+    // Pick top 1-2 with highest score (1-leg is enough!)
+    const selected = sorted.slice(0, Math.min(2, sorted.length));
 
-    elizaLogger.info(`[TradingMarket] Selected 2 BEST SCORED legs for trade (50:50 PRIORITY - ATTRACT BIDS!):
+    elizaLogger.info(`[TradingMarket] Selected ${selected.length} BEST SCORED leg(s) for trade (50:50 PRIORITY - ATTRACT BIDS!):
 ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.question?.substring(0, 60)}...
     Prob: ${p.probability}% ${p.outcome ? 'YES' : 'NO'} | Conf: ${(p.confidence * 100).toFixed(0)}% | Score: ${p.score.toFixed(1)} (50:50:${p.closenessScore.toFixed(1)} conf:${p.confidenceScore.toFixed(1)} cat:${p.categoryBonus} urgency:${p.urgencyBonus}) | Ends in ${p.hoursUntilEnd}h`).join('\n')}`);
 
@@ -297,8 +302,12 @@ ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.qu
         };
       }
 
-      elizaLogger.info(`[TradingMarket] Found ${conditions.length} eligible markets, generating predictions...`);
-      const allPredictions = await this.generateTradingPredictions(conditions);
+      // Limit markets to analyze to reduce API costs (analyze top 20 only)
+      const MAX_MARKETS_TO_ANALYZE = parseInt(process.env.TRADING_MAX_MARKETS_TO_ANALYZE || "20");
+      const marketsToAnalyze = conditions.slice(0, MAX_MARKETS_TO_ANALYZE);
+      
+      elizaLogger.info(`[TradingMarket] Found ${conditions.length} eligible markets, analyzing top ${marketsToAnalyze.length} to reduce API costs...`);
+      const allPredictions = await this.generateTradingPredictions(marketsToAnalyze);
       
       if (allPredictions.length === 0) {
         elizaLogger.warn(`[TradingMarket] Failed to generate predictions from ${conditions.length} markets`);
@@ -313,12 +322,12 @@ ${selected.map(p => `  - [${p.market.category?.name || 'Unknown'}] ${p.market.qu
       elizaLogger.info(`[TradingMarket] Generated ${allPredictions.length} predictions, selecting best legs...`);
       const selectedPredictions = this.selectTradingLegs(allPredictions);
       
-      if (selectedPredictions.length < 2) {
-        elizaLogger.warn(`[TradingMarket] Only ${selectedPredictions.length} predictions passed filters (need at least 2)`);
+      if (selectedPredictions.length < 1) {
+        elizaLogger.warn(`[TradingMarket] Only ${selectedPredictions.length} predictions passed filters (need at least 1)`);
         return {
           predictions: [],
           canTrade: false,
-          reason: "Not enough predictions available (need at least 2)",
+          reason: "Not enough predictions available (need at least 1)",
           marketsAnalyzed,
         };
       }

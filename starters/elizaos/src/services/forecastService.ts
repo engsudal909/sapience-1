@@ -42,7 +42,8 @@ function parseAutonomousModes(): AutonomousMode[] {
 export class ForecastService {
   private runtime!: IAgentRuntime;
   private config!: ServiceConfig;
-  private intervalId?: NodeJS.Timeout;
+  private forecastIntervalId?: NodeJS.Timeout;
+  private tradeIntervalId?: NodeJS.Timeout;
   private isRunning: boolean = false;
   private tradingService?: TradingMarketService;
   private marketMakerService?: MarketMakerService;
@@ -114,19 +115,44 @@ export class ForecastService {
 
     try {
       const modesStr = this.config.modes.join(", ") || "none";
-      console.log(`🤖 Autonomous mode started (${modesStr}) - ${this.config.interval / 1000}s intervals`);
+      const forecastInterval = parseInt(process.env.FORECAST_INTERVAL_MS || process.env.ATTESTATION_INTERVAL_MS || "43200000"); // Default 12 hours (was 24h)
+      const tradeInterval = parseInt(process.env.TRADING_INTERVAL_MS || "3600000"); // Default 1 hour (was 30 min)
+      
+      console.log(`🤖 Autonomous mode started (${modesStr})`);
+      if (this.config.modes.includes("forecast")) {
+        console.log(`  - Forecast: ${forecastInterval / 1000}s intervals`);
+      }
+      if (this.config.modes.includes("trade")) {
+        console.log(`  - Trading: ${tradeInterval / 1000}s intervals`);
+      }
       
       this.isRunning = true;
-      this.intervalId = setInterval(async () => {
-        try {
-          await this.runCycle();
-        } catch (error) {
-          elizaLogger.error("[ForecastService] Cycle error:", error);
-        }
-      }, this.config.interval);
-
-      // Run immediately
-      await this.runCycle();
+      
+      // Start Forecast cycle with its own interval
+      if (this.config.modes.includes("forecast")) {
+        this.forecastIntervalId = setInterval(async () => {
+          try {
+            await this.forecastCycle();
+          } catch (error) {
+            elizaLogger.error("[ForecastService] Forecast cycle error:", error);
+          }
+        }, forecastInterval);
+        // Run immediately
+        await this.forecastCycle();
+      }
+      
+      // Start Trading cycle with its own interval
+      if (this.config.modes.includes("trade")) {
+        this.tradeIntervalId = setInterval(async () => {
+          try {
+            await this.tradeCycle();
+          } catch (error) {
+            elizaLogger.error("[ForecastService] Trade cycle error:", error);
+          }
+        }, tradeInterval);
+        // Run immediately
+        await this.tradeCycle();
+      }
     } catch (error) {
       elizaLogger.error("[ForecastService] Failed to start:", error);
       this.isRunning = false;
@@ -136,9 +162,13 @@ export class ForecastService {
   async stop(): Promise<void> {
     if (!this.isRunning) return;
 
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = undefined;
+    if (this.forecastIntervalId) {
+      clearInterval(this.forecastIntervalId);
+      this.forecastIntervalId = undefined;
+    }
+    if (this.tradeIntervalId) {
+      clearInterval(this.tradeIntervalId);
+      this.tradeIntervalId = undefined;
     }
 
     this.isRunning = false;
@@ -147,6 +177,7 @@ export class ForecastService {
 
   /**
    * Run whichever cycles are enabled by AUTONOMOUS_MODE
+   * Note: This method is kept for backward compatibility but cycles now run on separate intervals
    */
   private async runCycle(): Promise<void> {
     if (this.config.modes.includes("forecast")) {
@@ -254,7 +285,18 @@ export class ForecastService {
       if (!this.tradingService) {
         this.tradingService = new TradingMarketService(this.runtime);
       }
-      const conditions = await this.tradingService.fetchTradingMarkets();
+      const allConditions = await this.tradingService.fetchTradingMarkets();
+      
+      // Filter for Forecast: only markets within 48 hours (MAX_MARKET_HOURS)
+      const now = Math.floor(Date.now() / 1000);
+      const maxMarketHours = parseInt(process.env.MAX_MARKET_HOURS || "48"); // Forecast uses 48h
+      const maxEndTime = now + (maxMarketHours * 60 * 60);
+      
+      const conditions = allConditions.filter((condition: any) => {
+        return condition.endTime && condition.endTime <= maxEndTime;
+      });
+      
+      elizaLogger.info(`[Forecast] Filtered ${conditions.length} conditions within ${maxMarketHours}h from ${allConditions.length} total markets`);
       result.marketsAnalyzed = conditions.length;
 
       const candidateConditions: any[] = [];
@@ -337,7 +379,39 @@ export class ForecastService {
   // ============================================================================
 
   private async tradeCycle(): Promise<void> {
-    await this.tradeCycleWithResults();
+    // Call TRADE action directly to display results in UI
+    // This ensures automatic trading cycles show results in the UI just like manual "trade markets" command
+    try {
+      const tradeAction = this.runtime.actions?.find((a) => a.name === "TRADE");
+      if (!tradeAction) {
+        elizaLogger.error("[ForecastService] TRADE action not found");
+        return;
+      }
+
+      // Create a dummy message for the action handler
+      const tradeMessage: Memory = {
+        entityId: "00000000-0000-0000-0000-000000000000" as any,
+        agentId: this.runtime.agentId,
+        roomId: "00000000-0000-0000-0000-000000000000" as any,
+        content: {
+          text: "Autonomous trading cycle",
+          action: "TRADE",
+        },
+        createdAt: Date.now(),
+      };
+
+      // Call TRADE action handler - it will display results in UI via its callback
+      // For autonomous execution, we don't provide a callback - the action handles it internally
+      await tradeAction.handler(
+        this.runtime,
+        tradeMessage,
+        undefined,
+        {},
+        undefined // No callback needed - TRADE action handles UI display internally
+      );
+    } catch (error) {
+      elizaLogger.error("[ForecastService] Trade cycle error:", error);
+    }
   }
 
   private async tradeCycleWithResults(): Promise<{
@@ -373,9 +447,9 @@ export class ForecastService {
         return result;
       }
 
-      if (analysis.predictions.length < 2) {
-        elizaLogger.info("[Trade] Not enough high-confidence predictions from different categories for trade");
-        result.reason = "Not enough high-confidence predictions from different categories (need at least 2)";
+      if (analysis.predictions.length < 1) {
+        elizaLogger.info("[Trade] Not enough high-confidence predictions for trade");
+        result.reason = "Not enough high-confidence predictions (need at least 1)";
         return result;
       }
 
@@ -387,7 +461,7 @@ export class ForecastService {
         outcome: p.outcome,
       }));
 
-      console.log(`🎯 Found 2-leg trading opportunity from different categories!`);
+      console.log(`🎯 Found ${analysis.predictions.length}-leg trading opportunity!`);
 
       const tradingAction = this.runtime.actions?.find((a) => a.name === "TRADING");
       if (!tradingAction) {
@@ -434,9 +508,19 @@ export class ForecastService {
       if (tradeSuccess) {
         result.tradesExecuted = 1;
       }
+      
+      // Display results in ElizaOS UI (console.log will show in PM2 logs and can be viewed in UI)
+      const resultMessage = this.buildTradingResultMessage(result);
+      console.log("\n" + "=".repeat(60));
+      console.log(resultMessage);
+      console.log("=".repeat(60) + "\n");
     } catch (error) {
       elizaLogger.error("[Trade] Cycle failed:", error);
       result.reason = error.message;
+      
+      // Display error in UI too
+      const errorMessage = `**Trading Cycle Failed**\n\n${result.reason || error.message}`;
+      console.log(errorMessage);
     }
 
     return result;
@@ -445,6 +529,52 @@ export class ForecastService {
   // ============================================================================
   // Helper methods
   // ============================================================================
+
+  private buildTradingResultMessage(result: {
+    marketsAnalyzed: number;
+    opportunitiesFound: number;
+    tradesExecuted: number;
+    predictions: Array<{ market: string; probability: number; confidence: number; outcome: boolean }>;
+    reason?: string;
+  }): string {
+    if (result.tradesExecuted > 0) {
+      const predictionsSummary = result.predictions
+        .map(p => `• ${p.market}: ${p.outcome ? 'YES' : 'NO'} @ ${p.probability}% (Confidence: ${(p.confidence * 100).toFixed(0)}%)`)
+        .join('\n');
+      
+      return `**Trading Complete** ✅
+
+Markets Analyzed: ${result.marketsAnalyzed}
+Opportunities Found: ${result.opportunitiesFound}
+Trades Executed: ${result.tradesExecuted}
+
+**Predictions Used:**
+${predictionsSummary}`;
+    } else if (result.opportunitiesFound > 0) {
+      const predictionsSummary = result.predictions
+        .map(p => `• ${p.market}: ${p.outcome ? 'YES' : 'NO'} @ ${p.probability}%`)
+        .join('\n');
+      
+      return `**Trading Complete** ⏳
+
+Markets Analyzed: ${result.marketsAnalyzed}
+Opportunities Found: ${result.opportunitiesFound}
+Trades Executed: 0
+
+**Opportunities Found:**
+${predictionsSummary}
+
+${result.reason ? `*Note: ${result.reason}*` : ''}`;
+    } else {
+      return `**Trading Complete** ❌
+
+Markets Analyzed: ${result.marketsAnalyzed}
+Opportunities Found: 0
+Trades Executed: 0
+
+${result.reason || 'No high-confidence trading opportunities found at this time.'}`;
+    }
+  }
 
   private async generateConditionPrediction(condition: any): Promise<{
     probability: number;
