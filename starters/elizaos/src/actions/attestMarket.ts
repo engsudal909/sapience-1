@@ -35,9 +35,17 @@ export const attestMarketAction: Action = {
       return false;
     }
 
-    // Check for attestation/prediction keywords
-    const keywords = ["predict", "attest", "analyze", "market"];
-    return keywords.some((keyword) => text.includes(keyword));
+    // Exclude "forecast" commands - those should use FORECAST action
+    if (text.includes("forecast")) {
+      return false;
+    }
+
+    // Check for specific attestation patterns: "predict market [ID]" or "attest market [ID]"
+    // Must include both "market" and a number (market ID) or bytes32 condition ID
+    const hasMarketId = /market\s*#?\d+/i.test(text) || /0x[a-fA-F0-9]{64}/.test(text);
+    const hasAttestKeywords = text.includes("predict") || text.includes("attest") || text.includes("analyze");
+    
+    return hasAttestKeywords && hasMarketId;
   },
 
   handler: async (
